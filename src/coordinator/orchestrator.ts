@@ -23,6 +23,16 @@ export class ShinobiOrchestrator {
     console.log(`[Shinobi] Mode set to: ${mode}`);
   }
 
+  private static buildModeHint(): string | null {
+    if (this.mode === 'local') {
+      return 'You are operating in LOCAL mode. The OpenGravity Kernel is unavailable. Use only local tools to accomplish the task.';
+    }
+    if (this.mode === 'kernel') {
+      return 'You are operating in KERNEL mode. When a task is complex, research-heavy, or requires isolated execution, prefer delegating to the OpenGravity Kernel using start_kernel_mission. For simple file reads or listings, local tools are still fine.';
+    }
+    return null;
+  }
+
   static async process(input: string): Promise<any> {
     console.log(`[Shinobi] Processing: ${input.slice(0, 50)}...`);
     
@@ -34,7 +44,14 @@ export class ShinobiOrchestrator {
 
   private static async executeToolLoop(input: string): Promise<any> {
     let currentMessages = await this.contextBuilder.buildMessages(input);
-    const availableTools = getAllTools();
+    const modeHint = this.buildModeHint();
+    if (modeHint) {
+      currentMessages = [{ role: 'system', content: modeHint }, ...currentMessages];
+    }
+    const allTools = getAllTools();
+    const availableTools = this.mode === 'local'
+      ? allTools.filter(t => t.name !== 'start_kernel_mission')
+      : allTools;
     const openAITools = toOpenAITools(availableTools);
 
     let iteration = 0;
@@ -60,7 +77,7 @@ export class ShinobiOrchestrator {
            await this.memory.addMessage({ role: 'assistant', content: responseMessage.content || '' });
            return {
              verdict: 'VALID_AGENT',
-             mode: 'local',
+             mode: this.mode,
              response: responseMessage.content,
            };
         }
