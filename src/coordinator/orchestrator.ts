@@ -75,6 +75,7 @@ export class ShinobiOrchestrator {
 
         // Execute all requested tool calls
         for (const toolCall of responseMessage.tool_calls) {
+          if (toolCall.type !== 'function') continue;
           const functionName = toolCall.function.name;
           const functionArgs = JSON.parse(toolCall.function.arguments);
           console.log(`  [🔨] Tool called: ${functionName}`);
