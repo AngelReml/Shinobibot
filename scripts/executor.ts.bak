@@ -1,0 +1,48 @@
+import { ShinobiOrchestrator } from '../src/coordinator/ShinobiOrchestrator.ts';
+import { OpenGravityBridge } from '../src/bridge/opengravity.ts';
+import * as fs from 'fs';
+import * as path from 'path';
+import 'dotenv/config';
+
+async function main() {
+  const ShinobiOrchestrator = new ShinobiOrchestrator();
+  const bridge = new OpenGravityBridge();
+  
+  const promptArgIndex = process.argv.indexOf('--prompt');
+  const task = promptArgIndex !== -1 ? process.argv[promptArgIndex + 1] : "No task provided";
+
+  if (task === "No task provided") {
+    console.log(JSON.stringify({ error: "No prompt provided. Use --prompt \"your task\"" }));
+    return;
+  }
+
+  try {
+    // 1. Obtener el código de la IA
+    const code = await ShinobiOrchestrator.executeTask(task, {
+      provider: 'groq',
+      model: 'llama-3.3-70b-versatile'
+    });
+
+    // 2. Guardar el código en un archivo temporal
+    const tmpDir = path.join(process.cwd(), 'tmp');
+    if (!fs.existsSync(tmpDir)) {
+      fs.mkdirSync(tmpDir, { recursive: true });
+    }
+    const generatedFile = path.join(tmpDir, 'generated_code.ts');
+    fs.writeFileSync(generatedFile, code, 'utf8');
+
+    // 3. Ahora sí, auditar el archivo guardado
+    const auditResult = await bridge.audit('generated_code.ts', tmpDir);
+
+    console.log(JSON.stringify({
+      verdict: auditResult.audit?.status === 'FUNCTIONAL_AGENT' ? 'VALID_AGENT' : 'INVALID_TEST',
+      code: code,
+      audit: auditResult
+    }, null, 2));
+
+  } catch (error: any) {
+    console.log(JSON.stringify({ error: error.message }));
+  }
+}
+
+main();
