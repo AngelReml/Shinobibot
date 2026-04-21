@@ -1,34 +1,135 @@
-import { LLMGateway, type LLMConfig } from '../gateway/llm.ts';
-import { Memory } from '../db/memory.ts';
-import { SYSTEM_PROMPT } from '../constants/prompts.ts';
-import { UNDERCOVER_RULES } from '../utils/undercover.ts';
+import OpenAI from 'openai';
+import { getAllTools, getTool, toOpenAITools } from '../tools/index.js';
+import { Memory } from '../db/memory.js';
+import { ContextBuilder } from '../db/context_builder.js';
+import dotenv from 'dotenv';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-export class Orchestrator {
-  private readonly gateway: LLMGateway;
-  private readonly memory: Memory;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+dotenv.config({ path: resolve(__dirname, '../../.env'), override: true });
 
-  constructor() {
-    this.gateway = new LLMGateway();
-    this.memory = new Memory();
+export type ExecutionMode = 'local' | 'kernel' | 'auto';
+
+export class ShinobiOrchestrator {
+  private static mode: ExecutionMode = 'auto';
+  private static memory = new Memory();
+  private static contextBuilder = new ContextBuilder();
+  private static openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  
+  static setMode(mode: ExecutionMode) {
+    this.mode = mode;
+    console.log(`[Shinobi] Mode set to: ${mode}`);
   }
 
-  async executeTask(task: string, config: LLMConfig) {
-    console.log(`[Shinobibot] Starting task: ${task}`);
+  static async process(input: string): Promise<any> {
+    console.log(`[Shinobi] Processing: ${input.slice(0, 50)}...`);
     
-    const systemPrompt = `${SYSTEM_PROMPT}\n${UNDERCOVER_RULES}`;
-    const messages = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: task }
-    ];
-
-    await this.memory.addMessage('user', task);
-
-    const modelLabel = config.model || 'default';
-    console.log(`[Shinobibot] Routing to ${config.provider} (${modelLabel})...`);
+    // Add user input to memory
+    await this.memory.addMessage({ role: 'user', content: input });
     
-    const response = await this.gateway.chat(messages, config);
-    await this.memory.addMessage('assistant', response);
+    return this.executeToolLoop(input);
+  }
 
-    return response;
+  private static async executeToolLoop(input: string): Promise<any> {
+    let currentMessages = await this.contextBuilder.buildMessages(input);
+    const availableTools = getAllTools();
+    const openAITools = toOpenAITools(availableTools);
+
+    let iteration = 0;
+    const maxIterations = 10;
+
+    while (iteration < maxIterations) {
+      iteration++;
+      console.log(`[Shinobi] Let the LLM decide (Iter ${iteration})...`);
+
+      try {
+        const response = await this.openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: currentMessages,
+          tools: openAITools.length > 0 ? openAITools : undefined,
+          tool_choice: 'auto',
+          temperature: 0.2,
+        });
+
+        const responseMessage = response.choices[0].message;
+
+        // If the LLM just responds with text, we are done
+        if (!responseMessage.tool_calls || responseMessage.tool_calls.length === 0) {
+           await this.memory.addMessage({ role: 'assistant', content: responseMessage.content || '' });
+           return {
+             verdict: 'VALID_AGENT',
+             mode: 'local',
+             response: responseMessage.content,
+           };
+        }
+
+        // Add the LLM's message indicating tool calls to history
+        currentMessages.push(responseMessage);
+        await this.memory.addMessage({
+            role: 'assistant',
+            content: responseMessage.content || '',
+            tool_calls: responseMessage.tool_calls as any,
+        });
+
+        // Execute all requested tool calls
+        for (const toolCall of responseMessage.tool_calls) {
+          const functionName = toolCall.function.name;
+          const functionArgs = JSON.parse(toolCall.function.arguments);
+          console.log(`  [🔨] Tool called: ${functionName}`);
+
+          const tool = getTool(functionName);
+          let toolResultStr = '';
+
+          if (!tool) {
+            toolResultStr = JSON.stringify({ error: `Tool ${functionName} not found` });
+          } else {
+            console.log(`       Args: ${JSON.stringify(functionArgs).substring(0, 100)}...`);
+            
+            // Note: In a CLI interface, here is where we would prompt the user if tool.requiresConfirmation() is true.
+            // For now, we auto-execute.
+            
+            const result = await tool.execute(functionArgs);
+            toolResultStr = JSON.stringify(result);
+            if (result.success) {
+                console.log(`       ✅ Success`);
+            } else {
+                console.log(`       ❌ Failed: ${result.error}`);
+            }
+          }
+
+          // Append tool response to messages
+          const toolMessage = {
+            role: 'tool' as const,
+            tool_call_id: toolCall.id,
+            name: functionName,
+            content: toolResultStr,
+          };
+          currentMessages.push(toolMessage);
+          
+          await this.memory.addMessage({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              name: functionName,
+              content: toolResultStr
+          });
+        }
+
+        // Loop continues, feeding tool results back to LLM...
+
+      } catch (error: any) {
+         console.error(`[Shinobi] LLM or Tool Error: ${error.message}`);
+         return {
+             verdict: 'ERROR',
+             error: error.message
+         }
+      }
+    }
+
+    return {
+      verdict: 'MAX_ITERATIONS',
+      error: 'Tool loop hit max iterations without generating a final response.'
+    };
   }
 }

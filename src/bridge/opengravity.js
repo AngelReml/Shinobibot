@@ -1,8 +1,8 @@
-import { execSync, spawnSync } from 'child_process';
+import { spawnSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 
-function detectLanguage(code: string): 'bash' | 'python' | 'node' {
+function detectLanguage(code) {
     const firstLine = code.split('\n')[0].trim();
     if (firstLine === '#!/bin/bash' || firstLine === '#!/usr/bin/env bash') {
         return 'bash';
@@ -20,7 +20,7 @@ function detectLanguage(code: string): 'bash' | 'python' | 'node' {
 }
 
 export class OpenGravityBridge {
-    async audit(targetFile: string, contextDir?: string): Promise<any> {
+    async audit(targetFile, contextDir) {
         const sourcePath = path.join(contextDir || process.cwd(), targetFile);
 
         if (!fs.existsSync(sourcePath)) {
@@ -35,7 +35,6 @@ export class OpenGravityBridge {
         const rawCode = fs.readFileSync(sourcePath, 'utf8');
         let cleanCode = rawCode;
 
-        // Strip markdown fences
         if (rawCode.includes('```')) {
             const parts = rawCode.split('```');
             if (parts.length > 1) {
@@ -59,15 +58,13 @@ export class OpenGravityBridge {
             ? 'C:\\Users\\angel\\Desktop\\OpenGravity\\sandbox_venv\\Scripts\\python.exe'
             : 'C:/Users/angel/Desktop/OpenGravity/sandbox_venv/bin/python';
 
-        let finalPath: string;
-        let cmd: string;
-        let args: string[];
+        let finalPath, cmd, args;
 
         if (lang === 'bash') {
             finalPath = scriptPath.replace('.tmp', '.sh');
             fs.writeFileSync(finalPath, cleanCodeFiltered, 'utf8');
             cmd = process.platform === 'win32' ? 'C:\\Windows\\System32\\bash.exe' : 'bash';
-            const wslPath = finalPath.replace(/\\/g, '/').replace(/^([A-Z]):/, (_, d: string) => '/mnt/' + d.toLowerCase());
+            const wslPath = finalPath.replace(/\\/g, '/').replace(/^([A-Z]):/, (_, d) => '/mnt/' + d.toLowerCase());
             args = process.platform === 'win32' ? [wslPath] : [finalPath];
         } else if (lang === 'python') {
             finalPath = scriptPath.replace('.tmp', '.py');

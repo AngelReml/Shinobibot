@@ -1,0 +1,27 @@
+# === Dependencias === 
+node_modules/ 
+myenv/ 
+.env 
+.env.local 
+*.key 
+memory.json 
+echo # === Build / Compilados === 
+dist/ 
+build/ 
+echo # === Temporales / Basura === 
+tmp/ 
+*.log 
+*.tmp 
+temp_file.txt 
+test_file.txt 
+example.db 
+debug_*.png 
+echo # === Configuraci¢n Local === 
+.claude/ 
+.DS_Store 
+echo # === Archivos de Estres / Hack (Basura) === 
+hack_shinobi.js 
+block2_stress.mjs 
+stress_test.ts 
+test_bash_bridge.ts 
+n8n_shinobi_workflow.json 
