@@ -13,7 +13,7 @@ dotenv.config({ path: resolve(__dirname, '../../.env'), override: true });
 export type ExecutionMode = 'local' | 'kernel' | 'auto';
 
 export class ShinobiOrchestrator {
-  private static mode: ExecutionMode = 'auto';
+  private static mode: ExecutionMode = 'kernel';
   private static memory = new Memory();
   private static contextBuilder = new ContextBuilder();
   private static openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
