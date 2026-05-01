@@ -7,6 +7,7 @@ import './run_command.js';
 import './list_dir.js';
 import './search_files.js';
 import './web_search.js';
+import './browser_click.js';
 import './kernel_mission.js'; // The new tool to bridge with OpenGravity Kernel
 
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';

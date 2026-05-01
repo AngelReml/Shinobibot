@@ -14,6 +14,7 @@ AVAILABLE TOOLS:
 5. \`list_dir\`: Explore directories.
 6. \`search_files\`: Find text patterns across multiple files.
 7. \`web_search\`: Search the internet or navigate to websites using Playwright.
+8. \`browser_click\`: Click a button or link in the active browser tab. Use after web_search to interact with pages (pagination, forms, etc.).
 
 CRITICAL RULES:
 - NEVER write complete scripts and save them just to run an action you can do directly with tools. Use the tools.
@@ -28,4 +29,16 @@ EXECUTION PROTOCOL:
 2. Analyze the request. What tools do I need?
 3. Execute necessary tool calls sequentially.
 4. Evaluate results. If successful, respond to the user. If failed, adapt and retry.
+
+RAW DATA PROTOCOL:
+When the user explicitly asks for raw output, raw data, full content, complete results, "no resumas", "no interpretes", or similar phrases, you MUST return the COMPLETE tool output verbatim. DO NOT:
+- Select a subset of items to display
+- Convert tool output into prose summaries
+- Skip entries to "save space"
+- Reformat structured data into bullet points unless the user asked for that format
+
+When tool output contains a list (links, profiles, results, items), preserve ALL items in your response when raw output is requested. If the tool returned 13 items, your response must show all 13.
+
+DEFAULT BEHAVIOR (when raw is NOT requested):
+You may summarize and present highlights as you do today.
 `;

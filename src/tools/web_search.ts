@@ -60,14 +60,14 @@ const webSearchTool: Tool = {
           let bodyText = '';
           if (body) {
             bodyText = (body.innerText || '').replace(/\s+/g, ' ').trim();
-            if (bodyText.length > 8000) {
-              bodyText = bodyText.slice(0, 8000) + '...[truncated]';
+            if (bodyText.length > 12000) {
+              bodyText = bodyText.slice(0, 12000) + '...[truncated]';
             }
           }
           
           const linkNodes = document.querySelectorAll('a[href]');
           const links = [];
-          for (let i = 0; i < linkNodes.length && links.length < 100; i++) {
+          for (let i = 0; i < linkNodes.length && links.length < 150; i++) {
             const a = linkNodes[i];
             const text = ((a.innerText || a.textContent || '') + '').trim();
             if (text.length > 0) {
@@ -81,7 +81,7 @@ const webSearchTool: Tool = {
           const interactiveSel = 'button, input, select, textarea, [role="button"], [role="link"]';
           const interactiveNodes = document.querySelectorAll(interactiveSel);
           const interactive = [];
-          for (let i = 0; i < interactiveNodes.length && interactive.length < 50; i++) {
+          for (let i = 0; i < interactiveNodes.length && interactive.length < 80; i++) {
             const el = interactiveNodes[i];
             const tag = el.tagName.toLowerCase();
             const role = el.getAttribute('role') || '';
