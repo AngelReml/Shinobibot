@@ -1,0 +1,11 @@
+{
+  "total_signals": 0,
+  "total_errors": 1,
+  "blocked": false,
+  "findings": [
+    {
+      "source": "n2_notebook_raw.json",
+      "error": "ENOENT: no such file or directory, open 'C:\\Users\\angel\\Desktop\\shinobibot\\artifacts\\notebooklm\\n2_notebook_raw.json'"
+    }
+  ]
+}
