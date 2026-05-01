@@ -5,13 +5,23 @@
     "url": "https://www.youtube.com/watch?v=jB3yKR6bOjQ"
   },
   {
-    "step": "click_more",
+    "step": "click_more_aria",
     "success": false,
-    "error": "No clickable with text \"more\". Scanned 66 elements."
+    "error": "All click strategies failed. aria-label \"More actions\" not found"
   },
   {
-    "step": "click_transcript",
+    "step": "click_more_css",
     "success": false,
-    "error": "No clickable with text \"transcript\". Scanned 69 elements."
+    "error": "All click strategies failed. css_selector \"button[aria-label*=\"more\" i]\" matched 0 elements"
+  },
+  {
+    "step": "click_transcript_aria",
+    "success": false,
+    "error": "All click strategies failed. aria-label \"Show transcript\" not found"
+  },
+  {
+    "step": "click_transcript_text",
+    "success": false,
+    "error": "All click strategies failed. button_text all strategies failed: locator.click: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('link', { name: /transcript/i }).first()\u001b[22m\n"
   }
 ]
