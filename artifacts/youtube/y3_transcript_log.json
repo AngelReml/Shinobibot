@@ -5,23 +5,63 @@
     "url": "https://www.youtube.com/watch?v=jB3yKR6bOjQ"
   },
   {
-    "step": "click_more_aria",
+    "step": "click_more_aria_Más acciones",
+    "success": false,
+    "error": "All click strategies failed. aria_label failed: locator.click: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[aria-label=\"Más acciones\"]').first()\u001b[22m\n\u001b[2m    - locator resolved to <button title=\"\" aria-disabled=\"false\" aria-label=\"Más acciones\" class=\"ytSpecButtonShapeNextHost ytSpecButtonShapeNextText ytSpecButtonShapeNextOverlay ytSpecButtonShapeNextSizeS ytSpecButtonShapeNextIconButton ytSpecButtonShapeNextOverrideSmallSizeIcon ytSpecButtonShapeNextEnableBackdropFilterExperiment\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    9 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n"
+  },
+  {
+    "step": "click_more_aria_More actions",
     "success": false,
     "error": "All click strategies failed. aria-label \"More actions\" not found"
   },
   {
-    "step": "click_more_css",
+    "step": "click_more_aria_Más opciones",
     "success": false,
-    "error": "All click strategies failed. css_selector \"button[aria-label*=\"more\" i]\" matched 0 elements"
+    "error": "All click strategies failed. aria-label \"Más opciones\" not found"
   },
   {
-    "step": "click_transcript_aria",
+    "step": "click_more_aria_More options",
+    "success": false,
+    "error": "All click strategies failed. aria-label \"More options\" not found"
+  },
+  {
+    "step": "click_more_css_menu_renderer",
+    "success": false,
+    "error": "All click strategies failed. css_selector \"ytd-menu-renderer button[aria-haspopup]\" matched 0 elements"
+  },
+  {
+    "step": "click_transcript_aria_Mostrar transcripción",
+    "success": false,
+    "error": "All click strategies failed. aria_label failed: locator.click: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[aria-label=\"Mostrar transcripción\"]').first()\u001b[22m\n\u001b[2m    - locator resolved to <button title=\"\" aria-disabled=\"false\" aria-label=\"Mostrar transcripción\" class=\"ytSpecButtonShapeNextHost ytSpecButtonShapeNextOutline ytSpecButtonShapeNextCallToAction ytSpecButtonShapeNextSizeM ytSpecButtonShapeNextEnableBackdropFilterExperiment\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    9 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n"
+  },
+  {
+    "step": "click_transcript_aria_Show transcript",
     "success": false,
     "error": "All click strategies failed. aria-label \"Show transcript\" not found"
   },
   {
-    "step": "click_transcript_text",
+    "step": "click_transcript_aria_Transcripción",
+    "success": false,
+    "error": "All click strategies failed. aria_label failed: locator.click: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[aria-label=\"Transcripción\"]').first()\u001b[22m\n\u001b[2m    - locator resolved to <button role=\"tab\" aria-selected=\"false\" aria-label=\"Transcripción\" class=\"ytChipShapeButtonReset\">…</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    9 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is not visible\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 500ms\u001b[22m\n"
+  },
+  {
+    "step": "click_transcript_aria_Transcript",
+    "success": false,
+    "error": "All click strategies failed. aria-label \"Transcript\" not found"
+  },
+  {
+    "step": "click_transcript_text_transcripción",
+    "success": false,
+    "error": "All click strategies failed. button_text all strategies failed: locator.click: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('link', { name: /transcripción/i }).first()\u001b[22m\n"
+  },
+  {
+    "step": "click_transcript_text_transcript",
     "success": false,
     "error": "All click strategies failed. button_text all strategies failed: locator.click: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('link', { name: /transcript/i }).first()\u001b[22m\n"
+  },
+  {
+    "step": "click_transcript_text_Mostrar transcripción",
+    "success": false,
+    "error": "All click strategies failed. button_text all strategies failed: locator.click: Timeout 5000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('link', { name: /Mostrar transcripción/i }).first()\u001b[22m\n"
   }
 ]

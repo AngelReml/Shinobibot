@@ -108,8 +108,7 @@ const webSearchTool: Tool = {
           `${i+1}. <${e.tag}${e.role ? ` role="${e.role}"` : ''}${e.id ? ` id="${e.id}"` : ''}${e.name ? ` name="${e.name}"` : ''}> ${e.ariaLabel ? `[aria-label: ${e.ariaLabel}] ` : ''}${e.text}`
         ).join('\n');
 
-        // Solo cerrar si fue pestaña nueva
-        if (isNewPage) await page.close();
+        // NO cerramos la pestaña aunque sea nueva: futuros pasos del flujo (browser_click, browser_scroll, browser_click_position) la necesitan viva.
         return { success: true, output: stdout };
       }
 
@@ -171,9 +170,8 @@ const webSearchTool: Tool = {
 
         stdout = `Search results for "${cleanQuery}":\n\n` +
           results.map((r, i) => `${i + 1}. ${r.title}\n   ${r.link}`).join('\n\n');
+        if (isNewPage && page) await page.close();
       }
-
-      if (isNewPage && page) await page.close();
 
       return { success: true, output: stdout };
     } catch (err: any) {

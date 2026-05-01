@@ -1,0 +1,130 @@
+{
+  "ancestors_of_first_more_vert": [
+    {
+      "level": 0,
+      "tag": "button",
+      "id": "",
+      "classes": "mdc-button mat-mdc-button-base mat-mdc-menu-trigger project-button-more mat-mdc-button mat-unthemed",
+      "role": "",
+      "aria_label": "Menú de acciones del proyecto",
+      "href": "",
+      "data_attrs": {},
+      "text_preview": "more_vert",
+      "looks_clickable": true
+    },
+    {
+      "level": 1,
+      "tag": "project-action-button",
+      "id": "",
+      "classes": "",
+      "role": "",
+      "aria_label": "",
+      "href": "",
+      "data_attrs": {},
+      "text_preview": "more_vert",
+      "looks_clickable": false
+    },
+    {
+      "level": 2,
+      "tag": "td",
+      "id": "",
+      "classes": "mat-mdc-cell mdc-data-table__cell cdk-cell actions-column cdk-column-actions mat-column-actions",
+      "role": "cell",
+      "aria_label": "",
+      "href": "",
+      "data_attrs": {},
+      "text_preview": "more_vert",
+      "looks_clickable": false
+    },
+    {
+      "level": 3,
+      "tag": "tr",
+      "id": "",
+      "classes": "mat-mdc-row mdc-data-table__row cdk-row",
+      "role": "row",
+      "aria_label": "",
+      "href": "",
+      "data_attrs": {},
+      "text_preview": "🗄️\nOpenGravity: The Singularity Context Vault Blueprint\n\t\nmore_vert",
+      "looks_clickable": false
+    },
+    {
+      "level": 4,
+      "tag": "tbody",
+      "id": "",
+      "classes": "mdc-data-table__content",
+      "role": "rowgroup",
+      "aria_label": "",
+      "href": "",
+      "data_attrs": {},
+      "text_preview": "🗄️\nOpenGravity: The Singularity Context Vault Blueprint\n\t\nmore_vert\n\n\n🧠\nOpenGravity\n\t\nmore_vert\n\n\n",
+      "looks_clickable": false
+    },
+    {
+      "level": 5,
+      "tag": "table",
+      "id": "",
+      "classes": "mat-mdc-table mdc-data-table__table cdk-table project-table",
+      "role": "table",
+      "aria_label": "",
+      "href": "",
+      "data_attrs": {},
+      "text_preview": "Título\t\nAcciones\n\n\n🗄️\nOpenGravity: The Singularity Context Vault Blueprint\n\t\nmore_vert\n\n\n🧠\nOpenGra",
+      "looks_clickable": false
+    },
+    {
+      "level": 6,
+      "tag": "project-table",
+      "id": "",
+      "classes": "",
+      "role": "",
+      "aria_label": "",
+      "href": "",
+      "data_attrs": {},
+      "text_preview": "Título\t\nAcciones\n\n\n🗄️\nOpenGravity: The Singularity Context Vault Blueprint\n\t\nmore_vert\n\n\n🧠\nOpenGra",
+      "looks_clickable": false
+    },
+    {
+      "level": 7,
+      "tag": "div",
+      "id": "",
+      "classes": "my-projects-container",
+      "role": "",
+      "aria_label": "",
+      "href": "",
+      "data_attrs": {},
+      "text_preview": "Cuadernos recientes\nTítulo\t\nAcciones\n\n\n🗄️\nOpenGravity: The Singularity Context Vault Blueprint\n\t\nmo",
+      "looks_clickable": false
+    }
+  ],
+  "all_anchors_sample": [
+    {
+      "href": "https://www.google.es/intl/es/about/products",
+      "aria": "Aplicaciones de Google",
+      "text": ""
+    },
+    {
+      "href": "https://accounts.google.com/SignOutOptions?hl=es&continue=https://notebooklm.google.com/&ec=GBRAmgU",
+      "aria": "Cuenta de Google: Angel Vengador Delavida R. E. M. L  \n(calycharlie@gmail.com)",
+      "text": ""
+    },
+    {
+      "href": "https://notebooklm.google.com/",
+      "aria": "Página principal de NotebookLM",
+      "text": ""
+    }
+  ],
+  "role_buttons_non_more_vert": [
+    {
+      "aria": "Aplicaciones de Google",
+      "text": "",
+      "classes": "gb_C"
+    },
+    {
+      "aria": "Cuenta de Google: Angel Vengador Delavida R. E. M. L  \n(calycharlie@gmail.com)",
+      "text": "",
+      "classes": "gb_C gb_5a gb_6"
+    }
+  ],
+  "page_url": "https://notebooklm.google.com/"
+}
