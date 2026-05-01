@@ -56,38 +56,44 @@ const webSearchTool: Tool = {
 
         // Extracción de contenido real
         const extracted = await page.evaluate(() => {
-          const truncate = (s: string, n: number) => s.length > n ? s.slice(0, n) + '...[truncated]' : s;
+          const body = document.body;
+          let bodyText = '';
+          if (body) {
+            bodyText = (body.innerText || '').replace(/\s+/g, ' ').trim();
+            if (bodyText.length > 8000) {
+              bodyText = bodyText.slice(0, 8000) + '...[truncated]';
+            }
+          }
           
-          // Texto visible del body
-          const bodyText = (document.body?.innerText || '').replace(/\s+/g, ' ').trim();
+          const linkNodes = document.querySelectorAll('a[href]');
+          const links = [];
+          for (let i = 0; i < linkNodes.length && links.length < 100; i++) {
+            const a = linkNodes[i];
+            const text = ((a.innerText || a.textContent || '') + '').trim();
+            if (text.length > 0) {
+              links.push({
+                text: text.length > 200 ? text.slice(0, 200) : text,
+                href: a.href
+              });
+            }
+          }
           
-          // Todos los enlaces con texto
-          const links = Array.from(document.querySelectorAll('a[href]'))
-            .slice(0, 100)
-            .map(a => ({
-              text: ((a as HTMLElement).innerText || '').trim().slice(0, 200),
-              href: (a as HTMLAnchorElement).href
-            }))
-            .filter(l => l.text.length > 0);
+          const interactiveSel = 'button, input, select, textarea, [role="button"], [role="link"]';
+          const interactiveNodes = document.querySelectorAll(interactiveSel);
+          const interactive = [];
+          for (let i = 0; i < interactiveNodes.length && interactive.length < 50; i++) {
+            const el = interactiveNodes[i];
+            const tag = el.tagName.toLowerCase();
+            const role = el.getAttribute('role') || '';
+            const ariaLabel = el.getAttribute('aria-label') || '';
+            let text = ((el.innerText || el.textContent || '') + '').trim();
+            if (text.length > 100) text = text.slice(0, 100);
+            const id = el.id || '';
+            const name = el.getAttribute('name') || '';
+            interactive.push({ tag, role, ariaLabel, text, id, name });
+          }
           
-          // Elementos interactivos visibles
-          const interactive = Array.from(document.querySelectorAll('button, input, select, textarea, [role="button"], [role="link"]'))
-            .slice(0, 50)
-            .map(el => {
-              const tag = el.tagName.toLowerCase();
-              const role = el.getAttribute('role') || '';
-              const ariaLabel = el.getAttribute('aria-label') || '';
-              const text = ((el as HTMLElement).innerText || '').trim().slice(0, 100);
-              const id = el.id || '';
-              const name = el.getAttribute('name') || '';
-              return { tag, role, ariaLabel, text, id, name };
-            });
-          
-          return {
-            bodyText: truncate(bodyText, 8000),
-            links,
-            interactive
-          };
+          return { bodyText, links, interactive };
         });
 
         stdout = `Navigated to: ${fullUrl}\nFinal URL: ${finalUrl}\nPage title: ${title}\n`;
