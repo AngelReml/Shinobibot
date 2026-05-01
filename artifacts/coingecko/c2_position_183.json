@@ -1,29 +1,33 @@
 {
+  "target_rank": 183,
   "log": [
     {
-      "strategy": "A_direct_url",
+      "step": "navigate_page_2",
       "success": true
     },
     {
-      "strategy": "A_results",
-      "ranks_extracted": 15,
-      "found_183": false,
-      "coin_at_183": null
+      "step": "rank_token_search",
+      "occurrences": 1
     },
     {
-      "strategy": "B_navigate_top",
-      "success": true
-    },
-    {
-      "strategy": "B_click_next",
-      "success": true
-    },
-    {
-      "strategy": "B_results",
-      "ranks_extracted": 10,
-      "found_183": false,
-      "coin_at_183": null
+      "step": "candidate_extraction",
+      "candidates_found": 1
     }
   ],
-  "found_via": null
+  "coin_at_position_183": {
+    "rank": 183,
+    "name": "Theta Network",
+    "symbol": "THETA",
+    "price": "0.1998",
+    "context_excerpt": "% 0.0% 0.0% $0.00 $202,500,000 183 Theta Network THETA $0.1998 0.0% 1.7% 7.3% $9,874,335 $200,392,896 184 Telcoin TEL $0.002084 0.9% 1.7% 0.2% $1,329,025 $198,196,477 185 NEO NEO $2.74 0.6% 0.6% 4.9% $7,119,644 $193,985,325 186 Th"
+  },
+  "all_candidates": [
+    {
+      "rank": 183,
+      "name": "Theta Network",
+      "symbol": "THETA",
+      "price": "0.1998",
+      "context_excerpt": "% 0.0% 0.0% $0.00 $202,500,000 183 Theta Network THETA $0.1998 0.0% 1.7% 7.3% $9,874,335 $200,392,896 184 Telcoin TEL $0.002084 0.9% 1.7% 0.2% $1,329,025 $198,196,477 185 NEO NEO $2.74 0.6% 0.6% 4.9% $7,119,644 $193,985,325 186 Th"
+    }
+  ]
 }

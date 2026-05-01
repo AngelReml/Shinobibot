@@ -2,43 +2,86 @@
   {
     "display": "Wayne Barrett",
     "url": "https://www.linkedin.com/in/wayne-barrett-0aa35356",
-    "keep": false,
-    "reject": false,
-    "classified": "UNKNOWN"
+    "keep_hits": [
+      "broker",
+      "wholesale"
+    ],
+    "reject_hits": [
+      "underwriter",
+      "assistant"
+    ],
+    "classified": "EXCLUDE",
+    "context_window_chars": 600,
+    "context_preview": "siness Advertise People 1st 2nd 3rd+ Locations Current companies Job function Seniority All filters Wayne Barrett • 3rd+ Wholesale Excess Casualty Irvine, California, United States Connect Current: As"
   },
   {
     "display": "Laurent Marco Parisi",
     "url": "https://www.linkedin.com/in/laurent-marco-parisi-5885565a",
-    "keep": false,
-    "reject": false,
-    "classified": "UNKNOWN"
+    "keep_hits": [
+      "broker",
+      "wholesale"
+    ],
+    "reject_hits": [
+      "underwriter"
+    ],
+    "classified": "EXCLUDE",
+    "context_window_chars": 600,
+    "context_preview": "rplus, LLC A CRC Group Company United States Current: Associate Broker at ARC Excess & Surplus, LLC Laurent Marco Parisi • 3rd+ Off-price & excess stock Trader - Closeout Expert - Sourcing Specialist "
   },
   {
     "display": "Maureen Burns-Pyburn, WCIP, CCIP, CRIS",
     "url": "https://www.linkedin.com/in/maureen-burns-pyburn-wcip-ccip-cris-b9245566",
-    "keep": false,
-    "reject": false,
-    "classified": "UNKNOWN"
+    "keep_hits": [
+      "broker",
+      "wholesale"
+    ],
+    "reject_hits": [
+      "underwriter",
+      "underwriting"
+    ],
+    "classified": "EXCLUDE",
+    "context_window_chars": 600,
+    "context_preview": "t Current: Director at ShoeSStockS - Shoesstocks is a wholesale stock clearance... Visit my website Maureen Burns-Pyburn, WCIP, CCIP, CRIS • 3rd+ Seasoned Excess Casualty Underwriter II; CRIS, CCIP. C"
   },
   {
     "display": "Yonathan Casilla",
     "url": "https://www.linkedin.com/in/yonathan-casilla-01750210",
-    "keep": false,
-    "reject": false,
-    "classified": "UNKNOWN"
+    "keep_hits": [
+      "broker"
+    ],
+    "reject_hits": [
+      "underwriter",
+      "underwriting"
+    ],
+    "classified": "EXCLUDE",
+    "context_window_chars": 600,
+    "context_preview": "grams United States Current: Senior Sales Director at Aon - ..., general liability, auto, excess... Yonathan Casilla • 3rd+ Vice President - Excess & Surplus New York City Metropolitan Area Connect Cu"
   },
   {
     "display": "Amy Finnegan, CIC, CISR",
     "url": "https://www.linkedin.com/in/amyfinnegan",
-    "keep": false,
-    "reject": false,
-    "classified": "UNKNOWN"
+    "keep_hits": [
+      "broker"
+    ],
+    "reject_hits": [
+      "underwriter",
+      "underwriting"
+    ],
+    "classified": "EXCLUDE",
+    "context_window_chars": 600,
+    "context_preview": "urrent: Vice President- E&S Primary Casualty & Supported Excess at AmTrust Financial Services, Inc. Amy Finnegan, CIC, CISR • 3rd+ Executive Underwriting Director, Brokerage Excess Casualty - E&S/Spec"
   },
   {
     "display": "Cameron Thomas",
     "url": "https://www.linkedin.com/in/cameron-thomas-2642a027a",
-    "keep": false,
-    "reject": false,
-    "classified": "UNKNOWN"
+    "keep_hits": [
+      "broker"
+    ],
+    "reject_hits": [
+      "underwriter"
+    ],
+    "classified": "EXCLUDE",
+    "context_window_chars": 512,
+    "context_preview": "rent: Underwriter/Broker Commercial Lines at Monarch E & S Insurance Services, A Division of SPG... Cameron Thomas • 3rd+ DIC Underwriter San Diego, California, United States Connect Current: DIC Unde"
   }
 ]
