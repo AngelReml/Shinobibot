@@ -23,14 +23,52 @@ const webSearchTool: Tool = {
       const allContexts = browser.contexts();
       const allPages = allContexts.flatMap(ctx => ctx.pages());
 
+      let page: any = null;
+      let isNewPage = false;
+      let stdout = '';
+
+      // Detectar URL completa (http:// o https://) — navegar tal cual sin extraer dominio
+      const isFullUrl = /^https?:\/\//i.test(args.query.trim());
+
+      if (isFullUrl) {
+        const fullUrl = args.query.trim();
+        const ctx = allContexts[0] || await browser.newContext();
+
+        // Reutilizar pestaña si alguna ya está en el mismo origen
+        const urlObj = new URL(fullUrl);
+        page = allPages.find(p => {
+          try { return new URL(p.url()).origin === urlObj.origin; }
+          catch { return false; }
+        });
+
+        if (page) {
+          await page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          isNewPage = false;
+        } else {
+          page = await ctx.newPage();
+          isNewPage = true;
+          await page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        }
+
+        await page.waitForTimeout(3000);
+        const title = await page.title();
+        const finalUrl = page.url();
+        stdout = `Navigated to: ${fullUrl}\nFinal URL: ${finalUrl}\nPage title: ${title}`;
+
+        // Si hubo redirect (URL final diferente a inicial), reportarlo explícitamente
+        if (finalUrl !== fullUrl) {
+          stdout += `\n[WARNING] Redirected from ${fullUrl} to ${finalUrl}`;
+        }
+
+        if (isNewPage && page) await page.close();
+        return { success: true, output: stdout };
+      }
+
+      // --- Lógica existente de domainMatch / Bing search (intacta) ---
       // Check if query looks like a domain
       const domainMatch = args.query.match(/\b([\w-]+\.(com|es|org|io|net|dev))\b/i);
       const isYouTube = /youtube/i.test(args.query);
       const targetDomain = isYouTube ? 'youtube.com' : (domainMatch ? domainMatch[1] : null);
-
-      let page: any = null;
-      let isNewPage = false;
-      let stdout = '';
 
       if (targetDomain) {
         // Try to reuse existing tab
