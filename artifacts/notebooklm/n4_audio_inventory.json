@@ -1,0 +1,33 @@
+{
+  "audio_related_buttons": [
+    {
+      "tag": "button",
+      "text": "copy_all",
+      "aria_label": "Copiar resumen",
+      "visible": true,
+      "classes": "mdc-icon-button mat-mdc-icon-button mat-mdc-button-base mat-mdc-tooltip-trigger xap-copy-to-clipboar"
+    },
+    {
+      "tag": "button",
+      "text": "thumb_up",
+      "aria_label": "Buen resumen",
+      "visible": true,
+      "classes": "mdc-icon-button mat-mdc-icon-button mat-mdc-button-base mat-mdc-tooltip-trigger mat-unthemed"
+    },
+    {
+      "tag": "button",
+      "text": "thumb_down",
+      "aria_label": "Mal resumen",
+      "visible": true,
+      "classes": "mdc-icon-button mat-mdc-icon-button mat-mdc-button-base mat-mdc-tooltip-trigger mat-unthemed"
+    }
+  ],
+  "media_elements": [],
+  "audio_urls_in_html": [],
+  "studio_markers_in_body": [
+    "Studio",
+    "Audio Overview"
+  ],
+  "page_url": "https://notebooklm.google.com/notebook/61ac4bed-64b9-4ef2-83a4-6c4fefb07b2a",
+  "page_title": "Historias sobre el progreso, de The Atlantic - NotebookLM"
+}

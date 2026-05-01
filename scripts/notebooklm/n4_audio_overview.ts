@@ -1,92 +1,90 @@
-import '../../src/tools/index.js';
-import { getTool } from '../../src/tools/tool_registry.js';
-import { readFileSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
 import { chromium } from 'playwright';
 
 async function main() {
-  let target = '';
-  try {
-    const data = JSON.parse(readFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/notebooklm/n1_notebooks.json', 'utf-8'));
-    if (data.notebook_urls && data.notebook_urls.length > 0) target = data.notebook_urls[0];
-  } catch {}
+  const browser = await chromium.connectOverCDP('http://localhost:9222');
+  const allPages = browser.contexts().flatMap(c => c.pages());
+  const page = allPages.find(p => p.url().includes('notebooklm.google.com/notebook/'));
   
-  if (!target) {
-    console.error('N4: no notebook URL');
+  if (!page) {
+    writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/notebooklm/n4_log.json', JSON.stringify({
+      error: 'NO NOTEBOOK TAB OPEN',
+      open_tabs: allPages.map(p => p.url())
+    }, null, 2));
+    console.error('N4: pestaña debe estar dentro de un notebook');
     process.exit(1);
   }
   
-  const log: any[] = [];
-  const search = getTool('web_search');
-  if (!search) process.exit(1);
-  
-  await search.execute({ query: target });
-  
-  try {
-    const browser = await chromium.connectOverCDP('http://localhost:9222');
-    const contexts = browser.contexts();
-    const pages = contexts.flatMap(c => c.pages());
-    const page = pages.find(p => p.url().includes('notebooklm.google.com/notebook'));
+  const inventory = await page.evaluate(() => {
+    const result: any = {};
     
-    if (!page) {
-      log.push({ step: 'find_page', success: false });
-      writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/notebooklm/n4_log.json', JSON.stringify(log, null, 2));
-      process.exit(0);
-    }
+    // Keywords amplios en ES + EN
+    const audioKeywords = ['audio', 'overview', 'resumen', 'generar', 'generate', 'play', 'reproducir', 'listen', 'escuchar', 'studio', 'podcast'];
     
-    // Inventario completo del DOM relacionado con audio
-    const inventory = await page.evaluate(() => {
-      const result: any = {};
-      
-      // Buscar botones/elementos relacionados con audio
-      const audioKeywords = ['audio', 'overview', 'resumen', 'generate', 'generar', 'play', 'reproducir', 'listen', 'escuchar'];
-      const allButtons = document.querySelectorAll('button, [role="button"]');
-      const audioButtons: any[] = [];
-      for (let i = 0; i < allButtons.length; i++) {
-        const el = allButtons[i];
-        const text = ((el.innerText || el.textContent || '') + '').trim();
-        const aria = el.getAttribute('aria-label') || '';
-        const combined = (text + ' ' + aria).toLowerCase();
-        if (audioKeywords.some(k => combined.includes(k))) {
-          audioButtons.push({ text: text.slice(0, 100), aria: aria.slice(0, 100), tag: el.tagName.toLowerCase() });
-        }
-      }
-      result.audio_related_buttons = audioButtons;
-      
-      // Buscar elementos <audio> o <video>
-      const audioEls = document.querySelectorAll('audio, video');
-      const mediaElements: any[] = [];
-      for (let i = 0; i < audioEls.length; i++) {
-        const el = audioEls[i] as HTMLMediaElement;
-        mediaElements.push({
+    // Inventario 1: botones y elementos clickables con texto/aria-label que matcheen
+    const allClickable = document.querySelectorAll('button, [role="button"], a');
+    const audioButtons: any[] = [];
+    for (let i = 0; i < allClickable.length; i++) {
+      const el = allClickable[i] as HTMLElement;
+      const text = (el.innerText || el.textContent || '').trim();
+      const aria = el.getAttribute('aria-label') || '';
+      const combined = (text + ' ' + aria).toLowerCase();
+      if (audioKeywords.some(k => combined.includes(k))) {
+        audioButtons.push({
           tag: el.tagName.toLowerCase(),
-          src: el.src || '',
-          duration: el.duration || 0,
-          paused: el.paused
+          text: text.slice(0, 120),
+          aria_label: aria.slice(0, 120),
+          visible: el.offsetWidth > 0 && el.offsetHeight > 0,
+          classes: typeof el.className === 'string' ? el.className.slice(0, 100) : ''
         });
       }
-      result.media_elements = mediaElements;
-      
-      // Buscar URLs de audio en el HTML
-      const html = document.documentElement.outerHTML;
-      const audioUrls = (html.match(/https?:\/\/[^\s"'<>]+\.(?:mp3|m4a|wav|ogg|opus|webm)[^\s"'<>]*/gi) || []).slice(0, 20);
-      result.audio_urls_in_html = audioUrls;
-      
-      result.page_title = document.title;
-      result.page_url = window.location.href;
-      
-      return result;
-    });
+    }
+    result.audio_related_buttons = audioButtons;
     
-    log.push({ step: 'inventory', ...inventory });
+    // Inventario 2: elementos <audio> y <video> ya cargados
+    const mediaEls = document.querySelectorAll('audio, video');
+    const mediaElements: any[] = [];
+    for (let i = 0; i < mediaEls.length; i++) {
+      const el = mediaEls[i] as HTMLMediaElement;
+      mediaElements.push({
+        tag: el.tagName.toLowerCase(),
+        src: el.src || el.currentSrc || '',
+        duration: el.duration || 0,
+        paused: el.paused
+      });
+    }
+    result.media_elements = mediaElements;
     
-    writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/notebooklm/n4_audio_inventory.json', JSON.stringify(inventory, null, 2));
-    writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/notebooklm/n4_log.json', JSON.stringify(log, null, 2));
-    console.log(`N4: audio_buttons=${inventory.audio_related_buttons.length} | media_elements=${inventory.media_elements.length} | audio_urls=${inventory.audio_urls_in_html.length}`);
-  } catch (err: any) {
-    log.push({ step: 'fatal', error: err.message });
-    writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/notebooklm/n4_log.json', JSON.stringify(log, null, 2));
-    console.error('N4 ERROR:', err.message);
-  }
+    // Inventario 3: URLs de audio en el HTML
+    const html = document.documentElement.outerHTML;
+    const audioUrls = (html.match(/https?:\/\/[^\s"'<>]+\.(?:mp3|m4a|wav|ogg|opus|webm)[^\s"'<>]*/gi) || []).slice(0, 20);
+    result.audio_urls_in_html = audioUrls;
+    
+    // Inventario 4: panel "Studio" o similar (NotebookLM tiene una columna lateral con Audio Overview)
+    const studioMarkers = ['Studio', 'Audio Overview', 'Resumen de audio'];
+    const markerHits: any[] = [];
+    const bodyText = (document.body.innerText || '').toLowerCase();
+    for (const m of studioMarkers) {
+      if (bodyText.includes(m.toLowerCase())) markerHits.push(m);
+    }
+    result.studio_markers_in_body = markerHits;
+    
+    result.page_url = window.location.href;
+    result.page_title = document.title;
+    
+    return result;
+  });
+  
+  writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/notebooklm/n4_audio_inventory.json', JSON.stringify(inventory, null, 2));
+  writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/notebooklm/n4_log.json', JSON.stringify({
+    page: inventory.page_url,
+    audio_buttons_count: inventory.audio_related_buttons.length,
+    media_elements_count: inventory.media_elements.length,
+    audio_urls_count: inventory.audio_urls_in_html.length,
+    studio_markers: inventory.studio_markers_in_body
+  }, null, 2));
+  
+  console.log(`N4: audio_buttons=${inventory.audio_related_buttons.length} | media=${inventory.media_elements.length} | audio_urls=${inventory.audio_urls_in_html.length} | studio_markers=${inventory.studio_markers_in_body.join(',')}`);
 }
 
 main().catch(e => { console.error('N4 ERROR:', e.message); process.exit(1); });
