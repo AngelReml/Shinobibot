@@ -12,7 +12,7 @@ async function main() {
   const r = await search.execute({ query: URL });
   writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/fiverr/f3_raw.json', JSON.stringify(r, null, 2));
   
-  const gigUrls = Array.from(new Set((r.output.match(/https:\/\/www\.fiverr\.com\/[a-z0-9_-]+\/[a-z0-9-]{8,}/gi) || [])));
+  const gigUrls = Array.from(new Set((r.output.match(/https:\/\/[a-z.]*fiverr\.com\/[a-z0-9_-]+\/[a-z0-9-]{8,}/gi) || [])));
   const finalUrl = (r.output.match(/Final URL: ([^\n]+)/) || [])[1] || '';
   const filtersHonored = finalUrl.includes('seller_level') && finalUrl.includes('price_buckets');
   
