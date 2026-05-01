@@ -1,103 +1,148 @@
-import '../../src/tools/index.js';
-import { getTool } from '../../src/tools/tool_registry.js';
-import { readFileSync, writeFileSync } from 'fs';
+import { writeFileSync } from 'fs';
+import { chromium } from 'playwright';
 
 async function main() {
-  const search = getTool('web_search');
-  const click = getTool('browser_click');
-  const scroll = getTool('browser_scroll');
-  if (!search || !click || !scroll) { console.error('missing tools'); process.exit(1); }
-  
-  let target = '';
-  try {
-    const urls = JSON.parse(readFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/youtube/y1_video_urls.json', 'utf-8'));
-    if (urls.length > 0) target = urls[0];
-  } catch {}
-  
-  if (!target) target = 'https://www.youtube.com/watch?v=jNQXAC9IVRw';
-  
   const log: any[] = [];
   
-  const nav = await search.execute({ query: target });
-  log.push({ step: 'navigate', success: nav.success, url: target });
+  const browser = await chromium.connectOverCDP('http://localhost:9222');
+  const allPages = browser.contexts().flatMap(c => c.pages());
+  const page = allPages.find(p => p.url().includes('youtube.com/watch'));
   
-  // Click "Más acciones" / "More actions" — probar ambos idiomas
-  const moreLabels = ['Más acciones', 'More actions', 'Más opciones', 'More options'];
-  let moreOpened = false;
-  for (const label of moreLabels) {
-    if (moreOpened) break;
-    const r = await click.execute({
-      aria_label: label,
-      url_contains: 'youtube.com/watch',
-      wait_after_ms: 1500
-    });
-    log.push({ step: `click_more_aria_${label}`, success: r.success, error: r.error });
-    if (r.success) moreOpened = true;
+  if (!page) {
+    writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/youtube/y3_transcript_log.json', JSON.stringify({
+      error: 'NO YOUTUBE WATCH TAB',
+      open_tabs: allPages.map(p => p.url())
+    }, null, 2));
+    console.error('Y3: pestaña debe estar en youtube.com/watch');
+    process.exit(1);
   }
   
-  // Si no, intentar con CSS selector amplio para botón de menú dentro del player
-  if (!moreOpened) {
-    const r = await click.execute({
-      css_selector: 'ytd-menu-renderer button[aria-haspopup]',
-      url_contains: 'youtube.com/watch',
-      wait_after_ms: 1500
-    });
-    log.push({ step: 'click_more_css_menu_renderer', success: r.success, error: r.error });
-    if (r.success) moreOpened = true;
-  }
+  log.push({ step: 'find_page', url: page.url() });
   
-  // Click "Mostrar transcripción" / "Show transcript"
-  const transcriptLabels = ['Mostrar transcripción', 'Show transcript', 'Transcripción', 'Transcript'];
+  // Scroll inicial pequeño para asegurar que el botón "Más acciones" del player es visible
+  await page.evaluate(() => window.scrollBy(0, 300));
+  await page.waitForTimeout(1500);
+  
+  // Click en la descripción para expandirla (necesario para ver el botón de transcripción)
+  let descriptionExpanded = false;
+  try {
+    // Intentar varios selectores para expandir la descripción (...más o el contenedor)
+    const expandSelectors = ['tp-yt-paper-button#expand', '#expand', '#description-inner', '.description-inline-expander'];
+    for (const sel of expandSelectors) {
+      const el = page.locator(sel).first();
+      if (await el.count() > 0 && await el.isVisible()) {
+        await el.click({ timeout: 3000 });
+        descriptionExpanded = true;
+        log.push({ step: 'expand_description', success: true, selector: sel });
+        break;
+      }
+    }
+  } catch (e: any) {
+    log.push({ step: 'expand_description_error', error: e.message });
+  }
+
+  await page.waitForTimeout(1500);
+
+  // Intentar abrir la transcripción con búsqueda agresiva
   let transcriptOpened = false;
-  for (const label of transcriptLabels) {
-    if (transcriptOpened) break;
-    const r = await click.execute({
-      aria_label: label,
-      url_contains: 'youtube.com/watch',
-      wait_after_ms: 2500
-    });
-    log.push({ step: `click_transcript_aria_${label}`, success: r.success, error: r.error });
-    if (r.success) transcriptOpened = true;
-  }
   
-  // Fallback: button_text con varios idiomas
-  if (!transcriptOpened) {
-    for (const txt of ['transcripción', 'transcript', 'Mostrar transcripción']) {
-      if (transcriptOpened) break;
-      const r = await click.execute({
-        button_text: txt,
-        url_contains: 'youtube.com/watch',
-        wait_after_ms: 2500
-      });
-      log.push({ step: `click_transcript_text_${txt}`, success: r.success, error: r.error });
-      if (r.success) transcriptOpened = true;
+  // 1. Intentar por selectores conocidos
+  const transcriptSelectors = [
+    'ytd-video-description-transcript-section-renderer button',
+    '#primary-button button',
+    'ytd-button-renderer.ytd-video-description-transcript-section-renderer button'
+  ];
+
+  for (const sel of transcriptSelectors) {
+    if (transcriptOpened) break;
+    try {
+      const btn = page.locator(sel).filter({ visible: true }).first();
+      if (await btn.count() > 0) {
+        await btn.click({ timeout: 5000 });
+        transcriptOpened = true;
+        log.push({ step: 'click_transcript_selector', success: true, selector: sel });
+      }
+    } catch (e: any) {
+      log.push({ step: 'click_transcript_selector_error', selector: sel, error: e.message });
     }
   }
-  
-  // Scroll para cargar todas las líneas
-  if (transcriptOpened) {
-    const s = await scroll.execute({
-      url_contains: 'youtube.com/watch',
-      scroll_count: 3,
-      wait_between_ms: 1000
-    });
-    log.push({ step: 'scroll_transcript', success: s.success });
+
+  // 2. Intentar por texto/aria-label dinámico si no funcionó
+  if (!transcriptOpened) {
+    try {
+      const allButtons = await page.evaluate(() => {
+        const btns = Array.from(document.querySelectorAll('ytd-video-description-transcript-section-renderer button, #description button'));
+        return btns.map((b: any) => ({
+          text: b.innerText || '',
+          aria: b.getAttribute('aria-label') || '',
+          visible: b.offsetWidth > 0
+        }));
+      });
+      log.push({ step: 'debug_description_buttons', buttons: allButtons });
+
+      const labels = ['Mostrar transcripción', 'Show transcript', 'Transcripción', 'Transcript'];
+      for (const label of labels) {
+        if (transcriptOpened) break;
+        const btn = page.getByText(label, { exact: false }).filter({ visible: true }).first();
+        if (await btn.count() > 0) {
+          await btn.click({ timeout: 5000 });
+          transcriptOpened = true;
+          log.push({ step: 'click_transcript_text', success: true, label });
+        }
+      }
+    } catch (e: any) {
+      log.push({ step: 'click_transcript_text_error', error: e.message });
+    }
+  }
+
+  // Si no se abrió, intentar el método anterior del menú "Más acciones"
+  if (!transcriptOpened) {
+    log.push({ step: 'fallback_to_more_actions' });
+    // (Lógica previa de click_more si fuera necesaria, pero el subagent dice que está en la descripción)
   }
   
-  // Re-leer
-  let transcriptText = '';
-  let lines: string[] = [];
-  if (transcriptOpened) {
-    const re = await search.execute({ query: target });
-    const body = (re.output.match(/--- BODY TEXT \([^)]+\) ---\n([\s\S]+?)\n\n---/) || [])[1] || '';
-    lines = body.match(/\b\d{1,2}:\d{2}(?::\d{2})?\s+\S[^\n]{0,200}/g) || [];
-    transcriptText = lines.join('\n');
-    log.push({ step: 'extract_transcript', lines_found: lines.length });
+  if (!transcriptOpened) {
+    writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/youtube/y3_transcript_log.json', JSON.stringify(log, null, 2));
+    console.error('Y3: no se pudo abrir transcripción');
+    process.exit(1);
+  }
+  
+  // Scroll en el panel de transcripción para cargar todas las líneas
+  await page.waitForTimeout(2000);
+  for (let i = 0; i < 4; i++) {
+    await page.evaluate(() => {
+      const panel = document.querySelector('ytd-transcript-renderer, ytd-transcript-segment-list-renderer');
+      if (panel) panel.scrollTop = panel.scrollHeight;
+    });
+    await page.waitForTimeout(800);
+  }
+  
+  // Extraer líneas del transcript directamente del DOM (segmentos)
+  const transcript = await page.evaluate(() => {
+    const segs = document.querySelectorAll('ytd-transcript-segment-renderer, ytd-transcript-segment-list-renderer ytd-transcript-segment-renderer');
+    const lines: string[] = [];
+    for (const s of Array.from(segs)) {
+      const tsEl = s.querySelector('.segment-timestamp, [class*="timestamp"]');
+      const txEl = s.querySelector('.segment-text, yt-formatted-string.segment-text, [class*="segment-text"]');
+      const ts = tsEl ? (tsEl.textContent || '').trim() : '';
+      const tx = txEl ? (txEl.textContent || '').trim() : '';
+      if (ts || tx) lines.push(`${ts} ${tx}`.trim());
+    }
+    return lines;
+  });
+  log.push({ step: 'extract_transcript_segments', count: transcript.length });
+  
+  // Fallback: si no se extrajeron segmentos por el selector específico, intentar regex sobre el body
+  let finalLines = transcript;
+  if (finalLines.length === 0) {
+    const bodyText = await page.evaluate(() => ((document.body as any).innerText || ''));
+    finalLines = bodyText.match(/\b\d{1,2}:\d{2}(?::\d{2})?\s+\S[^\n]{1,200}/g) || [];
+    log.push({ step: 'fallback_regex_body', count: finalLines.length });
   }
   
   writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/youtube/y3_transcript_log.json', JSON.stringify(log, null, 2));
-  writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/youtube/y3_transcript.txt', transcriptText || '[NO TRANSCRIPT EXTRACTED]');
-  console.log(`Y3: more_opened=${moreOpened} | transcript_opened=${transcriptOpened} | lines=${lines.length}`);
+  writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/youtube/y3_transcript.txt', finalLines.join('\n') || '[NO TRANSCRIPT]');
+  console.log(`Y3: description_expanded=${descriptionExpanded} | transcript_opened=${transcriptOpened} | lines=${finalLines.length} | first="${(finalLines[0] || '').slice(0, 100)}"`);
 }
 
 main().catch(e => { console.error('Y3 ERROR:', e.message); process.exit(1); });
