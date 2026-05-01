@@ -53,14 +53,57 @@ const webSearchTool: Tool = {
         await page.waitForTimeout(3000);
         const title = await page.title();
         const finalUrl = page.url();
-        stdout = `Navigated to: ${fullUrl}\nFinal URL: ${finalUrl}\nPage title: ${title}`;
 
-        // Si hubo redirect (URL final diferente a inicial), reportarlo explícitamente
+        // Extracción de contenido real
+        const extracted = await page.evaluate(() => {
+          const truncate = (s: string, n: number) => s.length > n ? s.slice(0, n) + '...[truncated]' : s;
+          
+          // Texto visible del body
+          const bodyText = (document.body?.innerText || '').replace(/\s+/g, ' ').trim();
+          
+          // Todos los enlaces con texto
+          const links = Array.from(document.querySelectorAll('a[href]'))
+            .slice(0, 100)
+            .map(a => ({
+              text: ((a as HTMLElement).innerText || '').trim().slice(0, 200),
+              href: (a as HTMLAnchorElement).href
+            }))
+            .filter(l => l.text.length > 0);
+          
+          // Elementos interactivos visibles
+          const interactive = Array.from(document.querySelectorAll('button, input, select, textarea, [role="button"], [role="link"]'))
+            .slice(0, 50)
+            .map(el => {
+              const tag = el.tagName.toLowerCase();
+              const role = el.getAttribute('role') || '';
+              const ariaLabel = el.getAttribute('aria-label') || '';
+              const text = ((el as HTMLElement).innerText || '').trim().slice(0, 100);
+              const id = el.id || '';
+              const name = el.getAttribute('name') || '';
+              return { tag, role, ariaLabel, text, id, name };
+            });
+          
+          return {
+            bodyText: truncate(bodyText, 8000),
+            links,
+            interactive
+          };
+        });
+
+        stdout = `Navigated to: ${fullUrl}\nFinal URL: ${finalUrl}\nPage title: ${title}\n`;
         if (finalUrl !== fullUrl) {
-          stdout += `\n[WARNING] Redirected from ${fullUrl} to ${finalUrl}`;
+          stdout += `[WARNING] Redirected from ${fullUrl} to ${finalUrl}\n`;
         }
+        stdout += `\n--- BODY TEXT (${extracted.bodyText.length} chars) ---\n${extracted.bodyText}\n`;
+        stdout += `\n--- LINKS (${extracted.links.length}) ---\n`;
+        stdout += extracted.links.map((l: any, i: number) => `${i+1}. [${l.text}] -> ${l.href}`).join('\n');
+        stdout += `\n\n--- INTERACTIVE ELEMENTS (${extracted.interactive.length}) ---\n`;
+        stdout += extracted.interactive.map((e: any, i: number) => 
+          `${i+1}. <${e.tag}${e.role ? ` role="${e.role}"` : ''}${e.id ? ` id="${e.id}"` : ''}${e.name ? ` name="${e.name}"` : ''}> ${e.ariaLabel ? `[aria-label: ${e.ariaLabel}] ` : ''}${e.text}`
+        ).join('\n');
 
-        if (isNewPage && page) await page.close();
+        // Solo cerrar si fue pestaña nueva
+        if (isNewPage) await page.close();
         return { success: true, output: stdout };
       }
 
