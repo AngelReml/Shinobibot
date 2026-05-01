@@ -4,6 +4,113 @@
   "strategy_a_url_count": 0,
   "strategy_a_urls": [],
   "strategy_b_dom_inventory": {
+    "tr.mat-mdc-row": {
+      "count": 17,
+      "items": [
+        {
+          "index": 0,
+          "text": "Historias sobre el progreso, de The Atlantic",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 1,
+          "text": "Cómo construir una vida, de The Atlantic",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 2,
+          "text": "Secretos de los Super Agers",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 3,
+          "text": "Estados Unidos en un mundo cambiante",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 4,
+          "text": "Archivo 1945",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 5,
+          "text": "🗄️\nOpenGravity: The Singularity Context Vault Blueprint\n\t\nmore_vert",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 6,
+          "text": "🧠\nOpenGravity\n\t\nmore_vert",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 7,
+          "text": "🚀\nOpenGravity Project Launch and Deployment Log\n\t\nmore_vert",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 8,
+          "text": "🚫\nSybil Data Gap: Phase 25.1 Blocker Report\n\t\nmore_vert",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 9,
+          "text": "🧬\nOpenGravity: Foundational Architecture for Self-Improving Autonomous Runtimes\n\t\nmore_vert",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 10,
+          "text": "📔\nUntitled notebook\n\t\nmore_vert",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 11,
+          "text": "📔\nUntitled notebook\n\t\nmore_vert",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 12,
+          "text": "🪄\nAntiGravity AI Design System and Web Development Guide\n\t\nmore_vert",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 13,
+          "text": "📈\nPez Gordo: AI Decision Engine for Aluminum Procurement\n\t\nmore_vert",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 14,
+          "text": "🏗️\nCortizo AI Strategy and Global MVP Development Roadmap\n\t\nmore_vert",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 15,
+          "text": "📈\nThe Fractal Blueprint: Mastering Three-Timeframe Trading Strategy\n\t\nmore_vert",
+          "aria_label": "",
+          "href": ""
+        },
+        {
+          "index": 16,
+          "text": "🚜\nMastering Crypto Riches: Interest Compound and Yield Farming Strategy\n\t\nmore_vert",
+          "aria_label": "",
+          "href": ""
+        }
+      ]
+    },
     "[role=\"button\"][aria-label]": {
       "count": 2,
       "items": [
@@ -99,7 +206,26 @@
       ]
     }
   },
-  "best_selector_detected": "button[aria-label*=\"proyecto\" i]",
-  "best_selector_count": 12,
-  "best_selector_reason": "aria_label_informative"
+  "best_selector_detected": "tr.mat-mdc-row",
+  "best_selector_count": 17,
+  "best_selector_reason": "material_table_row_confirmed_by_inspection",
+  "notebook_titles": [
+    "Historias sobre el progreso, de The Atlantic",
+    "Cómo construir una vida, de The Atlantic",
+    "Secretos de los Super Agers",
+    "Estados Unidos en un mundo cambiante",
+    "Archivo 1945",
+    "🗄️",
+    "OpenGravity",
+    "OpenGravity Project Launch and Deployment Log",
+    "Sybil Data Gap: Phase 25.1 Blocker Report",
+    "OpenGravity: Foundational Architecture for Self-Improving Autonomous Runtimes",
+    "Untitled notebook",
+    "Untitled notebook",
+    "AntiGravity AI Design System and Web Development Guide",
+    "Pez Gordo: AI Decision Engine for Aluminum Procurement",
+    "🏗️",
+    "The Fractal Blueprint: Mastering Three-Timeframe Trading Strategy",
+    "Mastering Crypto Riches: Interest Compound and Yield Farming Strategy"
+  ]
 }

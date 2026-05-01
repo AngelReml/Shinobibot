@@ -23,11 +23,11 @@ async function main() {
   // Inventario completo del DOM con varios selectores candidatos
   const inventory = await page.evaluate(() => {
     const selectors = [
+      'tr.mat-mdc-row',
       'a[href*="/notebook/"]',
       'mat-card',
       '[role="button"][aria-label]',
       'button[aria-label*="proyecto" i]',
-      'button[aria-label*="notebook" i]',
       'div[role="button"]',
       '[data-testid*="notebook" i]',
       '[role="listitem"]'
@@ -54,8 +54,14 @@ async function main() {
   let bestCount = 0;
   let bestReason = '';
   
+  // Prioridad 0: tr.mat-mdc-row — confirmado por inspección de DOM como contenedor real de notebook
+  if (inventory.selectors['tr.mat-mdc-row']) {
+    bestSelector = 'tr.mat-mdc-row';
+    bestCount = inventory.selectors[bestSelector].count;
+    bestReason = 'material_table_row_confirmed_by_inspection';
+  }
   // Prioridad 1: a[href*="/notebook/"] — si hay >0, es el ideal
-  if (inventory.selectors['a[href*="/notebook/"]']) {
+  else if (inventory.selectors['a[href*="/notebook/"]']) {
     bestSelector = 'a[href*="/notebook/"]';
     bestCount = inventory.selectors[bestSelector].count;
     bestReason = 'direct_anchor_with_href';
@@ -81,10 +87,21 @@ async function main() {
     }
   }
   
-  // Extraer URLs href si existen
   const hrefUrls = inventory.selectors['a[href*="/notebook/"]'] 
     ? (inventory.selectors['a[href*="/notebook/"]'] as any).items.map((it: any) => it.href).filter((h: string) => h)
     : [];
+
+  // Si el selector ganador es tr.mat-mdc-row, extraer títulos limpios
+  let notebook_titles: string[] = [];
+  if (bestSelector === 'tr.mat-mdc-row' && inventory.selectors[bestSelector]) {
+    notebook_titles = (inventory.selectors[bestSelector] as any).items
+      .map((it: any) => {
+        // El text contiene "<icono>\n<título>\n\t\nmore_vert" — extraer solo la línea del título
+        const lines = (it.text || '').split('\n').map((l: string) => l.trim()).filter((l: string) => l && l !== 'more_vert' && l.length > 2);
+        return lines[lines.length - 2] || lines[0] || '';
+      })
+      .filter((t: string) => t.length > 0);
+  }
   
   writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/notebooklm/n1_notebooks.json', JSON.stringify({
     page_title: inventory.page_title,
@@ -94,7 +111,8 @@ async function main() {
     strategy_b_dom_inventory: inventory.selectors,
     best_selector_detected: bestSelector,
     best_selector_count: bestCount,
-    best_selector_reason: bestReason
+    best_selector_reason: bestReason,
+    notebook_titles
   }, null, 2));
   
   console.log(`N1: tab=${page.url()} | href_urls=${hrefUrls.length} | best_selector="${bestSelector}" (${bestReason}) | count=${bestCount}`);
