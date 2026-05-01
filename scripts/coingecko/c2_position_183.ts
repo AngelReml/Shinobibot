@@ -2,73 +2,77 @@ import '../../src/tools/index.js';
 import { getTool } from '../../src/tools/tool_registry.js';
 import { writeFileSync } from 'fs';
 
+const TARGET_RANK = 183;
+
 async function main() {
   const search = getTool('web_search');
-  const click = getTool('browser_click');
-  if (!search || !click) process.exit(1);
+  if (!search) process.exit(1);
   
   const log: any[] = [];
   
-  // ESTRATEGIA A: URL directa página 2
-  const URL_A = 'https://www.coingecko.com/?page=2';
-  const rA = await search.execute({ query: URL_A });
-  log.push({ strategy: 'A_direct_url', success: rA.success, error: rA.error });
-  writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/coingecko/c2_strategy_a_raw.json', JSON.stringify(rA, null, 2));
+  const URL = 'https://www.coingecko.com/?page=2';
+  const r = await search.execute({ query: URL });
+  log.push({ step: 'navigate_page_2', success: r.success, error: r.error });
+  writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/coingecko/c2_strategy_a_raw.json', JSON.stringify(r, null, 2));
   
-  const bodyA = (rA.output.match(/--- BODY TEXT \([^)]+\) ---\n([\s\S]+?)\n\n---/) || [])[1] || '';
+  const body = (r.output.match(/--- BODY TEXT \([^)]+\) ---\n([\s\S]+?)\n\n---/) || [])[1] || '';
   
-  // Parsear ranks de página 2 (debería ser 101-200)
-  const linePattern = /(\d{1,3})\s+([A-Z][A-Za-z0-9 .'\-]{1,40})\s+([A-Z]{2,10})\s+\$?([\d,.]+)/g;
-  const rankedA: any[] = [];
+  // ESTRATEGIA NUEVA: dividir el body en tokens y buscar el rank objetivo
+  // El rank suele aparecer aislado o pegado al nombre. Buscar "183" como token aislado y ver qué viene después.
+  const rankPattern = new RegExp(`(?:^|[^\\d])${TARGET_RANK}(?:[^\\d]|$)`, 'g');
+  const matches: { idx: number; context: string }[] = [];
   let m: RegExpExecArray | null;
-  while ((m = linePattern.exec(bodyA)) !== null) {
-    const rank = parseInt(m[1], 10);
-    if (rank >= 101 && rank <= 200) {
-      rankedA.push({ rank, name: m[2].trim(), symbol: m[3], price_text: m[4] });
+  while ((m = rankPattern.exec(body)) !== null) {
+    matches.push({
+      idx: m.index,
+      context: body.substring(Math.max(0, m.index - 30), Math.min(body.length, m.index + 200))
+    });
+  }
+  log.push({ step: 'rank_token_search', occurrences: matches.length });
+  
+  // Para cada ocurrencia del número 183, intentar extraer el coin asociado
+  // Patrón típico CoinGecko: rank, luego (a veces tras espacios/saltos) nombre + símbolo + precio
+  const candidates: any[] = [];
+  for (const match of matches) {
+    const after = match.context.substring(match.context.indexOf(String(TARGET_RANK)) + String(TARGET_RANK).length);
+    
+    // Buscar nombre+símbolo en los siguientes 200 chars
+    // Patrón: nombre en mayúscula + símbolo en MAYÚSCULAS (2-10 chars)
+    const namePattern = /([A-Z][A-Za-z0-9 .'\-]{1,40})\s+([A-Z]{2,10})/;
+    const nm = after.match(namePattern);
+    
+    // Buscar precio
+    const priceMatch = after.match(/\$\s?([\d,.]+)/);
+    
+    if (nm) {
+      candidates.push({
+        rank: TARGET_RANK,
+        name: nm[1].trim(),
+        symbol: nm[2],
+        price: priceMatch ? priceMatch[1] : null,
+        context_excerpt: match.context.substring(0, 250)
+      });
     }
   }
+  log.push({ step: 'candidate_extraction', candidates_found: candidates.length });
   
-  const target183_A = rankedA.find(c => c.rank === 183);
-  log.push({ strategy: 'A_results', ranks_extracted: rankedA.length, found_183: !!target183_A, coin_at_183: target183_A || null });
+  // Tomar el primer candidato que parezca válido (símbolo razonable, no es STR/INT/PRICE/MARKET etc)
+  const SYMBOL_BLACKLIST = ['USD', 'BTC', 'ETH', 'INT', 'STR', 'KEY', 'API', 'URL', 'DOM', 'SVG', 'CSS'];
+  const valid = candidates.find(c => !SYMBOL_BLACKLIST.includes(c.symbol) && c.symbol.length >= 2 && c.symbol.length <= 8);
   
-  // ESTRATEGIA B: paginar desde top con click "Next"
-  let target183_B: any = null;
-  if (!target183_A) {
-    const navTop = await search.execute({ query: 'https://www.coingecko.com' });
-    log.push({ strategy: 'B_navigate_top', success: navTop.success });
-    
-    const clickResult = await click.execute({ button_text: 'Next', url_contains: 'coingecko.com', wait_after_ms: 3000 });
-    log.push({ strategy: 'B_click_next', success: clickResult.success, error: clickResult.error });
-    writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/coingecko/c2_strategy_b_raw.json', JSON.stringify(clickResult, null, 2));
-    
-    if (clickResult.success) {
-      const bodyB = (clickResult.output.match(/--- BODY TEXT \([^)]+\) ---\n([\s\S]+?)\n\n---/) || [])[1] || '';
-      const rankedB: any[] = [];
-      const re = /(\d{1,3})\s+([A-Z][A-Za-z0-9 .'\-]{1,40})\s+([A-Z]{2,10})\s+\$?([\d,.]+)/g;
-      let mm: RegExpExecArray | null;
-      while ((mm = re.exec(bodyB)) !== null) {
-        const rank = parseInt(mm[1], 10);
-        if (rank >= 101 && rank <= 200) {
-          rankedB.push({ rank, name: mm[2].trim(), symbol: mm[3], price_text: mm[4] });
-        }
-      }
-      target183_B = rankedB.find(c => c.rank === 183);
-      log.push({ strategy: 'B_results', ranks_extracted: rankedB.length, found_183: !!target183_B, coin_at_183: target183_B || null });
-    }
-  }
-  
-  const final = target183_A || target183_B;
+  const final = valid || candidates[0] || null;
   
   writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/coingecko/c2_position_183.json', JSON.stringify({
+    target_rank: TARGET_RANK,
     log,
     coin_at_position_183: final,
-    found_via: target183_A ? 'A_direct_url' : (target183_B ? 'B_paginate_click' : null)
+    all_candidates: candidates
   }, null, 2));
   
   if (final) {
-    console.log(`C2: position 183 = ${final.name} (${final.symbol}) — found via ${target183_A ? 'A' : 'B'}`);
+    console.log(`C2: rank ${TARGET_RANK} = ${final.name} (${final.symbol}) | price=${final.price}`);
   } else {
-    console.log('C2: position 183 NOT FOUND with either strategy');
+    console.log(`C2: rank ${TARGET_RANK} NOT FOUND. ${candidates.length} candidates with no clear match.`);
   }
 }
 

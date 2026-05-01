@@ -1,23 +1,20 @@
 {
-  "total_signals": 2,
-  "total_errors": 1,
   "blocked": true,
+  "critical_signals": 1,
+  "weak_signals_in_body": 0,
+  "total_errors": 1,
   "findings": [
     {
       "source": "u1_raw.json",
-      "signal": "/cloudflare/i",
-      "match": "Cloudflare",
-      "excerpt": "tle: Un momento…\\n\\n--- BODY TEXT (91 chars) ---\\nCloudflare Ray ID: 9f512cde0bf80391 Your IP: 90.68.138.96 © 2015 - 2026 Upwork® Global Inc.\\n\\n--- LINKS (0) ---\\n\\n\\n--- INTERACTIVE ELEMENTS (1) ---\\n1. <input id=\\\"cf-chl-widget-f1aih_response\\\" na"
+      "severity": "CRITICAL",
+      "location": "header",
+      "signal": "/Page title:\\s*[^\\n]*(?:access denied|verify you are a human|cloudflare|just a moment|un momento|attention required|forbidden)/i",
+      "match": "Page title: Un momento",
+      "excerpt": "Page title: Un momento"
     },
     {
       "source": "u2_job_raw.json",
       "error": "ENOENT: no such file or directory, open 'C:\\Users\\angel\\Desktop\\shinobibot\\artifacts\\upwork\\u2_job_raw.json'"
-    },
-    {
-      "source": "u3_raw.json",
-      "signal": "/captcha/i",
-      "match": "captcha",
-      "excerpt": "ly what I want and need. I have already purchased captchas, but I may need help linking the captchas with the program once it is built. See attached sample of excel format I want. https://webapps.hcso.tampa.fl.us/ArrestInquiry Data Scraping Proposals"
     }
   ]
 }
