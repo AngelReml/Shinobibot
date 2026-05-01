@@ -1,0 +1,23 @@
+{
+  "requested_url": "https://www.upwork.com/nx/search/jobs/?q=data%20extraction&sort=recency&t=24",
+  "keyword": "data extraction",
+  "time_markers_detected": [
+    "Posted 9 minutes ago",
+    "Posted 11 minutes ago",
+    "Posted 1 hour ago",
+    "Posted 2 hours ago"
+  ],
+  "job_count": 10,
+  "job_urls": [
+    "https://www.upwork.com/jobs/Conversion-Rate-Optimization-CRO-Expert-Auditor-Luxury-Brand_~022050240144755123155",
+    "https://www.upwork.com/jobs/Lead-Generation-Specialist-Needed-Google-Maps-span-class-highlight-Data-span-span-class-highlight-Extraction-span_~022050292687112253649",
+    "https://www.upwork.com/jobs/Short-Term-Rental-PMS-Migration-Message-amp-Automation-span-class-highlight-Extraction-span-Hospitable-excel-Google-Sheet_~022050275184323200380",
+    "https://www.upwork.com/jobs/span-class-highlight-Data-span-Processing-Google-Sheets-Specialist_~022050228682156966592",
+    "https://www.upwork.com/jobs/Hillsborough-County-Florida-Scraper_~022050261450827832168",
+    "https://www.upwork.com/jobs/LLM-Vision-Resume-Parsing-Taxonomy-Knowledge-Graph-High-Accuracy-Required_~022050260182684435136",
+    "https://www.upwork.com/jobs/Python-Backend-Developer-Chatbot-FastAPI-LLM-Integration-hrs-week_~022050259865688302487",
+    "https://www.upwork.com/jobs/span-class-highlight-Data-span-mining_~022050258475564713159",
+    "https://www.upwork.com/jobs/Website-Scraper-Development-for-Nestopa-into-SQL-Database_~022050250861185609937",
+    "https://www.upwork.com/jobs/Marketing-Agency-Research-Discourse-Corpus-Collection_~022050249595625270958"
+  ]
+}
