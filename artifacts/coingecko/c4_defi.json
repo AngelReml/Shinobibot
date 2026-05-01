@@ -1,0 +1,31 @@
+{
+  "category_url": "https://www.coingecko.com/en/categories/decentralized-finance-defi",
+  "page_title": "Top Decentralized Finance (DeFi) Coins by Market Cap | CoinGecko",
+  "coin_urls_count": 35,
+  "coin_urls_sample": [
+    "https://www.coingecko.com/en/coins/lido-staked-ether",
+    "https://www.coingecko.com/en/coins/hyperliquid",
+    "https://www.coingecko.com/en/coins/wrapped-steth",
+    "https://www.coingecko.com/en/coins/chainlink",
+    "https://www.coingecko.com/en/coins/dai",
+    "https://www.coingecko.com/en/coins/rain",
+    "https://www.coingecko.com/en/coins/uniswap",
+    "https://www.coingecko.com/en/coins/sky",
+    "https://www.coingecko.com/en/coins/aster-2",
+    "https://www.coingecko.com/en/coins/aave",
+    "https://www.coingecko.com/en/coins/ondo",
+    "https://www.coingecko.com/en/coins/morpho",
+    "https://www.coingecko.com/en/coins/syrup-usdc",
+    "https://www.coingecko.com/en/coins/jupiter-perpetuals-liquidity-provider-token",
+    "https://www.coingecko.com/en/coins/ethena"
+  ],
+  "ranked_count": 1,
+  "ranked_top10": [
+    {
+      "rank": 7,
+      "name": "Days Lido Staked Ether",
+      "symbol": "STETH",
+      "price_text": "2,300.85"
+    }
+  ]
+}

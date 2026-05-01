@@ -1,0 +1,112 @@
+{
+  "page_title": "Cryptocurrency Prices, Charts, and Crypto Market Cap | CoinGecko",
+  "body_length": 10923,
+  "coin_urls_found": 56,
+  "coin_urls": [
+    "https://www.coingecko.com/en/coins/megaeth",
+    "https://www.coingecko.com/en/coins/solidus-ai-tech",
+    "https://www.coingecko.com/en/coins/unibase",
+    "https://www.coingecko.com/en/coins/build-on",
+    "https://www.coingecko.com/en/coins/riv-coin",
+    "https://www.coingecko.com/en/coins/bitcoin",
+    "https://www.coingecko.com/en/coins/ethereum",
+    "https://www.coingecko.com/en/coins/tether",
+    "https://www.coingecko.com/en/coins/xrp",
+    "https://www.coingecko.com/en/coins/bnb",
+    "https://www.coingecko.com/en/coins/usdc",
+    "https://www.coingecko.com/en/coins/solana",
+    "https://www.coingecko.com/en/coins/tron",
+    "https://www.coingecko.com/en/coins/figure-heloc",
+    "https://www.coingecko.com/en/coins/dogecoin",
+    "https://www.coingecko.com/en/coins/whitebit",
+    "https://www.coingecko.com/en/coins/usds",
+    "https://www.coingecko.com/en/coins/hyperliquid",
+    "https://www.coingecko.com/en/coins/leo-token",
+    "https://www.coingecko.com/en/coins/cardano",
+    "https://www.coingecko.com/en/coins/bitcoin-cash",
+    "https://www.coingecko.com/en/coins/monero",
+    "https://www.coingecko.com/en/coins/chainlink",
+    "https://www.coingecko.com/en/coins/zcash",
+    "https://www.coingecko.com/en/coins/canton",
+    "https://www.coingecko.com/en/coins/stellar",
+    "https://www.coingecko.com/en/coins/usd1-wlfi",
+    "https://www.coingecko.com/en/coins/dai",
+    "https://www.coingecko.com/en/coins/litecoin",
+    "https://www.coingecko.com/en/coins/avalanche"
+  ],
+  "ranked_extracted": 12,
+  "ranked": [
+    {
+      "rank": 3,
+      "name": "Tether",
+      "symbol": "USDT",
+      "price_text": "0.9998"
+    },
+    {
+      "rank": 6,
+      "name": "USDC",
+      "symbol": "USDC",
+      "price_text": "0.9997"
+    },
+    {
+      "rank": 12,
+      "name": "USDS",
+      "symbol": "USDS",
+      "price_text": "0.9998"
+    },
+    {
+      "rank": 26,
+      "name": "Ethena USDe",
+      "symbol": "USDE",
+      "price_text": "0.9992"
+    },
+    {
+      "rank": 32,
+      "name": "PayPal USD",
+      "symbol": "PYUSD",
+      "price_text": "1"
+    },
+    {
+      "rank": 38,
+      "name": "Global Dollar",
+      "symbol": "USDG",
+      "price_text": "0.9999"
+    },
+    {
+      "rank": 46,
+      "name": "Falcon USD",
+      "symbol": "USDF",
+      "price_text": "0.9965"
+    },
+    {
+      "rank": 53,
+      "name": "Ripple USD",
+      "symbol": "RLUSD",
+      "price_text": "0.9998"
+    },
+    {
+      "rank": 54,
+      "name": "USDD",
+      "symbol": "USDD",
+      "price_text": "0.9998"
+    },
+    {
+      "rank": 57,
+      "name": "Ondo US Dollar Yield",
+      "symbol": "USDY",
+      "price_text": "1.13"
+    },
+    {
+      "rank": 60,
+      "name": "BFUSD",
+      "symbol": "BFUSD",
+      "price_text": "0.999"
+    },
+    {
+      "rank": 93,
+      "name": "USDtb",
+      "symbol": "USDTB",
+      "price_text": "0.9995"
+    }
+  ]
+}
