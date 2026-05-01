@@ -34,15 +34,176 @@
   },
   {
     "step": "body_before_send",
-    "length": 1125
+    "length": 2211
   },
   {
     "step": "send_enter",
     "success": true
   },
   {
-    "step": "answer_detected",
-    "wait_ms": 6021,
-    "body_growth": 187
+    "step": "poll",
+    "elapsed_ms": 2011,
+    "body_length": 2286,
+    "stable_for_ms": 0,
+    "still_thinking": true
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 4017,
+    "body_length": 2282,
+    "stable_for_ms": 0,
+    "still_thinking": true
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 6033,
+    "body_length": 2282,
+    "stable_for_ms": 2016,
+    "still_thinking": true
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 8046,
+    "body_length": 2294,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 10055,
+    "body_length": 2294,
+    "stable_for_ms": 2009,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 12074,
+    "body_length": 2292,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 14084,
+    "body_length": 2297,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 16101,
+    "body_length": 2296,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 18105,
+    "body_length": 2295,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 20117,
+    "body_length": 2296,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 22129,
+    "body_length": 2292,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 24140,
+    "body_length": 2292,
+    "stable_for_ms": 2011,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 26142,
+    "body_length": 2296,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 28147,
+    "body_length": 2298,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 30156,
+    "body_length": 2298,
+    "stable_for_ms": 2009,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 32278,
+    "body_length": 2298,
+    "stable_for_ms": 4131,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 34307,
+    "body_length": 2785,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 36319,
+    "body_length": 3328,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 38334,
+    "body_length": 3328,
+    "stable_for_ms": 2015,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 40345,
+    "body_length": 3502,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 42351,
+    "body_length": 3502,
+    "stable_for_ms": 2006,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 44366,
+    "body_length": 3502,
+    "stable_for_ms": 4021,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 46380,
+    "body_length": 3502,
+    "stable_for_ms": 6035,
+    "still_thinking": false
+  },
+  {
+    "step": "answer_captured",
+    "total_wait_ms": 46381,
+    "answer_length": 1276
   }
 ]

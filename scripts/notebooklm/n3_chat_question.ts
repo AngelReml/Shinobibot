@@ -116,36 +116,69 @@ async function main() {
   // Esperar respuesta del modelo. NotebookLM tarda 5-30s típicamente.
   // Estrategia: poll cada 3s hasta 45s, comparando longitud del body
   let answer = '';
-  let attemptsBodyGrew = 0;
   const startTime = Date.now();
-  const maxWaitMs = 45000;
+  const maxWaitMs = 90000;  // hasta 90s, NotebookLM puede tardar
+  const stabilityWindowMs = 6000;  // body estable durante 6s = respuesta terminada
+  const pollIntervalMs = 2000;
+  
+  let lastBodyLength = bodyBefore.length;
+  let lastChangeTime = Date.now();
+  let everGrew = false;
+  
+  // Indicadores de "todavía está pensando" — si están presentes, NO terminar aún
+  const thinkingIndicators = ['Pensando...', 'Thinking...', 'Processing material...', 'Procesando'];
   
   while (Date.now() - startTime < maxWaitMs) {
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(pollIntervalMs);
     const bodyNow = await page.evaluate(() => ((document.body as any).innerText || '').replace(/\s+/g, ' ').trim());
     
-    if (bodyNow.length > bodyBefore.length + 50) {
-      attemptsBodyGrew++;
-      // Si el body creció y se mantuvo creciendo un par de polls, asumimos que terminó
-      if (attemptsBodyGrew >= 2) {
-        // Localizar la respuesta: lo nuevo después de la pregunta
-        const qIdx = bodyNow.lastIndexOf(QUESTION);
-        if (qIdx >= 0) {
-          answer = bodyNow.substring(qIdx + QUESTION.length).trim();
-          // Limitar a algo razonable
-          if (answer.length > 3000) answer = answer.slice(0, 3000) + '...[truncated]';
-        } else {
-          // Fallback: lo nuevo respecto a antes
-          answer = bodyNow.substring(bodyBefore.length).trim().slice(0, 3000);
-        }
-        log.push({ step: 'answer_detected', wait_ms: Date.now() - startTime, body_growth: bodyNow.length - bodyBefore.length });
-        break;
+    if (bodyNow.length !== lastBodyLength) {
+      lastBodyLength = bodyNow.length;
+      lastChangeTime = Date.now();
+      if (bodyNow.length > bodyBefore.length + 50) everGrew = true;
+    }
+    
+    const stableFor = Date.now() - lastChangeTime;
+    const stillThinking = thinkingIndicators.some(ind => bodyNow.includes(ind));
+    
+    log.push({
+      step: 'poll',
+      elapsed_ms: Date.now() - startTime,
+      body_length: bodyNow.length,
+      stable_for_ms: stableFor,
+      still_thinking: stillThinking
+    });
+    
+    // Condición de éxito: body creció en algún momento, está estable por >stabilityWindowMs, y no hay indicadores de "pensando"
+    if (everGrew && stableFor >= stabilityWindowMs && !stillThinking) {
+      const qIdx = bodyNow.lastIndexOf(QUESTION);
+      if (qIdx >= 0) {
+        answer = bodyNow.substring(qIdx + QUESTION.length).trim();
+      } else {
+        answer = bodyNow.substring(bodyBefore.length).trim();
       }
+      // Limpiar indicadores de UI residuales
+      for (const ind of thinkingIndicators) {
+        answer = answer.split(ind).join('').trim();
+      }
+      // Limpiar disclaimers comunes
+      answer = answer.replace(/NotebookLM puede ofrecer respuestas inexactas\.?\s*Compru[eé]balas\.?/gi, '').trim();
+      answer = answer.replace(/El historial de chat ahora se guarda[^.]*\./gi, '').trim();
+      
+      if (answer.length > 4000) answer = answer.slice(0, 4000) + '...[truncated]';
+      log.push({ step: 'answer_captured', total_wait_ms: Date.now() - startTime, answer_length: answer.length });
+      break;
     }
   }
   
   if (!answer) {
-    log.push({ step: 'answer_timeout', wait_ms: Date.now() - startTime });
+    // Captura el body final aunque no haya estabilizado
+    const finalBody = await page.evaluate(() => ((document.body as any).innerText || '').replace(/\s+/g, ' ').trim());
+    const qIdx = finalBody.lastIndexOf(QUESTION);
+    if (qIdx >= 0) {
+      answer = finalBody.substring(qIdx + QUESTION.length).trim().slice(0, 4000);
+    }
+    log.push({ step: 'timeout_or_no_stability', total_wait_ms: Date.now() - startTime, final_body_length: finalBody.length, captured_anyway_length: answer.length });
   }
   
   writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/notebooklm/n3_log.json', JSON.stringify(log, null, 2));
