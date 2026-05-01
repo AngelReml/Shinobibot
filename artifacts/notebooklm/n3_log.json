@@ -1,0 +1,48 @@
+[
+  {
+    "step": "find_page",
+    "url": "https://notebooklm.google.com/notebook/61ac4bed-64b9-4ef2-83a4-6c4fefb07b2a",
+    "success": true
+  },
+  {
+    "step": "input_inventory",
+    "candidates": [
+      {
+        "selector": "textarea",
+        "count": 1,
+        "samples": [
+          {
+            "tag": "textarea",
+            "aria_label": "Cuadro de consulta",
+            "placeholder": "Empieza a escribir...",
+            "text": "",
+            "visible": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "step": "selector_chosen",
+    "selector": "textarea",
+    "reason": "first_visible_input"
+  },
+  {
+    "step": "type_question",
+    "success": true,
+    "question": "Resume el contenido principal del notebook en 3 frases."
+  },
+  {
+    "step": "body_before_send",
+    "length": 1125
+  },
+  {
+    "step": "send_enter",
+    "success": true
+  },
+  {
+    "step": "answer_detected",
+    "wait_ms": 6021,
+    "body_growth": 187
+  }
+]
