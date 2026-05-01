@@ -1,0 +1,4 @@
+{
+  "success": true,
+  "output": "Navigated to: https://example.com\nFinal URL: https://example.com/\nPage title: Example Domain\n[WARNING] Redirected from https://example.com to https://example.com/\n\n--- BODY TEXT (127 chars) ---\nExample Domain This domain is for use in documentation examples without needing permission. Avoid use in operations. Learn more\n\n--- LINKS (1) ---\n1. [Learn more] -> https://iana.org/domains/example\n\n--- INTERACTIVE ELEMENTS (0) ---\n"
+}
