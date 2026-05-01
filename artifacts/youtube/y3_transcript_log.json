@@ -1,0 +1,17 @@
+[
+  {
+    "step": "navigate",
+    "success": true,
+    "url": "https://www.youtube.com/watch?v=jB3yKR6bOjQ"
+  },
+  {
+    "step": "click_more",
+    "success": false,
+    "error": "No clickable with text \"more\". Scanned 66 elements."
+  },
+  {
+    "step": "click_transcript",
+    "success": false,
+    "error": "No clickable with text \"transcript\". Scanned 69 elements."
+  }
+]
