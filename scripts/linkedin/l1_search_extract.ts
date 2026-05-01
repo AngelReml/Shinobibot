@@ -2,7 +2,7 @@ import '../../src/tools/index.js';
 import { getTool } from '../../src/tools/tool_registry.js';
 import { writeFileSync } from 'fs';
 
-const KEYWORD = 'wholesale broker excess surplus';
+const KEYWORD = 'wholesale insurance broker';
 const URL = `https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(KEYWORD)}`;
 
 async function main() {
