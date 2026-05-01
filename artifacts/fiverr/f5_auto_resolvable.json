@@ -1,0 +1,24 @@
+{
+  "scanned_text_length": 50244,
+  "total_gig_urls": 0,
+  "patterns_detected": 3,
+  "matches_by_pattern": {
+    "pdf_conversion": 2,
+    "simple_automation": 9,
+    "transcription_basic": 3
+  },
+  "matched_snippets": [
+    {
+      "pattern": "pdf_conversion",
+      "snippet": "son%20ocr\npage title: fiverr / resultados de búsqueda para \"pdf to json ocr\"\n[warning] redirected from https://www.fiverr.com/search/gigs?query=pdf%20to%20json%20ocr to https://es.fiverr.com/search/gigs?query=pdf%20to%20json%20ocr\n\n--- body text (7369 chars) -"
+    },
+    {
+      "pattern": "simple_automation",
+      "snippet": "rrer_gig_slug=convert-pdf-to-excel-csv-or-json-using-python-automation&ref_ctx_id=998c9916685945d081ed2722fca3ece0&imp_id=78066729-ab0b-4bd3-a3cf-397e9bc8e926\n55. [convertiré pdf a excel csv o json usando automatización en python] -> https://es.fiverr.com/zaid"
+    },
+    {
+      "pattern": "transcription_basic",
+      "snippet": "://es.fiverr.com/simouun?source=gig_cards&referrer_gig_slug=transcribe-long-youtube-or-mp4-to-ai-ready-pdf-for-notebooklm&ref_ctx_id=998c9916685945d081ed2722fca3ece0&imp_id=5cd1409b-cc73-4c3a-9fb5-cab17df4a546\n130. [transcribiré videos largos a pdf, texto o js"
+    }
+  ]
+}
