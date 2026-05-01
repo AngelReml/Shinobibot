@@ -1,1 +1,146 @@
-[]
+[
+  {
+    "display": "Alexander S.",
+    "url": "https://www.linkedin.com/in/alexander-s-82a01b5",
+    "keep_hits": [
+      "broker",
+      "wholesale"
+    ],
+    "reject_hits": [],
+    "classified": "TARGET",
+    "context_window_chars": 600,
+    "context_preview": "siness Advertise People 1st 2nd 3rd+ Locations Current companies Job function Seniority All filters Alexander S. • 2nd Commodity Trader | Crude oil & Petroleum products | Pig iron & Steel Abu Dhabi, A"
+  },
+  {
+    "display": "Aidar Sauranbayev",
+    "url": "https://www.linkedin.com/in/aidar-sauranbayev",
+    "keep_hits": [
+      "broker",
+      "wholesale"
+    ],
+    "reject_hits": [],
+    "classified": "TARGET",
+    "context_window_chars": 600,
+    "context_preview": "abi, Abu Dhabi Emirate, United Arab Emirates Connect Past: Commodity Broker/Trader at Self-employed Aidar Sauranbayev is a mutual connection Derek Powell • 2nd Consultant -SBLC, MTN, Financial Instrum"
+  },
+  {
+    "display": "Derek Powell",
+    "url": "https://www.linkedin.com/in/derek-powell-76865012",
+    "keep_hits": [
+      "broker",
+      "wholesale"
+    ],
+    "reject_hits": [],
+    "classified": "TARGET",
+    "context_window_chars": 600,
+    "context_preview": "tes Connect Past: Commodity Broker/Trader at Self-employed Aidar Sauranbayev is a mutual connection Derek Powell • 2nd Consultant -SBLC, MTN, Financial Instruments, Commodities,etc Greater Hartford Co"
+  },
+  {
+    "display": "Déborah C.",
+    "url": "https://www.linkedin.com/in/d",
+    "keep_hits": [
+      "broker",
+      "wholesale",
+      "agent"
+    ],
+    "reject_hits": [],
+    "classified": "TARGET",
+    "context_window_chars": 600,
+    "context_preview": "f - ...Broker/Lender . No upfront fees. Commercial wholesale conduit/Direct Lender. The Business... Déborah C. • 2nd Finance & Credit Specialist Ninove, Flemish Region, Belgium Connect Past: Credit Co"
+  },
+  {
+    "display": "Lien Cao",
+    "url": "https://www.linkedin.com/in/caolien",
+    "keep_hits": [
+      "broker",
+      "agent"
+    ],
+    "reject_hits": [],
+    "classified": "TARGET",
+    "context_window_chars": 600,
+    "context_preview": "ct Past: Credit Controller at GRENKE AG - ...claim responsible for insurance (total loss, repair... Lien Cao is a mutual connection LinkedIn Member GIA GG/AJP-Certified Life Insurance Broker-Sales Ont"
+  },
+  {
+    "display": "Zhaniya Nakipova",
+    "url": "https://www.linkedin.com/in/zhaniya-nakipova",
+    "keep_hits": [
+      "broker",
+      "agent"
+    ],
+    "reject_hits": [
+      "intern"
+    ],
+    "classified": "EXCLUDE",
+    "context_window_chars": 600,
+    "context_preview": "ario, California, United States Current: Life Insurance Agent at Frontline Financial Strategies LLC Zhaniya Nakipova • 2nd Account Management | Export Sales | Customer Service Export Markets | B2B Sal"
+  },
+  {
+    "display": "Nurlan Shaimerdenov",
+    "url": "https://www.linkedin.com/in/nurlan-shaimerdenov-6784545a",
+    "keep_hits": [
+      "broker"
+    ],
+    "reject_hits": [
+      "underwriting",
+      "intern"
+    ],
+    "classified": "EXCLUDE",
+    "context_window_chars": 600,
+    "context_preview": "| MSc in Economics Almaty, Kazakhstan Connect Past: Insurance Broker at Halyk Insurance Company JSC Nurlan Shaimerdenov and Abylay Tuyakbayev are mutual connections Richard Cardwell • 2nd Internationa"
+  },
+  {
+    "display": "Abylay Tuyakbayev",
+    "url": "https://www.linkedin.com/in/abylay-tuyakbayev-b13332273",
+    "keep_hits": [
+      "broker"
+    ],
+    "reject_hits": [
+      "underwriting",
+      "intern"
+    ],
+    "classified": "EXCLUDE",
+    "context_window_chars": 600,
+    "context_preview": "y, Kazakhstan Connect Past: Insurance Broker at Halyk Insurance Company JSC Nurlan Shaimerdenov and Abylay Tuyakbayev are mutual connections Richard Cardwell • 2nd International Yacht Broker Barcelona"
+  },
+  {
+    "display": "Richard Cardwell",
+    "url": "https://www.linkedin.com/in/richard-cardwell-cardy007",
+    "keep_hits": [
+      "broker"
+    ],
+    "reject_hits": [
+      "underwriting",
+      "intern"
+    ],
+    "classified": "EXCLUDE",
+    "context_window_chars": 600,
+    "context_preview": "ker at Halyk Insurance Company JSC Nurlan Shaimerdenov and Abylay Tuyakbayev are mutual connections Richard Cardwell • 2nd International Yacht Broker Barcelona, Catalonia, Spain Follow Current: Yacht "
+  },
+  {
+    "display": "Kate Zimina",
+    "url": "https://www.linkedin.com/in/kateuidesign",
+    "keep_hits": [
+      "broker"
+    ],
+    "reject_hits": [
+      "underwriter",
+      "underwriting"
+    ],
+    "classified": "EXCLUDE",
+    "context_window_chars": 600,
+    "context_preview": "ona, Catalonia, Spain Follow Current: Yacht Broker at Network Yacht Brokers Barcelona 14K followers Kate Zimina is a mutual connection LinkedIn Member Insurance Professional | Mid-Market Clients | Und"
+  },
+  {
+    "display": "Inés Pérez López",
+    "url": "https://www.linkedin.com/in/in",
+    "keep_hits": [
+      "broker"
+    ],
+    "reject_hits": [
+      "underwriter"
+    ],
+    "classified": "EXCLUDE",
+    "context_window_chars": 600,
+    "context_preview": "r Management Expert Ogun State, Nigeria Current: State Representative at Pro-risk Insurance Brokers Inés Pérez López • 3rd+ Casualty Underwriter at Berkshire Hattaway Specialty Insurance Greater Madri"
+  }
+]
