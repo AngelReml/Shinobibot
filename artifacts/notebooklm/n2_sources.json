@@ -1,0 +1,8 @@
+{
+  "strategy_used": "B_click_position",
+  "selector_used": "button[aria-label*=\"proyecto\" i]",
+  "final_url_after_click": "https://notebooklm.google.com/",
+  "page_title": "NotebookLM",
+  "body_length": 1086,
+  "body_preview": "settings PRO Todos Mis cuadernos Cuadernos destacados search add Crear Más recientes arrow_drop_down Cuadernos destacados Título Acciones Historias sobre el progreso, de The Atlantic Cómo construir una vida, de The Atlantic Secretos de los Super Agers Estados Unidos en un mundo cambiante Archivo 1945 Ver todo chevron_right Cuadernos recientes Título Acciones 🗄️ OpenGravity: The Singularity Context Vault Blueprint more_vert 🧠 OpenGravity more_vert 🚀 OpenGravity Project Launch and Deployment Log more_vert 🚫 Sybil Data Gap: Phase 25.1 Blocker Report more_vert 🧬 OpenGravity: Foundational Architecture for Self-Improving Autonomous Runtimes more_vert 📔 Untitled notebook more_vert 📔 Untitled notebook more_vert 🪄 AntiGravity AI Design System and Web Development Guide more_vert 📈 Pez Gordo: AI Decision Engine for Aluminum Procurement more_vert 🏗️ Cortizo AI Strategy and Global MVP Development Roadmap more_vert 📈 The Fractal Blueprint: Mastering Three-Timeframe Trading Strategy more_vert 🚜 Mastering Crypto Riches: Interest Compound and Yield Farming Strategy more_vert"
+}

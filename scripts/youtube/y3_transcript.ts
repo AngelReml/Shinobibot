@@ -14,77 +14,90 @@ async function main() {
     if (urls.length > 0) target = urls[0];
   } catch {}
   
-  if (!target) {
-    target = 'https://www.youtube.com/watch?v=jNQXAC9IVRw';
-  }
+  if (!target) target = 'https://www.youtube.com/watch?v=jNQXAC9IVRw';
   
   const log: any[] = [];
   
   const nav = await search.execute({ query: target });
   log.push({ step: 'navigate', success: nav.success, url: target });
   
-  // Estrategia nueva: clickar por aria-label "More actions" (SVG button)
-  const moreClick = await click.execute({
-    aria_label: 'More actions',
-    url_contains: 'youtube.com/watch',
-    wait_after_ms: 2000
-  });
-  log.push({ step: 'click_more_aria', success: moreClick.success, error: moreClick.error });
-  
-  // Si no encontró "More actions", intentar selector CSS típico de YouTube
-  if (!moreClick.success) {
-    const cssClick = await click.execute({
-      css_selector: 'button[aria-label*="more" i]',
+  // Click "Más acciones" / "More actions" — probar ambos idiomas
+  const moreLabels = ['Más acciones', 'More actions', 'Más opciones', 'More options'];
+  let moreOpened = false;
+  for (const label of moreLabels) {
+    if (moreOpened) break;
+    const r = await click.execute({
+      aria_label: label,
       url_contains: 'youtube.com/watch',
-      wait_after_ms: 2000
+      wait_after_ms: 1500
     });
-    log.push({ step: 'click_more_css', success: cssClick.success, error: cssClick.error });
+    log.push({ step: `click_more_aria_${label}`, success: r.success, error: r.error });
+    if (r.success) moreOpened = true;
   }
   
-  // Click "Show transcript" / "Mostrar transcripción" — buscar por aria-label o texto
+  // Si no, intentar con CSS selector amplio para botón de menú dentro del player
+  if (!moreOpened) {
+    const r = await click.execute({
+      css_selector: 'ytd-menu-renderer button[aria-haspopup]',
+      url_contains: 'youtube.com/watch',
+      wait_after_ms: 1500
+    });
+    log.push({ step: 'click_more_css_menu_renderer', success: r.success, error: r.error });
+    if (r.success) moreOpened = true;
+  }
+  
+  // Click "Mostrar transcripción" / "Show transcript"
+  const transcriptLabels = ['Mostrar transcripción', 'Show transcript', 'Transcripción', 'Transcript'];
   let transcriptOpened = false;
-  const transcriptAria = await click.execute({
-    aria_label: 'Show transcript',
-    url_contains: 'youtube.com/watch',
-    wait_after_ms: 3000
-  });
-  log.push({ step: 'click_transcript_aria', success: transcriptAria.success, error: transcriptAria.error });
-  transcriptOpened = transcriptAria.success;
-  
-  if (!transcriptOpened) {
-    const transcriptText = await click.execute({
-      button_text: 'transcript',
+  for (const label of transcriptLabels) {
+    if (transcriptOpened) break;
+    const r = await click.execute({
+      aria_label: label,
       url_contains: 'youtube.com/watch',
-      wait_after_ms: 3000
+      wait_after_ms: 2500
     });
-    log.push({ step: 'click_transcript_text', success: transcriptText.success, error: transcriptText.error });
-    transcriptOpened = transcriptText.success;
+    log.push({ step: `click_transcript_aria_${label}`, success: r.success, error: r.error });
+    if (r.success) transcriptOpened = true;
   }
   
-  // Scroll para cargar todas las líneas del transcript
+  // Fallback: button_text con varios idiomas
+  if (!transcriptOpened) {
+    for (const txt of ['transcripción', 'transcript', 'Mostrar transcripción']) {
+      if (transcriptOpened) break;
+      const r = await click.execute({
+        button_text: txt,
+        url_contains: 'youtube.com/watch',
+        wait_after_ms: 2500
+      });
+      log.push({ step: `click_transcript_text_${txt}`, success: r.success, error: r.error });
+      if (r.success) transcriptOpened = true;
+    }
+  }
+  
+  // Scroll para cargar todas las líneas
   if (transcriptOpened) {
-    const scrollResult = await scroll.execute({
+    const s = await scroll.execute({
       url_contains: 'youtube.com/watch',
       scroll_count: 3,
       wait_between_ms: 1000
     });
-    log.push({ step: 'scroll_transcript', success: scrollResult.success });
+    log.push({ step: 'scroll_transcript', success: s.success });
   }
   
-  // Re-leer la página para extraer el transcript
+  // Re-leer
   let transcriptText = '';
-  let transcriptLines: string[] = [];
+  let lines: string[] = [];
   if (transcriptOpened) {
-    const reread = await search.execute({ query: target });
-    const body = (reread.output.match(/--- BODY TEXT \([^)]+\) ---\n([\s\S]+?)\n\n---/) || [])[1] || '';
-    transcriptLines = body.match(/\b\d{1,2}:\d{2}(?::\d{2})?\s+[A-Za-zÁ-ÿ0-9][^\n]{0,200}/g) || [];
-    transcriptText = transcriptLines.join('\n');
-    log.push({ step: 'extract_transcript', lines_found: transcriptLines.length });
+    const re = await search.execute({ query: target });
+    const body = (re.output.match(/--- BODY TEXT \([^)]+\) ---\n([\s\S]+?)\n\n---/) || [])[1] || '';
+    lines = body.match(/\b\d{1,2}:\d{2}(?::\d{2})?\s+\S[^\n]{0,200}/g) || [];
+    transcriptText = lines.join('\n');
+    log.push({ step: 'extract_transcript', lines_found: lines.length });
   }
   
   writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/youtube/y3_transcript_log.json', JSON.stringify(log, null, 2));
   writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/youtube/y3_transcript.txt', transcriptText || '[NO TRANSCRIPT EXTRACTED]');
-  console.log(`Y3: transcript_opened=${transcriptOpened} | lines=${transcriptLines.length} | first_line="${transcriptLines[0] || 'N/A'}"`);
+  console.log(`Y3: more_opened=${moreOpened} | transcript_opened=${transcriptOpened} | lines=${lines.length}`);
 }
 
 main().catch(e => { console.error('Y3 ERROR:', e.message); process.exit(1); });
