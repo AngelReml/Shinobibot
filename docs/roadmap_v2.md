@@ -52,8 +52,8 @@ Progreso global
 Estado de los 14 bloques.
 
 #	Bloque	Lado	Estado	Prog.
-B0	Contrato API Shinobi ↔ OpenGravity	CONTRATO	☐ Pendiente	0/5
-B1	Decisión arquitectónica formal (D-015)	META	☐ Pendiente	0/5
+B0	Contrato API Shinobi ↔ OpenGravity	CONTRATO	☒ Cerrado	5/5
+B1	Decisión arquitectónica formal (D-015)	META	☒ Cerrado	5/5
 B2	Switch OpenAI → OpenRouter centralizado	OPENGRAVITY	☐ Pendiente	0/5
 B3	Memoria de OpenClaw integrada en Shinobi	SHINOBI	☐ Pendiente	0/5
 B4	Bridge n8n + workflow piloto + biblioteca	OPENGRAVITY	☐ Pendiente	0/5
@@ -93,8 +93,8 @@ BLOQUE 0 — Definir y documentar el contrato API Shinobi ↔ OpenGravity
 [CONTRATO · ambos lados]
 Bloque #	B0
 Lado	CONTRATO
-Estado	☐ Pendiente
-Pruebas cerradas	0 de 5
+Estado	☒ Cerrado
+Pruebas cerradas	5 de 5
 Dependencias	Ninguna. Es el primer bloque del proyecto.
 
 Objetivo
@@ -127,25 +127,25 @@ Riesgos identificados
 • Cambios incompatibles después rompen clientes. Mitigación: versionado en URL desde día 1.
 
 Pruebas de validación (5 obligatorias para cierre)
-☐ P1: docs/contracts/api_v1.md existe con los 5 endpoints documentados (URL, headers, body, response)
-☐ P2: Test unitario de cliente HTTP en Shinobi mockeando respuestas del kernel
-☐ P3: Llamada real desde Shinobi a OpenGravity local (antes de mover a zapweave.com) con auth válida funciona
-☐ P4: Llamada con auth inválida devuelve 401
-☐ P5: Si OpenGravity está caído, Shinobi cae a modo local sin crashear y avisa al usuario
+☒ P1: docs/contracts/api_v1.md existe con los 5 endpoints documentados (URL, headers, body, response)
+☒ P2: Test unitario de cliente HTTP en Shinobi mockeando respuestas del kernel
+☒ P3: Llamada real desde Shinobi a OpenGravity local (antes de mover a zapweave.com) con auth válida funciona
+☒ P4: Llamada con auth inválida devuelve 401
+☒ P5: Si OpenGravity está caído, Shinobi cae a modo local sin crashear y avisa al usuario
 
 Condición de cierre
 Documento de contrato escrito, cliente HTTP implementado en Shinobi, endpoints implementados en OpenGravity (en modo local, antes de despliegue en zapweave.com), 5 pruebas verdes.
 
 Tareas operativas marcables
-☐ Leer este bloque entero antes de empezar
-☐ Verificar que las dependencias están cerradas
-☐ Crear checkpoint git pre-bloque (en ambos repos si aplica)
-☐ Implementar arquitectura técnica
-☐ Crear o modificar archivos listados
-☐ Ejecutar las 5 pruebas de validación
-☐ Verificar condición de cierre
-☐ Commit con mensaje 'close: BLOQUE 0 — <título>'
-☐ Crear log en docs/sessions/ de la sesión que cerró el bloque
-☐ Marcar bloque como CERRADO en la tabla de Progreso global
+☒ Leer este bloque entero antes de empezar
+☒ Verificar que las dependencias están cerradas
+☒ Crear checkpoint git pre-bloque (en ambos repos si aplica)
+☒ Implementar arquitectura técnica
+☒ Crear o modificar archivos listados
+☒ Ejecutar las 5 pruebas de validación
+☒ Verificar condición de cierre
+☒ Commit con mensaje 'close: BLOQUE 0 — <título>'
+☒ Crear log en docs/sessions/ de la sesión que cerró el bloque
+☒ Marcar bloque como CERRADO en la tabla de Progreso global
 
 (El resto de bloques se procesarán secuencialmente...)
