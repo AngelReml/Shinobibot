@@ -1,63 +1,42 @@
 # Pendientes técnicas
 
-Última actualización: 2026-05-01
+Última actualización: 2026-05-02
 
-## Pendiente 1 — L3 LinkedIn clasificación
+## Pendientes cerradas hoy (2026-05-02)
 
-**Problema:** L3 clasifica perfiles sobre el campo `display` (texto del enlace = nombre de la persona) en vez de sobre el título profesional que vive en el body.
-**Síntoma:** 0 TARGETS clasificados aunque hay perfiles válidos.
-**Fix:** extraer texto contextual al nombre del perfil del body y clasificar sobre eso.
-**Archivo afectado:** `scripts/linkedin/l3_keyword_filter.ts`
+- ~~L3 LinkedIn~~ ✅ — clasifica sobre body context, 5 TARGETS reales
+- ~~U5 Upwork~~ ✅ — distinción CRITICAL vs WEAK
+- ~~C2 CoinGecko~~ ✅ — Theta Network localizado en rank 183
+- ~~Y3 YouTube~~ ✅ — 209 líneas de transcript via expansión de descripción
+- ~~Y4 YouTube~~ ✅ — 13 comments estructurados con scroll lazy
+- ~~N1 NotebookLM~~ ✅ — 17 notebooks via tr.mat-mdc-row
+- ~~N2 NotebookLM~~ ✅ — navegación SPA con clic ordinal funcional
+- ~~N3 NotebookLM~~ ✅ — pregunta enviada y respuesta capturada (1276 chars)
+- ~~N4 NotebookLM~~ ✅ — inventario Audio Overview
+- ~~F1 Fiverr CAPTCHA primera petición~~ ✅ (mitigado con warmup+stealth, validar en uso real prolongado)
 
-## Pendiente 2 — F1 Fiverr CAPTCHA intermitente
+## Pendientes abiertas
 
-**Problema:** Fiverr sirve "It needs a human touch" (PXCR10002539) en la primera petición tras inactividad. F3 pasa minutos después en la misma sesión sin problema.
-**Síntoma:** F1 falla, F2 y F4 caen en cadena.
-**Fix:** retry con espera + warm-up de sesión, o anti-detección real (Reparación 3 anti-bot).
-**Archivos afectados:** `scripts/fiverr/f1_search_gigs.ts`, `src/tools/web_search.ts`
+### P-A — L3 Eje A: filtro obligatorio "insurance"
+**Problema:** L3 con keyword "wholesale insurance broker" trae 5 TARGETS, pero entre ellos aparecen "Commodity Trader", "Commodity Broker", "SBLC/MTN Financial Instruments" — falsos positivos del Eje A. La regla KEEP atrapa cualquier "wholesale broker" sea de seguros o no.
+**Fix:** añadir condición obligatoria de que el contexto contenga "insurance" o "seguros" para clasificar como TARGET.
+**Archivo:** scripts/linkedin/l3_keyword_filter.ts
 
-## Pendiente 3 — U1 Upwork Cloudflare Turnstile
+### P-B — Upwork Cloudflare Turnstile (FUERA DE SCOPE)
+**Problema:** stealth + warmup no rompe Cloudflare Turnstile. Detección a nivel TLS/JA3.
+**Soluciones requeridas (no en scope hoy):**
+- Camoufox (Firefox patcheado anti-detección)
+- patchright o rebrowser-patches (parches a Playwright)
+- Solver pago de Turnstile (2Captcha, CapSolver) ~$3/1000
+- Proxy residencial (datacenter IPs están marcadas)
+**Decisión:** documentado y aparcado. Para Eje A (broker E&S USA) los portales de carrier son B2B internos, no llevan Turnstile. No bloqueante.
 
-**Problema:** mismo patrón que Fiverr. Cloudflare en primera petición. U3 pasa minutos después.
-**Fix:** mismo que pendiente 2.
+### P-C — Eje C nunca arrancado
+**Problema:** cero posts publicados en LinkedIn. Roadmap Fase 0.5 pedía post por cada prueba superada.
+**Estado:** post inaugural de la sesión 2026-05-01 redactado pero no publicado. Crónica de hoy 2026-05-02 (Capa 1+2+3) pendiente de redactar.
+**Fix:** decisión humana — Iván publica al ritmo de trabajo.
 
-## Pendiente 4 — U5 Upwork falso positivo
-
-**Problema:** detector de bloqueo encuentra "captcha" en body de un job real (freelancer escribió "I have already purchased captchas" en su propuesta).
-**Fix:** distinguir captcha en header/title/redirect (real) vs mención en body (legítimo).
-**Archivo afectado:** `scripts/upwork/u5_block_detector.ts`
-
-## Pendiente 5 — Y3 YouTube `browser_click` no soporta SVG/aria-label
-
-**Problema:** botón "More actions" en YouTube es SVG con aria-label, sin texto visible.
-**Fix:** extender `browser_click` para aceptar selector CSS y aria-label, no solo texto.
-**Archivo afectado:** `src/tools/browser_click.ts`
-
-## Pendiente 6 — Y4 YouTube comentarios lazy
-
-**Problema:** YouTube no carga comentarios hasta hacer scroll. Body extraído sin scroll = sin comentarios.
-**Fix:** primitiva nueva `browser_scroll` (scroll N veces, espera carga, re-extrae).
-**Archivo nuevo:** `src/tools/browser_scroll.ts`
-
-## Pendiente 7 — N1-N4 NotebookLM SPA
-
-**Problema:** NotebookLM es SPA pura. Notebooks no exponen URLs en `<a href>`. Son elementos interactivos JS.
-**Fix:** Shinobi necesita primitiva para clickar elementos por posición/aria-label/role y extraer la URL resultante post-navegación.
-**Archivos afectados:** `src/tools/browser_click.ts`, `src/tools/web_search.ts`, posibles tools nuevas.
-
-## Pendiente 8 — C2 CoinGecko parsing de tabla
-
-**Problema:** página 2 de ranking carga, regex no parsea filas en rango 101-200 porque CoinGecko usa tabla compleja con rank no en texto plano lineal.
-**Fix:** parser específico de tabla CoinGecko, o navegar por buscador (`/search`) en vez de paginación.
-**Archivo afectado:** `scripts/coingecko/c2_position_183.ts`
-
-## Pendiente 9 — Eje C nunca arrancado
-
-Cero posts publicados en LinkedIn. Roadmap original Fase 0.5 pedía post por cada prueba superada.
-
-## Patrón unificado de las pendientes
-
-Las 8 pendientes técnicas se agrupan en 3 patrones:
-- **Patrón A — anti-bot intermitente:** F1, U1
-- **Patrón B — primitivas DOM faltantes:** Y3, Y4, N1-N4, C2 parcial
-- **Patrón C — calibración de heurísticas:** L3, U5
+### P-D — Validación del agente end-to-end
+**Problema:** todas las pruebas hasta ahora han llamado tools directamente desde scripts hardcoded. El orchestrator de Shinobi (gpt-4o + memoria + tool loop) no se ha ejecutado en una misión real con las primitivas nuevas.
+**Fix:** invocar ShinobiOrchestrator.process(input) con una misión real ("busca 5 brokers wholesale de insurance en LinkedIn"), comprobar que elige tools correctas y devuelve resultado.
+**Próxima sesión.**
