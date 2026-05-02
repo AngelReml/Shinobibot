@@ -1,8 +1,103 @@
 {
-  "body_length": 3367,
-  "comment_section_found": false,
-  "comment_section_offset": -1,
-  "unique_commenters_detected": [],
-  "commenter_count": 0,
-  "comments_region_preview": ""
+  "page_url": "https://www.youtube.com/watch?v=eOI7WQIEX1Y",
+  "comment_section_found": true,
+  "header_count_text": "6432 comentarios",
+  "total_threads_in_dom": 13,
+  "comments_extracted": 13,
+  "comments": [
+    {
+      "author": "@rosaservin6182",
+      "content": "Querido Javi soy una anciana de casi  80 años y a mí eso de la ciencia siempre fue muy difícil de comprender pero contigo flipo , tu pasión al explicar cosas complejas es maravillosa y me has abierto a mi edad un mundo extraordinario Gracias.",
+      "likes": "4,7 K"
+    },
+    {
+      "author": "@trajan_1802",
+      "content": "Sólo comento para que el algoritmo favorezca a que el video de Javi sea más visto",
+      "likes": "3,8 K"
+    },
+    {
+      "author": "@ismaelcayetano9261",
+      "content": "Como en otras ocasiones, estamos más cerca de \"1984\" que de \"Interstellar\".",
+      "likes": "721"
+    },
+    {
+      "author": "@valentinaduarte8499",
+      "content": "Ojalá no desaparezca, necesitamos más personas que inviten a cuestionar. Me gustó mucho.",
+      "likes": "237"
+    },
+    {
+      "author": "@quierencontexto6039",
+      "content": "Llegue mas rapido que la CIA encontrando a los científicos",
+      "likes": "1,8 K"
+    },
+    {
+      "author": "@BernardoGómez-d6d",
+      "content": "Divulgación científica + Conspiración. Qué delicia.",
+      "likes": "1,1 K"
+    },
+    {
+      "author": "@samueldavidzepeda376",
+      "content": "Me ecnantá como usaste la teoría conspiranoica para dar una clase de ciencia, eres un extraordinario divulgador.",
+      "likes": "808"
+    },
+    {
+      "author": "@polimail1024",
+      "content": "Llama la atención que un ingeniero con tanta inteligencia, organice un atentado tan infantil",
+      "likes": "73"
+    },
+    {
+      "author": "@DiegoGarcia-ol5jm",
+      "content": "Mientras estos 11 científicos morían en Estados Unidos, otros 9 científicos chinos, referentes en IA e investigación militar morían también.. por si quieres ampliar el vídeo. Gracias por tu trabajo!",
+      "likes": "614"
+    },
+    {
+      "author": "@thepuzzle9676",
+      "content": "Un poco de toc que se corte el vídeo en tu frente",
+      "likes": "753"
+    },
+    {
+      "author": "@miglitclay",
+      "content": "despacio cerebrito, me perdi aqui 0:10",
+      "likes": "275"
+    },
+    {
+      "author": "@Alex-yn1bd",
+      "content": "Hablaba de este tema con un amigo que estudia allá y me dijo, cito: \"Lo más probable es que hayan sido otros investigadores, con el recorte de fondos detrás de cada posición hay por lo menos tres personas ansiando que alguien se retire para ocuparlo\"",
+      "likes": "54"
+    },
+    {
+      "author": "@Gerard-d3w",
+      "content": "javi sube la cámara porfa.",
+      "likes": "624"
+    }
+  ],
+  "log": [
+    {
+      "step": "find_page",
+      "url": "https://www.youtube.com/watch?v=eOI7WQIEX1Y"
+    },
+    {
+      "step": "threads_detected_during_scroll",
+      "count": 3,
+      "cycles": 1
+    },
+    {
+      "step": "wait_for_threads_success"
+    },
+    {
+      "step": "comments_section_check",
+      "section_exists": true,
+      "header_text": "6432 comentarios",
+      "total_comment_threads": 4
+    },
+    {
+      "step": "comments_scroll",
+      "cycles": 6
+    },
+    {
+      "step": "extract_comments",
+      "total_in_dom": 13,
+      "extracted": 13
+    }
+  ]
 }
