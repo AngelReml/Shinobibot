@@ -14,6 +14,8 @@ import './cloud_mission.js'; // The new tool to bridge with OpenGravity Cloud
 import './web_search_with_warmup.js';
 import './n8n_invoke.js';
 import './n8n_list_catalog.js';
+import './skill_list.js';
+import './skill_request_generation.js';
 
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 

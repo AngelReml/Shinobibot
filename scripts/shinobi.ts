@@ -6,6 +6,8 @@
 import * as readline from 'readline';
 import { ShinobiOrchestrator } from '../src/coordinator/orchestrator.js';
 import { KernelClient } from '../src/bridge/kernel_client.js';
+import { SkillLoader } from '../src/skills/skill_loader.js';
+import axios from 'axios';
 import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
@@ -40,9 +42,23 @@ async function main() {
   console.log('  /status      - Ver estado del kernel');
   console.log('  /model       - Ver o cambiar modelo LLM (/model <nombre> | auto | list)');
   console.log('  /memory      - Gestionar memoria (/memory recall <q> | store <txt> | stats | forget <id>)');
+  console.log('  /skill       - Gestionar skills (/skill list | approve <id> | list-approved | reload)');
   console.log('');
   
   await checkKernel();
+
+  // Auto-reload previously approved skills
+  try {
+    const r = await SkillLoader.reloadAllApproved();
+    if (r.loaded > 0) console.log(`[Shinobi] Cargadas ${r.loaded} skill(s) aprobadas previamente.`);
+    if (r.errors.length > 0) {
+      console.log(`[Shinobi] ${r.errors.length} skill(s) fallaron al cargar:`);
+      r.errors.forEach(e => console.log('  -', e));
+    }
+  } catch (e: any) {
+    console.log('[Shinobi] Error cargando skills aprobadas:', e.message);
+  }
+
   console.log('');
   
   const prompt = () => {
@@ -127,6 +143,54 @@ async function main() {
         return;
       }
       
+      // Skill commands
+      if (trimmed.startsWith('/skill ')) {
+        const parts = trimmed.split(/\s+/);
+        const sub = parts[1];
+
+        if (sub === 'list') {
+          const baseUrl = process.env.OPENGRAVITY_URL || 'http://localhost:9900';
+          const apiKey = process.env.SHINOBI_API_KEY || '';
+          try {
+            const r = await axios.get(`${baseUrl}/v1/skills/list`, { headers: { 'X-Shinobi-Key': apiKey } });
+            const list = JSON.parse(r.data.output);
+            console.log(`\n${list.length} skill(s):`);
+            for (const s of list) {
+              console.log(`  - ${s.id} | ${s.name} | status=${s.status} | ${s.description.substring(0, 60)}`);
+            }
+          } catch (e: any) { console.log('Error:', e.message); }
+          prompt();
+          return;
+        }
+
+        if (sub === 'approve' && parts[2]) {
+          const result = await SkillLoader.approveAndLoad(parts[2]);
+          console.log(result.success ? `\u2713 ${result.message}` : `\u2717 ${result.message}`);
+          prompt();
+          return;
+        }
+
+        if (sub === 'list-approved') {
+          const files = SkillLoader.listApprovedFiles();
+          console.log(`\n${files.length} skill(s) approved locally:`);
+          files.forEach(f => console.log('  -', f));
+          prompt();
+          return;
+        }
+
+        if (sub === 'reload') {
+          const r = await SkillLoader.reloadAllApproved();
+          console.log(`Loaded ${r.loaded} skills. Errors: ${r.errors.length}`);
+          r.errors.forEach(e => console.log('  -', e));
+          prompt();
+          return;
+        }
+
+        console.log('Usage: /skill list | /skill approve <id> | /skill list-approved | /skill reload');
+        prompt();
+        return;
+      }
+
       // Process request
       console.log('[Engine procesando...]');
       
