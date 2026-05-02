@@ -10,6 +10,12 @@
 - Comet con CDP en :9222, sesiones del usuario reusables
 - Memoria persistente `memory.json`
 
+## Arquitectura (CERRADA - D-015)
+
+- **Decisión formalizada (D-015):** Separación definitiva de Shinobi (cliente local .exe) y OpenGravity (infraestructura cloud).
+- **Contrato API (v1):** Implementado con 5 endpoints (health, swarm, llm, n8n, skills) y cliente HTTP en Shinobi. Auth mediante `X-Shinobi-Key`.
+- Tool `kernel_mission.ts` reemplazada por `cloud_mission.ts`.
+
 ## Capa 1 — Calibración de heurísticas (CERRADA)
 
 - L3 LinkedIn clasifica sobre body context, no solo display. 11 perfiles → 5 TARGETS, 6 EXCLUDED, 0 UNKNOWN con keyword "wholesale insurance broker"
