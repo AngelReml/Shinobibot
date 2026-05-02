@@ -39,6 +39,7 @@ async function main() {
   console.log('  /mode auto   - Modo automático (default)');
   console.log('  /status      - Ver estado del kernel');
   console.log('  /model       - Ver o cambiar modelo LLM (/model <nombre> | auto | list)');
+  console.log('  /memory      - Gestionar memoria (/memory recall <q> | store <txt> | stats | forget <id>)');
   console.log('');
   
   await checkKernel();
@@ -92,6 +93,35 @@ async function main() {
         } else {
           ShinobiOrchestrator.setModel(parts[1]);
           console.log(`Modelo cambiado a: ${parts[1]}`);
+        }
+        prompt();
+        return;
+      }
+      
+      if (trimmed.startsWith('/memory')) {
+        const parts = trimmed.split(' ');
+        const memAction = parts[1];
+        const memArgs = parts.slice(2).join(' ');
+        
+        try {
+          const store = ShinobiOrchestrator.getMemory();
+          if (memAction === 'recall') {
+            const results = await store.recall({ query: memArgs, limit: 5 });
+            console.log('--- Memory Recall ---');
+            results.forEach(r => console.log(`[${r.score.toFixed(2)}] ${r.entry.content}`));
+          } else if (memAction === 'store') {
+            const entry = await store.store(memArgs);
+            console.log(`Saved memory (ID: ${entry.id})`);
+          } else if (memAction === 'stats') {
+            console.log(store.stats());
+          } else if (memAction === 'forget') {
+            const ok = store.forget(memArgs);
+            console.log(ok ? 'Memory forgotten' : 'Memory not found');
+          } else {
+            console.log('Usage: /memory <recall|store|stats|forget> [args]');
+          }
+        } catch (e: any) {
+          console.error('[memory] Error:', e.message);
         }
         prompt();
         return;
