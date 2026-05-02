@@ -14,6 +14,9 @@ export interface LLMChatPayload {
   messages: any[];
   model?: string;
   tools?: any[];
+  tool_choice?: any;
+  temperature?: number;
+  max_tokens?: number;
 }
 
 export interface N8nWorkflowPayload {

@@ -38,6 +38,7 @@ async function main() {
   console.log('  /mode kernel - Forzar modo kernel');
   console.log('  /mode auto   - Modo automático (default)');
   console.log('  /status      - Ver estado del kernel');
+  console.log('  /model       - Ver o cambiar modelo LLM (/model <nombre> | auto | list)');
   console.log('');
   
   await checkKernel();
@@ -72,6 +73,26 @@ async function main() {
       
       if (trimmed === '/status') {
         await checkKernel();
+        prompt();
+        return;
+      }
+
+      if (trimmed.startsWith('/model')) {
+        const parts = trimmed.split(' ');
+        if (parts.length === 1) {
+          console.log(`Modelo activo: ${ShinobiOrchestrator.getModel()}`);
+        } else if (parts[1] === 'auto') {
+          ShinobiOrchestrator.setModel(undefined);
+          console.log('Modelo: auto (default GLM 4.7)');
+        } else if (parts[1] === 'list') {
+          console.log('Modelos recomendados:');
+          console.log('- z-ai/glm-4.7 (default)');
+          console.log('- openai/gpt-4o');
+          console.log('- anthropic/claude-3.5-sonnet');
+        } else {
+          ShinobiOrchestrator.setModel(parts[1]);
+          console.log(`Modelo cambiado a: ${parts[1]}`);
+        }
         prompt();
         return;
       }
