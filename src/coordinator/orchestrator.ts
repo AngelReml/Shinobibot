@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { OpenGravityClient } from '../cloud/opengravity_client.js';
 import { getAllTools, getTool, toOpenAITools } from '../tools/index.js';
 import { Memory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
@@ -17,7 +18,11 @@ export class ShinobiOrchestrator {
   private static memory = new Memory();
   private static contextBuilder = new ContextBuilder();
   private static openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  
+  private static activeModel: string | undefined = undefined;
+
+  static setModel(model: string | undefined) { this.activeModel = model; }
+  static getModel(): string { return this.activeModel || 'default'; }
+
   static setMode(mode: ExecutionMode) {
     this.mode = mode;
     console.log(`[Shinobi] Mode set to: ${mode}`);
@@ -62,6 +67,8 @@ export class ShinobiOrchestrator {
       console.log(`[Shinobi] Let the LLM decide (Iter ${iteration})...`);
 
       try {
+        // [B2-DEPRECATED]
+        /*
         const response = await this.openai.chat.completions.create({
           model: 'gpt-4o',
           messages: currentMessages,
@@ -69,8 +76,22 @@ export class ShinobiOrchestrator {
           tool_choice: 'auto',
           temperature: 0.2,
         });
-
         const responseMessage = response.choices[0].message;
+        */
+
+        const result = await OpenGravityClient.invokeLLM({ 
+          messages: currentMessages, 
+          model: this.activeModel, 
+          tools: openAITools.length > 0 ? openAITools : undefined, 
+          tool_choice: openAITools.length > 0 ? 'auto' : 'none',
+          temperature: 0.2
+        });
+
+        if (!result.success) {
+          throw new Error(`OpenGravity LLM Error: ${result.error}`);
+        }
+
+        const responseMessage = JSON.parse(result.output);
 
         // If the LLM just responds with text, we are done
         if (!responseMessage.tool_calls || responseMessage.tool_calls.length === 0) {
