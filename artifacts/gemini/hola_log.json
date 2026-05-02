@@ -1,0 +1,128 @@
+[
+  {
+    "step": "new_page_opened",
+    "success": true
+  },
+  {
+    "step": "navigate_to_gemini",
+    "url": "https://gemini.google.com/app",
+    "title": "Google Gemini",
+    "body_chars": 192
+  },
+  {
+    "step": "input_inventory",
+    "candidates": [
+      {
+        "selector": "[contenteditable=\"true\"][role=\"textbox\"]",
+        "count": 1,
+        "samples": [
+          {
+            "tag": "div",
+            "aria": "Introduce una petición para Gemini",
+            "placeholder": "",
+            "role": "textbox",
+            "visible": true
+          }
+        ]
+      },
+      {
+        "selector": "div[contenteditable=\"true\"]",
+        "count": 2,
+        "samples": [
+          {
+            "tag": "div",
+            "aria": "Introduce una petición para Gemini",
+            "placeholder": "",
+            "role": "textbox",
+            "visible": true
+          },
+          {
+            "tag": "div",
+            "aria": "",
+            "placeholder": "",
+            "role": "",
+            "visible": false
+          }
+        ]
+      },
+      {
+        "selector": "[role=\"textbox\"]",
+        "count": 1,
+        "samples": [
+          {
+            "tag": "div",
+            "aria": "Introduce una petición para Gemini",
+            "placeholder": "",
+            "role": "textbox",
+            "visible": true
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "step": "selector_chosen",
+    "selector": "[contenteditable=\"true\"][role=\"textbox\"]"
+  },
+  {
+    "step": "type_prompt",
+    "success": true,
+    "method": "contenteditable",
+    "prompt": "hola"
+  },
+  {
+    "step": "body_before_send",
+    "length": 193
+  },
+  {
+    "step": "send_enter",
+    "success": true
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 2004,
+    "body_length": 195,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 4026,
+    "body_length": 224,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 6038,
+    "body_length": 236,
+    "stable_for_ms": 0,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 8054,
+    "body_length": 236,
+    "stable_for_ms": 2016,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 10063,
+    "body_length": 236,
+    "stable_for_ms": 4025,
+    "still_thinking": false
+  },
+  {
+    "step": "poll",
+    "elapsed_ms": 12068,
+    "body_length": 236,
+    "stable_for_ms": 6030,
+    "still_thinking": false
+  },
+  {
+    "step": "answer_captured",
+    "total_wait_ms": 12068,
+    "answer_length": 152
+  }
+]
