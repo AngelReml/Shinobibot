@@ -7,6 +7,8 @@ import * as readline from 'readline';
 import { ShinobiOrchestrator } from '../src/coordinator/orchestrator.js';
 import { KernelClient } from '../src/bridge/kernel_client.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
+import { ResidentLoop } from '../src/runtime/resident_loop.js';
+import { Notifier } from '../src/notifications/notifier.js';
 import axios from 'axios';
 import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -43,7 +45,11 @@ async function main() {
   console.log('  /model       - Ver o cambiar modelo LLM (/model <nombre> | auto | list)');
   console.log('  /memory      - Gestionar memoria (/memory recall <q> | store <txt> | stats | forget <id>)');
   console.log('  /skill       - Gestionar skills (/skill list | approve <id> | list-approved | reload)');
+  console.log('  /resident    - Misiones recurrentes (/resident start|stop|status|add|enable|disable|delete|reset|logs)');
+  console.log('  /notify      - Notificaciones (/notify set <workflow_id> | unset | test)');
   console.log('');
+
+  const residentLoop = new ResidentLoop();
   
   await checkKernel();
 
@@ -189,6 +195,91 @@ async function main() {
         console.log('Usage: /skill list | /skill approve <id> | /skill list-approved | /skill reload');
         prompt();
         return;
+      }
+
+      // Resident commands
+      if (trimmed.startsWith('/resident')) {
+        const parts = trimmed.split(/\s+/);
+        const sub = parts[1];
+
+        if (sub === 'start') {
+          residentLoop.start();
+          console.log('Resident loop started. Use /resident status to monitor.');
+          prompt(); return;
+        }
+        if (sub === 'stop') {
+          residentLoop.stop();
+          console.log('Resident loop stopped.');
+          prompt(); return;
+        }
+        if (sub === 'status') {
+          const list = residentLoop.getStore().list();
+          console.log(`Loop running: ${residentLoop.isRunning()}`);
+          console.log(`Missions: ${list.length}`);
+          for (const m of list) {
+            console.log(`  - ${m.id} | ${m.name} | every ${m.cron_seconds}s | enabled=${m.enabled} | last=${m.last_status || 'never'} | fails=${m.consecutive_failures}`);
+          }
+          prompt(); return;
+        }
+        if (sub === 'add') {
+          const rest = trimmed.substring('/resident add'.length).trim();
+          const match = rest.match(/^"([^"]+)"\s+(\d+)\s+(.+)$/);
+          if (!match) { console.log('Usage: /resident add "name" <cron_seconds> <prompt>'); prompt(); return; }
+          const created = residentLoop.getStore().create({ name: match[1], cron_seconds: Number(match[2]), prompt: match[3] });
+          console.log(`Mission created: ${created.id}`);
+          prompt(); return;
+        }
+        if (sub === 'enable' && parts[2]) {
+          residentLoop.getStore().setEnabled(parts[2], true);
+          console.log('Mission enabled.');
+          prompt(); return;
+        }
+        if (sub === 'disable' && parts[2]) {
+          residentLoop.getStore().setEnabled(parts[2], false);
+          console.log('Mission disabled.');
+          prompt(); return;
+        }
+        if (sub === 'reset' && parts[2]) {
+          residentLoop.getStore().resetFailures(parts[2]);
+          console.log('Failures reset.');
+          prompt(); return;
+        }
+        if (sub === 'delete' && parts[2]) {
+          residentLoop.getStore().delete(parts[2]);
+          console.log('Mission deleted.');
+          prompt(); return;
+        }
+        if (sub === 'logs' && parts[2]) {
+          const logs = residentLoop.getStore().getRecentLogs(parts[2], 5);
+          console.log(`Last ${logs.length} logs for ${parts[2]}:`);
+          for (const l of logs) console.log(`  [${l.started_at}] ${l.status} | ${(l.output || l.error || '').substring(0, 200)}`);
+          prompt(); return;
+        }
+        console.log('Usage: /resident start | stop | status | add "name" <secs> <prompt> | enable <id> | disable <id> | delete <id> | reset <id> | logs <id>');
+        prompt(); return;
+      }
+
+      // Notify commands
+      if (trimmed.startsWith('/notify')) {
+        const parts = trimmed.split(/\s+/);
+        const sub = parts[1];
+        if (sub === 'set' && parts[2]) {
+          Notifier.setWorkflow(parts[2]);
+          console.log(`Notifier configured to use workflow: ${parts[2]}`);
+          prompt(); return;
+        }
+        if (sub === 'unset') {
+          Notifier.setWorkflow(null);
+          console.log('Notifier disabled (will only print to console).');
+          prompt(); return;
+        }
+        if (sub === 'test') {
+          const r = await Notifier.send({ level: 'info', title: 'Test notification', body: 'Hola desde Shinobi.' });
+          console.log(`Test send: ${r.success ? 'OK' : 'FAILED — ' + r.error}`);
+          prompt(); return;
+        }
+        console.log('Usage: /notify set <workflow_id> | /notify unset | /notify test');
+        prompt(); return;
       }
 
       // Process request
