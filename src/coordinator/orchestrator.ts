@@ -3,6 +3,7 @@ import { OpenGravityClient } from '../cloud/opengravity_client.js';
 import { getAllTools, getTool, toOpenAITools } from '../tools/index.js';
 import { Memory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
+import { MemoryStore } from '../memory/memory_store.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -17,8 +18,11 @@ export class ShinobiOrchestrator {
   private static mode: ExecutionMode = 'kernel';
   private static memory = new Memory();
   private static contextBuilder = new ContextBuilder();
+  private static memoryStore: MemoryStore | null = null;
   private static openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   private static activeModel: string | undefined = undefined;
+
+  static getMemory(): MemoryStore { if (!this.memoryStore) this.memoryStore = new MemoryStore(); return this.memoryStore; }
 
   static setModel(model: string | undefined) { this.activeModel = model; }
   static getModel(): string { return this.activeModel || 'default'; }
@@ -49,6 +53,17 @@ export class ShinobiOrchestrator {
 
   private static async executeToolLoop(input: string): Promise<any> {
     let currentMessages = await this.contextBuilder.buildMessages(input);
+
+    const userQuery = currentMessages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
+    if (userQuery && typeof userQuery === 'string') {
+      try {
+        const memSection = await ShinobiOrchestrator.getMemory().buildContextSection(userQuery, 1500);
+        if (memSection) {
+          currentMessages = [{ role: 'system', content: memSection } as any, ...currentMessages];
+        }
+      } catch (e) { console.error('[memory] context build failed:', (e as Error).message); }
+    }
+
     const modeHint = this.buildModeHint();
     if (modeHint) {
       currentMessages = [{ role: 'system', content: modeHint }, ...currentMessages];
