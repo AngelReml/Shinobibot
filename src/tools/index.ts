@@ -10,7 +10,7 @@ import './web_search.js';
 import './browser_click.js';
 import './browser_scroll.js';
 import './browser_click_position.js';
-import './kernel_mission.js'; // The new tool to bridge with OpenGravity Kernel
+import './cloud_mission.js'; // The new tool to bridge with OpenGravity Cloud
 import './web_search_with_warmup.js';
 
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
