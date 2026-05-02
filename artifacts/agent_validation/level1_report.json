@@ -1,0 +1,15 @@
+{
+  "mission": "Lista las primeras 5 criptomonedas del top ranking de CoinGecko (https://www.coingecko.com). Para cada una devuelve: rank, nombre, símbolo y precio si lo encuentras. Devuelve la respuesta estructurada en JSON.",
+  "mode": "local",
+  "elapsed_ms": 16170,
+  "elapsed_seconds": 16,
+  "success": true,
+  "error": null,
+  "result_type": "object",
+  "result_raw": {
+    "verdict": "VALID_AGENT",
+    "mode": "local",
+    "response": "```json\n[\n    {\n        \"rank\": 1,\n        \"name\": \"Bitcoin\",\n        \"symbol\": \"BTC\",\n        \"price\": \"$78,314.10\"\n    },\n    {\n        \"rank\": 2,\n        \"name\": \"Ethereum\",\n        \"symbol\": \"ETH\",\n        \"price\": \"$2,305.39\"\n    },\n    {\n        \"rank\": 3,\n        \"name\": \"Tether\",\n        \"symbol\": \"USDT\",\n        \"price\": \"$0.9998\"\n    },\n    {\n        \"rank\": 4,\n        \"name\": \"XRP\",\n        \"symbol\": \"XRP\",\n        \"price\": \"$1.39\"\n    },\n    {\n        \"rank\": 5,\n        \"name\": \"BNB\",\n        \"symbol\": \"BNB\",\n        \"price\": \"$615.94\"\n    }\n]\n```"
+  },
+  "result_preview": "{\"verdict\":\"VALID_AGENT\",\"mode\":\"local\",\"response\":\"```json\\n[\\n    {\\n        \\\"rank\\\": 1,\\n        \\\"name\\\": \\\"Bitcoin\\\",\\n        \\\"symbol\\\": \\\"BTC\\\",\\n        \\\"price\\\": \\\"$78,314.10\\\"\\n    },\\n    {\\n        \\\"rank\\\": 2,\\n        \\\"name\\\": \\\"Ethereum\\\",\\n        \\\"symbol\\\": \\\"ETH\\\",\\n        \\\"price\\\": \\\"$2,305.39\\\"\\n    },\\n    {\\n        \\\"rank\\\": 3,\\n        \\\"name\\\": \\\"Tether\\\",\\n        \\\"symbol\\\": \\\"USDT\\\",\\n        \\\"price\\\": \\\"$0.9998\\\"\\n    },\\n    {\\n        \\\"rank\\\": 4,\\n        \\\"name\\\": \\\"XRP\\\",\\n        \\\"symbol\\\": \\\"XRP\\\",\\n        \\\"price\\\": \\\"$1.39\\\"\\n    },\\n    {\\n        \\\"rank\\\": 5,\\n        \\\"name\\\": \\\"BNB\\\",\\n        \\\"symbol\\\": \\\"BNB\\\",\\n        \\\"price\\\": \\\"$615.94\\\"\\n    }\\n]\\n```\"}"
+}
