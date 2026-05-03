@@ -8,13 +8,17 @@
     "shinobi": "dist/scripts/shinobi.js"
   },
   "pkg": {
+    "scripts": [
+      "dist/**/*.js"
+    ],
     "assets": [
-      "dist/**/*.js",
       "node_modules/better-sqlite3/build/Release/*.node",
       "node_modules/better-sqlite3/prebuilds/**/*",
       "node_modules/sqlite-vec/**/*"
     ],
-    "targets": ["node18-win-x64"],
+    "targets": [
+      "node22-win-x64"
+    ],
     "outputPath": "build"
   },
   "scripts": {
@@ -36,7 +40,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.0.0",
-    "pkg": "^5.8.1",
+    "@yao-pkg/pkg": "^6.19.0",
     "ts-node": "^10.9.0",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0"
