@@ -1,4 +1,6 @@
-import Database from 'better-sqlite3';
+import { createRequire } from 'node:module';
+const requireFn = createRequire(typeof __filename !== 'undefined' ? __filename : import.meta.url);
+const Database = requireFn('better-sqlite3');
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
