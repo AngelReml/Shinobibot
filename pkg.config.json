@@ -1,0 +1,19 @@
+{
+  "name": "shinobi",
+  "main": "dist/scripts/shinobi.js",
+  "bin": {
+    "shinobi": "dist/scripts/shinobi.js"
+  },
+  "pkg": {
+    "scripts": [
+      "dist/**/*.js"
+    ],
+    "assets": [
+      "node_modules/better-sqlite3/build/Release/*.node",
+      "node_modules/better-sqlite3/prebuilds/**/*",
+      "node_modules/sqlite-vec/**/*"
+    ],
+    "targets": ["node18-win-x64"],
+    "outputPath": "build"
+  }
+}
