@@ -16,6 +16,8 @@ import './n8n_invoke.js';
 import './n8n_list_catalog.js';
 import './skill_list.js';
 import './skill_request_generation.js';
+import './screen_observe.js';
+import './screen_act.js';
 
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 
