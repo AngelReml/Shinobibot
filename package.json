@@ -30,6 +30,7 @@
   "author": "AngelReml",
   "license": "ISC",
   "dependencies": {
+    "@nut-tree-fork/nut-js": "^4.2.6",
     "axios": "^1.6.0",
     "better-sqlite3": "^12.9.0",
     "dotenv": "^16.3.0",
