@@ -15,8 +15,58 @@ export interface ShinobiConfig {
   version: string;
 }
 
-function ask(rl: readline.Interface, q: string): Promise<string> {
-  return new Promise(r => rl.question(q, ans => r(ans.trim())));
+class LineReader {
+  private buffer = '';
+  private closed = false;
+  private pending: ((line: string) => void) | null = null;
+  private rl: readline.Interface | null = null;
+
+  constructor() {
+    if (process.stdin.isTTY) {
+      this.rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      this.rl.on('line', line => this.deliver(line));
+      this.rl.on('close', () => { this.closed = true; this.flush(); });
+    } else {
+      process.stdin.setEncoding('utf-8');
+      process.stdin.on('data', chunk => { this.buffer += chunk; this.flush(); });
+      process.stdin.on('end', () => { this.closed = true; this.flush(); });
+    }
+  }
+
+  private deliver(line: string) {
+    if (this.pending) {
+      const r = this.pending; this.pending = null; r(line);
+    } else {
+      this.buffer += line + '\n';
+    }
+  }
+
+  private flush() {
+    if (!this.pending) return;
+    if (this.rl) return;
+    const idx = this.buffer.indexOf('\n');
+    if (idx >= 0) {
+      const line = this.buffer.slice(0, idx).replace(/\r$/, '');
+      this.buffer = this.buffer.slice(idx + 1);
+      const r = this.pending; this.pending = null; r(line);
+    } else if (this.closed) {
+      const line = this.buffer;
+      this.buffer = '';
+      const r = this.pending; this.pending = null; r(line);
+    }
+  }
+
+  ask(q: string): Promise<string> {
+    process.stdout.write(q);
+    return new Promise(resolve => {
+      this.pending = line => resolve(line.trim());
+      this.flush();
+    });
+  }
+
+  close() {
+    if (this.rl) this.rl.close();
+  }
 }
 
 export function configExists(): boolean {
@@ -39,12 +89,12 @@ export async function runFirstRunWizard(): Promise<ShinobiConfig> {
   console.log('This wizard runs only once. It takes 30 seconds.');
   console.log('');
 
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const reader = new LineReader();
 
   // 1. Idioma
   let lang = '';
   while (lang !== 'es' && lang !== 'en') {
-    lang = (await ask(rl, 'Language [es/en] (default: es): ')).toLowerCase() || 'es';
+    lang = (await reader.ask('Language [es/en] (default: es): ')).toLowerCase() || 'es';
     if (lang !== 'es' && lang !== 'en') console.log('  Please type es or en.');
   }
 
@@ -59,18 +109,18 @@ export async function runFirstRunWizard(): Promise<ShinobiConfig> {
   }
   let apiKey = '';
   while (!apiKey || apiKey.length < 5) {
-    apiKey = await ask(rl, lang === 'es' ? 'API key: ' : 'API key: ');
+    apiKey = await reader.ask(lang === 'es' ? 'API key: ' : 'API key: ');
     if (!apiKey || apiKey.length < 5) console.log(lang === 'es' ? '  Clave inválida.' : '  Invalid key.');
   }
 
   // 3. Memory path
   console.log('');
   const defaultMem = path.join(SHINOBI_DIR, 'memory');
-  const memInput = await ask(rl, (lang === 'es' ? 'Carpeta para memoria local' : 'Local memory folder') + ` (default: ${defaultMem}): `);
+  const memInput = await reader.ask((lang === 'es' ? 'Carpeta para memoria local' : 'Local memory folder') + ` (default: ${defaultMem}): `);
   const memoryPath = memInput || defaultMem;
   if (!fs.existsSync(memoryPath)) fs.mkdirSync(memoryPath, { recursive: true });
 
-  rl.close();
+  reader.close();
 
   const config: ShinobiConfig = {
     opengravity_api_key: apiKey,

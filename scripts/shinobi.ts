@@ -19,11 +19,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 config({ path: resolve(__dirname, '../.env') });
 
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout
-});
-
 async function checkKernel(): Promise<boolean> {
   const online = await KernelClient.isOnline();
   if (online) {
@@ -58,6 +53,11 @@ async function main() {
   console.log('  /resident    - Misiones recurrentes (/resident start|stop|status|add|enable|disable|delete|reset|logs)');
   console.log('  /notify      - Notificaciones (/notify set <workflow_id> | unset | test)');
   console.log('');
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
 
   const residentLoop = new ResidentLoop();
   
