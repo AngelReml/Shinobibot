@@ -13,6 +13,7 @@ import axios from 'axios';
 import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import { configExists, loadConfig, runFirstRunWizard } from '../src/runtime/first_run_wizard.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -35,6 +36,15 @@ async function checkKernel(): Promise<boolean> {
 }
 
 async function main() {
+  let config = loadConfig();
+  if (!config) {
+    config = await runFirstRunWizard();
+  }
+  process.env.OPENGRAVITY_URL = config.opengravity_url;
+  process.env.SHINOBI_API_KEY = config.opengravity_api_key;
+  process.env.SHINOBI_LANGUAGE = config.language;
+  process.env.SHINOBI_MEMORY_PATH = config.memory_path;
+
   console.log('\n--- SHINOBIBOT CLI V5 (KERNEL CONNECTED) ---');
   console.log('Escribe tu orden o "exit" para salir.');
   console.log('Comandos especiales:');

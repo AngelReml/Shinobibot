@@ -2,10 +2,20 @@
   "name": "shinobibot",
   "version": "1.0.0",
   "description": "Claude-Soberano Autonomous Agent (JSON Memory Edition)",
-  "main": "dist/index.js",
+  "main": "dist/scripts/shinobi.js",
   "type": "module",
   "bin": {
-    "shinobi": "scripts/shinobi.js"
+    "shinobi": "dist/scripts/shinobi.js"
+  },
+  "pkg": {
+    "assets": [
+      "dist/**/*.js",
+      "node_modules/better-sqlite3/build/Release/*.node",
+      "node_modules/better-sqlite3/prebuilds/**/*",
+      "node_modules/sqlite-vec/**/*"
+    ],
+    "targets": ["node18-win-x64"],
+    "outputPath": "build"
   },
   "scripts": {
     "start": "ts-node src/index.ts",
@@ -26,6 +36,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.0.0",
+    "pkg": "^5.8.1",
     "ts-node": "^10.9.0",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0"
