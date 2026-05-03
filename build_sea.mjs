@@ -16,7 +16,7 @@ try {
     target: 'node22',
     format: 'cjs',
     outfile: BUNDLE_FILE,
-    external: [...Object.keys(JSON.parse(fs.readFileSync('package.json', 'utf8')).dependencies), 'playwright-core', 'chromium-bidi'],
+    external: ['better-sqlite3', 'playwright-core', 'chromium-bidi'],
     banner: {
       js: 'const { createRequire } = require("module"); const require_ = createRequire(__filename); const __importMetaUrl = require("url").pathToFileURL(__filename).href;'
     },
