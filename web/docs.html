@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Docs — Zapweave</title>
+  <meta name="description" content="Cómo instalar Shinobi, pedir tu API key, comandos CLI y FAQ." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="index.html"><span class="dot"></span> Zapweave</a>
+    <nav class="primary">
+      <a href="index.html">Inicio</a>
+      <a href="precios.html">Precios</a>
+      <a href="catalog.html">Catálogo</a>
+      <a href="docs.html" class="active">Docs</a>
+    </nav>
+  </div>
+</header>
+
+<section style="padding: 64px 0;">
+  <div class="container">
+    <article class="prose">
+
+      <h2 id="instalar">1. Instalar el ejecutable</h2>
+      <p>
+        Shinobi se distribuye como un único <code>.exe</code> para Windows
+        x64. No necesitas Node, Python ni dependencias previas.
+      </p>
+      <ol>
+        <li>Descarga <code>shinobi.exe</code> desde la sección Releases del repo.</li>
+        <li>Cópialo a una carpeta tuya, por ejemplo <code>C:\Users\tunombre\Shinobi\</code>.</li>
+        <li>Abre PowerShell o CMD en esa carpeta y ejecuta <code>shinobi.exe</code>.</li>
+        <li>La primera vez verás un asistente que te pedirá idioma, API key y carpeta de memoria.</li>
+      </ol>
+      <p>
+        Si Windows SmartScreen bloquea el archivo, pulsa "Más información" → "Ejecutar
+        de todos modos". Aún no firmamos el binario.
+      </p>
+
+      <h2 id="api-key">2. Pedir tu API key</h2>
+      <p>
+        Shinobi puede funcionar 100% local con tu propia clave de OpenAI u
+        OpenRouter. Si quieres usar OpenGravity (cloud), necesitas además una
+        clave de Zapweave.
+      </p>
+      <ol>
+        <li>Apúntate en la <a href="index.html#waitlist">lista de espera</a>.</li>
+        <li>Cuando entres en la beta, recibes un email con tu <code>SHINOBI_API_KEY</code>.</li>
+        <li>El asistente del primer arranque la pedirá; si ya está corriendo,
+            escribe <code>shinobi config set api_key &lt;tu-key&gt;</code>.</li>
+      </ol>
+
+      <h2 id="cli">3. Comandos CLI</h2>
+      <p>Comandos básicos (los más usados primero):</p>
+      <pre><code>shinobi                          # arranca el modo interactivo
+shinobi "investiga canales de productividad en inglés con +500k subs"
+shinobi mode local               # solo local, ignora OpenGravity
+shinobi mode kernel              # delega misiones grandes a OpenGravity
+shinobi memory show              # ver memoria persistente
+shinobi memory clear             # limpiar memoria
+shinobi config show              # ver configuración actual
+shinobi config set api_key XXX
+shinobi --help                   # ayuda completa</code></pre>
+      <p>
+        Mientras estés dentro del modo interactivo puedes pulsar
+        <code>Ctrl+C</code> para abortar la respuesta en curso y
+        <code>exit</code> para cerrar.
+      </p>
+
+      <h2 id="faq">4. Preguntas frecuentes</h2>
+
+      <details>
+        <summary>¿Mis ideas y búsquedas se suben a la nube?</summary>
+        <p>
+          No por defecto. Shinobi es local: la memoria, los prompts y las
+          transcripciones viven en tu PC. Solo se envía a un LLM externo el
+          texto que ese paso requiere razonar, y solo si has configurado un
+          proveedor de LLM. Si activas OpenGravity (plan Pro / Founders),
+          las misiones cloud sí se ejecutan en nuestra infraestructura,
+          pero tus archivos locales nunca se sincronizan automáticamente.
+        </p>
+      </details>
+
+      <details>
+        <summary>¿Qué LLMs usa Shinobi?</summary>
+        <p>
+          Por defecto OpenAI <code>gpt-4o</code> para razonamiento y
+          <code>gpt-4o-mini</code> para tareas baratas. Para visión, OpenRouter
+          con <code>google/gemini-2.0-flash</code> por coste. Puedes cambiar el
+          proveedor en <code>config</code>; soportamos cualquier endpoint
+          compatible con la API de OpenAI.
+        </p>
+      </details>
+
+      <details>
+        <summary>¿Cómo se cuentan los créditos OpenGravity?</summary>
+        <p>
+          1 crédito ≈ una invocación pequeña de modelo. Las misiones de
+          investigación profunda consumen entre 50 y 500 créditos según
+          duración y modelos elegidos. Los planes Founders y Pro incluyen una
+          cuota mensual amplia para uso normal de un creador; si la superas,
+          puedes recargar paquetes adicionales o esperar al siguiente ciclo.
+          La cuota concreta se confirma cuando OpenGravity sale de beta.
+        </p>
+      </details>
+
+      <details>
+        <summary>¿Cómo cancelo mi suscripción?</summary>
+        <p>
+          Desde tu panel en zapweave.com (botón "Cancelar plan"), o
+          escribiendo a <a href="mailto:hola@zapweave.com">hola@zapweave.com</a>.
+          La cancelación es inmediata y no hay penalización; mantienes el
+          acceso hasta que termine el ciclo ya pagado. Si eras Founders y
+          vuelves más tarde, no se garantiza recuperar el precio bloqueado.
+        </p>
+      </details>
+
+      <details>
+        <summary>¿Qué pasa con mis datos si dejo de pagar o cierro la cuenta?</summary>
+        <p>
+          Tu Shinobi local sigue funcionando: la memoria, los reportes y las
+          plantillas son archivos en tu PC. Lo único que dejará de funcionar
+          es OpenGravity (las misiones cloud) si tu suscripción no está
+          activa. Si pides borrado de cuenta, eliminamos tus datos cloud en
+          un máximo de 30 días.
+        </p>
+      </details>
+
+    </article>
+  </div>
+</section>
+
+<footer class="site-footer">
+  <div class="container">
+    <div>© 2026 Zapweave · <a href="mailto:hola@zapweave.com">hola@zapweave.com</a></div>
+    <div>
+      <a href="index.html">Inicio</a> ·
+      <a href="precios.html">Precios</a> ·
+      <a href="catalog.html">Catálogo</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
