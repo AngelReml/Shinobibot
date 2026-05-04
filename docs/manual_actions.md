@@ -20,6 +20,13 @@ Las 6 skills se cargan correctamente (lint + load 6/6 PASS) pero la **ejecución
 - [ ] `desktop-photoshop-resize-export` — resize 1920x1080 sobre `.png`, validar JPEG resultante
 - [ ] `desktop-chrome-login-and-action` — script trivial: `goto example.com` + `extract h1`. Confirmar que reusa la sesión de Chrome (no aparece pantalla de "first run")
 
+### H1-H5 — Self-recording demos — 2026-05-04
+
+- [ ] Verificar `shinobi demo --task T16` con OBS arrancado (sin `--no-record`): debe abrir OBS si no está, configurar la escena `Shinobi Self-Recording`, grabar el shell, parar y devolver path MP4.
+- [ ] Verificar `shinobi run-demo full-self-improve` con OBS arrancado: la grabación debe contener el spool completo de las 7 tareas narradas.
+- [ ] Confirmar en OBS Studio que `Tools > WebSocket Server Settings` está habilitado en `127.0.0.1:4455` (la primera vez es manual).
+- [ ] **Opcional (H5)**: subtítulos automáticos via Whisper. No incluido en B-bloque por dependencia (Whisper API o whisper.cpp local). Cuando se aborde B3 (voice mode) se podrá enchufar al demo runner por callback.
+
 ## Diferidas (no abordar todavía)
 
 ### Eje B — Inno Setup
