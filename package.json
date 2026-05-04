@@ -1,7 +1,10 @@
 {
   "name": "shinobibot",
   "version": "1.0.0",
-  "description": "Claude-Soberano Autonomous Agent (JSON Memory Edition)",
+  "description": "Shinobi — autonomous Windows-native agent. Public v1.0.0 release.",
+  "homepage": "https://zapweave.com/",
+  "repository": { "type": "git", "url": "git+https://github.com/AngelReml/Shinobibot.git" },
+  "license": "MIT",
   "main": "dist/scripts/shinobi.js",
   "type": "module",
   "bin": {
