@@ -81,6 +81,28 @@ async function maybeRunOneShotCommand(): Promise<boolean> {
     process.exit(0);
   }
 
+  // B2.4/B2.5 — `shinobi update [--check] [--dry-run]`
+  if (argv[0] === 'update') {
+    const { checkForUpdate, renderOffer } = await import('../src/updater/version_check.js');
+    const checkOnly = argv.includes('--check');
+    const dryRun = argv.includes('--dry-run');
+    const offer = await checkForUpdate();
+    if (!offer) { console.log('Already on the latest version (or kernel unreachable).'); process.exit(0); }
+    console.log(renderOffer(offer));
+    if (checkOnly) process.exit(0);
+    const { fetchAndInstall } = await import('../src/updater/install_update.js');
+    const r = await fetchAndInstall({ verbose: true, dryRun });
+    console.log('\n=== update summary ===');
+    console.log(JSON.stringify(r, null, 2));
+    if (!r.ok) process.exit(1);
+    if (!dryRun) {
+      console.log('Installer launched. This Shinobi process will exit in 2s so the new install can replace files.');
+      setTimeout(() => process.exit(0), 2000);
+      return true;
+    }
+    process.exit(0);
+  }
+
   return false;
 }
 
@@ -128,6 +150,15 @@ async function main() {
   } catch (e: any) {
     console.log('[hermes-watcher] disabled:', e?.message ?? e);
   }
+
+  // B2.2/B2.3 — non-blocking update check on startup. Banner only; user runs `shinobi update` to apply.
+  void (async () => {
+    try {
+      const { checkForUpdate, renderOffer } = await import('../src/updater/version_check.js');
+      const offer = await checkForUpdate();
+      if (offer) console.log(renderOffer(offer));
+    } catch { /* silent */ }
+  })();
 
   // Auto-reload previously approved skills
   try {
