@@ -1,0 +1,88 @@
+/* AuditGravity landing — extends the global zapweave styles. */
+.audit-body { background: var(--bg); color: var(--text); }
+
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 32px; background: rgba(10, 10, 11, 0.85); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar .brand { font-weight: 700; letter-spacing: 0.04em; color: var(--text); text-decoration: none; }
+.topbar nav { display: flex; gap: 22px; font-size: 14px; }
+.topbar nav a { color: var(--text-dim); text-decoration: none; }
+.topbar nav a:hover { color: var(--text); }
+.topbar nav a.cta-link { color: var(--accent); }
+
+main { max-width: var(--max-w); margin: 0 auto; padding: 64px 32px 96px; }
+
+.hero { padding: 56px 0 80px; border-bottom: 1px solid var(--border); }
+.hero .eyebrow { color: var(--accent); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 14px; }
+.hero h1 { font-size: 44px; line-height: 1.1; letter-spacing: -0.02em; margin-bottom: 20px; }
+.hero .lead { color: var(--text-dim); font-size: 18px; max-width: 720px; margin-bottom: 28px; }
+.hero .cta-row { display: flex; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+.hero .legal-row { color: var(--text-faint); font-size: 13px; }
+.hero a { color: var(--accent); text-decoration: none; }
+.hero a:hover { text-decoration: underline; }
+
+.btn {
+  display: inline-block; padding: 12px 22px; border-radius: var(--radius);
+  font-weight: 600; font-size: 15px; text-decoration: none; border: 1px solid transparent;
+  transition: background 0.12s, border-color 0.12s;
+}
+.btn.primary { background: var(--accent); color: #0a0a0b; }
+.btn.primary:hover { background: var(--accent-hover); }
+.btn.secondary { background: transparent; color: var(--text); border-color: var(--border-strong); }
+.btn.secondary:hover { border-color: var(--text-dim); }
+
+.section { padding: 64px 0; border-bottom: 1px solid var(--border); }
+.section h2 { font-size: 28px; letter-spacing: -0.01em; margin-bottom: 12px; }
+.section-lead { color: var(--text-dim); margin-bottom: 36px; max-width: 720px; }
+
+.diagram { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 16px; align-items: stretch; }
+.diagram .step { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; }
+.diagram .step.accent { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(124, 92, 255, 0.2); }
+.diagram .step h3 { font-size: 16px; margin: 8px 0 8px; }
+.diagram .step p { color: var(--text-dim); font-size: 14px; }
+.diagram .step .step-num {
+  display: inline-block; width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent); color: #0a0a0b; font-weight: 700; font-size: 13px;
+  text-align: center; line-height: 26px;
+}
+.diagram .arrow { color: var(--text-faint); align-self: center; font-size: 22px; }
+@media (max-width: 860px) {
+  .diagram { grid-template-columns: 1fr; }
+  .diagram .arrow { transform: rotate(90deg); justify-self: center; }
+}
+
+.cases { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.cases li { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.cases h3 { font-size: 15px; margin-bottom: 8px; color: var(--text); }
+.cases p { color: var(--text-dim); font-size: 14px; }
+
+.compat { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.compat li { color: var(--text-dim); font-size: 14px; padding: 10px 14px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; }
+.compat strong { color: var(--text); }
+.compat code { background: var(--bg-elev-2); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+
+.pricing-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; max-width: 720px; }
+.pricing-headline { font-weight: 700; font-size: 18px; margin-bottom: 10px; color: var(--text); }
+.pricing-card p { color: var(--text-dim); margin-bottom: 12px; }
+.pricing-card .btn { margin-top: 8px; }
+
+.section-form { padding-bottom: 96px; }
+.demo-form { display: grid; gap: 14px; max-width: 560px; }
+.demo-form label { display: grid; gap: 6px; font-size: 13px; color: var(--text-dim); }
+.demo-form input, .demo-form textarea, .demo-form select {
+  background: var(--bg-elev); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; font: inherit;
+}
+.demo-form input:focus, .demo-form textarea:focus, .demo-form select:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.demo-form .checkbox { display: flex; gap: 8px; align-items: flex-start; }
+.demo-form .checkbox input { width: auto; }
+.demo-form .form-hint { font-size: 13px; color: var(--text-faint); }
+.demo-form .form-hint a { color: var(--accent); }
+
+.audit-foot { color: var(--text-faint); padding: 32px; text-align: center; font-size: 13px; border-top: 1px solid var(--border); }
+.audit-foot a { color: var(--text-dim); text-decoration: none; }
+.audit-foot a:hover { color: var(--text); }

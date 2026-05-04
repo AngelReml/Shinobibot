@@ -40,6 +40,9 @@ Las 6 skills se cargan correctamente (lint + load 6/6 PASS) pero la **ejecución
 - [ ] Comprar `auditgravity.com` (RDAP libre al 2026-05-04, ver `docs/decisions/D1_naming.md`).
 - [ ] Reservar handle GitHub `auditgravity` (libre al 2026-05-04).
 - [ ] Configurar DNS de `audit.zapweave.com` apuntando al frontend cuando D3 esté desplegado.
+  - Opción A (recomendada): añadir un CNAME `audit` → `<tu-host-de-redirect>` y configurar redirect 301 a `https://zapweave.com/audit/`. GitHub Pages sólo sirve un único custom domain por repo, así que la landing real ya está accesible en `zapweave.com/audit/` tras el deploy de la PR D3.
+  - Opción B: alojar `audit.zapweave.com` en otro static host (Cloudflare Pages, Netlify) apuntando a la misma carpeta `web/audit/`.
+- [ ] Crear formulario Formspree para la landing AuditGravity y reemplazar `REPLACE_FORMSPREE_AUDIT` en `web/audit/index.html`.
 
 ### Eje D — publicación SDKs
 - [ ] Publicar `agentaudit-py` en PyPI con credenciales personales.

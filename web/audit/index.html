@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AuditGravity — verifiable forensic audit for autonomous agents</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="AuditGravity runs verifiable benchmarks against your AI agent and emits hash-chained audit verdicts. Built for compliance, not dashboards." />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="audit.css" />
+</head>
+<body class="audit-body">
+  <header class="topbar">
+    <a class="brand" href="/">zapweave</a>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#cases">Use cases</a>
+      <a href="#compat">Compatibility</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#demo" class="cta-link">Request demo</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <p class="eyebrow">Compliance-grade verification for AI agents</p>
+      <h1>Forensic audit for your agents.<br/>Hash-chained. Reproducible. Vendor-neutral.</h1>
+      <p class="lead">
+        AuditGravity runs benchmarks against your existing agent — wherever it runs — and produces signed verdicts your CISO, regulator, or enterprise customer can verify themselves.
+        <br/>Not a dashboard. Not an eval framework. <strong>Evidence.</strong>
+      </p>
+      <div class="cta-row">
+        <a href="#demo" class="btn primary">Request a demo</a>
+        <a href="#how" class="btn secondary">See the architecture</a>
+      </div>
+      <p class="legal-row">
+        Built on the open-source <a href="https://github.com/AngelReml/shinobi-bench" target="_blank" rel="noopener">shinobi-bench</a> standard.
+        SHA-256 ledger. MIT-licensed verifiers.
+      </p>
+    </section>
+
+    <section id="how" class="section">
+      <h2>How it works</h2>
+      <p class="section-lead">Your agent stays where it is. We run tasks against it, verify the output deterministically, and write each verdict into an immutable hash chain.</p>
+      <div class="diagram">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Your agent</h3>
+          <p>OpenAI-compatible HTTP endpoint, Hermes/Shinobi runtime, or anything that speaks JSON. We never touch your model weights.</p>
+        </div>
+        <div class="arrow">→</div>
+        <div class="step accent">
+          <div class="step-num">2</div>
+          <h3>AuditGravity kernel</h3>
+          <p>Runs <code>shinobi-bench</code> public tasks plus your private bench. Each call: deterministic verifier → PASS / FAIL.</p>
+        </div>
+        <div class="arrow">→</div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>Signed verdict</h3>
+          <p>Every result lands in a SHA-256 chain (<code>genesis → entry_n</code>). You can recompute the hash locally — no trust in us required.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="cases" class="section">
+      <h2>Where it earns its budget</h2>
+      <ul class="cases">
+        <li>
+          <h3>Banking &amp; finance</h3>
+          <p>Audit KYC/AML/credit-scoring agents. Generate monthly compliance reports your regulator can recompute.</p>
+        </li>
+        <li>
+          <h3>Healthcare</h3>
+          <p>Verifiable triage / coding agents under HIPAA + EU AI Act. Defense for malpractice, evidence for FDA/CE filings.</p>
+        </li>
+        <li>
+          <h3>Legal</h3>
+          <p>Catch hallucinated citations before they reach a brief. Sign every generated document with a verdict + chain.</p>
+        </li>
+        <li>
+          <h3>Government</h3>
+          <p>Annex IV-compatible audit logs for high-risk AI systems under the EU AI Act.</p>
+        </li>
+        <li>
+          <h3>SaaS B2B</h3>
+          <p>Ship "verifiable AI" as a feature. Close enterprise deals that today die in the security review.</p>
+        </li>
+      </ul>
+    </section>
+
+    <section id="compat" class="section">
+      <h2>Compatibility</h2>
+      <p class="section-lead">If your agent talks HTTP or speaks an OpenAI-compatible API, we audit it.</p>
+      <ul class="compat">
+        <li><strong>Hermes</strong> — native runtime support via <code>shinobi import hermes</code></li>
+        <li><strong>Shinobi</strong> — native; ships with the agentskills.io catalog</li>
+        <li><strong>Claude Code / Claude API</strong> — auditable via OpenAI-compat proxy</li>
+        <li><strong>OpenAI Codex / ChatGPT API</strong> — same proxy</li>
+        <li><strong>OpenAI Operator</strong> — webhook + result attestation</li>
+        <li><strong>Custom agents (Bedrock, Azure OpenAI, on-prem llama.cpp, …)</strong> — JSON HTTP contract, 30 LoC</li>
+      </ul>
+    </section>
+
+    <section id="pricing" class="section">
+      <h2>Pricing</h2>
+      <div class="pricing-card">
+        <p class="pricing-headline">Enterprise contract.</p>
+        <p>
+          AuditGravity is sold under a yearly contract scaled by audit volume + verticals + SLA.
+          Pilot programs available for the first five customers per vertical (banking, healthcare, legal, government, SaaS).
+        </p>
+        <p>No self-serve. No credit card. We won't waste your security team's time.</p>
+        <a href="#demo" class="btn primary">Talk to us</a>
+      </div>
+    </section>
+
+    <section id="demo" class="section section-form">
+      <h2>Request a demo</h2>
+      <p class="section-lead">Fill the form below; we get back within two business days with a 30-min slot.</p>
+      <!-- Replace REPLACE_FORMSPREE_AUDIT with the form ID once you create the Formspree endpoint. -->
+      <form action="https://formspree.io/f/REPLACE_FORMSPREE_AUDIT" method="POST" class="demo-form">
+        <label>
+          <span>Name</span>
+          <input name="name" type="text" required autocomplete="name" />
+        </label>
+        <label>
+          <span>Company</span>
+          <input name="company" type="text" required />
+        </label>
+        <label>
+          <span>Work email</span>
+          <input name="email" type="email" required autocomplete="email" />
+        </label>
+        <label>
+          <span>Agent under audit (LLM provider, framework, custom — be specific)</span>
+          <textarea name="agent" rows="3" required></textarea>
+        </label>
+        <label>
+          <span>Approximate audit volume (calls / month)</span>
+          <select name="volume" required>
+            <option value="">— select —</option>
+            <option>&lt; 10k</option>
+            <option>10k – 100k</option>
+            <option>100k – 1M</option>
+            <option>&gt; 1M</option>
+          </select>
+        </label>
+        <label class="checkbox">
+          <input name="consent" type="checkbox" required />
+          <span>I agree to be contacted by zapweave about AuditGravity. We don't spam.</span>
+        </label>
+        <button type="submit" class="btn primary">Send request</button>
+        <p class="form-hint">
+          No Formspree yet? Email <a href="mailto:audit@zapweave.com">audit@zapweave.com</a> directly.
+        </p>
+      </form>
+    </section>
+  </main>
+
+  <footer class="audit-foot">
+    <p>© 2026 zapweave · AuditGravity is a product of <a href="/">zapweave.com</a> · <a href="https://github.com/AngelReml" target="_blank" rel="noopener">GitHub</a></p>
+  </footer>
+</body>
+</html>
