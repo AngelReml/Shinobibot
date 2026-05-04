@@ -45,8 +45,11 @@ Las 6 skills se cargan correctamente (lint + load 6/6 PASS) pero la **ejecución
 - [ ] Crear formulario Formspree para la landing AuditGravity y reemplazar `REPLACE_FORMSPREE_AUDIT` en `web/audit/index.html`.
 
 ### Eje D — publicación SDKs
-- [ ] Publicar `agentaudit-py` en PyPI con credenciales personales.
-- [ ] Publicar `agentaudit-node` en npm con credenciales personales.
+
+Renombrados a `auditgravity-py` / `auditgravity-node` tras decisión D1.
+
+- [ ] Publicar `auditgravity` en PyPI: `cd OpenGravity/sdks/python && python -m build && twine upload dist/*`. Requiere reservar el nombre y crear el proyecto antes.
+- [ ] Publicar `auditgravity` en npm: `cd OpenGravity/sdks/node && npm publish --access public`. Requiere `npm login` con cuenta del usuario.
 
 ### Eje E — repo público
 - [ ] Hacer público `AngelReml/shinobibot` (E2.1) cuando llegue el bloque correspondiente.
