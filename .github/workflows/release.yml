@@ -1,0 +1,124 @@
+name: Release
+
+# G3.1 — fires when package.json version changes on main, plus manual dispatch
+# for emergency re-runs. Builds the portable .exe via Node SEA, generates a
+# changelog from conventional commits since the previous tag, creates a
+# GitHub Release with the asset, then pings Discord (G3.3).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Force a release for this version (e.g. 1.0.0). Leave blank to auto-detect.'
+        required: false
+
+permissions:
+  contents: write   # needed to create the GitHub release + tag
+
+jobs:
+  release:
+    runs-on: windows-latest  # SEA is platform-specific — Windows produces shinobi.exe
+    timeout-minutes: 25
+    steps:
+      - name: Checkout (full history for changelog)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Detect version
+        id: ver
+        shell: pwsh
+        run: |
+          $forced = "${{ github.event.inputs.version }}"
+          if ($forced) {
+            $current = $forced
+          } else {
+            $current = (Get-Content package.json | ConvertFrom-Json).version
+          }
+          $tag = "v$current"
+          $existing = git tag --list $tag
+          if ($existing) {
+            "tag_exists=true"  | Out-File $env:GITHUB_OUTPUT -Append
+          } else {
+            "tag_exists=false" | Out-File $env:GITHUB_OUTPUT -Append
+          }
+          "version=$current"   | Out-File $env:GITHUB_OUTPUT -Append
+          "tag=$tag"           | Out-File $env:GITHUB_OUTPUT -Append
+          Write-Host "version=$current  tag=$tag  exists=$existing"
+
+      - name: Stop early if tag already exists
+        if: steps.ver.outputs.tag_exists == 'true'
+        run: echo "Tag ${{ steps.ver.outputs.tag }} already exists. Nothing to do." && exit 0
+
+      - name: Install dependencies
+        if: steps.ver.outputs.tag_exists == 'false'
+        run: npm ci || npm install --no-audit --no-fund
+
+      - name: Build portable bundle (SEA)
+        if: steps.ver.outputs.tag_exists == 'false'
+        run: node build_sea.mjs
+
+      - name: Stage release artefacts
+        if: steps.ver.outputs.tag_exists == 'false'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-artefacts | Out-Null
+          if (Test-Path build/shinobi.exe) {
+            Copy-Item build/shinobi.exe "release-artefacts/Shinobi-${{ steps.ver.outputs.version }}.exe"
+          }
+          if (Test-Path build/shinobi-bundle.cjs) {
+            Compress-Archive -Path build/shinobi-bundle.cjs -DestinationPath "release-artefacts/shinobi-portable-${{ steps.ver.outputs.version }}.zip" -Force
+          }
+          # Inno Setup installer is built locally (B1) and committed under build/
+          # if/when present. CI just publishes whatever is there.
+          if (Test-Path "build/ShinobiSetup-${{ steps.ver.outputs.version }}.exe") {
+            Copy-Item "build/ShinobiSetup-${{ steps.ver.outputs.version }}.exe" "release-artefacts/"
+          }
+          Get-ChildItem release-artefacts
+
+      - name: Generate changelog
+        if: steps.ver.outputs.tag_exists == 'false'
+        shell: pwsh
+        run: |
+          node scripts/release/generate_changelog.mjs > release-artefacts/CHANGELOG.md
+          Get-Content release-artefacts/CHANGELOG.md | Select-Object -First 60
+
+      - name: Tag commit
+        if: steps.ver.outputs.tag_exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag ${{ steps.ver.outputs.tag }}
+          git push origin ${{ steps.ver.outputs.tag }}
+
+      - name: Create GitHub release
+        if: steps.ver.outputs.tag_exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          name: Shinobi ${{ steps.ver.outputs.version }}
+          body_path: release-artefacts/CHANGELOG.md
+          files: |
+            release-artefacts/*
+
+      - name: Notify Discord
+        # G3.3 — only fires if the user has set the DISCORD_WEBHOOK_URL secret.
+        if: steps.ver.outputs.tag_exists == 'false' && env.DISCORD != ''
+        shell: pwsh
+        env:
+          DISCORD: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          $payload = @{
+            username = "shinobi-releases"
+            content  = "Shinobi ${{ steps.ver.outputs.version }} shipped — https://github.com/${{ github.repository }}/releases/tag/${{ steps.ver.outputs.tag }}"
+          } | ConvertTo-Json
+          Invoke-RestMethod -Method Post -Uri $env:DISCORD -ContentType 'application/json' -Body $payload
