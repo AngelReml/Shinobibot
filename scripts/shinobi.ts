@@ -32,26 +32,56 @@ async function checkKernel(): Promise<boolean> {
 
 async function maybeRunOneShotCommand(): Promise<boolean> {
   const argv = process.argv.slice(2);
-  if (argv[0] !== 'import' || argv[1] !== 'hermes') return false;
-  const dryRun = !argv.includes('--overwrite') || argv.includes('--dry-run');
-  const overwrite = argv.includes('--overwrite');
-  const hermesIdx = argv.indexOf('--hermes-root');
-  const hermesRoot = hermesIdx >= 0 ? argv[hermesIdx + 1] : undefined;
-  const shinobiIdx = argv.indexOf('--shinobi-dir');
-  const shinobiDir = shinobiIdx >= 0 ? argv[shinobiIdx + 1] : undefined;
-  const repoIdx = argv.indexOf('--repo-dir');
-  const repoDir = repoIdx >= 0 ? argv[repoIdx + 1] : undefined;
-  const { applyImport, renderPlan } = await import('../src/migration/from_hermes.js');
-  const result = await applyImport({ dryRun, overwrite, hermesRootOverride: hermesRoot, shinobiDirOverride: shinobiDir, shinobiRepoOverride: repoDir });
-  console.log(renderPlan(result.plan));
-  console.log('');
-  console.log(`mode    : ${dryRun ? 'dry-run' : 'apply'}`);
-  console.log(`applied : ${result.applied}`);
-  if (result.errors.length) {
-    console.log('errors  :');
-    for (const e of result.errors) console.log('  -', e);
+
+  if (argv[0] === 'import' && argv[1] === 'hermes') {
+    const dryRun = !argv.includes('--overwrite') || argv.includes('--dry-run');
+    const overwrite = argv.includes('--overwrite');
+    const hermesIdx = argv.indexOf('--hermes-root');
+    const hermesRoot = hermesIdx >= 0 ? argv[hermesIdx + 1] : undefined;
+    const shinobiIdx = argv.indexOf('--shinobi-dir');
+    const shinobiDir = shinobiIdx >= 0 ? argv[shinobiIdx + 1] : undefined;
+    const repoIdx = argv.indexOf('--repo-dir');
+    const repoDir = repoIdx >= 0 ? argv[repoIdx + 1] : undefined;
+    const { applyImport, renderPlan } = await import('../src/migration/from_hermes.js');
+    const result = await applyImport({ dryRun, overwrite, hermesRootOverride: hermesRoot, shinobiDirOverride: shinobiDir, shinobiRepoOverride: repoDir });
+    console.log(renderPlan(result.plan));
+    console.log('');
+    console.log(`mode    : ${dryRun ? 'dry-run' : 'apply'}`);
+    console.log(`applied : ${result.applied}`);
+    if (result.errors.length) {
+      console.log('errors  :');
+      for (const e of result.errors) console.log('  -', e);
+    }
+    process.exit(result.errors.length ? 1 : 0);
   }
-  process.exit(result.errors.length ? 1 : 0);
+
+  // H4 — one-shot demo of a single ShinobiBench task with auto-recording.
+  if (argv[0] === 'demo') {
+    const taskIdx = argv.indexOf('--task');
+    const task_id = taskIdx >= 0 ? argv[taskIdx + 1] : undefined;
+    const noRecord = argv.includes('--no-record');
+    if (!task_id) {
+      console.error('Usage: shinobi demo --task <task_id> [--no-record]');
+      process.exit(2);
+    }
+    const { runDemo } = await import('../src/demo/demo_runner.js');
+    const r = await runDemo({ task_id, noRecord });
+    console.log('\n=== demo summary ===');
+    console.log(JSON.stringify(r, null, 2));
+    process.exit(0);
+  }
+
+  // H5 — full self-improvement demo with auto-recording.
+  if (argv[0] === 'run-demo' && argv[1] === 'full-self-improve') {
+    const noRecord = argv.includes('--no-record');
+    const { runDemo } = await import('../src/demo/demo_runner.js');
+    const r = await runDemo({ fullSelfImprove: true, noRecord });
+    console.log('\n=== run-demo summary ===');
+    console.log(JSON.stringify(r, null, 2));
+    process.exit(0);
+  }
+
+  return false;
 }
 
 async function main() {
@@ -77,6 +107,7 @@ async function main() {
   console.log('  /skill       - Gestionar skills (/skill list | approve <id> | list-approved | reload)');
   console.log('  /resident    - Misiones recurrentes (/resident start|stop|status|add|enable|disable|delete|reset|logs)');
   console.log('  /notify      - Notificaciones (/notify set <workflow_id> | unset | test)');
+  console.log('  /record      - Auto-grabar sesion en OBS (/record start | /record stop)');
   console.log('');
 
   const rl = readline.createInterface({
@@ -117,6 +148,31 @@ async function main() {
         process.exit(0);
       }
       
+      // /record start|stop — bracket a session with OBS recording.
+      if (trimmed.startsWith('/record')) {
+        const sub = trimmed.split(/\s+/)[1] ?? '';
+        if (sub !== 'start' && sub !== 'stop') {
+          console.log('Usage: /record start | /record stop');
+        } else {
+          try {
+            const mod: any = await import('../skills/composite/record-my-session/scripts/skill.mjs');
+            const tool = mod.default;
+            const r = await tool.execute({ action: sub });
+            if (r.success) {
+              const parsed = JSON.parse(r.output);
+              if (sub === 'start') console.log(`[record] started — scene=${parsed.scene}${parsed.started_at ? ' at ' + parsed.started_at : ''}`);
+              else console.log(`[record] stopped — output: ${parsed.output_path ?? '(no active recording)'}${parsed.size_bytes ? ' (' + parsed.size_bytes + ' bytes)' : ''}`);
+            } else {
+              console.log('[record] error:', r.error);
+            }
+          } catch (e: any) {
+            console.log('[record] failed:', e?.message ?? e);
+          }
+        }
+        prompt();
+        return;
+      }
+
       // Special commands
       if (trimmed.startsWith('/mode ')) {
         const mode = trimmed.split(' ')[1] as 'local' | 'kernel' | 'auto';
