@@ -30,7 +30,32 @@ async function checkKernel(): Promise<boolean> {
   return online;
 }
 
+async function maybeRunOneShotCommand(): Promise<boolean> {
+  const argv = process.argv.slice(2);
+  if (argv[0] !== 'import' || argv[1] !== 'hermes') return false;
+  const dryRun = !argv.includes('--overwrite') || argv.includes('--dry-run');
+  const overwrite = argv.includes('--overwrite');
+  const hermesIdx = argv.indexOf('--hermes-root');
+  const hermesRoot = hermesIdx >= 0 ? argv[hermesIdx + 1] : undefined;
+  const shinobiIdx = argv.indexOf('--shinobi-dir');
+  const shinobiDir = shinobiIdx >= 0 ? argv[shinobiIdx + 1] : undefined;
+  const repoIdx = argv.indexOf('--repo-dir');
+  const repoDir = repoIdx >= 0 ? argv[repoIdx + 1] : undefined;
+  const { applyImport, renderPlan } = await import('../src/migration/from_hermes.js');
+  const result = await applyImport({ dryRun, overwrite, hermesRootOverride: hermesRoot, shinobiDirOverride: shinobiDir, shinobiRepoOverride: repoDir });
+  console.log(renderPlan(result.plan));
+  console.log('');
+  console.log(`mode    : ${dryRun ? 'dry-run' : 'apply'}`);
+  console.log(`applied : ${result.applied}`);
+  if (result.errors.length) {
+    console.log('errors  :');
+    for (const e of result.errors) console.log('  -', e);
+  }
+  process.exit(result.errors.length ? 1 : 0);
+}
+
 async function main() {
+  if (await maybeRunOneShotCommand()) return;
   let config = loadConfig();
   if (!config) {
     config = await runFirstRunWizard();
