@@ -9,6 +9,17 @@ Lista viva de acciones que el usuario debe hacer manualmente, según el contrato
 
 - (ninguna por el momento; eje C completo se ejecuta vía API GitHub + repos locales).
 
+### B4 — 6 skills desktop nativas Windows — 2026-05-04
+
+Las 6 skills se cargan correctamente (lint + load 6/6 PASS) pero la **ejecución real** requiere verificación en máquina con software instalado. Por skill:
+
+- [ ] `desktop-excel-open-and-extract` — abrir un `.xlsx` real, leer rango con `headerRow=true`, validar JSON
+- [ ] `desktop-outlook-send-email` — enviar mail con `display=true` (no real-send) primero; luego un test real a una dirección propia
+- [ ] `desktop-premiere-basic-cut` — corte 5s de un MP4, exportar; tarda varios minutos. Confirmar que `findPremiereExe()` localiza la versión instalada (revisar candidatos en `skill.mjs` si es 2027+)
+- [ ] `desktop-obs-setup-scene` — habilitar obs-websocket en OBS (Tools > WebSocket Server Settings, `127.0.0.1:4455`), probar con scene name nuevo
+- [ ] `desktop-photoshop-resize-export` — resize 1920x1080 sobre `.png`, validar JPEG resultante
+- [ ] `desktop-chrome-login-and-action` — script trivial: `goto example.com` + `extract h1`. Confirmar que reusa la sesión de Chrome (no aparece pantalla de "first run")
+
 ## Diferidas (no abordar todavía)
 
 ### Eje B — Inno Setup
