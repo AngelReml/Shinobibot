@@ -1,69 +1,105 @@
-# Manual actions pendientes
+# Manual actions pendientes — versión criba (2026-05-04)
 
-Lista viva de acciones que el usuario debe hacer manualmente, según el contrato de
-`respuestas.txt`. Cada entrada con eje, fecha de creación y status.
+Lista condensada tras procesar `Reporte_Criba_Shinobi.docx`. La sesión "criba_closure" cerró todo lo automatizable; lo que queda son **6 acciones humanas reducidas al mínimo**.
 
-## Pendientes
+Histórico detallado (TODOs por bloque) en `docs/sessions/` — esta lista es la canónica desde 2026-05-04.
 
-### Bloque 1 (eje C) — 2026-05-04
+## Las 6 acciones que solo Iván puede hacer
 
-- (ninguna por el momento; eje C completo se ejecuta vía API GitHub + repos locales).
+| # | Acción | Tiempo | Desbloquea |
+|---|--------|--------|------------|
+| 1 | Instalar Inno Setup (<https://jrsoftware.org/isinfo.php>) | 5 min | empaquetado `.exe` (verify_release pasa de skipped → green) |
+| 2 | Cloudflare Email Routing → `hola@zapweave.com` a tu inbox | 10 min | comunicación con waitlist + landings |
+| 3 | 3 secrets en `Settings → Secrets` de `AngelReml/Shinobibot` | 15 min | build log con OG · triage LLM · Discord notifs |
+| 4 | DNS de subdominios en proveedor de zapweave.com | 30 min (incl. propagación) | `audit.zapweave.com`, `brain.zapweave.com` live |
+| 5 | Deploy OG nuevo al VPS Contabo (cuando confirmes) | 10 min | `/v1/audit/*`, `/v1/telemetry/*`, `/v1/openbrain/*`, `/v1/benchmark/auto-gen` viven en kernel.zapweave.com |
+| 6 | Crear servidor Discord siguiendo `docs/comunidad.md` | 30 min | comunidad pública + webhook (cierra el secret de #3) |
 
-### B4 — 6 skills desktop nativas Windows — 2026-05-04
+**Total: ~1h 40min.** El orden recomendado es 1 → 2 → 3 → 4 → 5 → 6.
 
-Las 6 skills se cargan correctamente (lint + load 6/6 PASS) pero la **ejecución real** requiere verificación en máquina con software instalado. Por skill:
+## Detalle por acción
 
-- [ ] `desktop-excel-open-and-extract` — abrir un `.xlsx` real, leer rango con `headerRow=true`, validar JSON
-- [ ] `desktop-outlook-send-email` — enviar mail con `display=true` (no real-send) primero; luego un test real a una dirección propia
-- [ ] `desktop-premiere-basic-cut` — corte 5s de un MP4, exportar; tarda varios minutos. Confirmar que `findPremiereExe()` localiza la versión instalada (revisar candidatos en `skill.mjs` si es 2027+)
-- [ ] `desktop-obs-setup-scene` — habilitar obs-websocket en OBS (Tools > WebSocket Server Settings, `127.0.0.1:4455`), probar con scene name nuevo
-- [ ] `desktop-photoshop-resize-export` — resize 1920x1080 sobre `.png`, validar JPEG resultante
-- [ ] `desktop-chrome-login-and-action` — script trivial: `goto example.com` + `extract h1`. Confirmar que reusa la sesión de Chrome (no aparece pantalla de "first run")
+### 1. Inno Setup
 
-### H1-H5 — Self-recording demos — 2026-05-04
+```
+Descargar: https://jrsoftware.org/isinfo.php
+Instalar.
+Después en máquina dev:
+  cd C:\Users\angel\Desktop\shinobibot
+  # crear installer/shinobi.iss siguiendo el plan B1 de Tareas..txt
+  # compilar: ISCC.exe installer\shinobi.iss → build/ShinobiSetup-1.0.0.exe
+  # commit + re-dispatch del workflow Release con input version=1.0.0
+```
 
-- [ ] Verificar `shinobi demo --task T16` con OBS arrancado (sin `--no-record`): debe abrir OBS si no está, configurar la escena `Shinobi Self-Recording`, grabar el shell, parar y devolver path MP4.
-- [ ] Verificar `shinobi run-demo full-self-improve` con OBS arrancado: la grabación debe contener el spool completo de las 7 tareas narradas.
-- [ ] Confirmar en OBS Studio que `Tools > WebSocket Server Settings` está habilitado en `127.0.0.1:4455` (la primera vez es manual).
-- [ ] **Opcional (H5)**: subtítulos automáticos via Whisper. No incluido en B-bloque por dependencia (Whisper API o whisper.cpp local). Cuando se aborde B3 (voice mode) se podrá enchufar al demo runner por callback.
+### 2. Cloudflare Email Routing
 
-## Diferidas (no abordar todavía)
+```
+Cloudflare → zapweave.com → Email → Email Routing → habilitar
+Crear ruta: hola@zapweave.com  →  <tu-mail-personal>
+(opcional: contacto@, audit@, brain@ con la misma ruta)
+```
 
-### Eje B — Inno Setup
-- [ ] Confirmar que Inno Setup está instalado en máquina dev antes de B1.
-- [ ] Si no, instalar manualmente desde https://jrsoftware.org/isinfo.php.
+### 3. Secrets en GitHub
 
-### Eje D — naming + dominios
+`https://github.com/AngelReml/Shinobibot/settings/secrets/actions` → New repository secret:
 
-**Naming decidido en D1 (2026-05-04): AuditGravity.**
+- **`BUILD_LOG_PAT`**: fine-grained PAT (User → Settings → Developer settings → PATs → Fine-grained), permiso `Contents: read` sobre `AngelReml/Shinobibot`, `AngelReml/OpenGravity`, `AngelReml/shinobi-bench`. Sin él, el build log salta OG con un warning.
+- **`TRIAGE_LLM_KEY`**: key de OpenRouter (<https://openrouter.ai/keys>). El bot de issues tiene fallback heurístico, pero con LLM clasifica mejor.
+- **`DISCORD_WEBHOOK_URL`**: tras crear el server (acción #6), Server Settings → Integrations → Webhooks → New Webhook → copiar URL.
 
-- [ ] Comprar `auditgravity.com` (RDAP libre al 2026-05-04, ver `docs/decisions/D1_naming.md`).
-- [ ] Reservar handle GitHub `auditgravity` (libre al 2026-05-04).
-- [ ] Configurar DNS de `audit.zapweave.com` apuntando al frontend cuando D3 esté desplegado.
-  - Opción A (recomendada): añadir un CNAME `audit` → `<tu-host-de-redirect>` y configurar redirect 301 a `https://zapweave.com/audit/`. GitHub Pages sólo sirve un único custom domain por repo, así que la landing real ya está accesible en `zapweave.com/audit/` tras el deploy de la PR D3.
-  - Opción B: alojar `audit.zapweave.com` en otro static host (Cloudflare Pages, Netlify) apuntando a la misma carpeta `web/audit/`.
-- [ ] Crear formulario Formspree para la landing AuditGravity y reemplazar `REPLACE_FORMSPREE_AUDIT` en `web/audit/index.html`.
+### 4. DNS
 
-### Eje D — publicación SDKs
+En el proveedor de `zapweave.com` (Cloudflare/Namecheap/...):
 
-Renombrados a `auditgravity-py` / `auditgravity-node` tras decisión D1.
+```
+Type    Name    Value
+CNAME   audit   <host>.netlify.app           # o redirect 301 a zapweave.com/audit/ vía Cloudflare Page Rules
+A/AAAA  kernel  167.86.80.220                # ya configurado, verificar
+CNAME   brain   kernel.zapweave.com          # opcional, vanity
+```
 
-- [ ] Publicar `auditgravity` en PyPI: `cd OpenGravity/sdks/python && python -m build && twine upload dist/*`. Requiere reservar el nombre y crear el proyecto antes.
-- [ ] Publicar `auditgravity` en npm: `cd OpenGravity/sdks/node && npm publish --access public`. Requiere `npm login` con cuenta del usuario.
+Si `audit.zapweave.com` se aloja como redirect a `zapweave.com/audit/` desde Cloudflare, no necesitas otro static host — ya tenemos el contenido en GitHub Pages.
 
-### Eje E — repo público
-- [ ] Hacer público `AngelReml/shinobibot` (E2.1) cuando llegue el bloque correspondiente.
+### 5. Deploy OG → VPS
 
-### Eje E1 — build log multi-repo
-- [ ] Para incluir commits de `OpenGravity` (privado) en el build log, crear un fine-grained PAT con permiso read-only `Contents` sobre los 3 repos y añadirlo como secret `BUILD_LOG_PAT` en `Settings → Secrets and variables → Actions` de `AngelReml/Shinobibot`. Sin él, el build log salta OpenGravity con un warning. shinobi-bench (público) y Shinobibot (mismo repo) ya funcionan con el `GITHUB_TOKEN` automático.
+```sh
+ssh root@167.86.80.220
+cd /root/OpenGravity
+git pull origin main
+npm ci
+# Reiniciar el servicio
+systemctl restart opengravity.service
+# Verificar:
+curl https://kernel.zapweave.com/v1/health
+curl -X POST -H "Content-Type: application/json" -H "X-Shinobi-Key: sk_dev_master" \
+  -d '{"task":"test"}' https://kernel.zapweave.com/v1/openbrain/match
+```
 
-### Eje G — Discord webhook
-- [ ] Crear Discord webhook (Server Settings → Integrations → Webhooks → New) y guardar la URL como secret `DISCORD_WEBHOOK_URL` en `Settings → Secrets and variables → Actions` de `AngelReml/Shinobibot`. Sin él, `release.yml` salta el paso de notificación silenciosamente.
+Si algo falla, el log está en `journalctl -u opengravity -n 200`.
 
-### Eje G1 — issue triage LLM key (opcional)
-- [ ] Para que el bot de triage clasifique con LLM, añadir un secret `TRIAGE_LLM_KEY` (OpenRouter / OpenAI / Anthropic — `OPENROUTER_API_KEY` style). Sin él, `issue_triage.yml` cae al clasificador heurístico por keywords.
+### 6. Discord
 
-### Despliegue OpenGravity
-- [ ] Tras cada cambio en `C:\Users\angel\Desktop\OpenGravity` que toque endpoints
-      productivos, **el usuario** valida y ejecuta deploy al VPS Contabo
-      (`ssh root@167.86.80.220`, `systemctl restart opengravity.service`).
+Seguir `docs/comunidad.md`. Tras crear:
+- Generar webhook (`#release-notifications` channel).
+- Pegar URL como secret `DISCORD_WEBHOOK_URL` (cierra acción #3c).
+
+## Diferidas (no bloquean lanzamiento)
+
+- **Whisper API key** o `whisper.cpp` local → desbloquea voice mode (B3). Marcado opcional hasta que se priorice.
+- **Compra dominios AuditGravity**: `auditgravity.com` + `github.com/auditgravity` (RDAP libres al 2026-05-04). Sólo si decides empujar B2B con marca propia.
+- **Hacer público shinobibot (E2)**: tu decisión. Queda como bandera al final de `2026-05-04_criba_closure.md`.
+
+## Cosas IA NO puede hacer pero el usuario puede minimizar
+
+- Smoke tests con apps abiertas (Excel/Outlook/Photoshop/Premiere/OBS): requieren apps instaladas + sesión interactiva. Documentación lista en cada `SKILL.md`. ~5 min por skill.
+- Validación viva del MutationEngine LLM path: requiere OPENROUTER_API_KEY con créditos + revisar manualmente el patch propuesto. `OpenGravity/src/experimental/v1_engine/STATUS.md` detalla el procedimiento.
+- Validación killer demo con OBS realmente arrancado: `shinobi demo --task killer --record` con OBS+obs-websocket activo. Producirá un .mp4.
+
+## Resumen
+
+Estado tras sesión 2026-05-04:
+- 18 capacidades VERDES verificadas + 6 nuevas verdes esta sesión = **24 verdes en código + tests**.
+- AMARILLOS reducidos a los que requieren apps reales abiertas.
+- ROJOS reducidos a 3 (program-discovery diseñado pero no construido + 2 bloqueados por deps externas).
+- Lista manual: **6 acciones, ~1h 40min**.
+- Lanzamiento público es **decisión**, no bloqueo técnico.
