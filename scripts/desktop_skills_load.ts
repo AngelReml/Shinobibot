@@ -6,13 +6,15 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 const ROOT = resolve(process.cwd(), 'skills', 'desktop');
-const expectedTools = {
+const expectedTools: Record<string, string> = {
   'desktop-excel-open-and-extract': 'desktop_excel_open_and_extract',
   'desktop-outlook-send-email': 'desktop_outlook_send_email',
   'desktop-premiere-basic-cut': 'desktop_premiere_basic_cut',
   'desktop-obs-setup-scene': 'desktop_obs_setup_scene',
   'desktop-photoshop-resize-export': 'desktop_photoshop_resize_export',
   'desktop-chrome-login-and-action': 'desktop_chrome_login_and_action',
+  'desktop-obs-record-self': 'desktop_obs_record_self',
+  'desktop-obs-stop-and-save': 'desktop_obs_stop_and_save',
 };
 
 let ok = 0;
