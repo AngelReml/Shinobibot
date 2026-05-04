@@ -54,6 +54,9 @@ Renombrados a `auditgravity-py` / `auditgravity-node` tras decisión D1.
 ### Eje E — repo público
 - [ ] Hacer público `AngelReml/shinobibot` (E2.1) cuando llegue el bloque correspondiente.
 
+### Eje E1 — build log multi-repo
+- [ ] Para incluir commits de `OpenGravity` (privado) en el build log, crear un fine-grained PAT con permiso read-only `Contents` sobre los 3 repos y añadirlo como secret `BUILD_LOG_PAT` en `Settings → Secrets and variables → Actions` de `AngelReml/Shinobibot`. Sin él, el build log salta OpenGravity con un warning. shinobi-bench (público) y Shinobibot (mismo repo) ya funcionan con el `GITHUB_TOKEN` automático.
+
 ### Eje G — Discord webhook
 - [ ] Crear Discord webhook para release notifications (G3.3) y pegar URL en config CI.
 

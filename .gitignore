@@ -16,12 +16,16 @@ temp_file.txt
 test_file.txt 
 example.db 
 debug_*.png 
-echo # === Configuraci¢n Local === 
+echo # === Configuraciï¿½n Local === 
 .claude/ 
 .DS_Store 
 echo # === Archivos de Estres / Hack (Basura) === 
 hack_shinobi.js 
 block2_stress.mjs 
 stress_test.ts 
-test_bash_bridge.ts 
-n8n_shinobi_workflow.json 
+test_bash_bridge.ts
+n8n_shinobi_workflow.json
+# === E1 build log (auto-generado por CI en cada push a main) ===
+web/build-log.html
+web/feed.xml
+
