@@ -34,8 +34,12 @@ Las 6 skills se cargan correctamente (lint + load 6/6 PASS) pero la **ejecución
 - [ ] Si no, instalar manualmente desde https://jrsoftware.org/isinfo.php.
 
 ### Eje D — naming + dominios
-- [ ] Comprar dominio `audit.zapweave.com` (subdominio: configurar DNS en proveedor de zapweave.com).
-- [ ] Resolver naming AgentAudit (validación dominio top 1) y comprar `.com`.
+
+**Naming decidido en D1 (2026-05-04): AuditGravity.**
+
+- [ ] Comprar `auditgravity.com` (RDAP libre al 2026-05-04, ver `docs/decisions/D1_naming.md`).
+- [ ] Reservar handle GitHub `auditgravity` (libre al 2026-05-04).
+- [ ] Configurar DNS de `audit.zapweave.com` apuntando al frontend cuando D3 esté desplegado.
 
 ### Eje D — publicación SDKs
 - [ ] Publicar `agentaudit-py` en PyPI con credenciales personales.
