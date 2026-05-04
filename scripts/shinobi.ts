@@ -81,6 +81,29 @@ async function maybeRunOneShotCommand(): Promise<boolean> {
     process.exit(0);
   }
 
+  // G2 — `shinobi telemetry [on|off|status]`
+  if (argv[0] === 'telemetry') {
+    const sub = argv[1] ?? 'status';
+    const tel = await import('../src/telemetry/telemetry.js');
+    if (sub === 'on') {
+      const cfg = tel.setOptIn(true);
+      console.log(`telemetry: ON  (anonymous_id=${cfg.anonymous_id.slice(0, 8)}…)`);
+      process.exit(0);
+    }
+    if (sub === 'off') {
+      tel.setOptIn(false);
+      console.log('telemetry: OFF');
+      process.exit(0);
+    }
+    if (sub === 'status') {
+      const s = tel.summary();
+      console.log(JSON.stringify(s, null, 2));
+      process.exit(0);
+    }
+    console.error('Usage: shinobi telemetry [on|off|status]');
+    process.exit(2);
+  }
+
   // B2.4/B2.5 — `shinobi update [--check] [--dry-run]`
   if (argv[0] === 'update') {
     const { checkForUpdate, renderOffer } = await import('../src/updater/version_check.js');
