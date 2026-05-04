@@ -1,0 +1,55 @@
+name: Issue triage
+
+# G1.1 / G1.2 / G1.3 — auto-classify, label and reply on every new issue.
+# Falls back to a keyword heuristic when TRIAGE_LLM_KEY is not configured.
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Classify
+        id: classify
+        env:
+          TRIAGE_LLM_KEY: ${{ secrets.TRIAGE_LLM_KEY }}
+        run: |
+          payload=$(jq -n --arg t "${{ github.event.issue.title }}" --arg b "${{ github.event.issue.body }}" '{ title: $t, body: $b }')
+          echo "$payload" | node scripts/triage/classify_issue.mjs > triage.json
+          cat triage.json
+          echo "label=$(jq -r .label triage.json)"             >> "$GITHUB_OUTPUT"
+          echo "category=$(jq -r .category triage.json)"       >> "$GITHUB_OUTPUT"
+          {
+            echo 'reply<<EOF'
+            jq -r .suggested_reply triage.json
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Apply label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue edit ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --add-label "${{ steps.classify.outputs.label }}" || true
+
+      - name: Auto-reply
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            --repo ${{ github.repository }} \
+            --body "${{ steps.classify.outputs.reply }}"
