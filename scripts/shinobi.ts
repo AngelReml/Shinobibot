@@ -56,13 +56,44 @@ async function maybeRunOneShotCommand(): Promise<boolean> {
   }
 
   // H4 — one-shot demo of a single ShinobiBench task with auto-recording.
+  // C7 — `shinobi demo --task killer` short-circuits to the killer demo runner.
   if (argv[0] === 'demo') {
     const taskIdx = argv.indexOf('--task');
     const task_id = taskIdx >= 0 ? argv[taskIdx + 1] : undefined;
     const noRecord = argv.includes('--no-record');
     if (!task_id) {
-      console.error('Usage: shinobi demo --task <task_id> [--no-record]');
+      console.error('Usage: shinobi demo --task <T01..T30 | killer> [--no-record]');
       process.exit(2);
+    }
+    if (task_id === 'killer') {
+      // C7.5 — wrap the killer demo with optional OBS bracketing (H1/H2).
+      const path = await import('node:path');
+      const { spawn } = await import('node:child_process');
+      const { fileURLToPath } = await import('node:url');
+      const __scriptsDir = path.dirname(fileURLToPath(import.meta.url));
+      const runnerPath = path.resolve(__scriptsDir, '..', 'demos', 'killer_demo_runner.mjs');
+      let recStarted = false;
+      if (!noRecord) {
+        try {
+          const recMod: any = await import('../skills/desktop/desktop-obs-record-self/scripts/skill.mjs');
+          const r = await recMod.default.execute({ scene: 'Shinobi Killer Demo', auto_launch: true });
+          if (r.success) { console.log('[killer] OBS recording started'); recStarted = true; }
+          else console.log('[killer] OBS recording skipped:', r.error);
+        } catch (e: any) { console.log('[killer] OBS skipped:', e?.message ?? e); }
+      } else {
+        console.log('[killer] --no-record, OBS bracketing skipped');
+      }
+      const child = spawn('node', [runnerPath], { stdio: 'inherit' });
+      const exitCode: number = await new Promise((r) => child.once('exit', (c) => r(c ?? 1)));
+      if (recStarted) {
+        try {
+          const stopMod: any = await import('../skills/desktop/desktop-obs-stop-and-save/scripts/skill.mjs');
+          const r = await stopMod.default.execute({});
+          if (r.success) console.log('[killer] OBS stopped:', JSON.parse(r.output).output_path);
+          else console.log('[killer] OBS stop error:', r.error);
+        } catch (e: any) { console.log('[killer] OBS stop failed:', e?.message ?? e); }
+      }
+      process.exit(exitCode);
     }
     const { runDemo } = await import('../src/demo/demo_runner.js');
     const r = await runDemo({ task_id, noRecord });
