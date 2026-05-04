@@ -29,6 +29,8 @@ const expected = [
   'desktop-obs-setup-scene',
   'desktop-photoshop-resize-export',
   'desktop-chrome-login-and-action',
+  'desktop-obs-record-self',
+  'desktop-obs-stop-and-save',
 ];
 
 function fail(msg: string): never { console.error(`FAIL: ${msg}`); process.exit(1); }
