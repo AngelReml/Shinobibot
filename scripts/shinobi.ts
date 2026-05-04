@@ -112,6 +112,43 @@ async function maybeRunOneShotCommand(): Promise<boolean> {
     process.exit(0);
   }
 
+  // 24/7 resident mode — `shinobi daemon`. Headless: no REPL, just the
+  // ResidentLoop ticking forever. Designed to be wrapped by a Windows service
+  // (see scripts/install_service.ps1) for production use.
+  if (argv[0] === 'daemon') {
+    const cfg = loadConfig();
+    if (!cfg) {
+      console.error('No Shinobi config found. Run `shinobi` once interactively to onboard before launching daemon.');
+      process.exit(2);
+    }
+    process.env.OPENGRAVITY_URL = cfg.opengravity_url;
+    process.env.SHINOBI_API_KEY = cfg.opengravity_api_key;
+    process.env.SHINOBI_LANGUAGE = cfg.language;
+    process.env.SHINOBI_MEMORY_PATH = cfg.memory_path;
+
+    const { ResidentLoop } = await import('../src/runtime/resident_loop.js');
+    const loop = new ResidentLoop();
+    loop.start();
+    console.log(`[shinobi-daemon] resident loop started — pid=${process.pid}`);
+
+    let stopping = false;
+    const shutdown = (sig: string) => {
+      if (stopping) return;
+      stopping = true;
+      console.log(`[shinobi-daemon] ${sig} received — stopping loop`);
+      try { loop.stop(); } catch {}
+      // Give pending ticks 2 seconds to wind down
+      setTimeout(() => process.exit(0), 2000);
+    };
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    // Heartbeat every 5 minutes so logs prove the daemon is alive
+    setInterval(() => {
+      console.log(`[shinobi-daemon] heartbeat ${new Date().toISOString()} pid=${process.pid}`);
+    }, 5 * 60 * 1000).unref?.();
+    return true; // keep the process alive
+  }
+
   // G2 — `shinobi telemetry [on|off|status]`
   if (argv[0] === 'telemetry') {
     const sub = argv[1] ?? 'status';
