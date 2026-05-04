@@ -120,6 +120,18 @@ export async function runFirstRunWizard(): Promise<ShinobiConfig> {
   const memoryPath = memInput || defaultMem;
   if (!fs.existsSync(memoryPath)) fs.mkdirSync(memoryPath, { recursive: true });
 
+  // 4. Telemetry opt-in (G2.2). Default = NO. We never enable without explicit yes.
+  console.log('');
+  const telemetryQ = lang === 'es'
+    ? 'Telemetría anónima (sin prompts ni paths, sólo contadores agregados)? [s/N]: '
+    : 'Anonymous telemetry (no prompts/paths, just aggregate counters)? [y/N]: ';
+  const telemetryInput = (await reader.ask(telemetryQ)).trim().toLowerCase();
+  const telemetryOptIn = telemetryInput === 's' || telemetryInput === 'si' || telemetryInput === 'y' || telemetryInput === 'yes';
+  try {
+    const tel = await import('../telemetry/telemetry.js');
+    tel.ensureConfigInitialized({ optedIn: telemetryOptIn, install_version: '1.0.0' });
+  } catch { /* telemetry module is optional */ }
+
   reader.close();
 
   const config: ShinobiConfig = {
