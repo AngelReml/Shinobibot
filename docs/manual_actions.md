@@ -58,7 +58,10 @@ Renombrados a `auditgravity-py` / `auditgravity-node` tras decisión D1.
 - [ ] Para incluir commits de `OpenGravity` (privado) en el build log, crear un fine-grained PAT con permiso read-only `Contents` sobre los 3 repos y añadirlo como secret `BUILD_LOG_PAT` en `Settings → Secrets and variables → Actions` de `AngelReml/Shinobibot`. Sin él, el build log salta OpenGravity con un warning. shinobi-bench (público) y Shinobibot (mismo repo) ya funcionan con el `GITHUB_TOKEN` automático.
 
 ### Eje G — Discord webhook
-- [ ] Crear Discord webhook para release notifications (G3.3) y pegar URL en config CI.
+- [ ] Crear Discord webhook (Server Settings → Integrations → Webhooks → New) y guardar la URL como secret `DISCORD_WEBHOOK_URL` en `Settings → Secrets and variables → Actions` de `AngelReml/Shinobibot`. Sin él, `release.yml` salta el paso de notificación silenciosamente.
+
+### Eje G1 — issue triage LLM key (opcional)
+- [ ] Para que el bot de triage clasifique con LLM, añadir un secret `TRIAGE_LLM_KEY` (OpenRouter / OpenAI / Anthropic — `OPENROUTER_API_KEY` style). Sin él, `issue_triage.yml` cae al clasificador heurístico por keywords.
 
 ### Despliegue OpenGravity
 - [ ] Tras cada cambio en `C:\Users\angel\Desktop\OpenGravity` que toque endpoints
