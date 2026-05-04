@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Killer task — Documents</title>
+  <style>
+    body { font-family: -apple-system, "Segoe UI", sans-serif; max-width: 720px; margin: 24px auto; padding: 0 16px; }
+    .doc { border: 1px solid #ddd; padding: 12px; margin: 8px 0; border-radius: 4px; }
+    .doc a { color: #0366d6; text-decoration: none; }
+    .doc h3 { margin: 0 0 4px; font-size: 14px; }
+    button { background: #0366d6; color: white; border: 0; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 8px 0; }
+    button:disabled { background: #ccc; cursor: default; }
+  </style>
+</head>
+<body>
+  <h1>Document archive</h1>
+  <p>Scroll to load more documents, or use the "Load more" button when scroll-loading stalls.</p>
+  <div id="docs"></div>
+  <button id="loadMore">Load more</button>
+  <script>
+    // 8 documents but the page reveals them in three batches of 3, 3, 2.
+    const ALL = [
+      { filename: 'doc_0001.pdf', preview: 'Internal financial review.' },
+      { filename: 'doc_0002.pdf', preview: 'Contract addendum.' },
+      { filename: 'doc_0003.pdf', preview: 'HR policy update.' },
+      { filename: 'doc_0004.pdf', preview: 'Strategic memo.' },
+      { filename: 'doc_0005.pdf', preview: 'Engineering RFC.' },
+      { filename: 'doc_0006.pdf', preview: 'Quarterly report.' },
+      { filename: 'doc_0007.pdf', preview: 'Customer brief.' },
+      { filename: 'doc_0008.pdf', preview: 'Compliance audit.' },
+    ];
+    let revealed = 0;
+    function batch(n) {
+      const target = Math.min(ALL.length, revealed + n);
+      const root = document.getElementById('docs');
+      for (let i = revealed; i < target; i++) {
+        const d = ALL[i];
+        const el = document.createElement('div');
+        el.className = 'doc';
+        el.innerHTML = `<h3>${d.filename}</h3><p>${d.preview}</p><a href="/pdfs/${d.filename}" download>Download</a>`;
+        root.appendChild(el);
+      }
+      revealed = target;
+      if (revealed >= ALL.length) document.getElementById('loadMore').disabled = true;
+    }
+    batch(3); // first batch on load
+    document.getElementById('loadMore').addEventListener('click', () => batch(3));
+    // Infinite scroll: reveal another batch when sentinel hits viewport (after the user has triggered Load more once).
+    const io = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting && revealed < ALL.length) batch(3);
+    });
+    io.observe(document.getElementById('loadMore'));
+  </script>
+</body>
+</html>
