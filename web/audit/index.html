@@ -23,41 +23,52 @@
   <main>
     <section class="hero">
       <p class="eyebrow">Compliance-grade verification for AI agents</p>
-      <h1>Forensic audit for your agents.<br/>Hash-chained. Reproducible. Vendor-neutral.</h1>
+      <h1>Behavioral Deviation Score for autonomous agents.<br/>Block, warn, allow — in real time.</h1>
       <p class="lead">
-        AuditGravity runs benchmarks against your existing agent — wherever it runs — and produces signed verdicts your CISO, regulator, or enterprise customer can verify themselves.
-        <br/>Not a dashboard. Not an eval framework. <strong>Evidence.</strong>
+        AuditGravity learns each agent's baseline behavior, then scores every action 0–10 in real time.
+        Forbidden zones are blocked outright. Anomalous patterns trigger alerts. Routine actions pass through unchanged.
+        Every score is appended to a SHA-256 hash chain your auditor can recompute locally.
+        <br/><strong>Not a dashboard. Not an eval framework. A behavioral firewall with forensic evidence.</strong>
       </p>
       <div class="cta-row">
         <a href="#demo" class="btn primary">Request a demo</a>
         <a href="#how" class="btn secondary">See the architecture</a>
       </div>
       <p class="legal-row">
-        Built on the open-source <a href="https://github.com/AngelReml/shinobi-bench" target="_blank" rel="noopener">shinobi-bench</a> standard.
-        SHA-256 ledger. MIT-licensed verifiers.
+        Built on the open-source <a href="https://github.com/AngelReml/shinobi-bench" target="_blank" rel="noopener">shinobi-bench</a> standard. Calibration-aware. SHA-256 forensic ledger. MIT-licensed verifiers.
+      </p>
+    </section>
+
+    <section class="section">
+      <h2>Calibration period (transparency)</h2>
+      <p class="section-lead">
+        AuditGravity needs a baseline before scoring is meaningful. The first <strong>20 occurrences</strong> of each action type per agent are marked
+        <em>calibrating</em> — the score is forced to <code>0</code> while we learn the agent's normal behavior. Action 21 onward is scored against that
+        baseline. The <code>/profile</code> endpoint exposes <code>{ status: "calibrating" | "active", calibration_progress: "60%" }</code> so you always
+        know which mode each agent is in. No festival of false positives at deployment.
       </p>
     </section>
 
     <section id="how" class="section">
       <h2>How it works</h2>
-      <p class="section-lead">Your agent stays where it is. We run tasks against it, verify the output deterministically, and write each verdict into an immutable hash chain.</p>
+      <p class="section-lead">Your agent emits an action. We score it 0–10 against a learned baseline. We block, warn, or allow — and write the score to a hash chain.</p>
       <div class="diagram">
         <div class="step">
           <div class="step-num">1</div>
           <h3>Your agent</h3>
-          <p>OpenAI-compatible HTTP endpoint, Hermes/Shinobi runtime, or anything that speaks JSON. We never touch your model weights.</p>
+          <p>OpenAI-compatible HTTP, Hermes/Shinobi runtime, custom — anything that speaks JSON. We never touch your model weights.</p>
         </div>
         <div class="arrow">→</div>
         <div class="step accent">
           <div class="step-num">2</div>
-          <h3>AuditGravity kernel</h3>
-          <p>Runs <code>shinobi-bench</code> public tasks plus your private bench. Each call: deterministic verifier → PASS / FAIL.</p>
+          <h3>Deviation Score</h3>
+          <p><strong>Forbidden zone</strong> → <code>10/10 BLOCK</code><br/><strong>Never-seen action</strong> → <code>7/10 ALERT</code><br/><strong>3σ from baseline</strong> → <code>5/10 WARN</code><br/><strong>Routine</strong> → <code>0–2/10 ALLOW</code></p>
         </div>
         <div class="arrow">→</div>
         <div class="step">
           <div class="step-num">3</div>
-          <h3>Signed verdict</h3>
-          <p>Every result lands in a SHA-256 chain (<code>genesis → entry_n</code>). You can recompute the hash locally — no trust in us required.</p>
+          <h3>Hash-chained log</h3>
+          <p>The score, action and verdict land in a SHA-256 chain (<code>genesis → entry_n</code>) you can recompute locally. Forensic evidence is the secondary layer underneath the firewall.</p>
         </div>
       </div>
     </section>
