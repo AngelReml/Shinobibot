@@ -55,9 +55,9 @@ jobs:
           "tag=$tag"           | Out-File $env:GITHUB_OUTPUT -Append
           Write-Host "version=$current  tag=$tag  exists=$existing"
 
-      - name: Stop early if tag already exists
+      - name: Note tag already exists
         if: steps.ver.outputs.tag_exists == 'true'
-        run: echo "Tag ${{ steps.ver.outputs.tag }} already exists. Nothing to do." && exit 0
+        run: echo "Tag ${{ steps.ver.outputs.tag }} already exists — skipping subsequent build/release steps."
 
       - name: Install dependencies
         if: steps.ver.outputs.tag_exists == 'false'
