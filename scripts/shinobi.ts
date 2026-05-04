@@ -116,8 +116,18 @@ async function main() {
   });
 
   const residentLoop = new ResidentLoop();
-  
+
   await checkKernel();
+
+  // A5 — surface any pending Hermes upstream notice + start 24h watcher in the background.
+  try {
+    const watcher = await import('../src/watchers/hermes_watcher.js');
+    const pending = watcher.popPendingNotice();
+    if (pending) console.log(watcher.renderNotice(pending));
+    watcher.startWatcher();
+  } catch (e: any) {
+    console.log('[hermes-watcher] disabled:', e?.message ?? e);
+  }
 
   // Auto-reload previously approved skills
   try {
