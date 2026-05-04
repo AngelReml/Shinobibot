@@ -17,7 +17,9 @@ export interface DemoOptions {
   task_id?: string;
   /** Run full bench + improve loop — H5 mode. */
   fullSelfImprove?: boolean;
-  /** Skip OBS bracketing (for tests / when OBS isn't installed). */
+  /** Opt-IN to OBS bracketing. OFF by default — explicit user consent required. */
+  record?: boolean;
+  /** Backwards-compat: previously the API was `noRecord`. Honored if set, but `record` wins if both are present. */
   noRecord?: boolean;
   /** Override OBS host/port/password. */
   obs?: { host?: string; port?: number; password?: string };
@@ -84,8 +86,11 @@ export class TranscriptWriter {
 }
 
 async function startObs(opts: DemoOptions, transcript: TranscriptWriter): Promise<{ skipped: boolean; mod?: { default: { execute: (a: unknown) => Promise<{ success: boolean; output: string; error?: string }> } } }> {
-  if (opts.noRecord) {
-    transcript.line('OBS recording: skipped (--no-record)');
+  // Opt-IN: OBS only fires when --record is explicit. The legacy `noRecord`
+  // flag is honored for back-compat but never enables recording on its own.
+  const wantsRecord = opts.record === true;
+  if (!wantsRecord) {
+    transcript.line('OBS recording: skipped (default off — pass --record to enable)');
     return { skipped: true };
   }
   try {
@@ -182,6 +187,7 @@ export async function runDemo(opts: DemoOptions): Promise<DemoResult> {
   transcript.line(`Shinobi demo — mode=${opts.fullSelfImprove ? 'full-self-improve' : 'task'} ${opts.task_id ?? ''}`.trim());
 
   const obs = await startObs(opts, transcript);
+  // For the rest of the function the previous "skipped" semantics are preserved.
 
   let task_results: Array<{ id: string; verdict: string; reason: string }> = [];
   try {

@@ -12,12 +12,14 @@ Una tarea única que ningún competidor puede resolver de un solo plumazo: scrol
 # (una sola vez) generar los 8 PDFs sintéticos
 node demos/test_site/generate_pdfs.mjs
 
-# correr el demo (sin OBS, no toca tu máquina)
+# correr el demo (sin OBS — default)
 node demos/killer_demo_runner.mjs
 
-# o con OBS auto-record vía CLI (requiere obs-websocket habilitado)
-npx tsx scripts/shinobi.ts demo --task killer
+# con OBS auto-record explícito (requiere obs-websocket habilitado)
+npx tsx scripts/shinobi.ts demo --task killer --record
 ```
+
+**OBS es opt-IN**: por defecto OFF. Hay que pasar `--record` para que arranque la grabación. Esto es deliberado: OBS no debe activarse sin consentimiento explícito.
 
 ### Salida
 
