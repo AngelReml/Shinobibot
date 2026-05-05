@@ -41,6 +41,15 @@ async function checkKernel(): Promise<boolean> {
 async function maybeRunOneShotCommand(): Promise<boolean> {
   const argv = process.argv.slice(2);
 
+  // D.3 — `shinobi audit <github_url> [--commit=SHA] [--budget=N]` one-shot.
+  if (argv[0] === 'audit') {
+    const { runAudit, parseAuditCliArgs } = await import('../src/audit/runAudit.js');
+    const parsed = parseAuditCliArgs(argv);
+    if (parsed.error) { console.error('Error:', parsed.error); console.error('Usage: shinobi audit <github_url> [--commit=SHA] [--budget=N]'); process.exit(2); }
+    const r = await runAudit({ url: parsed.url!, commit: parsed.commit, budgetTokens: parsed.budgetTokens });
+    process.exit(r.contractPass ? 0 : 1);
+  }
+
   if (argv[0] === 'import' && argv[1] === 'hermes') {
     const dryRun = !argv.includes('--overwrite') || argv.includes('--dry-run');
     const overwrite = argv.includes('--overwrite');
