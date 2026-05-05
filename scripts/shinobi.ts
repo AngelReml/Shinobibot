@@ -238,6 +238,7 @@ async function main() {
   console.log('  /approval    - Modo de aprobación (/approval [on|smart|off])');
   console.log('  /read        - Lectura jerárquica de un repo (/read <ruta> [--budget=N])');
   console.log('  /self        - Auto-lectura del repo Shinobi (/self [--diff] [--budget=N])');
+  console.log('  /committee   - Comité de validación sobre un report (/committee [<report.json>])');
   console.log('');
 
   const rl = readline.createInterface({
@@ -576,6 +577,29 @@ async function main() {
         } else {
           await runRead(parsed.path!, { budgetTokens: parsed.budgetTokens });
         }
+        prompt();
+        return;
+      }
+
+      // /committee [<report.json>] — Habilidad B.2: 3 modelos revisan un report.
+      if (trimmed.startsWith('/committee')) {
+        const argv = trimmed.slice('/committee'.length).trim();
+        const { runCommittee, parseCommitteeArgs, findLatestSelfReport } = await import('../src/committee/cli.js');
+        let target: string | undefined;
+        if (!argv) {
+          target = findLatestSelfReport();
+          if (!target) {
+            console.log('No self_reports/ found. Run /self first or pass a report path.');
+            prompt();
+            return;
+          }
+          console.log(`[committee] using latest self_report: ${target}`);
+        } else {
+          const parsed = parseCommitteeArgs(argv);
+          if (parsed.error) { console.log(parsed.error); prompt(); return; }
+          target = parsed.path!;
+        }
+        await runCommittee(target);
         prompt();
         return;
       }
