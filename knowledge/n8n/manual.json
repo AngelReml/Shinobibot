@@ -1,0 +1,30 @@
+{
+  "purpose": "n8n is an open-source workflow automation tool that allows users to integrate various applications and automate processes without writing code. It seamlessly connects different services and API endpoints, making data flow and task automation easier and more efficient.",
+  "install": "npm install n8n",
+  "public_api": [],
+  "usage_patterns": [
+    {
+      "title": "Automating Workflow Processes",
+      "body": "Users can create workflows visually by dragging and dropping nodes that represent different services or actions. This simplifies the automation of repetitive tasks across various applications."
+    },
+    {
+      "title": "Integrating Third-Party Services",
+      "body": "n8n offers integrations with numerous third-party services, enabling users to connect applications like Salesforce, Google Sheets, and many others, allowing for powerful data manipulations and syncs."
+    }
+  ],
+  "gotchas": [],
+  "examples": [
+    {
+      "title": "Basic Workflow Example",
+      "code": "const { NodeOperationError } = require('n8n-core');\nfunction helloWorld() {\n    return 'Hello, World!';\n}\ntry {\n    console.log(helloWorld());\n} catch (error) {\n    throw new NodeOperationError(this.getNode(), error);\n}"
+    }
+  ],
+  "synonyms": [
+    "n8n.io"
+  ],
+  "source": {
+    "kind": "url",
+    "origin": "https://docs.n8n.io",
+    "pages_or_files": 20
+  }
+}
