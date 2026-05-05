@@ -14,6 +14,14 @@ import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { configExists, loadConfig, runFirstRunWizard } from '../src/runtime/first_run_wizard.js';
+import {
+  ensureApprovalModeInitialized,
+  setApprovalAsker,
+  setApprovalMode,
+  getApprovalMode,
+  type ApprovalMode,
+  type Approval,
+} from '../src/security/approval.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -126,6 +134,11 @@ async function maybeRunOneShotCommand(): Promise<boolean> {
     process.env.SHINOBI_LANGUAGE = cfg.language;
     process.env.SHINOBI_MEMORY_PATH = cfg.memory_path;
 
+    // D-017 — daemon mode: ensure approval_mode initialized. Default asker
+    // denies destructive ops (no interactive prompt in daemon).
+    const approvalInit = ensureApprovalModeInitialized();
+    console.log(`[shinobi-daemon] approval mode: ${approvalInit.mode}${approvalInit.created ? ' (default)' : ''}`);
+
     const { ResidentLoop } = await import('../src/runtime/resident_loop.js');
     const loop = new ResidentLoop();
     loop.start();
@@ -216,11 +229,14 @@ async function main() {
   console.log('  /mode auto   - Modo automático (default)');
   console.log('  /status      - Ver estado del kernel');
   console.log('  /model       - Ver o cambiar modelo LLM (/model <nombre> | auto | list)');
+  console.log('  /tier        - Forzar tier (/tier fast | balanced | reasoning | auto)');
   console.log('  /memory      - Gestionar memoria (/memory recall <q> | store <txt> | stats | forget <id>)');
   console.log('  /skill       - Gestionar skills (/skill list | approve <id> | list-approved | reload)');
   console.log('  /resident    - Misiones recurrentes (/resident start|stop|status|add|enable|disable|delete|reset|logs)');
   console.log('  /notify      - Notificaciones (/notify set <workflow_id> | unset | test)');
   console.log('  /record      - Auto-grabar sesion en OBS (/record start | /record stop)');
+  console.log('  /approval    - Modo de aprobación (/approval [on|smart|off])');
+  console.log('  /read        - Lectura jerárquica de un repo (/read <ruta> [--budget=N])');
   console.log('');
 
   const rl = readline.createInterface({
@@ -228,11 +244,27 @@ async function main() {
     output: process.stdout
   });
 
+  // D-017 — ensure approval_mode field exists in config; default 'smart' if absent.
+  const approvalInit = ensureApprovalModeInitialized();
+  console.log(`[Shinobi] Approval mode: ${approvalInit.mode}`);
+
+  // Wire the asker so the orchestrator can prompt the user via this rl.
+  setApprovalAsker((promptText: string): Promise<Approval> => {
+    return new Promise<Approval>((resolveAns) => {
+      rl.question(promptText, (ans: string) => {
+        const a = (ans || '').trim().toLowerCase();
+        if (a === 'a' || a === 'always') resolveAns('always');
+        else if (a === 'y' || a === 'yes' || a === 's' || a === 'si') resolveAns('yes');
+        else resolveAns('no');
+      });
+    });
+  });
+
   const residentLoop = new ResidentLoop();
 
   await checkKernel();
 
-  // A5 — surface any pending Hermes upstream notice + start 24h watcher in the background.
+  // A5 — surface any pending upstream notice + start 24h watcher in the background.
   try {
     const watcher = await import('../src/watchers/hermes_watcher.js');
     const pending = watcher.popPendingNotice();
@@ -326,18 +358,46 @@ async function main() {
       if (trimmed.startsWith('/model')) {
         const parts = trimmed.split(' ');
         if (parts.length === 1) {
-          console.log(`Modelo activo: ${ShinobiOrchestrator.getModel()}`);
+          console.log(`Modelo activo: ${ShinobiOrchestrator.getModel()} | tier override: ${ShinobiOrchestrator.getTier()}`);
         } else if (parts[1] === 'auto') {
           ShinobiOrchestrator.setModel(undefined);
-          console.log('Modelo: auto (default GLM 4.7)');
+          console.log('Modelo: auto (router decide por tier)');
         } else if (parts[1] === 'list') {
-          console.log('Modelos recomendados:');
-          console.log('- z-ai/glm-4.7 (default)');
-          console.log('- openai/gpt-4o');
-          console.log('- anthropic/claude-3.5-sonnet');
+          console.log('Modelos recomendados (override manual; bypassea el router):');
+          console.log('- z-ai/glm-4.7 (REASONING tier default)');
+          console.log('- anthropic/claude-haiku-4.5 (BALANCED tier default)');
+          console.log('- openai/gpt-4o-mini (FAST tier default)');
+          console.log('- openai/gpt-4o, anthropic/claude-3.5-sonnet (otros)');
         } else {
           ShinobiOrchestrator.setModel(parts[1]);
-          console.log(`Modelo cambiado a: ${parts[1]}`);
+          console.log(`Modelo cambiado a: ${parts[1]} (bypassea router LLM)`);
+        }
+        prompt();
+        return;
+      }
+
+      // D-016 — /tier fast|balanced|reasoning|auto. Modela el override que el
+      // gateway aplica cuando llega req.body.tier sin model explícito. Si el
+      // usuario también fijó /model, el modelo gana (contract gateway-side).
+      if (trimmed.startsWith('/tier')) {
+        const parts = trimmed.split(/\s+/);
+        if (parts.length === 1) {
+          console.log(`Tier activo: ${ShinobiOrchestrator.getTier()} | modelo override: ${ShinobiOrchestrator.getModel()}`);
+        } else {
+          const sub = parts[1].toLowerCase();
+          if (sub === 'auto') {
+            ShinobiOrchestrator.setTier(undefined);
+            console.log('Tier: auto (router clasifica por heurística)');
+          } else if (sub === 'fast' || sub === 'balanced' || sub === 'reasoning') {
+            const t = sub.toUpperCase() as 'FAST' | 'BALANCED' | 'REASONING';
+            ShinobiOrchestrator.setTier(t);
+            console.log(`Tier forzado a: ${t}`);
+            if (ShinobiOrchestrator.getModel() !== 'default') {
+              console.log(`  ⚠ /model está fijado (${ShinobiOrchestrator.getModel()}) — el modelo gana sobre el tier hasta que hagas /model auto.`);
+            }
+          } else {
+            console.log('Usage: /tier fast | balanced | reasoning | auto');
+          }
         }
         prompt();
         return;
@@ -503,6 +563,48 @@ async function main() {
         }
         console.log('Usage: /notify set <workflow_id> | /notify unset | /notify test');
         prompt(); return;
+      }
+
+      // /read <path> [--budget=N] — Habilidad A: lectura jerárquica de un repo.
+      if (trimmed.startsWith('/read')) {
+        const argv = trimmed.slice('/read'.length).trim();
+        const { runRead, parseReadArgs } = await import('../src/reader/cli.js');
+        const parsed = parseReadArgs(argv);
+        if (parsed.error) {
+          console.log(parsed.error);
+        } else {
+          await runRead(parsed.path!, { budgetTokens: parsed.budgetTokens });
+        }
+        prompt();
+        return;
+      }
+
+      // /approval — D-017 approval mode control.
+      if (trimmed.startsWith('/approval')) {
+        const parts = trimmed.split(/\s+/);
+        if (parts.length === 1) {
+          console.log(`Approval mode: ${getApprovalMode()}`);
+        } else {
+          const sub = parts[1].toLowerCase();
+          if (sub === 'on' || sub === 'smart' || sub === 'off') {
+            setApprovalMode(sub as ApprovalMode);
+            if (sub === 'off') {
+              console.log('');
+              console.log('═══════════════════════════════════════════════════════════════');
+              console.log('⚠️  APPROVAL OFF — Shinobi tiene permisos absolutos en tu máquina.');
+              console.log('   Sin frenos. Sin confirmaciones. Sin sandbox.');
+              console.log('   Para revertir: /approval smart');
+              console.log('═══════════════════════════════════════════════════════════════');
+              console.log('');
+            } else {
+              console.log(`Approval mode: ${sub}`);
+            }
+          } else {
+            console.log('Usage: /approval [on|smart|off]');
+          }
+        }
+        prompt();
+        return;
       }
 
       // Process request
