@@ -1,0 +1,48 @@
+[
+  {
+    "path": "/",
+    "purpose": "Library to sort an array based on specified properties of its objects.",
+    "key_files": [
+      {
+        "name": "index.js",
+        "role": "Main implementation"
+      },
+      {
+        "name": "index.d.ts",
+        "role": "Type definitions"
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "dot-prop",
+        "ava",
+        "tsd",
+        "xo"
+      ]
+    },
+    "concerns": [
+      "No tests found for edge cases in sorting.",
+      "README does not specify version compatibility.",
+      "No example for using 'options' parameter in API documentation."
+    ]
+  },
+  {
+    "path": ".github",
+    "purpose": "Contains GitHub specific workflows and configurations for continuous integration and other automation tasks.",
+    "key_files": [
+      {
+        "name": "workflows/main.yml",
+        "role": "Defines CI workflow for Node.js, triggered on push and pull requests."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "actions/checkout",
+        "actions/setup-node"
+      ]
+    },
+    "concerns": []
+  }
+]

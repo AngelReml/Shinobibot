@@ -1,0 +1,45 @@
+[
+  {
+    "path": "/",
+    "purpose": "A Node.js utility to check if a value is a stream or a specific type of stream.",
+    "key_files": [
+      {
+        "name": "index.js",
+        "role": "Main implementation file"
+      },
+      {
+        "name": "index.d.ts",
+        "role": "Type definitions"
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "@types/node",
+        "ava",
+        "tempy",
+        "tsd",
+        "xo"
+      ]
+    },
+    "concerns": []
+  },
+  {
+    "path": ".github",
+    "purpose": "Houses GitHub-specific configurations, including workflows for continuous integration and deployment processes.",
+    "key_files": [
+      {
+        "name": "workflows/main.yml",
+        "role": "Defines the CI pipeline for testing Node.js applications on push and pull_request events."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "actions/checkout",
+        "actions/setup-node"
+      ]
+    },
+    "concerns": []
+  }
+]

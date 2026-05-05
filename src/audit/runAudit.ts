@@ -9,6 +9,7 @@ import { HierarchicalReader, renderTelemetryTree, type TelemetryNode } from '../
 import { makeLLMClient } from '../reader/llm_adapter.js';
 import { Committee, type CommitteeResult } from '../committee/Committee.js';
 import type { RepoReport, SubReport, SubReportError } from '../reader/schemas.js';
+import { MissionLedger } from '../ledger/MissionLedger.js';
 
 export interface AuditOptions {
   url: string;
@@ -283,6 +284,21 @@ export async function runAudit(opts: AuditOptions): Promise<AuditResult> {
       overallRisk,
       machineExist,
     });
+
+    // D.4 — record this audit in the immutable mission ledger.
+    try {
+      const ledger = new MissionLedger();
+      const entry = ledger.record({
+        mission_id: `audit-${owner}-${repo}-${shaShort(headSha)}`,
+        input: opts.url + (opts.commit ? `@${opts.commit}` : ''),
+        output: md,
+        model_calls: readResult.report.evidence.subagent_count + 1 /* committee synth */ + 3 /* committee members */,
+        total_cost: 0,
+      });
+      console.log(`[ledger] entry recorded — self_hash=${entry.self_hash.slice(0, 12)}…`);
+    } catch (e: any) {
+      console.warn(`[ledger] failed to record: ${e?.message ?? e}`);
+    }
 
     console.log('');
     console.log('───── AUDIT RESULT ─────');
