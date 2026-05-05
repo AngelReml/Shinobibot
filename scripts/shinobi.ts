@@ -239,6 +239,8 @@ async function main() {
   console.log('  /read        - Lectura jerárquica de un repo (/read <ruta> [--budget=N])');
   console.log('  /self        - Auto-lectura del repo Shinobi (/self [--diff] [--budget=N])');
   console.log('  /committee   - Comité de validación sobre un report (/committee [<report.json>])');
+  console.log('  /improvements - Genera propuestas a partir del último comité (markdown + json)');
+  console.log('  /apply       - Aplica una propuesta tras confirmación humana (/apply <id>)');
   console.log('');
 
   const rl = readline.createInterface({
@@ -577,6 +579,26 @@ async function main() {
         } else {
           await runRead(parsed.path!, { budgetTokens: parsed.budgetTokens });
         }
+        prompt();
+        return;
+      }
+
+      // /improvements — Habilidad B.3: traduce comité → propuestas concretas.
+      if (trimmed.startsWith('/improvements')) {
+        const argv = trimmed.slice('/improvements'.length).trim();
+        const { runImprovements } = await import('../src/committee/improvements.js');
+        await runImprovements(argv || undefined);
+        prompt();
+        return;
+      }
+
+      // /apply <id> — Habilidad B.3: aplica una propuesta tras confirmación humana.
+      if (trimmed.startsWith('/apply')) {
+        const id = trimmed.slice('/apply'.length).trim();
+        if (!id) { console.log('Usage: /apply <proposal_id>'); prompt(); return; }
+        const { applyProposal } = await import('../src/committee/improvements.js');
+        const r = await applyProposal(id, (q) => new Promise<string>((res) => rl.question(q, (a) => res(a))));
+        console.log(`[apply] ${r.ok ? 'OK' : 'FAIL'} — ${r.message}`);
         prompt();
         return;
       }
