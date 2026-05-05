@@ -241,6 +241,7 @@ async function main() {
   console.log('  /committee   - Comité de validación sobre un report (/committee [<report.json>])');
   console.log('  /improvements - Genera propuestas a partir del último comité (markdown + json)');
   console.log('  /apply       - Aplica una propuesta tras confirmación humana (/apply <id>)');
+  console.log('  /learn       - Aprende un programa nuevo (/learn <ruta | github URL | docs URL>)');
   console.log('');
 
   const rl = readline.createInterface({
@@ -579,6 +580,17 @@ async function main() {
         } else {
           await runRead(parsed.path!, { budgetTokens: parsed.budgetTokens });
         }
+        prompt();
+        return;
+      }
+
+      // /learn <ruta_o_url> — Habilidad C.1: aprende un programa nuevo.
+      if (trimmed.startsWith('/learn')) {
+        const argv = trimmed.slice('/learn'.length).trim();
+        const { runLearn, parseLearnArgs } = await import('../src/knowledge/learn.js');
+        const parsed = parseLearnArgs(argv);
+        if (parsed.error) { console.log(parsed.error); prompt(); return; }
+        await runLearn(parsed.input!);
         prompt();
         return;
       }
