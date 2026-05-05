@@ -1,0 +1,33 @@
+{
+  "repo_purpose": "A Node.js utility to check if a value is a stream or a specific type of stream.",
+  "architecture_summary": "This repository is organized into two main components: the core logic and type definitions for determining if a value is a stream, which reside in the root directory, and the GitHub configuration files for CI/CD workflows, located in the .github directory. The primary functionality is implemented in JavaScript within `index.js`, with corresponding typings in `index.d.ts` to provide TypeScript support. The repository incorporates several external dependencies: `@types/node` for Node.js type definitions; `ava`, a testing framework; `tempy`, for temporary file handling during tests; `tsd`, to test TypeScript definitions; and `xo`, a linter for maintaining code quality. CI operations utilize GitHub Actions, integrating `actions/checkout` and `actions/setup-node` to automate testing processes upon code pushes and pull requests.",
+  "modules": [
+    {
+      "name": "stream-checker",
+      "path": "/",
+      "responsibility": "Implements logic to determine if a value is a stream or a type of stream."
+    },
+    {
+      "name": "ci-configuration",
+      "path": ".github",
+      "responsibility": "Handles CI/CD processes using GitHub Actions to ensure code quality and functionality through automated testing."
+    }
+  ],
+  "entry_points": [
+    {
+      "file": "index.js",
+      "kind": "Main implementation file"
+    },
+    {
+      "file": "workflows/main.yml",
+      "kind": "CI configuration file"
+    }
+  ],
+  "risks": [],
+  "evidence": {
+    "subagent_count": 2,
+    "tokens_total": 0,
+    "duration_ms": 6325,
+    "subreports_referenced": 2
+  }
+}

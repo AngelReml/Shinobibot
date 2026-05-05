@@ -251,6 +251,7 @@ async function main() {
   console.log('  /improvements - Genera propuestas a partir del último comité (markdown + json)');
   console.log('  /apply       - Aplica una propuesta tras confirmación humana (/apply <id>)');
   console.log('  /learn       - Aprende un programa nuevo (/learn <ruta | github URL | docs URL>)');
+  console.log('  /ledger      - Hash chain de misiones (/ledger verify | /ledger export)');
   console.log('');
 
   const rl = readline.createInterface({
@@ -588,6 +589,33 @@ async function main() {
           console.log(parsed.error);
         } else {
           await runRead(parsed.path!, { budgetTokens: parsed.budgetTokens });
+        }
+        prompt();
+        return;
+      }
+
+      // /ledger verify | export — Habilidad D.4: integridad de la cadena de misiones.
+      if (trimmed.startsWith('/ledger')) {
+        const sub = trimmed.slice('/ledger'.length).trim().split(/\s+/)[0] ?? '';
+        const { MissionLedger } = await import('../src/ledger/MissionLedger.js');
+        const ledger = new MissionLedger();
+        if (sub === 'verify') {
+          const v = ledger.verify();
+          console.log(`[ledger] entries: ${v.entries}`);
+          console.log(`[ledger] integrity: ${v.ok ? 'INTACT ✅' : 'BROKEN ❌'}`);
+          if (!v.ok) for (const b of v.breakages) console.log(`  - [${b.index}] ${b.reason}`);
+        } else if (sub === 'export') {
+          const exp = ledger.export();
+          const fs = await import('node:fs');
+          const path = await import('node:path');
+          const outDir = path.join(process.cwd(), 'ledger');
+          if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
+          const out = path.join(outDir, `export_${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+          fs.writeFileSync(out, JSON.stringify(exp, null, 2));
+          console.log(`[ledger] count=${exp.count}  head=${exp.head.slice(0, 12) || '<empty>'}…`);
+          console.log(`[ledger] export → ${out}`);
+        } else {
+          console.log('Usage: /ledger verify | /ledger export');
         }
         prompt();
         return;

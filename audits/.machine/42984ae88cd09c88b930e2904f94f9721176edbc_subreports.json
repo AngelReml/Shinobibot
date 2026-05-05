@@ -1,0 +1,46 @@
+[
+  {
+    "path": "/",
+    "purpose": "p-event makes handling events easier by promisifying event results, simplifying async operations in Node.js and browsers.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Project metadata, dependencies, and scripts."
+      },
+      {
+        "name": "readme.md",
+        "role": "Documentation for usage and API details."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "p-timeout",
+        "@types/node",
+        "ava",
+        "delay",
+        "tsd",
+        "xo"
+      ]
+    },
+    "concerns": []
+  },
+  {
+    "path": ".github",
+    "purpose": "This branch contains GitHub workflows and configurations for managing CI/CD pipelines and repository settings.",
+    "key_files": [
+      {
+        "name": "workflows/main.yml",
+        "role": "Defines CI workflow for Node.js with matrix testing on multiple Node versions."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "actions/checkout",
+        "actions/setup-node"
+      ]
+    },
+    "concerns": []
+  }
+]

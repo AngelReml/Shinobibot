@@ -1,0 +1,72 @@
+{
+  "id": "0",
+  "level": "supervisor",
+  "label": "root",
+  "start_ms": 0,
+  "status": "ok",
+  "children": [
+    {
+      "id": "0.0",
+      "level": "leaf",
+      "label": "/",
+      "start_ms": 2,
+      "status": "ok",
+      "children": [],
+      "end_ms": 3835,
+      "duration_ms": 3833,
+      "payload": {
+        "type": "sub_report",
+        "size_chars": 667
+      }
+    },
+    {
+      "id": "0.1",
+      "level": "sub_supervisor",
+      "label": ".github",
+      "start_ms": 3,
+      "status": "ok",
+      "children": [
+        {
+          "id": "0.1.0",
+          "level": "leaf",
+          "label": "/",
+          "start_ms": 3,
+          "status": "ok",
+          "children": [],
+          "end_ms": 3403,
+          "duration_ms": 3400,
+          "payload": {
+            "type": "sub_report",
+            "size_chars": 724
+          }
+        },
+        {
+          "id": "0.1.1",
+          "level": "leaf",
+          "label": "workflows",
+          "start_ms": 4,
+          "status": "ok",
+          "children": [],
+          "end_ms": 2111,
+          "duration_ms": 2107,
+          "payload": {
+            "type": "sub_report",
+            "size_chars": 239
+          }
+        }
+      ],
+      "end_ms": 4129,
+      "duration_ms": 4126,
+      "payload": {
+        "type": "sub_synth",
+        "size_chars": 252
+      }
+    }
+  ],
+  "end_ms": 7354,
+  "duration_ms": 7354,
+  "payload": {
+    "type": "final_synth",
+    "size_chars": 1862
+  }
+}

@@ -1,0 +1,5 @@
+[✓] supervisor      root  6483ms  (1424 chars)
+├─ [✓] leaf            /  2309ms  (449 chars)
+└─ [✓] sub_supervisor  .github  3716ms  (360 chars)
+   ├─ [✓] leaf            /  2828ms  (589 chars)
+   └─ [✓] leaf            workflows  1827ms  (224 chars)
