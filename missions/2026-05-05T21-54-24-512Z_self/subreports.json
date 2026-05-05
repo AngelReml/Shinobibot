@@ -1,0 +1,181 @@
+[
+  {
+    "path": "/",
+    "purpose": "Shinobi is an autonomous Windows-native agent designed for Spanish-speaking YouTubers, aiding in content adaptation and research.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Defines project metadata, dependencies, and scripts."
+      },
+      {
+        "name": "README.md",
+        "role": "Documentation providing an overview, setup instructions, and project structure."
+      },
+      {
+        "name": "tsconfig.json",
+        "role": "TypeScript configuration file for compilation settings."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "@nut-tree-fork/nut-js",
+        "axios",
+        "better-sqlite3",
+        "dotenv",
+        "openai",
+        "playwright",
+        "sqlite-vec"
+      ]
+    },
+    "concerns": [
+      "No tests have been defined in the package.json file.",
+      "The README mentions various blocks but the state for some is not detailed.",
+      "Build instructions require scripts that are not part of the repository as per the provided files."
+    ]
+  },
+  {
+    "path": "src/watchers/hermes_watcher.ts",
+    "purpose": "Continuous watcher for upstream Hermes repo, notifies when new releases are available.",
+    "key_files": [
+      {
+        "name": "hermes_watcher.ts",
+        "role": "Implements functionality for checking releases and managing state."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "node:fs",
+        "node:os",
+        "node:path"
+      ]
+    },
+    "concerns": [
+      "The state file loading logic may throw errors but returns null states on failure.",
+      "No unit tests are present within this file to verify functionality.",
+      "Default fetch function can fail silently without a clear error handling strategy.",
+      "State persistence might lead to stale data if the watcher is not restarted.",
+      "Usage of globally scoped constants might lead to potential conflicts in larger applications."
+    ]
+  },
+  {
+    "path": "docs/",
+    "purpose": "Documentation of the Shinobi ecosystem, including identity, architecture, roadmap, and current state.",
+    "key_files": [
+      {
+        "name": "00_identity.md",
+        "role": "Describes the identity and work principles of the team member."
+      },
+      {
+        "name": "01_ecosystem.md",
+        "role": "Explains the architecture and components of the Shinobi ecosystem."
+      },
+      {
+        "name": "02_roadmap.md",
+        "role": "Outlines the future milestones and goals for the project."
+      },
+      {
+        "name": "03_state.md",
+        "role": "Reports the current functioning state and confirmed tools of the project."
+      },
+      {
+        "name": "04_pending.md",
+        "role": "Lists technical pending tasks and issues."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "No posts have been published on LinkedIn; roadmap phase 0.5 is still pending.",
+      "Cloudflare Turnstile detection is blocking Upwork; solutions are documented but outside the current scope.",
+      "L3 keyword filter has false positives; fix is required for targeting insurance brokers.",
+      "Validation of the orchestrator has not been tested in a real mission yet.",
+      "Multiple tasks and validations are pending completion, according to the latest updates."
+    ]
+  },
+  {
+    "path": "scripts",
+    "purpose": "Contains scripts for running tests, generating logs, and validating reports related to the Shinobi ecosystem.",
+    "key_files": [
+      {
+        "name": "a3_smoke.ts",
+        "role": "Tests parseReadArgs function"
+      },
+      {
+        "name": "a4_run.ts",
+        "role": "Executes runRead on repositories and logs results"
+      },
+      {
+        "name": "b1_run.ts",
+        "role": "Runs self-report generation"
+      },
+      {
+        "name": "b1_smoke.ts",
+        "role": "Tests parseSelfArgs and runSelfDiff"
+      },
+      {
+        "name": "build_log_generate.mjs",
+        "role": "Generates build log from GitHub commits"
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "../src/reader/cli.js",
+        "../src/reader/self.js"
+      ],
+      "external": []
+    },
+    "concerns": [
+      "No tests for build_log_generate.mjs.",
+      "Error handling in scripts could be improved.",
+      "Temporary directories created in tests are cleaned up, but could leave traces if errors occur.",
+      "Scripts might not handle all edge cases during execution.",
+      "No version control on dependencies within scripts."
+    ]
+  },
+  {
+    "path": "artifacts/y1_video_urls.json",
+    "purpose": "Contains a list of YouTube video URLs related to AI agents and automation.",
+    "key_files": [],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": []
+  },
+  {
+    "path": "misc/",
+    "purpose": "This folder contains demonstration scripts, skills for desktop automation, and mission metadata for the Shinobi project.",
+    "key_files": [
+      {
+        "name": "demos/full-self-improve-2026-05-04T09-23-04-525Z.transcript.txt",
+        "role": "Demo transcript for full self-improvement mode execution."
+      },
+      {
+        "name": "skills/desktop/README.md",
+        "role": "Documentation for Shinobi desktop skills and installation instructions."
+      },
+      {
+        "name": "skills/desktop/desktop-premiere-basic-cut/SKILL.md",
+        "role": "Specification for the Premiere Pro automation skill."
+      },
+      {
+        "name": "missions/2026-05-05T21-53-46-420Z_self/meta.json",
+        "role": "Metadata for a mission task execution."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "node-mjs"
+      ]
+    },
+    "concerns": [
+      "The desktop skills cannot be E2E tested in CI due to Premiere licensing requirements.",
+      "There are TODOs in docs/manual_actions.md for verifying some skills in a fully configured environment."
+    ]
+  }
+]

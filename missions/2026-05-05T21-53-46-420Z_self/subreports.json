@@ -1,0 +1,187 @@
+[
+  {
+    "path": "/",
+    "purpose": "Shinobi — autonomous Windows-native agent for Spanish YouTubers to assist in channel format adaptation.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Defines dependencies, scripts, and distribution information."
+      },
+      {
+        "name": "README.md",
+        "role": "Provides an overview, setup instructions, and project philosophy."
+      },
+      {
+        "name": "tsconfig.json",
+        "role": "Configures TypeScript compilation settings."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "@nut-tree-fork/nut-js",
+        "axios",
+        "better-sqlite3",
+        "dotenv",
+        "openai",
+        "playwright",
+        "sqlite-vec"
+      ]
+    },
+    "concerns": [
+      "README mentions no tests specified in scripts.",
+      "License type stated is ISC, while package.json shows MIT.",
+      "TODO: Setup commercial and cloud configurations in .env require user input.",
+      "No specific test files mentioned for E2E tests in README.",
+      "All build and development scripts are present but may need further documentation."
+    ]
+  },
+  {
+    "path": "src/watchers/hermes_watcher.ts",
+    "purpose": "A continuous watcher for the Hermes repo that polls for new releases and notifies the user.",
+    "key_files": [
+      {
+        "name": "hermes_watcher.ts",
+        "role": "Main functionality for checking updates and managing state."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "node:fs",
+        "node:os",
+        "node:path"
+      ]
+    },
+    "concerns": [
+      "No automated tests for most functions.",
+      "Possibility of race conditions due to asynchronous state updates.",
+      "Error handling is minimal; some failures will leave state unchanged.",
+      "Defaults to 24-hour polling, which may not be optimal for all use cases.",
+      "State file location is hardcoded to Windows environment, may limit portability."
+    ]
+  },
+  {
+    "path": "docs",
+    "purpose": "Documentation folder containing various reports on the identity, ecosystem, roadmap, and current state of the project.",
+    "key_files": [
+      {
+        "name": "00_identity.md",
+        "role": "Describes the identity and operational rules for Iván Carbonell."
+      },
+      {
+        "name": "01_ecosystem.md",
+        "role": "Details the architecture and structure of the ecosystem including directories and technologies."
+      },
+      {
+        "name": "02_roadmap.md",
+        "role": "Outlines the product roadmap with phases and descriptions of objectives."
+      },
+      {
+        "name": "03_state.md",
+        "role": "Provides the current status of the project with confirmed functionality and issues."
+      },
+      {
+        "name": "04_pending.md",
+        "role": "Lists pending technical tasks and issues to be addressed in development."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "Pending tasks include filtering issues in LinkedIn search results for insurance brokers.",
+      "Cloudflare Turnstile detection is a problem but currently documented and not blocking core objectives.",
+      "No LinkedIn posts have been published yet despite roadmap requirements.",
+      "End-to-end agent validation has not been executed in real mission scenarios with new primitives.",
+      "Multiple operational guidelines and checks are specified but need human execution."
+    ]
+  },
+  {
+    "path": "scripts",
+    "purpose": "Contains scripts for testing and generating reports related to the Shinobi ecosystem.",
+    "key_files": [
+      {
+        "name": "a3_smoke.ts",
+        "role": "Smoke test for parseReadArgs and runRead function."
+      },
+      {
+        "name": "a4_run.ts",
+        "role": "Runs read related tasks and generates reports."
+      },
+      {
+        "name": "b1_run.ts",
+        "role": "Executes self-report generation process."
+      },
+      {
+        "name": "b1_smoke.ts",
+        "role": "Smoke test for parseSelfArgs and runSelfDiff."
+      },
+      {
+        "name": "build_log_generate.mjs",
+        "role": "Generates a public build log from commits across multiple repos."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "../src/reader/cli.js",
+        "../src/reader/self.js"
+      ],
+      "external": []
+    },
+    "concerns": [
+      "Ensure tests cover all edge cases for parsing arguments.",
+      "Check if reports are correctly formatted before final output.",
+      "No explicit tests are mentioned for build_log_generate functionality.",
+      "Review permissions for GitHub API access in build log generation.",
+      "Validate error handling for file read operations in scripts."
+    ]
+  },
+  {
+    "path": "youtube/y2_extracted.json",
+    "purpose": "Contains extracted metadata from a YouTube video related to automated browsing agents.",
+    "key_files": [],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": []
+  },
+  {
+    "path": "misc/",
+    "purpose": "Contains various demos, skills, and mission-related files for Shinobi automation tasks.",
+    "key_files": [
+      {
+        "name": "full-self-improve-2026-05-04T09-23-04-525Z.transcript.txt",
+        "role": "Demo transcript showing execution of representative tasks."
+      },
+      {
+        "name": "skills/desktop/README.md",
+        "role": "Documentation for Shinobi desktop skills for Windows automation."
+      },
+      {
+        "name": "skills/desktop/desktop-premiere-basic-cut/SKILL.md",
+        "role": "Definition and usage instructions for Premiere Pro automation skill."
+      },
+      {
+        "name": "missions/2026-05-05T21-28-46-431Z_a4_execa/meta.json",
+        "role": "Metadata for a specific mission execution."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "node",
+        "obs-websocket"
+      ]
+    },
+    "concerns": [
+      "TODOs present in skills documentation for verifying application installation.",
+      "Some skills cannot be end-to-end tested due to licensing restrictions.",
+      "Previous demo transcripts could indicate potential redundancy.",
+      "Limited documentation on failures for desktop skills.",
+      "Skills require specific software installations, which may complicate usage."
+    ]
+  }
+]

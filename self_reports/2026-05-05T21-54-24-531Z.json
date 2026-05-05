@@ -1,0 +1,82 @@
+{
+  "repo_purpose": "Shinobi is an autonomous Windows-native agent designed for Spanish-speaking YouTubers, aiding in content adaptation and research.",
+  "architecture_summary": "The Shinobi repository encompasses a variety of components and scripts aimed at supporting autonomous content adaptation and research for YouTubers. Core components include scripts that execute and test various functionalities in the ecosystem. The documentation folder provides extensive information on project identity, architecture, and roadmap, ensuring stakeholders are informed about current operations and future directions. The watchers observe external repositories for updates, while artifacts and misc folders include data and demonstration assets. The project relies on several external dependencies including '@nut-tree-fork/nut-js', 'axios', 'better-sqlite3', 'dotenv', and 'openai'. However, there are risks and concerns identified, such as the lack of defined tests, potential stale state handling in watchers, and insufficient edge case handling in scripts.",
+  "modules": [
+    {
+      "name": "package.json",
+      "path": "/",
+      "responsibility": "Defines project metadata, dependencies, and scripts."
+    },
+    {
+      "name": "hermes_watcher.ts",
+      "path": "src/watchers/hermes_watcher.ts",
+      "responsibility": "Implements functionality for checking releases and managing state."
+    },
+    {
+      "name": "00_identity.md",
+      "path": "docs/00_identity.md",
+      "responsibility": "Describes the identity and work principles of the team member."
+    },
+    {
+      "name": "a3_smoke.ts",
+      "path": "scripts/a3_smoke.ts",
+      "responsibility": "Tests parseReadArgs function"
+    },
+    {
+      "name": "y1_video_urls.json",
+      "path": "artifacts/y1_video_urls.json",
+      "responsibility": "Contains a list of YouTube video URLs related to AI agents and automation."
+    },
+    {
+      "name": "misc/demos/full-self-improve-2026-05-04T09-23-04-525Z.transcript.txt",
+      "path": "misc/demos/full-self-improve-2026-05-04T09-23-04-525Z.transcript.txt",
+      "responsibility": "Demo transcript for full self-improvement mode execution."
+    }
+  ],
+  "entry_points": [
+    {
+      "file": "README.md",
+      "kind": "documentation"
+    },
+    {
+      "file": "package.json",
+      "kind": "configuration"
+    },
+    {
+      "file": "src/watchers/hermes_watcher.ts",
+      "kind": "watcher script"
+    }
+  ],
+  "risks": [
+    {
+      "severity": "medium",
+      "description": "No tests have been defined in the package.json file."
+    },
+    {
+      "severity": "medium",
+      "description": "The state file loading logic in hermes_watcher.ts may throw errors but returns null states on failure."
+    },
+    {
+      "severity": "high",
+      "description": "Build instructions require scripts that are not part of the repository as per the provided files."
+    },
+    {
+      "severity": "medium",
+      "description": "Usage of globally scoped constants in hermes_watcher.ts might lead to potential conflicts."
+    },
+    {
+      "severity": "medium",
+      "description": "[unreadable] notes indicate potential gaps in comprehensive documentation."
+    },
+    {
+      "severity": "medium",
+      "description": "The desktop skills cannot be E2E tested in CI due to Premiere licensing requirements."
+    }
+  ],
+  "evidence": {
+    "subagent_count": 6,
+    "tokens_total": 0,
+    "duration_ms": 12175,
+    "subreports_referenced": 6
+  }
+}
