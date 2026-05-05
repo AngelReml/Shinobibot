@@ -6,10 +6,17 @@ import type { LLMClient } from './SubAgent.js';
 
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1/chat/completions';
 
-const MODEL_ALIAS: Record<string, string> = {
-  // logical name → OpenRouter model id
+const OPENROUTER_ALIAS: Record<string, string> = {
   'claude-haiku-4-5': 'anthropic/claude-haiku-4.5',
   'claude-opus-4-7': 'anthropic/claude-opus-4.7',
+};
+
+// Fallback when OPENROUTER_API_KEY is not set: route to OpenAI directly using
+// approximate equivalents so RepoReader's logical names still resolve to a
+// real model id rather than producing a 404.
+const OPENAI_FALLBACK: Record<string, string> = {
+  'claude-haiku-4-5': 'gpt-4o-mini',
+  'claude-opus-4-7': 'gpt-4o',
 };
 
 export function makeLLMClient(): LLMClient {
@@ -17,8 +24,9 @@ export function makeLLMClient(): LLMClient {
   const orKey = process.env.OPENROUTER_API_KEY;
   return {
     async chat(messages, opts) {
-      const model = opts?.model ? (MODEL_ALIAS[opts.model] ?? opts.model) : 'anthropic/claude-haiku-4.5';
+      const logical = opts?.model ?? 'claude-haiku-4-5';
       if (orKey) {
+        const model = OPENROUTER_ALIAS[logical] ?? logical;
         return gateway.chat(messages as any, {
           provider: 'openai',
           model,
@@ -26,8 +34,8 @@ export function makeLLMClient(): LLMClient {
           baseUrl: OPENROUTER_BASE,
         });
       }
-      // Fallback for local dev without OpenRouter
-      return gateway.chat(messages as any, { provider: 'openai', model: opts?.model ?? 'gpt-4o' });
+      const model = OPENAI_FALLBACK[logical] ?? logical;
+      return gateway.chat(messages as any, { provider: 'openai', model });
     },
   };
 }
