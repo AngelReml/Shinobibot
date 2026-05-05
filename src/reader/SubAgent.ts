@@ -69,6 +69,10 @@ function readTruncated(absPath: string, maxBytes: number): string {
 export interface SubAgentOptions {
   model?: string;             // default Haiku
   maxBytesPerFile?: number;   // default 12_000
+  /** When provided, KnowledgeRouter scans the user prompt and prepends matched manuals. */
+  knowledgeInjector?: (task: string) => string;
+  /** Mission id passed to the knowledge router for usage logging. */
+  missionId?: string;
 }
 
 export async function runSubAgent(
@@ -82,7 +86,13 @@ export async function runSubAgent(
     content: readTruncated(p, maxBytesPerFile),
   }));
 
-  const userPrompt = buildUserPrompt(task, fileContents);
+  let userPrompt = buildUserPrompt(task, fileContents);
+
+  // C.2 — KnowledgeRouter injection (opt-in via opts.knowledgeInjector).
+  if (opts.knowledgeInjector) {
+    const injection = opts.knowledgeInjector(userPrompt);
+    if (injection) userPrompt = injection + '\n\n' + userPrompt;
+  }
 
   const callOnce = async (extraSystem = ''): Promise<unknown> => {
     const messages = [
