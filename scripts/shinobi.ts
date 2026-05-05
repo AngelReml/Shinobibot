@@ -237,6 +237,7 @@ async function main() {
   console.log('  /record      - Auto-grabar sesion en OBS (/record start | /record stop)');
   console.log('  /approval    - Modo de aprobación (/approval [on|smart|off])');
   console.log('  /read        - Lectura jerárquica de un repo (/read <ruta> [--budget=N])');
+  console.log('  /self        - Auto-lectura del repo Shinobi (/self [--diff] [--budget=N])');
   console.log('');
 
   const rl = readline.createInterface({
@@ -574,6 +575,22 @@ async function main() {
           console.log(parsed.error);
         } else {
           await runRead(parsed.path!, { budgetTokens: parsed.budgetTokens });
+        }
+        prompt();
+        return;
+      }
+
+      // /self [--diff] [--budget=N] — Habilidad B.1: Shinobi se lee a sí mismo.
+      if (trimmed.startsWith('/self')) {
+        const argv = trimmed.slice('/self'.length).trim();
+        const { runSelf, runSelfDiff, parseSelfArgs } = await import('../src/reader/self.js');
+        const parsed = parseSelfArgs(argv);
+        if (parsed.error) {
+          console.log(parsed.error);
+        } else if (parsed.diff) {
+          await runSelfDiff();
+        } else {
+          await runSelf({ budgetTokens: parsed.budgetTokens });
         }
         prompt();
         return;
