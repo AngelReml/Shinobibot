@@ -1,0 +1,32 @@
+[
+  {
+    "path": "/",
+    "purpose": "[unreadable]",
+    "error": "LLM call failed on retry: Request failed with status code 404"
+  },
+  {
+    "path": "test",
+    "purpose": "[unreadable]",
+    "error": "LLM call failed on retry: Request failed with status code 404"
+  },
+  {
+    "path": "test-d",
+    "purpose": "[unreadable]",
+    "error": "LLM call failed on retry: Request failed with status code 404"
+  },
+  {
+    "path": "lib",
+    "purpose": "[unreadable]",
+    "error": "LLM call failed on retry: Request failed with status code 404"
+  },
+  {
+    "path": "types",
+    "purpose": "[unreadable]",
+    "error": "LLM call failed on retry: Request failed with status code 404"
+  },
+  {
+    "path": "misc/",
+    "purpose": "[unreadable]",
+    "error": "LLM call failed on retry: Request failed with status code 404"
+  }
+]

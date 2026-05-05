@@ -1,0 +1,32 @@
+[
+  {
+    "path": "/",
+    "purpose": "[unreadable]",
+    "error": "LLM call failed on retry: Request failed with status code 404"
+  },
+  {
+    "path": ".tmp.driveupload",
+    "purpose": "[unreadable]",
+    "error": "LLM call failed on retry: Request failed with status code 404"
+  },
+  {
+    "path": "backups",
+    "purpose": "[unreadable]",
+    "error": "LLM call failed on retry: Request failed with status code 404"
+  },
+  {
+    "path": "benchmark_venv",
+    "purpose": "[unreadable]",
+    "error": "LLM call failed on retry: Request failed with status code 404"
+  },
+  {
+    "path": "data",
+    "purpose": "[unreadable]",
+    "error": "LLM call failed on retry: Request failed with status code 404"
+  },
+  {
+    "path": "misc/",
+    "purpose": "[unreadable]",
+    "error": "LLM call failed on retry: Request failed with status code 404"
+  }
+]
