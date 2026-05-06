@@ -238,16 +238,23 @@ function resolveByBasename(invented: string): string | undefined {
  * patch from before/after files.
  */
 export async function regenerateProposalWithContext(p: Proposal, fileContent: string, llm: LLMClient): Promise<{ diff: string } | undefined> {
-  const sys = `You propose a small in-place edit. Output JSON ONLY in this shape:
+  const sys = `You are a senior code-mod author repairing a previous failed proposal. The previous diff did NOT apply with "git apply". You are getting a second chance with the LITERAL contents of the target file below. Your task: produce a precise find/replace pair that, when applied via simple substring replacement, achieves the original motive.
+
+Output JSON ONLY in this shape:
 {"find": string, "replace": string}
 
 Rules:
-- "find" MUST be an EXACT, contiguous substring of the file shown below — copy it verbatim including whitespace and quotes.
-- "find" must be unique in the file. If a phrase appears twice, include extra surrounding context.
-- "replace" is what "find" should become.
-- Keep the change small and focused on the motive.
-- For pure additions, set "find" to a unique anchor line and "replace" to that anchor PLUS the new lines.
-- Output JSON only — no prose, no fence.`;
+- "find" MUST be an EXACT, contiguous substring of the file shown below — copy it verbatim including whitespace, indentation, and quotes.
+- "find" must be UNIQUE in the file. If the substring you'd pick appears more than once, expand it with adjacent lines until it is unique.
+- "replace" is what "find" should become. It can be longer or shorter than "find".
+- Keep the change small and focused on the motive — do NOT bundle unrelated edits.
+- For pure additions (e.g. add a new section), set "find" to a unique anchor line that already exists, and set "replace" to that anchor line PLUS the new content (preserving original indentation).
+- Output JSON only — no prose, no fence.
+
+Acceptable: {"find":"  \\"test\\": \\"echo \\\\\\"Error: no test specified\\\\\\" && exit 1\\"","replace":"  \\"test\\": \\"tsx scripts/run_tests.ts\\""}
+Unacceptable: a "find" that says "scripts: { test: ... }" when the actual file uses double quotes and different indentation — substring match will fail and the retry is wasted.
+
+Self-check before emitting: copy your "find" and ctrl-F it mentally in the file content above. If you don't see it letter-for-letter, fix it. If it appears more than once, add context until unique.`;
   const user =
     `Motive: ${p.motive}\n` +
     `Risk: ${p.risk}\n` +
