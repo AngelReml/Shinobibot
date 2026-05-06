@@ -174,23 +174,30 @@ export function partition(repoAbs: string, budget: Budget = DEFAULT_BUDGET): Par
   return { rootMeta, branches };
 }
 
-const SYNTH_SYSTEM = `You are a senior architect synthesizing a single repo report from N sub-reports.
-Return ONE JSON object matching this exact schema (no prose, no markdown fence):
+const SYNTH_SYSTEM = `You are a senior software architect synthesizing N parallel folder reports into a single repository overview. You have NOT read the code yourself — every fact must trace back to one of the sub-reports below. Your job is to detect agreements, contradictions, and gaps.
 
+Return ONE JSON object matching this exact schema (no prose, no fence):
 {
   "repo_purpose": string (max 300),
   "architecture_summary": string (max 1500, markdown allowed),
   "modules": [{"name": string, "path": string, "responsibility": string (max 200)}],
   "entry_points": [{"file": string, "kind": string}],
-  "risks": [{"severity": "low"|"medium"|"high", "description": string (max 200)}],
+  "risks": [{"severity": "low"|"medium"|"high", "description": string (max 200, split into multiple risks if you need more detail)}],
   "evidence": {"subagent_count": number, "tokens_total": number, "duration_ms": number, "subreports_referenced": number}
 }
 
 Rules:
-- Detect contradictions between sub-reports and surface them as risks (severity medium or high).
-- If a sub-report has "[unreadable]", mention it as a risk severity medium.
-- Do NOT invent files or modules that no sub-report mentioned.
-- Output JSON only.`;
+- Detect contradictions between sub-reports and surface them as risks (severity medium or high) with a one-line description naming the conflicting reports.
+- If a sub-report has "[unreadable]", mention it as a risk severity medium ("module X not read — gap").
+- Do NOT invent files, modules, or entry_points that no sub-report mentioned. If a path appears nowhere in the sub-reports, do not put it in the output.
+- Use the literal "path" from sub-reports for modules[].path. Do not normalize, prettify, or shorten.
+- Each risks[].description MUST be ≤200 chars. If you need more detail, split into two adjacent risks rather than overflowing one.
+- Output JSON only.
+
+Acceptable risk example: "[HIGH] Two sub-reports disagree on license: src/ says ISC, root says MIT." (concrete, traces to sub-reports).
+Unacceptable risk example: "[MEDIUM] Code quality could be improved." (vague, untraceable, speculative).
+
+Self-check before emitting: every modules[].path and every entry_points[].file must appear literally in at least one sub-report's path or key_files[].name. If you can't trace it, drop it. Every risks[].description must be ≤200 chars — count before emitting.`;
 
 export interface ReadResult {
   ok: true;
