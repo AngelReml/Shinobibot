@@ -43,6 +43,36 @@ function copyFile(src: string, dst: string): boolean {
   return true;
 }
 
+function isTransient(e: unknown): boolean {
+  const msg = String((e as any)?.message ?? e ?? '').toLowerCase();
+  // Network/timeouts/5xx/429 are transient. Validation errors and missing
+  // files are NOT transient — those mean the task is genuinely broken.
+  if (/timeout|econnreset|enotfound|ehostunreach|epipe|socket hang up|network/.test(msg)) return true;
+  if (/status code 5\d\d/.test(msg)) return true;
+  if (/status code 429|rate.?limit/.test(msg)) return true;
+  return false;
+}
+
+async function withRetry<T>(label: string, fn: () => Promise<T>, maxAttempts = 3, backoffMs = 8_000): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      if (attempt === maxAttempts) break;
+      if (!isTransient(e)) {
+        // Non-transient (validation, missing input) — don't retry.
+        throw e;
+      }
+      const wait = backoffMs * attempt;
+      console.log(`[retry] ${label} attempt ${attempt} failed (${(e as Error).message}). backing off ${wait/1000}s…`);
+      await new Promise((r) => setTimeout(r, wait));
+    }
+  }
+  throw lastErr;
+}
+
 function newest(dir: string, ext: string): string | undefined {
   if (!fs.existsSync(dir)) return undefined;
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(ext)).sort();
@@ -72,7 +102,7 @@ async function t1(run: number) {
       if (/digininja__DVWA/i.test(f)) fs.unlinkSync(path.join(auditsDir, f));
     }
   }
-  const t = await timed(() => runAudit({ url: 'https://github.com/digininja/DVWA' }));
+  const t = await timed(() => withRetry(`T1.run${run}`, () => runAudit({ url: 'https://github.com/digininja/DVWA' })));
   const r = t.value;
   const out = path.join(OUT_DIR, `T1_run${run}_audit.md`);
   const ok = r.ok && copyFile(r.mdPath, out);
@@ -82,7 +112,7 @@ async function t1(run: number) {
 
 // ── T2: self read ───────────────────────────────────────────────────────────
 async function t2(run: number) {
-  const t = await timed(() => runSelf({}));
+  const t = await timed(() => withRetry(`T2.run${run}`, () => runSelf({})));
   const r = t.value;
   const out = path.join(OUT_DIR, `T2_run${run}_self.json`);
   const ok = r.ok && copyFile(r.selfReportPath, out);
@@ -97,7 +127,7 @@ async function t3(run: number) {
     records.push({ task: 'T3', run, durationMs: 0, ok: false, outFile: '', notes: 'no self_report — run T2 first' });
     return;
   }
-  const t = await timed(() => runCommittee(target));
+  const t = await timed(() => withRetry(`T3.run${run}`, () => runCommittee(target)));
   const r = t.value;
   const out = path.join(OUT_DIR, `T3_run${run}_committee.json`);
   const ok = r.ok && copyFile(r.outputPath, out);
@@ -109,7 +139,7 @@ async function t3(run: number) {
 async function t4(run: number) {
   const dir = path.join(process.cwd(), 'knowledge', 'valibot');
   if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
-  const t = await timed(() => runLearn('https://valibot.dev'));
+  const t = await timed(() => withRetry(`T4.run${run}`, () => runLearn('https://valibot.dev')));
   const r = t.value;
   const out = path.join(OUT_DIR, `T4_run${run}_manual.json`);
   const ok = r.ok && copyFile(r.manualPath, out);
@@ -119,7 +149,7 @@ async function t4(run: number) {
 
 // ── T5: improvements (sobre último committee_report) ────────────────────────
 async function t5(run: number) {
-  const t = await timed(() => runImprovements());
+  const t = await timed(() => withRetry(`T5.run${run}`, () => runImprovements()));
   const r = t.value;
   const out = path.join(OUT_DIR, `T5_run${run}_proposals.json`);
   // proposals/<ts>.json — copiar el más reciente
