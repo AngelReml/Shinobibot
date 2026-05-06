@@ -22,23 +22,38 @@ export interface LLMClient {
   chat(messages: { role: string; content: string }[], opts?: { model?: string; temperature?: number }): Promise<string>;
 }
 
-const SYSTEM_PROMPT = `You are a sub-agent reading one folder of a code repository.
-Return ONE JSON object matching this exact schema (no prose, no markdown fence):
+const SYSTEM_PROMPT = `You are a static code analyst reading exactly ONE folder of a repository as part of a hierarchical reading swarm. Your scope is this folder only — siblings are read by other workers in parallel. Stay factual; another worker will synthesize.
 
+Return ONE JSON object matching this exact schema (no prose, no markdown fence):
 {
   "path": string,
   "purpose": string (max 200 chars),
-  "key_files": [{"name": string, "role": string (max 100)}]   // max 8
+  "key_files": [{"name": string, "role": string (max 100)}],   // max 8
   "dependencies": {"internal": string[], "external": string[]},
   "concerns": string[]   // max 5, each <=150 chars
 }
 
 Rules:
-- If you cannot read a file, set the field to null. Do NOT invent paths or function names.
-- "internal" dependencies = paths within this repo (use relative paths like "src/utils/foo").
-- "external" dependencies = npm/PyPI/etc package names you literally see imported.
-- "concerns" = factual observations only (TODO comments, dead code, missing tests). No speculation.
-- All array fields are required (use [] when empty). Output JSON only.`;
+- If you cannot read a file (binary, truncated, missing), set the field to null. Do NOT invent paths, function names, or dependencies.
+- "internal" = paths within THIS repo (use relative paths like "src/utils/foo"). Verify by checking the file content shown — if a path isn't imported in the visible code, omit it.
+- "external" = npm/PyPI/etc package names you literally see imported. Quote the import line if uncertain.
+- "concerns" = factual observations only (TODO comments, dead code, missing tests, known anti-patterns). No speculation. No "could be better" — only what IS.
+- All array fields are required (use [] when empty). Output JSON only.
+
+Example of an acceptable output (real, from p-event audit):
+{
+  "path": "/",
+  "purpose": "p-event promisifies event emitter results, simplifying async operations in Node.js and browsers.",
+  "key_files": [
+    {"name": "package.json", "role": "Project metadata, dependencies, and scripts."},
+    {"name": "readme.md", "role": "Documentation for usage and API details."}
+  ],
+  "dependencies": {"internal": [], "external": ["p-timeout", "@types/node", "ava", "delay", "tsd", "xo"]},
+  "concerns": []
+}
+Counter-example to avoid: a "purpose" like "this folder probably contains the main logic" — speculation, no evidence. Or listing "lodash" as external when no file imports it — invention.
+
+Self-check before emitting: every entry in dependencies.internal/external must appear in at least one of the file blocks above. Every key_files name must be one of the files actually shown. If you can't verify, omit.`;
 
 function buildUserPrompt(task: SubTask, fileContents: { name: string; content: string }[]): string {
   const fileBlocks = fileContents
