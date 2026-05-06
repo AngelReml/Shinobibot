@@ -1,0 +1,47 @@
+{
+  "source": "C:\\Users\\angel\\Desktop\\shinobibot\\committee_reports\\2026-05-06T16-44-14-009Z.json",
+  "proposals": [
+    {
+      "id": "enable-test-script",
+      "file": "package.json",
+      "motive": "Ensure the 'test' script executes actual tests to prevent untested deployments.",
+      "risk": "medium",
+      "diff": "diff --git a/package.json b/package.json\nindex 3e979ea..03b77ce 100644\n--- a/package.json\n+++ b/package.json\n@@ -27,7 +27,7 @@\n   \"scripts\": {\n     \"start\": \"ts-node src/index.ts\",\n     \"dev\": \"ts-node-dev --respawn --transpile-only src/index.ts\",\n-    \"test\": \"echo \\\"Error: no test specified\\\" && exit 1\"\n+    \"test\": \"ts-node src/tests/index.ts\"\n   },\n   \"keywords\": [],\n   \"author\": \"AngelReml\",",
+      "applicability": "ok"
+    },
+    {
+      "id": "add-unit-test-instructions",
+      "file": "README.md",
+      "motive": "Provide clear instructions for running unit tests to assist new developers.",
+      "risk": "low",
+      "diff": "diff --git a/README.md b/README.md\nindex 0349a8e..63a6b92 100644\n--- a/README.md\n+++ b/README.md\n@@ -55,6 +55,16 @@ npm run dev\n npx tsx test_b9.ts\n ```\n \n+### Ejecutar pruebas unitarias\n+\n+```bash\n+# Ejecutar todos los tests unitarios\n+npm test\n+\n+# Ejecutar un test específico\n+npx jest <nombre-del-test>\n+```\n+\n ### Build del .exe distribuible\n \n ```bash",
+      "applicability": "ok"
+    },
+    {
+      "id": "align-license-declarations",
+      "file": "README.md",
+      "motive": "Align license declarations in README.md and package.json to avoid legal challenges.",
+      "risk": "low",
+      "diff": "diff --git a/README.md b/README.md\nindex 0349a8e..d82c682 100644\n--- a/README.md\n+++ b/README.md\n@@ -104,4 +104,4 @@ build_sea.mjs     Empaquetado Node SEA\n \n ## Licencia\n \n-ISC. Ver `package.json`.\n+Este proyecto está licenciado bajo los términos de la licencia ISC.",
+      "applicability": "ok"
+    },
+    {
+      "id": "rename-scripts-folder",
+      "file": "README.md",
+      "motive": "Rename 'Scripts' to 'Test Scripts' for improved clarity.",
+      "risk": "low",
+      "diff": "diff --git a/README.md b/README.md\nindex 0349a8e..5f4bede 100644\n--- a/README.md\n+++ b/README.md\n@@ -87,7 +87,7 @@ web/\n   index.html      Landing zapweave.com (GitHub Pages)\n   precios.html    catalog.html docs.html\n   styles.css\n-test_b*.ts        Tests E2E por bloque\n+test_b*.ts        Test Scripts E2E por bloque\n build_sea.mjs     Empaquetado Node SEA\n ```",
+      "applicability": "broken",
+      "apply_error": "error: corrupt patch at line 13"
+    },
+    {
+      "id": "refactor-hardcoded-paths",
+      "file": "scripts/example-script.js",
+      "motive": "Refactor hardcoded paths to use environment variables for better portability.",
+      "risk": "medium",
+      "diff": "--- a/scripts/example-script.js\n+++ b/scripts/example-script.js\n@@ -1,5 +1,7 @@\n-const filePath = '/absolute/path/to/file';\n+const filePath = process.env.FILE_PATH || '/default/path/to/file';\n \n function readFile() {\n   // Read file logic\n }\n+\n+// Ensure to set FILE_PATH in your environment variables\n",
+      "applicability": "broken",
+      "apply_error": "error: scripts/example-script.js: No such file or directory"
+    }
+  ]
+}

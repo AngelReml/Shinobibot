@@ -5,6 +5,8 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import { spawnSync } from 'child_process';
 import { tryParseJSON } from '../reader/schemas.js';
 import { makeLLMClient } from '../reader/llm_adapter.js';
 import type { LLMClient } from '../reader/SubAgent.js';
@@ -15,11 +17,15 @@ export interface Proposal {
   motive: string;
   risk: 'low' | 'medium' | 'high';
   diff: string;             // unified diff hunks
+  /** F3 — populated by checkProposalApplicability(). */
+  applicability?: 'ok' | 'fuzzy' | 'broken';
+  /** F3 — error from `git apply --check` when applicability != ok. */
+  apply_error?: string;
 }
 
 const SYSTEM_PROMPT = `You translate committee recommendations into concrete code-change proposals.
 
-For each recommendation that is implementable as a code or doc change, produce ONE proposal.
+Aim for AT LEAST 5 proposals (one per recommendation that is implementable as a code or doc change).
 Skip recommendations that are aspirational or require human discussion.
 
 Return a JSON object of this exact shape (no prose, no fence):
@@ -81,6 +87,15 @@ export function findLatestCommitteeReport(): string | undefined {
   return path.join(dir, files[files.length - 1]);
 }
 
+function applicabilityTag(p: Proposal): string {
+  switch (p.applicability) {
+    case 'ok': return '[OK]';
+    case 'fuzzy': return '[FUZZY]';
+    case 'broken': return '[BROKEN_DIFF]';
+    default: return '[UNCHECKED]';
+  }
+}
+
 function renderProposalsMarkdown(proposals: Proposal[], source: string): string {
   const lines: string[] = [];
   lines.push(`# Proposals — derived from ${path.basename(source)}`);
@@ -88,14 +103,16 @@ function renderProposalsMarkdown(proposals: Proposal[], source: string): string 
   lines.push(`Generated ${new Date().toISOString()}`);
   lines.push('');
   lines.push(`> Apply with: \`/apply <id>\` (per proposal). NO change is auto-applied.`);
+  lines.push(`> Tags: \`[OK]\` applies cleanly · \`[FUZZY]\` applies via 3-way merge · \`[BROKEN_DIFF]\` will not apply.`);
   lines.push('');
   for (const p of proposals) {
     lines.push(`---`);
     lines.push('');
-    lines.push(`## \`${p.id}\``);
+    lines.push(`## \`${p.id}\` ${applicabilityTag(p)}`);
     lines.push('');
     lines.push(`- **file**: \`${p.file}\``);
     lines.push(`- **risk**: ${p.risk}`);
+    lines.push(`- **applicability**: ${p.applicability ?? 'unchecked'}${p.apply_error ? `  *(${p.apply_error})*` : ''}`);
     lines.push(`- **motive**: ${p.motive}`);
     lines.push('');
     lines.push('```diff');
@@ -121,10 +138,34 @@ export async function runImprovements(committeeReportPath?: string): Promise<Run
   console.log(`[improvements] reading: ${target}`);
   console.log('[improvements] generating proposals via Opus…');
 
-  const { ok, proposals, error } = await generateProposals(target, makeLLMClient());
+  const llm = makeLLMClient({ temperature: 0 });
+  const { ok, proposals, error } = await generateProposals(target, llm);
   if (!ok) {
     console.log(`[improvements] failed: ${error ?? 'no valid proposals'}`);
     return { ok: false, proposalsPath: '', proposals: [] };
+  }
+
+  // F3 — verifica aplicabilidad. Si el path es inventado (no existe), intenta
+  // resolver por basename via git ls-files. Si el diff esta corrupto/desactualizado,
+  // pide a Opus un find/replace y reconstruye el patch via `git diff`.
+  for (const p of proposals) {
+    if (!fs.existsSync(p.file)) {
+      const resolved = resolveByBasename(p.file);
+      if (resolved) p.file = resolved;
+    }
+    let r = checkProposalApplicability(p);
+    if (r.applicability === 'broken' && fs.existsSync(p.file)) {
+      try {
+        const fileContent = fs.readFileSync(p.file, 'utf-8').slice(0, 12_000);
+        const repaired = await regenerateProposalWithContext(p, fileContent, llm);
+        if (repaired) {
+          p.diff = repaired.diff;
+          r = checkProposalApplicability(p);
+        }
+      } catch { /* tolerate retry failure; keep broken */ }
+    }
+    p.applicability = r.applicability;
+    p.apply_error = r.error;
   }
 
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
@@ -140,13 +181,15 @@ export async function runImprovements(committeeReportPath?: string): Promise<Run
   console.log(`PROPOSALS — ${proposals.length} item(s)`);
   console.log('═══════════════════════════════════════════════════════════════');
   for (const p of proposals) {
-    console.log(`  [${p.risk.padEnd(6)}] ${p.id}  →  ${p.file}`);
+    console.log(`  ${applicabilityTag(p).padEnd(14)} [${p.risk.padEnd(6)}] ${p.id}  →  ${p.file}`);
     console.log(`           ${p.motive}`);
+    if (p.apply_error) console.log(`           ↳ ${p.apply_error}`);
   }
   console.log('');
+  const firstApplicable = proposals.find((p) => p.applicability === 'ok' || p.applicability === 'fuzzy');
   console.log(`[improvements] markdown: ${mdPath}`);
   console.log(`[improvements] machine:  ${jsonPath}`);
-  console.log(`[improvements] To apply one: /apply ${proposals[0]?.id ?? '<id>'}`);
+  console.log(`[improvements] To apply: /apply ${firstApplicable?.id ?? proposals[0]?.id ?? '<id>'}`);
   console.log('');
   return { ok: true, proposalsPath: mdPath, proposals };
 }
@@ -166,8 +209,119 @@ export interface ApplyResult {
   proposalId: string;
 }
 
-import { spawnSync } from 'child_process';
-import * as os from 'os';
+/**
+ * F3 — fallback path resolver for proposals where Opus invented a path that
+ * does not exist (e.g. "src/hermes_watcher.ts" when the real file is at
+ * "src/watchers/hermes_watcher.ts"). Uses git's index for a fast lookup.
+ */
+function resolveByBasename(invented: string): string | undefined {
+  const base = path.basename(invented);
+  if (!base) return undefined;
+  const r = spawnSync('git', ['ls-files', `*/${base}`, base], { encoding: 'utf-8' });
+  if (r.status !== 0) return undefined;
+  const matches = (r.stdout || '').split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  if (matches.length === 0) return undefined;
+  matches.sort((a, b) => a.length - b.length);
+  return matches[0];
+}
+
+/**
+ * F3 — second-chance regeneration when the first diff did not apply.
+ * Asks Opus for {find, replace} (much more robust than getting unified-diff
+ * @@ counters right) and lets `git diff` reconstruct a syntactically valid
+ * patch from before/after files.
+ */
+export async function regenerateProposalWithContext(p: Proposal, fileContent: string, llm: LLMClient): Promise<{ diff: string } | undefined> {
+  const sys = `You propose a small in-place edit. Output JSON ONLY in this shape:
+{"find": string, "replace": string}
+
+Rules:
+- "find" MUST be an EXACT, contiguous substring of the file shown below — copy it verbatim including whitespace and quotes.
+- "find" must be unique in the file. If a phrase appears twice, include extra surrounding context.
+- "replace" is what "find" should become.
+- Keep the change small and focused on the motive.
+- For pure additions, set "find" to a unique anchor line and "replace" to that anchor PLUS the new lines.
+- Output JSON only — no prose, no fence.`;
+  const user =
+    `Motive: ${p.motive}\n` +
+    `Risk: ${p.risk}\n` +
+    `Target file: ${p.file}\n\n` +
+    `--- BEGIN ${p.file} (literal contents up to 12k chars) ---\n` +
+    fileContent +
+    `\n--- END ${p.file} ---`;
+  let raw: string;
+  try {
+    raw = await llm.chat(
+      [{ role: 'system', content: sys }, { role: 'user', content: user }],
+      { model: 'claude-opus-4-7', temperature: 0 },
+    );
+  } catch { return undefined; }
+  let parsed: any;
+  try { parsed = tryParseJSON(raw); } catch { return undefined; }
+  if (!parsed || typeof parsed.find !== 'string' || typeof parsed.replace !== 'string') return undefined;
+
+  const fileAbs = path.resolve(p.file);
+  if (!fs.existsSync(fileAbs)) return undefined;
+  const original = fs.readFileSync(fileAbs, 'utf-8');
+
+  let patched: string | undefined;
+  if (original.includes(parsed.find)) {
+    patched = original.replace(parsed.find, parsed.replace);
+  } else {
+    const normalize = (s: string) => s.replace(/\s+/g, ' ').trim();
+    const targetNorm = normalize(parsed.find);
+    if (targetNorm.length < 10) return undefined;
+    const lines = original.split(/\n/);
+    const findLines = parsed.find.split(/\n/).length;
+    outer: for (let len = Math.max(1, findLines - 1); len <= findLines + 1; len++) {
+      for (let i = 0; i + len <= lines.length; i++) {
+        const window = lines.slice(i, i + len).join('\n');
+        if (normalize(window) === targetNorm) {
+          patched = lines.slice(0, i).concat([parsed.replace], lines.slice(i + len)).join('\n');
+          break outer;
+        }
+      }
+    }
+    if (patched === undefined) return undefined;
+  }
+  if (patched === original) return undefined;
+
+  try {
+    fs.writeFileSync(fileAbs, patched, 'utf-8');
+    const diffRes = spawnSync('git', ['diff', '--no-color', '--', p.file], { encoding: 'utf-8' });
+    fs.writeFileSync(fileAbs, original, 'utf-8'); // revert
+    if (diffRes.status !== 0 && diffRes.status !== 1) return undefined;
+    let diff = (diffRes.stdout || '').trim();
+    if (!diff || !diff.includes('@@')) return undefined;
+    // Strip the `index <oldhash>..<newhash>` line — the new blob will not
+    // exist in .git/objects after the revert, which makes `git apply --3way`
+    // fail with "does not match index". Without that line, git apply only
+    // checks context against the current file content, which is what we want.
+    diff = diff.split(/\n/).filter((l) => !/^index [0-9a-f]+\.\.[0-9a-f]+/.test(l)).join('\n');
+    return { diff };
+  } catch {
+    try { fs.writeFileSync(fileAbs, original, 'utf-8'); } catch { /* best effort */ }
+    return undefined;
+  }
+}
+
+/**
+ * F3 — verifica si un diff aplicaria via `git apply --check`.
+ * Devuelve 'ok' si aplica strict, 'fuzzy' si solo via --3way, 'broken' si nada.
+ */
+export function checkProposalApplicability(p: Proposal, cwd = process.cwd()): { applicability: 'ok' | 'fuzzy' | 'broken'; error?: string } {
+  const tmp = path.join(os.tmpdir(), `shinobi-check-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.patch`);
+  fs.writeFileSync(tmp, p.diff.endsWith('\n') ? p.diff : p.diff + '\n');
+  try {
+    const strict = spawnSync('git', ['apply', '--check', '--whitespace=nowarn', tmp], { cwd, encoding: 'utf-8' });
+    if (strict.status === 0) return { applicability: 'ok' };
+    const fuzzy = spawnSync('git', ['apply', '--check', '--3way', '--whitespace=nowarn', tmp], { cwd, encoding: 'utf-8' });
+    if (fuzzy.status === 0) return { applicability: 'fuzzy' };
+    return { applicability: 'broken', error: ((strict.stderr || strict.stdout) || '').trim().slice(0, 200) };
+  } finally {
+    try { fs.unlinkSync(tmp); } catch { /* ignore */ }
+  }
+}
 
 export async function applyProposal(id: string, asker: (q: string) => Promise<string>): Promise<ApplyResult> {
   const jsonPath = findLatestProposalsJson();
@@ -177,8 +331,18 @@ export async function applyProposal(id: string, asker: (q: string) => Promise<st
   const p = list.find((x) => x.id === id);
   if (!p) return { ok: false, message: `proposal '${id}' not found in ${path.basename(jsonPath)}`, proposalId: id };
 
+  // F3 — refresh applicability before prompting.
+  if (!p.applicability) {
+    const r = checkProposalApplicability(p);
+    p.applicability = r.applicability;
+    p.apply_error = r.error;
+  }
+  if (p.applicability === 'broken') {
+    return { ok: false, message: `proposal marked [BROKEN_DIFF]: ${p.apply_error ?? 'patch does not apply'}. Skipping.`, proposalId: id };
+  }
+
   console.log('');
-  console.log(`Proposal: ${p.id}`);
+  console.log(`Proposal: ${p.id} ${applicabilityTag(p)}`);
   console.log(`  file:   ${p.file}`);
   console.log(`  risk:   ${p.risk}`);
   console.log(`  motive: ${p.motive}`);
@@ -186,6 +350,9 @@ export async function applyProposal(id: string, asker: (q: string) => Promise<st
   console.log('--- DIFF ---');
   console.log(p.diff);
   console.log('--- END ---');
+  if (p.applicability === 'fuzzy') {
+    console.log('NOTE: this patch only applies via 3-way merge; review the resulting diff carefully.');
+  }
   console.log('');
 
   const ans = (await asker('Apply this proposal? [y/N]: ')).trim().toLowerCase();
@@ -193,13 +360,15 @@ export async function applyProposal(id: string, asker: (q: string) => Promise<st
     return { ok: false, message: 'aborted by user', proposalId: id };
   }
 
-  // Persist diff to temp and run `git apply` for safety.
+  // F3 — try strict apply first; fall back to --3way (which needs blobs in
+  // .git/objects). Strict apply only checks context against working tree,
+  // which is enough for diffs reconstructed via `git diff` after a temp write.
   const tmpFile = path.join(os.tmpdir(), `shinobi-apply-${Date.now()}.patch`);
   fs.writeFileSync(tmpFile, p.diff.endsWith('\n') ? p.diff : p.diff + '\n');
-  const res = spawnSync('git', ['apply', '--whitespace=nowarn', tmpFile], {
-    cwd: process.cwd(),
-    encoding: 'utf-8',
-  });
+  let res = spawnSync('git', ['apply', '--whitespace=nowarn', tmpFile], { cwd: process.cwd(), encoding: 'utf-8' });
+  if (res.status !== 0) {
+    res = spawnSync('git', ['apply', '--3way', '--whitespace=nowarn', tmpFile], { cwd: process.cwd(), encoding: 'utf-8' });
+  }
   fs.unlinkSync(tmpFile);
   if (res.status !== 0) {
     return {
