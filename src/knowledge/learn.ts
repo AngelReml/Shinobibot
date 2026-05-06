@@ -57,7 +57,13 @@ function inferProgramName(input: string): string {
 function fetch(url: string, timeoutMs = 15_000): Promise<{ status: number; body: string; finalUrl: string }> {
   return new Promise((resolve, reject) => {
     const lib = url.startsWith('https://') ? https : http;
-    const req = lib.get(url, { headers: { 'User-Agent': 'shinobi-learn/1.0' } }, (res) => {
+    // Some doc sites (Astro/Cloudflare) reject programmatic UAs. Use a real-browser UA.
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+    };
+    const req = lib.get(url, { headers }, (res) => {
       // Follow redirects (max 5)
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         const next = new URL(res.headers.location, url).toString();
@@ -110,6 +116,12 @@ function extractInternalLinks(html: string, baseUrl: string): string[] {
   return [...links];
 }
 
+function metaRefreshTarget(html: string, baseUrl: string): string | undefined {
+  const m = html.match(/<meta[^>]+http-equiv=["']?refresh["']?[^>]*content=["']\s*\d+\s*;\s*url=([^"'>\s]+)/i);
+  if (!m) return undefined;
+  try { return new URL(m[1], baseUrl).toString(); } catch { return undefined; }
+}
+
 async function scrapeDocs(rootUrl: string, max = MAX_PAGES): Promise<{ pages: { url: string; text: string }[] }> {
   const visited = new Set<string>();
   const queue: string[] = [rootUrl];
@@ -122,12 +134,16 @@ async function scrapeDocs(rootUrl: string, max = MAX_PAGES): Promise<{ pages: { 
     try {
       const r = await fetch(url);
       if (r.status >= 400) continue;
+      // Follow client-side meta-refresh redirects (Astro/Docusaurus default landing).
+      const refresh = metaRefreshTarget(r.body, url);
+      if (refresh && !visited.has(refresh)) {
+        queue.unshift(refresh);
+        continue;
+      }
       const text = htmlToText(r.body);
       if (text.length < 50) continue;
-      // Truncate per page to keep total bounded.
       pages.push({ url, text: text.slice(0, 8_000) });
       const links = extractInternalLinks(r.body, url);
-      // Prioritize obvious docs paths.
       links.sort((a, b) => scoreUrl(b) - scoreUrl(a));
       for (const l of links) {
         if (!visited.has(l) && pages.length + queue.length < max) queue.push(l);

@@ -1,0 +1,19 @@
+{
+  "purpose": "The Astro framework allows users to build fast, content-focused websites using the islands architecture concept, where only the most interactive parts of a page are sent as JavaScript to the client.",
+  "install": "npm create astro@latest",
+  "public_api": [],
+  "usage_patterns": [
+    {
+      "title": "Create a New Project",
+      "body": "Use the command 'npm create astro@latest' to initiate a new Astro project and follow the CLI wizard for setup."
+    }
+  ],
+  "gotchas": [],
+  "examples": [],
+  "synonyms": [],
+  "source": {
+    "kind": "url",
+    "origin": "https://docs.astro.build",
+    "pages_or_files": 18
+  }
+}

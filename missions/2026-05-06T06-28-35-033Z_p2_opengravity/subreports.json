@@ -1,0 +1,186 @@
+[
+  {
+    "path": "/",
+    "purpose": "OpenGravity is an experimental autonomous agent system designed for mission planning and strategy execution using LLMs.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Defines project metadata, dependencies, and scripts for building and running the application."
+      },
+      {
+        "name": "README.md",
+        "role": "Provides overview, installation instructions, and project goals."
+      },
+      {
+        "name": "tsconfig.json",
+        "role": "Configures TypeScript compiler options for the project."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "@babel/runtime",
+        "@modelcontextprotocol/server-filesystem",
+        "@types/cors",
+        "@types/express",
+        "ajv",
+        "ajv-formats",
+        "axios",
+        "better-sqlite3",
+        "cors",
+        "cowsay",
+        "dotenv",
+        "express",
+        "grammy",
+        "groq-sdk",
+        "hnswlib-node",
+        "html-to-docx",
+        "jsonfile",
+        "marked",
+        "playwright",
+        "random-words",
+        "@types/better-sqlite3",
+        "@types/node",
+        "tsx",
+        "typescript"
+      ]
+    },
+    "concerns": []
+  },
+  {
+    "path": ".tmp.driveupload",
+    "purpose": "Temporary files related to drive upload functionalities.",
+    "key_files": [
+      {
+        "name": "13430",
+        "role": "status update for ollama, n8n, groq, and genesis"
+      },
+      {
+        "name": "27073",
+        "role": "initialization status for lmstudio, n8n, groq, and genesis"
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "Files 27455, 27457, and 27461 contain unreadable binary content.",
+      "File 13430 and 27073 seem to contain status information but lack documentation.",
+      "No tests are observed for the functionalities related to this folder.",
+      "The purpose of the files is unclear without additional context.",
+      "There are no structured logs or error handling noted in the readable files."
+    ]
+  },
+  {
+    "path": "backups/snap_003",
+    "purpose": "Backup folder containing project metadata and performance metrics.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Defines project dependencies and scripts."
+      },
+      {
+        "name": "tsconfig.json",
+        "role": "TypeScript configuration for compilation."
+      },
+      {
+        "name": "latency_metrics.json",
+        "role": "Stores metrics related to API call latencies."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "@types/express",
+        "better-sqlite3",
+        "cowsay",
+        "dotenv",
+        "express",
+        "grammy",
+        "groq-sdk",
+        "html-to-docx",
+        "marked",
+        "playwright",
+        "random-words",
+        "hnswlib-node",
+        "@types/better-sqlite3",
+        "@types/node",
+        "tsx",
+        "typescript"
+      ]
+    },
+    "concerns": [
+      "The 'minMs' value in latency_metrics.json is null.",
+      "REPORTE_DIARIO.md contains no system state data.",
+      "test.txt does not provide useful information related to the project.",
+      "No tests or test reports are present in the backup.",
+      "The latest update timestamp in latency_metrics.json appears very high, possibly incorrect."
+    ]
+  },
+  {
+    "path": "benchmark_venv",
+    "purpose": "This directory contains scripts and configuration for managing a Python virtual environment.",
+    "key_files": [
+      {
+        "name": "pyvenv.cfg",
+        "role": "Configuration file for the Python virtual environment."
+      },
+      {
+        "name": "Scripts/activate",
+        "role": "Bash script to activate the Python virtual environment."
+      },
+      {
+        "name": "Scripts/activate.bat",
+        "role": "Batch script to activate the Python virtual environment in Windows."
+      },
+      {
+        "name": "Scripts/Activate.ps1",
+        "role": "PowerShell script to activate the Python virtual environment."
+      },
+      {
+        "name": "Scripts/deactivate.bat",
+        "role": "Batch script to deactivate the Python virtual environment."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "No tests are present in this directory to verify functionality.",
+      "The virtual environment paths are hard-coded, which may limit portability.",
+      "Documentation for usage is limited to comments within the scripts."
+    ]
+  },
+  {
+    "path": "data",
+    "purpose": "[unreadable]",
+    "error": "validation failed twice: key_files item invalid (name/role)"
+  },
+  {
+    "path": "datasets/consolidate.py",
+    "purpose": "Consolidates benchmark run data from JSON files into a CSV format, organizes and outputs results based on task metadata.",
+    "key_files": [
+      {
+        "name": "ledger.jsonl",
+        "role": "Provides mapping of execution IDs to hashes."
+      },
+      {
+        "name": "TASK_METADATA",
+        "role": "Contains task capabilities and difficulty for classification."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "File paths are hardcoded and specific to a user's environment, affecting portability.",
+      "The sorting function relies on key sorting for JSON, may lead to performance issues for large datasets.",
+      "No error handling for file access or JSON loading could lead to unhandled exceptions.",
+      "Output CSV file is generated without ensuring that previous files are overwritten or managed.",
+      "No test coverage or validation of the outputs against expected results."
+    ]
+  }
+]

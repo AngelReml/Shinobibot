@@ -10,6 +10,7 @@ import { makeLLMClient } from '../reader/llm_adapter.js';
 import { Committee, type CommitteeResult } from '../committee/Committee.js';
 import type { RepoReport, SubReport, SubReportError } from '../reader/schemas.js';
 import { MissionLedger } from '../ledger/MissionLedger.js';
+import { KnowledgeRouter } from '../knowledge/KnowledgeRouter.js';
 
 export interface AuditOptions {
   url: string;
@@ -215,11 +216,18 @@ export async function runAudit(opts: AuditOptions): Promise<AuditResult> {
     const headSha = runGit(['rev-parse', 'HEAD'], cloneRoot).stdout || 'unknown';
     console.log(`[audit] HEAD=${headSha}`);
 
+    // Habilidad C.2 — KnowledgeRouter inyecta manuales aprendidos cuando el
+    // contexto del leaf menciona programas conocidos.
+    const missionId = `audit-${owner}-${repo}-${shaShort(headSha)}`;
+    const router = new KnowledgeRouter({ knowledgeDir: path.join(process.cwd(), 'knowledge') });
+    const knowledgeInjector = (taskText: string) => router.buildPromptInjection(taskText, missionId).text;
+
     // Habilidad D.2 — depth=2 hierarchical read.
     const reader = new HierarchicalReader({
       llm: makeLLMClient(),
       depth: 2,
-      missionId: `audit-${owner}-${repo}-${shaShort(headSha)}`,
+      missionId,
+      knowledgeInjector,
       onProgress: (ev) => {
         if (ev.node && (ev.phase === 'sub_supervisor_done' || ev.phase === 'leaf_done' || ev.phase === 'final_synth_done')) {
           console.log(`[audit] ${ev.phase} ${ev.node.label} (${ev.node.duration_ms}ms)`);
