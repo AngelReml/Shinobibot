@@ -12,6 +12,7 @@ export interface LLMConfig {
   model?: string;
   apiKey?: string;
   baseUrl?: string;
+  temperature?: number;
 }
 
 export class LLMGateway {
@@ -26,47 +27,49 @@ export class LLMGateway {
     if (provider === 'openai') {
       const apiKey = config.apiKey || this.defaultOpenAIApiKey;
       const baseUrl = config.baseUrl || 'https://api.openai.com/v1/chat/completions';
-      return this.openAIChat(messages, config.model || 'gpt-4o', apiKey, baseUrl);
+      return this.openAIChat(messages, config.model || 'gpt-4o', apiKey, baseUrl, config.temperature);
     }
 
     if (provider === 'groq' && !isLocal) {
       const apiKey = config.apiKey || this.defaultGroqApiKey;
       const baseUrl = config.baseUrl || 'https://api.groq.com/openai/v1/chat/completions';
-      return this.groqChat(messages, config.model || 'llama-3.3-70b-versatile', apiKey, baseUrl);
+      return this.groqChat(messages, config.model || 'llama-3.3-70b-versatile', apiKey, baseUrl, config.temperature);
     }
 
     const baseUrl = config.baseUrl || this.defaultOllamaUrl;
-    return this.ollamaChat(messages, config.model || 'qwen2.5-coder', baseUrl);
+    return this.ollamaChat(messages, config.model || 'qwen2.5-coder', baseUrl, config.temperature);
   }
 
-  private async openAIChat(messages: any[], model: string, apiKey: string | undefined, baseUrl: string) {
+  private async openAIChat(messages: any[], model: string, apiKey: string | undefined, baseUrl: string, temperature?: number) {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
     if (apiKey) {
       headers['Authorization'] = `Bearer ${apiKey}`;
     }
-    const response = await axios.post(baseUrl, { model, messages }, { headers });
+    const body: Record<string, unknown> = { model, messages };
+    if (temperature !== undefined) body.temperature = temperature;
+    const response = await axios.post(baseUrl, body, { headers });
     return response.data.choices[0].message.content;
   }
 
-  private async groqChat(messages: any[], model: string, apiKey: string | undefined, baseUrl: string) {
+  private async groqChat(messages: any[], model: string, apiKey: string | undefined, baseUrl: string, temperature?: number) {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     };
     if (apiKey) {
       headers['Authorization'] = `Bearer ${apiKey}`;
     }
-    const response = await axios.post(baseUrl, { model, messages }, { headers });
+    const body: Record<string, unknown> = { model, messages };
+    if (temperature !== undefined) body.temperature = temperature;
+    const response = await axios.post(baseUrl, body, { headers });
     return response.data.choices[0].message.content;
   }
 
-  private async ollamaChat(messages: any[], model: string, baseUrl: string) {
-    const response = await axios.post(`${baseUrl}/api/chat`, {
-      model,
-      messages,
-      stream: false,
-    });
+  private async ollamaChat(messages: any[], model: string, baseUrl: string, temperature?: number) {
+    const body: Record<string, unknown> = { model, messages, stream: false };
+    if (temperature !== undefined) body.options = { temperature };
+    const response = await axios.post(`${baseUrl}/api/chat`, body);
     return response.data.message.content;
   }
 }

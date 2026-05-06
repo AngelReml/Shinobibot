@@ -34,6 +34,10 @@ export interface CommitteeSynthesis {
   dissents: Dissent[];
   combined_recommendations: string[];
   overall_risk: 'low' | 'medium' | 'high';
+  /** F1 — set when majority voting runs the committee 3x and aggregates. */
+  verdict_confidence?: 'high' | 'medium' | 'low';
+  /** F1 — per-run risks captured by the voting wrapper. */
+  voting_runs?: { run: number; overall_risk: 'low' | 'medium' | 'high' }[];
 }
 
 export interface CommitteeRole {
@@ -90,7 +94,7 @@ function validateMemberReport(raw: unknown): { ok: true; value: MemberReport } |
   return { ok: true, value: raw as MemberReport };
 }
 
-async function runMember(role: CommitteeRole, reportJson: string, llm: LLMClient): Promise<MemberReport | MemberError> {
+async function runMember(role: CommitteeRole, reportJson: string, llm: LLMClient, temperature?: number): Promise<MemberReport | MemberError> {
   const messages = [
     { role: 'system', content: role.systemPrompt + '\n\n' + MEMBER_OUTPUT_RULES },
     { role: 'user', content: `Repo report:\n\n${reportJson}` },
@@ -99,7 +103,7 @@ async function runMember(role: CommitteeRole, reportJson: string, llm: LLMClient
     const m = extra
       ? [{ role: 'system', content: role.systemPrompt + '\n\n' + MEMBER_OUTPUT_RULES + '\n\n' + extra }, ...messages.slice(1)]
       : messages;
-    const raw = await llm.chat(m, { model: role.model });
+    const raw = await llm.chat(m, { model: role.model, temperature });
     return tryParseJSON(raw);
   };
 
@@ -166,6 +170,10 @@ export interface CommitteeOptions {
   llm: LLMClient;
   roles?: CommitteeRole[];
   synthModel?: string;
+  /** F1 — when true, run the committee 3 times and majority-vote the verdict. Default false. */
+  votingRuns?: number;
+  /** F1 — when set, every member call uses this temperature (default undefined → provider default). */
+  temperature?: number;
 }
 
 export interface CommitteeResult {
@@ -177,15 +185,20 @@ export class Committee {
   private llm: LLMClient;
   private roles: CommitteeRole[];
   private synthModel: string;
+  private votingRuns: number;
+  private temperature?: number;
 
   constructor(opts: CommitteeOptions) {
     this.llm = opts.llm;
     this.roles = opts.roles ?? DEFAULT_ROLES;
     this.synthModel = opts.synthModel ?? 'claude-opus-4-7';
+    this.votingRuns = Math.max(1, opts.votingRuns ?? 1);
+    this.temperature = opts.temperature;
   }
 
-  async review(reportJson: string): Promise<CommitteeResult> {
-    const members = await Promise.all(this.roles.map((r) => runMember(r, reportJson, this.llm)));
+  /** Single committee pass (3 members + 1 synthesis). Used by voting wrapper. */
+  private async runOnce(reportJson: string): Promise<CommitteeResult> {
+    const members = await Promise.all(this.roles.map((r) => runMember(r, reportJson, this.llm, this.temperature)));
 
     const userPrompt =
       'Three member reports (JSON array):\n\n' + JSON.stringify(members, null, 2);
@@ -196,7 +209,7 @@ export class Committee {
           { role: 'system', content: SYNTH_SYSTEM + (extra ? '\n\n' + extra : '') },
           { role: 'user', content: userPrompt },
         ],
-        { model: this.synthModel },
+        { model: this.synthModel, temperature: this.temperature },
       );
       return tryParseJSON(raw);
     };
@@ -216,5 +229,63 @@ export class Committee {
     v = validateSynthesis(parsed);
     if (v.ok) return { members, synthesis: v.value };
     return { members, synthesis: { error: `synth validation failed twice: ${v.error}` } };
+  }
+
+  async review(reportJson: string): Promise<CommitteeResult> {
+    if (this.votingRuns <= 1) return this.runOnce(reportJson);
+
+    // F1 — majority voting: run committee N times, vote the verdict.
+    const runs: CommitteeResult[] = [];
+    for (let i = 0; i < this.votingRuns; i++) runs.push(await this.runOnce(reportJson));
+
+    // Take members from the first successful run (their content is intra-run consistent).
+    const baseMembers = runs.find((r) => !('error' in r.synthesis))?.members ?? runs[0].members;
+    const validSyntheses = runs
+      .map((r) => r.synthesis)
+      .filter((s): s is CommitteeSynthesis => !('error' in s));
+
+    if (validSyntheses.length === 0) {
+      return { members: baseMembers, synthesis: { error: 'all voting runs failed synthesis' } };
+    }
+
+    // Vote on overall_risk.
+    const tally: Record<'low' | 'medium' | 'high', number> = { low: 0, medium: 0, high: 0 };
+    for (const s of validSyntheses) tally[s.overall_risk] += 1;
+    const winningRisk = (Object.entries(tally).sort((a, b) => b[1] - a[1])[0][0]) as 'low' | 'medium' | 'high';
+    const winningCount = tally[winningRisk];
+    const total = validSyntheses.length;
+    const confidence: 'high' | 'medium' | 'low' =
+      winningCount === total ? 'high' :
+      winningCount >= Math.ceil(total / 2) + (total % 2 === 0 ? 0 : 0) ? 'medium' :
+      'low';
+    // Above: high = unanimous; medium = majority; low = plurality only.
+    const sharperConfidence: 'high' | 'medium' | 'low' =
+      winningCount === total ? 'high' :
+      winningCount > total / 2 ? 'medium' :
+      'low';
+
+    // Aggregate dissents/consensus/recommendations across runs.
+    const consensusMap = new Map<string, Consensus>();
+    const dissentMap = new Map<string, Dissent>();
+    const recsSet = new Set<string>();
+    for (const s of validSyntheses) {
+      for (const c of s.consensus) {
+        if (!consensusMap.has(c.topic)) consensusMap.set(c.topic, c);
+      }
+      for (const d of s.dissents) {
+        if (!dissentMap.has(d.topic)) dissentMap.set(d.topic, d);
+      }
+      for (const r of s.combined_recommendations) recsSet.add(r);
+    }
+
+    const synthesis: CommitteeSynthesis = {
+      consensus: [...consensusMap.values()],
+      dissents: [...dissentMap.values()],
+      combined_recommendations: [...recsSet],
+      overall_risk: winningRisk,
+      verdict_confidence: sharperConfidence,
+      voting_runs: validSyntheses.map((s, i) => ({ run: i + 1, overall_risk: s.overall_risk })),
+    };
+    return { members: baseMembers, synthesis };
   }
 }

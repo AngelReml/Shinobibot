@@ -19,7 +19,7 @@ export interface SubTask {
 }
 
 export interface LLMClient {
-  chat(messages: { role: string; content: string }[], opts?: { model?: string }): Promise<string>;
+  chat(messages: { role: string; content: string }[], opts?: { model?: string; temperature?: number }): Promise<string>;
 }
 
 const SYSTEM_PROMPT = `You are a sub-agent reading one folder of a code repository.

@@ -19,12 +19,18 @@ const OPENAI_FALLBACK: Record<string, string> = {
   'claude-opus-4-7': 'gpt-4o',
 };
 
-export function makeLLMClient(): LLMClient {
+export interface MakeLLMClientOptions {
+  /** Default temperature for every call. F1 uses 0 for stability. Undefined = provider default. */
+  temperature?: number;
+}
+
+export function makeLLMClient(defaults: MakeLLMClientOptions = {}): LLMClient {
   const gateway = new LLMGateway();
   const orKey = process.env.OPENROUTER_API_KEY;
   return {
     async chat(messages, opts) {
       const logical = opts?.model ?? 'claude-haiku-4-5';
+      const temperature = opts?.temperature ?? defaults.temperature;
       if (orKey) {
         const model = OPENROUTER_ALIAS[logical] ?? logical;
         return gateway.chat(messages as any, {
@@ -32,10 +38,11 @@ export function makeLLMClient(): LLMClient {
           model,
           apiKey: orKey,
           baseUrl: OPENROUTER_BASE,
+          temperature,
         });
       }
       const model = OPENAI_FALLBACK[logical] ?? logical;
-      return gateway.chat(messages as any, { provider: 'openai', model });
+      return gateway.chat(messages as any, { provider: 'openai', model, temperature });
     },
   };
 }
