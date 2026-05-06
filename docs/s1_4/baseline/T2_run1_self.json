@@ -1,0 +1,117 @@
+{
+  "repo_purpose": "Shinobi: Windows-native AI agent for Spanish-language content creators. Provides autonomous research, transcription, and pattern analysis with local-first architecture and optional OpenGravity cloud integration.",
+  "architecture_summary": "Shinobi is a TypeScript/Node.js CLI agent targeting Windows, packaged as a standalone executable via pkg. The architecture is local-first with optional cloud integration.\n\n**Core layers:**\n- **src/utils**: Foundational utilities including path validation (permissions.ts), command execution (runner.ts), and a Windows PowerShell-based ESC kill-switch for aborting long-running screen automation loops.\n- **src/watchers**: Background monitors such as hermes_watcher.ts which polls GitHub for upstream Hermes agent releases and persists state to %APPDATA%/Shinobi.\n- **src/reader & src/self**: Repo-analysis and self-diff endpoints (/read, /self) exposed via CLI.\n- **Referenced but not directly inspected modules**: coordinator, tools, cloud, bridge, db, memory, runtime, persistence, skills, notifications (declared in root analysis).\n\n**Key external dependencies:** @nut-tree-fork/nut-js (screen automation), playwright (browser automation), better-sqlite3 + sqlite-vec (local vector DB), openai (LLM access), axios, dotenv.\n\n**Tooling:** TypeScript (ESNext + NodeNext), esbuild, ts-node, pkg for exe packaging.\n\n**Validation:** scripts/ directory contains smoke tests (a3, b1) and integration runners (a4, b1_run, b1_diff_run) that exercise CLI parsers and the /read and /self endpoints, dumping results to docs/.\n\nREADME tracks 13 development blocks marked complete, though formal test infrastructure is absent (npm test is a placeholder).",
+  "modules": [
+    {
+      "name": "utils",
+      "path": "src/utils",
+      "responsibility": "Path validation, dangerous command detection, synchronous command execution, and Windows ESC kill-switch for aborting automation loops."
+    },
+    {
+      "name": "watchers",
+      "path": "src/watchers",
+      "responsibility": "Background polling of upstream sources; hermes_watcher tracks new Hermes agent releases via GitHub API and persists notices."
+    },
+    {
+      "name": "reader",
+      "path": "src/reader",
+      "responsibility": "CLI entry points for /read (repo analysis) and /self (self-report + diff) endpoints."
+    },
+    {
+      "name": "scripts",
+      "path": "scripts",
+      "responsibility": "Smoke tests and integration runners validating /read and /self endpoint behavior, dumping outputs to docs/."
+    },
+    {
+      "name": "missions",
+      "path": "missions",
+      "responsibility": "Mission configurations and runtime logic (contents not analyzable during scan)."
+    }
+  ],
+  "entry_points": [
+    {
+      "file": "scripts/a4_run.ts",
+      "kind": "integration-runner"
+    },
+    {
+      "file": "scripts/b1_run.ts",
+      "kind": "integration-runner"
+    },
+    {
+      "file": "scripts/b1_diff_run.ts",
+      "kind": "integration-runner"
+    },
+    {
+      "file": "scripts/a3_smoke.ts",
+      "kind": "test-runner"
+    },
+    {
+      "file": "scripts/b1_smoke.ts",
+      "kind": "test-runner"
+    },
+    {
+      "file": "src/reader/cli.ts",
+      "kind": "cli"
+    },
+    {
+      "file": "src/reader/self.ts",
+      "kind": "cli"
+    }
+  ],
+  "risks": [
+    {
+      "severity": "high",
+      "description": "License conflict in package.json: homepage states MIT but license field is ISC. Legal ambiguity for downstream users."
+    },
+    {
+      "severity": "high",
+      "description": "No real test suite: npm test is a placeholder echo. Coverage of 13 'completed' blocks is unverifiable."
+    },
+    {
+      "severity": "medium",
+      "description": "missions/ directory unreadable (subagent timed out twice at 90s); module purpose and structure undetermined."
+    },
+    {
+      "severity": "medium",
+      "description": "audits/ directory unreadable (validation failed twice); contents and intent unknown."
+    },
+    {
+      "severity": "medium",
+      "description": "misc/ directory unreadable (validation failed twice); contents unverified."
+    },
+    {
+      "severity": "medium",
+      "description": "scripts/a4_run.ts contains hardcoded Windows user paths (C:\\Users\\angel\\...) breaking portability across machines and contributors."
+    },
+    {
+      "severity": "medium",
+      "description": "permissions.ts validatePath() falls back to cwd when WORKSPACE_ROOT env is unset, potentially bypassing directory traversal restrictions."
+    },
+    {
+      "severity": "medium",
+      "description": "kill_switch.ts spawns a persistent PowerShell process with unref(); may outlive the parent process if not explicitly terminated, leaking resources."
+    },
+    {
+      "severity": "medium",
+      "description": "runner.ts uses blocking execSync without async error handling, risking CLI freezes on slow child processes."
+    },
+    {
+      "severity": "medium",
+      "description": "hermes_watcher.ts hardcodes GitHub API URL and does not handle rate limiting; live test silently swallows all errors, masking auth/network issues."
+    },
+    {
+      "severity": "low",
+      "description": ".env.example referenced in README setup is not present in the analyzed root, complicating onboarding."
+    },
+    {
+      "severity": "low",
+      "description": "scripts use silent catch blocks for JSON parsing and dynamic imports with Date.now() cache-busting, both unconventional and error-masking."
+    }
+  ],
+  "evidence": {
+    "subagent_count": 6,
+    "tokens_total": 0,
+    "duration_ms": 13854,
+    "subreports_referenced": 6
+  }
+}

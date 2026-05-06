@@ -1,0 +1,236 @@
+{
+  "purpose": "Valibot is a modular, type-safe schema library for TypeScript/JavaScript used to validate unknown data (server inputs, forms, config files) at runtime with static type inference. Designed for tiny bundle size (starts <700 bytes) via tree-shakeable function-based API.",
+  "install": "unknown",
+  "public_api": [
+    {
+      "name": "object",
+      "signature": "v.object(entries: Record<string, Schema>) => ObjectSchema",
+      "summary": "Creates a schema describing a structured object with typed keys."
+    },
+    {
+      "name": "string",
+      "signature": "v.string() => StringSchema",
+      "summary": "Schema that validates string values."
+    },
+    {
+      "name": "number",
+      "signature": "v.number() => NumberSchema",
+      "summary": "Schema that validates number values."
+    },
+    {
+      "name": "boolean",
+      "signature": "v.boolean() => BooleanSchema",
+      "summary": "Schema that validates boolean values."
+    },
+    {
+      "name": "array",
+      "signature": "v.array(item: Schema) => ArraySchema",
+      "summary": "Schema for arrays of a given item schema."
+    },
+    {
+      "name": "pipe",
+      "signature": "v.pipe(schema, ...actions) => Schema",
+      "summary": "Composes a schema with validation/transformation actions (e.g., email(), minLength())."
+    },
+    {
+      "name": "parse",
+      "signature": "v.parse(schema, input) => Output",
+      "summary": "Parses input against schema; throws ValiError on failure."
+    },
+    {
+      "name": "safeParse",
+      "signature": "v.safeParse(schema, input) => { success, output?, issues? }",
+      "summary": "Non-throwing variant of parse returning a result object."
+    },
+    {
+      "name": "is",
+      "signature": "v.is(schema, input) => boolean",
+      "summary": "Type guard that returns whether input matches the schema."
+    },
+    {
+      "name": "parser",
+      "signature": "v.parser(schema) => (input) => Output",
+      "summary": "Creates a reusable parse function bound to a schema."
+    },
+    {
+      "name": "safeParser",
+      "signature": "v.safeParser(schema) => (input) => SafeParseResult",
+      "summary": "Creates a reusable safeParse function."
+    },
+    {
+      "name": "email",
+      "signature": "v.email(message?) => Action",
+      "summary": "Pipe action validating email format on strings."
+    },
+    {
+      "name": "minLength",
+      "signature": "v.minLength(n: number, message?) => Action",
+      "summary": "Pipe action enforcing minimum length."
+    },
+    {
+      "name": "maxLength",
+      "signature": "v.maxLength(n: number, message?) => Action",
+      "summary": "Pipe action enforcing maximum length."
+    },
+    {
+      "name": "optional",
+      "signature": "v.optional(schema, default?) => OptionalSchema",
+      "summary": "Marks a schema as optional (may be undefined)."
+    },
+    {
+      "name": "nullable",
+      "signature": "v.nullable(schema, default?) => NullableSchema",
+      "summary": "Allows null in addition to the wrapped schema."
+    },
+    {
+      "name": "nullish",
+      "signature": "v.nullish(schema, default?) => NullishSchema",
+      "summary": "Allows null or undefined in addition to the wrapped schema."
+    },
+    {
+      "name": "union",
+      "signature": "v.union(schemas: Schema[]) => UnionSchema",
+      "summary": "Schema matching any of the provided schemas."
+    },
+    {
+      "name": "intersect",
+      "signature": "v.intersect(schemas: Schema[]) => IntersectSchema",
+      "summary": "Schema matching all of the provided schemas (intersection)."
+    },
+    {
+      "name": "picklist",
+      "signature": "v.picklist(values: readonly T[]) => PicklistSchema",
+      "summary": "Schema matching one of a list of literal values."
+    },
+    {
+      "name": "enum",
+      "signature": "v.enum(enumObj) => EnumSchema",
+      "summary": "Schema matching values from a TypeScript enum."
+    },
+    {
+      "name": "literal",
+      "signature": "v.literal(value) => LiteralSchema",
+      "summary": "Schema matching a single literal value."
+    },
+    {
+      "name": "record",
+      "signature": "v.record(keySchema, valueSchema) => RecordSchema",
+      "summary": "Schema for objects with dynamic keys."
+    },
+    {
+      "name": "tuple",
+      "signature": "v.tuple(items: Schema[]) => TupleSchema",
+      "summary": "Schema for fixed-length tuples."
+    },
+    {
+      "name": "lazy",
+      "signature": "v.lazy(getter: () => Schema) => LazySchema",
+      "summary": "Schema resolved lazily for recursive types."
+    },
+    {
+      "name": "transform",
+      "signature": "v.transform(fn) => Action",
+      "summary": "Pipe action that transforms parsed value."
+    },
+    {
+      "name": "check",
+      "signature": "v.check(fn, message?) => Action",
+      "summary": "Pipe action that runs a custom predicate check."
+    },
+    {
+      "name": "brand",
+      "signature": "v.brand(name) => Action",
+      "summary": "Adds a nominal brand to a schema's output type."
+    },
+    {
+      "name": "fallback",
+      "signature": "v.fallback(schema, value) => Schema",
+      "summary": "Provides a fallback value when validation fails."
+    },
+    {
+      "name": "parseAsync",
+      "signature": "v.parseAsync(schema, input) => Promise<Output>",
+      "summary": "Async variant of parse for async schemas/actions."
+    },
+    {
+      "name": "safeParseAsync",
+      "signature": "v.safeParseAsync(schema, input) => Promise<SafeParseResult>",
+      "summary": "Async variant of safeParse."
+    },
+    {
+      "name": "InferOutput",
+      "signature": "type InferOutput<S>",
+      "summary": "Type helper to infer the output TypeScript type of a schema."
+    },
+    {
+      "name": "InferInput",
+      "signature": "type InferInput<S>",
+      "summary": "Type helper to infer the input TypeScript type of a schema."
+    },
+    {
+      "name": "InferIssue",
+      "signature": "type InferIssue<S>",
+      "summary": "Type helper to infer issue types produced by a schema."
+    },
+    {
+      "name": "ValiError",
+      "signature": "class ValiError extends Error",
+      "summary": "Error thrown by parse on validation failure; contains issues."
+    },
+    {
+      "name": "flatten",
+      "signature": "v.flatten(issues) => FlatErrors",
+      "summary": "Flattens issues into a simpler error structure."
+    },
+    {
+      "name": "getDotPath",
+      "signature": "v.getDotPath(issue) => string",
+      "summary": "Returns a dot-path string for an issue."
+    }
+  ],
+  "usage_patterns": [
+    {
+      "title": "Define and parse a schema",
+      "body": "Import everything as `v` from 'valibot'. Build a schema with constructors like v.object, v.string, v.number. Add validations via v.pipe(schema, v.email(), v.minLength(8)). Then run v.parse(schema, input) to validate (throws ValiError) or v.safeParse for a result object."
+    },
+    {
+      "title": "Type inference",
+      "body": "Use `type T = v.InferOutput<typeof Schema>` to get the TypeScript type that a schema produces. InferInput gives the pre-transform type, InferIssue gives issue union types."
+    },
+    {
+      "title": "Type guarding",
+      "body": "Use v.is(schema, input) as a TypeScript type guard — returns boolean and narrows input to InferOutput<typeof schema>."
+    },
+    {
+      "title": "Async validation",
+      "body": "Use *Async variants (objectAsync, pipeAsync, checkAsync, parseAsync, safeParseAsync) when any part of validation requires Promises, e.g., checking database uniqueness."
+    },
+    {
+      "title": "Modular imports for small bundles",
+      "body": "The API is composed of many small independent functions; bundlers tree-shake unused functions. Import only what you need to keep bundles minimal (announced as small as ~700 bytes for tiny schemas)."
+    }
+  ],
+  "gotchas": [
+    "parse throws a ValiError on failure; use safeParse if you want a non-exception result.",
+    "Validation/transformation actions (email, minLength, etc.) must be composed via v.pipe, not chained as methods — Valibot has no fluent builder API.",
+    "Async actions require the *Async schema constructors and parseAsync/safeParseAsync; mixing sync parse with async actions will not work.",
+    "Breaking API changes occurred at v0.31.0 — older tutorials may use a different API; see the 'To v0.31.0' migration guide.",
+    "Zod schemas are not drop-in compatible; use the 'From Zod' migration guide when porting."
+  ],
+  "examples": [
+    {
+      "title": "Login schema with parse",
+      "code": "import * as v from 'valibot';\n\nconst LoginSchema = v.object({\n  email: v.pipe(v.string(), v.email()),\n  password: v.pipe(v.string(), v.minLength(8)),\n});\n\ntype LoginData = v.InferOutput<typeof LoginSchema>;\n// { email: string; password: string }\n\n// Throws ValiError because fields are invalid\nconst output1 = v.parse(LoginSchema, { email: '', password: '' });\n\n// Returns parsed data\nconst output2 = v.parse(LoginSchema, {\n  email: 'jane@example.com',\n  password: '12345678',\n});"
+    }
+  ],
+  "synonyms": [
+    "valibot",
+    "valibot.dev",
+    "Valibot"
+  ],
+  "source": {
+    "kind": "url",
+    "origin": "https://valibot.dev",
+    "pages_or_files": 20
+  }
+}
