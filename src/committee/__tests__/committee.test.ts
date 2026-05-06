@@ -13,7 +13,10 @@ function makeStubLLM(opts: { failOneMember?: boolean } = {}): LLMClient {
   return {
     async chat(messages, callOpts) {
       const sys = messages.find((m) => m.role === 'system')?.content ?? '';
-      const isSynth = sys.includes('synthesizing committee member reports');
+      // Robust shape detection: synth user message starts with "Member reports".
+      // Substring on system prompt is too coupled to wording (volátil en S1.4).
+      const userMsg = messages.find((m) => m.role === 'user')?.content ?? '';
+      const isSynth = userMsg.startsWith('Member reports') || sys.includes('committee member reports') || sys.includes('chair of a software-audit committee');
       if (isSynth) {
         return JSON.stringify({
           consensus: [
