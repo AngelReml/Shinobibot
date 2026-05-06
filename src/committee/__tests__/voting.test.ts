@@ -13,7 +13,7 @@ function makeStubLLM(verdictsByRun: ('low'|'medium'|'high')[]): LLMClient {
   return {
     async chat(messages, opts) {
       const sys = messages.find((m) => m.role === 'system')?.content ?? '';
-      const isSynth = sys.includes('synthesizing three committee member reports');
+      const isSynth = sys.includes('synthesizing committee member reports');
       if (isSynth) {
         const v = verdictsByRun[synthCallIdx++ % verdictsByRun.length];
         return JSON.stringify({

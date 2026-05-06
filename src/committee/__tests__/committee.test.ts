@@ -13,7 +13,7 @@ function makeStubLLM(opts: { failOneMember?: boolean } = {}): LLMClient {
   return {
     async chat(messages, callOpts) {
       const sys = messages.find((m) => m.role === 'system')?.content ?? '';
-      const isSynth = sys.includes('synthesizing three committee member reports');
+      const isSynth = sys.includes('synthesizing committee member reports');
       if (isSynth) {
         return JSON.stringify({
           consensus: [

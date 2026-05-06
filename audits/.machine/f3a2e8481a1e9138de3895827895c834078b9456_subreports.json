@@ -1,11 +1,11 @@
 [
   {
     "path": "/",
-    "purpose": "Execa is a library for process execution in JavaScript, optimized for programmatic usage beyond shell commands.",
+    "purpose": "Execa is a library for executing commands in scripts, applications, or libraries with a focus on programmatic usage.",
     "key_files": [
       {
         "name": "package.json",
-        "role": "Defines project metadata, dependencies, and scripts for testing and building."
+        "role": "Defines project metadata, dependencies, and scripts for building and testing."
       },
       {
         "name": "readme.md",
@@ -13,7 +13,7 @@
       },
       {
         "name": "tsconfig.json",
-        "role": "Specifies the TypeScript compiler options and project configuration."
+        "role": "Configures TypeScript compiler options for the project."
       }
     ],
     "dependencies": {
@@ -30,48 +30,52 @@
         "pretty-ms",
         "signal-exit",
         "strip-final-newline",
-        "yoctocolors",
-        "@types/node",
-        "ava",
-        "c8",
-        "get-node",
-        "is-in-ci",
-        "is-running",
-        "log-process-errors",
-        "path-exists",
-        "path-key",
-        "tempfile",
-        "tsd",
-        "typescript",
-        "which",
-        "xo"
+        "yoctocolors"
       ]
     },
-    "concerns": []
+    "concerns": [
+      "No tests are explicitly mentioned in the README or package.json.",
+      "The README is truncated and may not contain all relevant information.",
+      "The project may lack examples for all features, limiting user understanding.",
+      "No information on contribution guidelines is provided.",
+      "The package.json specifies a strict Node.js version requirement."
+    ]
   },
   {
     "path": "test",
-    "purpose": "Contains core project files, configuration, and utility modules for setup, builds, and handling streams and processes.",
+    "purpose": "This branch is dedicated to testing and utility scripts, including configuration files, metadata, and stream processing helpers.",
     "key_files": [
       {
-        "name": "README.md",
-        "role": "Provides an overview and documentation for the project"
+        "name": "package.json",
+        "role": "Defines project dependencies, scripts, and metadata."
       },
       {
-        "name": "package.json",
-        "role": "Defines project metadata, dependencies, and scripts for building and testing"
+        "name": "README.md",
+        "role": "Provides an overview and documentation for the project."
+      },
+      {
+        "name": ".gitignore",
+        "role": "Specifies files and directories to be ignored by Git."
       },
       {
         "name": "LICENSE",
-        "role": "Contains the licensing information for the project"
+        "role": "Contains the licensing information for the project."
       },
       {
         "name": "fixtures/all-fail.js",
-        "role": "Fixture that simulates a failed process."
+        "role": "Simulates a failing process."
+      },
+      {
+        "name": "fixtures/all.js",
+        "role": "Simulates a successful process."
       },
       {
         "name": "helpers/convert.js",
-        "role": "Utility functions for converting data and handling streams."
+        "role": "Provides various utility functions for stream handling."
+      },
+      {
+        "name": "helpers/duplex.js",
+        "role": "Defines duplex stream transformations."
       }
     ],
     "dependencies": {
@@ -81,95 +85,91 @@
         "helpers/generator.js"
       ],
       "external": [
-        "express",
-        "lodash",
         "get-stream",
         "is-plain-obj",
         "execa"
       ]
     },
     "concerns": [
-      "Readme is outdated and needs update with recent changes.",
-      "Some dependencies in package.json are deprecated.",
-      "No tests are defined in the package.json scripts.",
-      "Fixtures should be tested to ensure proper behavior.",
-      "Stream utilities may require additional documentation."
+      "No tests are defined in the root directory.",
+      "README.md may need updates to reflect the latest project changes.",
+      "No tests are present for the utility functions in helpers/convert.js.",
+      "Potential dead code in unused functions within helpers/duplex.js.",
+      "Lack of documentation for the purpose of each helper function."
     ]
   },
   {
     "path": "test-d",
-    "purpose": "This branch contains tests related to stdio options in execa, and overall configuration and metadata files for the project.",
+    "purpose": "This branch contains configuration files and metadata for the project setup, along with tests for various options and behaviors of the execa library, focusing on stdio handling.",
     "key_files": [
       {
         "name": "package.json",
-        "role": "Metadata and dependency management for the project."
+        "role": "Defines project dependencies, scripts, and metadata."
       },
       {
         "name": "README.md",
-        "role": "Documentation for project setup and usage."
+        "role": "Provides an overview and documentation for the project."
       },
       {
         "name": ".gitignore",
-        "role": "Specifies files to be ignored by version control."
+        "role": "Specifies files and directories to be ignored by Git."
       },
       {
         "name": "LICENSE",
-        "role": "Defines the legal terms for using the project."
+        "role": "Contains the licensing information for the project."
       },
       {
         "name": "stdio/array.test-d.ts",
-        "role": "Tests various stdio configurations for execa and execaSync."
+        "role": "Tests array options for stdio."
       },
       {
         "name": "stdio/direction.test-d.ts",
-        "role": "Tests stdio options using Readable and Writable streams."
+        "role": "Tests directionality of stdio streams."
       },
       {
         "name": "return/ignore-option.test-d.ts",
-        "role": "Tests handling of 'ignore' stdio options in execa."
+        "role": "Tests behavior when ignoring stdio options."
       },
       {
         "name": "return/ignore-other.test-d.ts",
-        "role": "Tests other ignore configurations for stdio in execa."
+        "role": "Tests various ignore options for stdio."
       }
     ],
     "dependencies": {
       "internal": [
-        "index.js"
+        "src/index.js"
       ],
       "external": [
-        "express",
-        "lodash",
         "tsd"
       ]
     },
     "concerns": [
-      "Missing tests for several core functionalities.",
-      "Multiple tests expect errors for invalid stdio configurations.",
-      "Some imported dependencies in package.json have no usage in the codebase.",
-      "TODO comments indicating unfinished features in README.md.",
-      "Expected types in tests showing properties should match the actual output from execa."
+      "No tests are defined in the project.",
+      "README.md may need updates to reflect the latest changes.",
+      "package.json has outdated dependencies that need review.",
+      "No tests cover the performance of execa with large input/output.",
+      "Potential for unhandled promise rejections in async tests."
     ]
   },
   {
     "path": "lib",
-    "purpose": "Contains utility functions for inter-process communication, command handling, and option merging, essential for various library functionalities.",
+    "purpose": "Contains utility functions for inter-process communication and command handling, supporting the main application logic.",
     "key_files": [
       {
         "name": "ipc/array.js",
-        "role": "Defines a function to normalize stdio array with IPC"
+        "role": "Defines a function to normalize IPC options in stdio."
       },
       {
         "name": "ipc/buffer-messages.js",
-        "role": "Handles and processes IPC messages"
+        "role": "Handles IPC message output and logging."
       },
       {
         "name": "methods/bind.js",
-        "role": "Merges options with specific handling for deep options"
+        "role": "Merges options for commands, ensuring safe property access."
       },
       {
         "name": "methods/command.js",
-        "role": "Parses command strings for command execution"
+        "role": "Parses command strings and maps them to execution functions."
       }
     ],
     "dependencies": {
@@ -183,84 +183,90 @@
       ]
     },
     "concerns": [
-      "No tests found for IPC message handling functions.",
-      "Potential for TypeError if command string parsing fails.",
-      "Unused arguments in command parsing may lead to runtime errors."
+      "No tests are present for the IPC handling functions.",
+      "Potential for unhandled promise rejections in async functions.",
+      "No error handling for invalid command strings in command parsing.",
+      "The mergeOptions function does not handle circular references.",
+      "Verbose logging may expose sensitive information."
     ]
   },
   {
     "path": "types",
-    "purpose": "Contains TypeScript definition files for subprocess execution, error handling, and command execution methods.",
+    "purpose": "Contains TypeScript definitions for handling subprocess execution, error management, and related utilities.",
     "key_files": [
       {
         "name": "final-error.d.ts",
-        "role": "Defines common error types for subprocess execution."
+        "role": "Defines error types for subprocess execution failures."
       },
       {
         "name": "ignore.d.ts",
-        "role": "Defines logic for handling ignored outputs in subprocess."
+        "role": "Defines types for handling ignored output in subprocesses."
       },
       {
         "name": "command.d.ts",
-        "role": "Provides commands execution methods and their signatures."
+        "role": "Defines methods for executing commands and handling their results."
       },
       {
         "name": "main-async.d.ts",
-        "role": "Contains the main async execution methods and their behavior."
+        "role": "Defines the main asynchronous execution methods for subprocesses."
       }
     ],
     "dependencies": {
       "internal": [
         "../arguments/options.js",
+        "../return/result.js",
         "../stdio/type.js",
         "../stdio/direction.js",
         "../stdio/option.js",
-        "../arguments/specific.js",
-        "../return/result.js",
-        "../subprocess/subprocess.js",
-        "./template.js"
+        "../arguments/specific.js"
       ],
       "external": [
         "execa"
       ]
     },
     "concerns": [
-      "No tests observed for the defined types and methods.",
-      "Missing implementation details for some asynchronous behavior.",
-      "Abundant comments but lacks examples for edge cases.",
-      "Potential dead code if any of these methods are unused.",
-      "No validation or error handling shown for command inputs."
+      "No tests are present for the defined types and methods.",
+      "Some types may not be fully utilized in the implementation.",
+      "Documentation comments may need updates for clarity.",
+      "Potential for dead code if certain types are not used.",
+      "Error handling may require additional coverage."
     ]
   },
   {
     "path": "misc/",
-    "purpose": "Aggregate folder for miscellaneous documentation, media, and GitHub workflows.",
+    "purpose": "Contains documentation, GitHub configurations, and media assets related to the project.",
     "key_files": [
       {
         "name": "docs/api.md",
-        "role": "API reference documenting various methods, options, and subprocess properties."
+        "role": "API reference documentation"
       },
       {
         "name": "docs/bash.md",
-        "role": "Documentation on differences between Bash and Execa, highlighting the benefits of using Execa."
+        "role": "Documentation on differences with Bash and zx"
       },
       {
         "name": ".github/codecov.yml",
-        "role": "Configuration file for Codecov, managing code coverage reports."
+        "role": "Codecov configuration file"
       },
       {
         "name": ".github/security.md",
-        "role": "Security policy documentation for reporting vulnerabilities."
+        "role": "Security policy documentation"
       },
       {
         "name": "media/logo.sketch",
-        "role": "Design file for the logo present in the documentation."
+        "role": "Logo design file"
       }
     ],
     "dependencies": {
       "internal": [],
       "external": []
     },
-    "concerns": []
+    "concerns": [
+      "No tests are present in the documentation files.",
+      "The logo file is in a proprietary format (Sketch) which may limit accessibility.",
+      "The API documentation may need updates if the API changes.",
+      "Security policy lacks detailed instructions for vulnerability reporting.",
+      "Codecov configuration may need adjustments based on project needs."
+    ]
   }
 ]

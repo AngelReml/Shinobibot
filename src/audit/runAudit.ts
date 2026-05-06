@@ -275,10 +275,16 @@ export async function runAudit(opts: AuditOptions): Promise<AuditResult> {
       readResult = r as any;
     }
 
-    // Habilidad B.2 — Committee with F1 stability (temperature=0, majority voting 3x).
-    console.log('[audit] committee dispatching… (F1: temp=0, voting=3)');
+    // Habilidad B.2 — Committee with F1 stability (temperature=0, majority voting 3x)
+    // and F2 code_reviewer that reads risky files literally from the repo.
+    const { DEFAULT_ROLES } = await import('../committee/Committee.js');
+    const { makeCodeReviewerRole } = await import('../committee/code_reviewer.js');
+    const codeRole = makeCodeReviewerRole(cloneRoot);
+    const roles = codeRole ? [...DEFAULT_ROLES, codeRole] : DEFAULT_ROLES;
+    console.log(`[audit] committee dispatching… (F1: temp=0, voting=3${codeRole ? '; F2: +code_reviewer' : ''})`);
     const committee = new Committee({
       llm: makeLLMClient({ temperature: 0 }),
+      roles,
       votingRuns: 3,
       temperature: 0,
     });
