@@ -136,3 +136,21 @@ Total ~1h 40min de trabajo humano. Todo lo demás es zero-touch desde aquí.
 ## Bandera
 
 **Lanzamiento público de shinobibot (E2)** sigue diferido a tu OK explícito. El roadmap v2 del prompt.txt v3 dice "Shinobibot SE QUEDA PRIVADO hasta el final del nuevo roadmap". Lo que se ha entregado esta sesión cumple casi toda esa lista (FASE 1 ya estaba; FASE 2 GR-DNA queda truncado en spec; FASE 3 OpenBrain hecho como MVP). El lanzamiento es ahora una **decisión** tuya, no un bloqueo técnico.
+
+---
+
+## Addendum 2026-05-06 — Hardening del comité (F1/F2/F3)
+
+Tres ítems que la criba original no había marcado VERDE porque el código aún no existía. Cerrados esta fecha tras pasar los gates correspondientes:
+
+| Ítem | Estado | Evidencia |
+|---|---|---|
+| Comité determinista (mismo SHA → mismo verdict) | ✅ VERDE | `scripts/f1_gate.ts` → 5/5 verdicts idénticos con `confidence=high` sobre execa@`f3a2e848`. Implementación: `temperature=0` global + `votingRuns=3` con majority + read-cache por SHA en `audits/.machine/`. |
+| Code reviewer con código real | ✅ VERDE | `scripts/f2_gate.ts` → audit DVWA detecta `[sql injection, xss, csrf, rce]`. Implementación: `src/committee/code_reviewer.ts` selecciona archivos de riesgo y los inyecta literalmente (~8k tokens) al prompt. |
+| Fuzzy apply de propuestas | ✅ VERDE | `scripts/f3_gate.ts` → 5 propuestas, 4 aplicables (4 OK), `/apply` modifica el archivo correctamente, tsc 0 errores nuevos. Implementación: `[OK]/[FUZZY]/[BROKEN_DIFF]` tagging + retry con `{find,replace}` reconstruido por `git diff` + path resolver por basename. |
+
+**Sesión completa**: `docs/sessions/2026-05-06_F1_F2_F3_committee_hardening.md` (incluye 4 bugs reales descubiertos durante F3 — index-line stripping, --3way blobs, gate non-surgical revert, baseline tsc).
+
+**Tests**: 39 nuevos en committee + 77 ya verdes = 103 passed, 0 failed.
+
+**Commits pusheados a `origin/main`**: `c69ce80`, `9bc3eaa`, `4d24a3e` (range `716c72a..3e23d98`).
