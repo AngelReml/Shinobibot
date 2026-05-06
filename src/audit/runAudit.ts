@@ -153,6 +153,10 @@ function renderAuditMd(args: {
     if ('error' in m) lines.push(`- ${m.role}: ERROR (${m.error})`);
     else lines.push(`- ${m.role.padEnd(18)} risk=${m.risk_level}`);
   }
+  if (!('error' in args.committee.synthesis) && args.committee.synthesis.verdict_confidence) {
+    const runs = args.committee.synthesis.voting_runs ?? [];
+    lines.push(`- verdict_confidence: ${args.committee.synthesis.verdict_confidence} (votes: [${runs.map((v) => v.overall_risk).join(', ')}])`);
+  }
   lines.push('');
 
   lines.push('## Evidence');
@@ -216,6 +220,16 @@ export async function runAudit(opts: AuditOptions): Promise<AuditResult> {
     const headSha = runGit(['rev-parse', 'HEAD'], cloneRoot).stdout || 'unknown';
     console.log(`[audit] HEAD=${headSha}`);
 
+    // F1 — read-cache by SHA: re-auditing the same commit reuses the base
+    // report.json so the audit is reproducible. The committee still runs
+    // every time (its output is what's voted on).
+    const outDir = opts.outDir ?? path.join(process.cwd(), 'audits');
+    const cacheMachineDir = path.join(outDir, '.machine');
+    const cachedReportPath = path.join(cacheMachineDir, `${headSha}_report.json`);
+    const cachedSubreportsPath = path.join(cacheMachineDir, `${headSha}_subreports.json`);
+    const cachedTelemetryPath = path.join(cacheMachineDir, `${headSha}_telemetry.json`);
+    const useCache = fs.existsSync(cachedReportPath) && fs.existsSync(cachedSubreportsPath);
+
     // Habilidad C.2 — KnowledgeRouter inyecta manuales aprendidos cuando el
     // contexto del leaf menciona programas conocidos.
     const missionId = `audit-${owner}-${repo}-${shaShort(headSha)}`;
@@ -230,31 +244,48 @@ export async function runAudit(opts: AuditOptions): Promise<AuditResult> {
       budget = { tokensTotal, maxSubagents, perSubagentTimeoutMs: 90_000, totalTimeoutMs: 180_000 };
     }
 
-    // Habilidad D.2 — depth=2 hierarchical read.
-    const reader = new HierarchicalReader({
-      llm: makeLLMClient(),
-      depth: 2,
-      budget,
-      missionId,
-      knowledgeInjector,
-      onProgress: (ev) => {
-        if (ev.node && (ev.phase === 'sub_supervisor_done' || ev.phase === 'leaf_done' || ev.phase === 'final_synth_done')) {
-          console.log(`[audit] ${ev.phase} ${ev.node.label} (${ev.node.duration_ms}ms)`);
-        }
-      },
-    });
-    const readResult = await reader.read(cloneRoot);
-    if (!readResult.ok || !readResult.report) {
-      throw new Error(`HierarchicalReader failed: ${readResult.error ?? 'unknown'}`);
+    // Habilidad D.2 — depth=2 hierarchical read with F1 stability (temperature=0).
+    let readResult: { ok: boolean; report: any; subreports: any[]; telemetry: any; duration_ms: number };
+    if (useCache) {
+      console.log(`[audit] reusing cached report for ${shaShort(headSha)} (F1 reproducibility)`);
+      readResult = {
+        ok: true,
+        report: JSON.parse(fs.readFileSync(cachedReportPath, 'utf-8')),
+        subreports: JSON.parse(fs.readFileSync(cachedSubreportsPath, 'utf-8')),
+        telemetry: fs.existsSync(cachedTelemetryPath) ? JSON.parse(fs.readFileSync(cachedTelemetryPath, 'utf-8')) : { id: '0', level: 'supervisor', label: 'cached', start_ms: 0, status: 'ok', children: [] },
+        duration_ms: 0,
+      };
+    } else {
+      const reader = new HierarchicalReader({
+        llm: makeLLMClient({ temperature: 0 }),
+        depth: 2,
+        budget,
+        missionId,
+        knowledgeInjector,
+        onProgress: (ev) => {
+          if (ev.node && (ev.phase === 'sub_supervisor_done' || ev.phase === 'leaf_done' || ev.phase === 'final_synth_done')) {
+            console.log(`[audit] ${ev.phase} ${ev.node.label} (${ev.node.duration_ms}ms)`);
+          }
+        },
+      });
+      const r = await reader.read(cloneRoot);
+      if (!r.ok || !r.report) {
+        throw new Error(`HierarchicalReader failed: ${r.error ?? 'unknown'}`);
+      }
+      readResult = r as any;
     }
 
-    // Habilidad B.2 — Committee.
-    console.log('[audit] committee dispatching…');
-    const committee = new Committee({ llm: makeLLMClient() });
+    // Habilidad B.2 — Committee with F1 stability (temperature=0, majority voting 3x).
+    console.log('[audit] committee dispatching… (F1: temp=0, voting=3)');
+    const committee = new Committee({
+      llm: makeLLMClient({ temperature: 0 }),
+      votingRuns: 3,
+      temperature: 0,
+    });
     const cmt = await committee.review(JSON.stringify(readResult.report));
 
     const overallRisk: 'low' | 'medium' | 'high' = ('error' in cmt.synthesis)
-      ? (readResult.report.risks.find((r) => r.severity === 'high') ? 'high' : 'medium')
+      ? (readResult.report.risks.find((r: { severity: string }) => r.severity === 'high') ? 'high' : 'medium')
       : cmt.synthesis.overall_risk;
     const verdict: 'PASS' | 'FAIL' = overallRisk === 'high' ? 'FAIL' : 'PASS';
 
@@ -262,9 +293,8 @@ export async function runAudit(opts: AuditOptions): Promise<AuditResult> {
     const tree = listAllPaths(cloneRoot);
     const pathChecks = risksReferenceRealPaths(readResult.report, cmt, tree);
 
-    // Persist machine evidence.
-    const outDir = opts.outDir ?? path.join(process.cwd(), 'audits');
-    const machineDir = path.join(outDir, '.machine');
+    // Persist machine evidence (outDir/cacheMachineDir already declared above).
+    const machineDir = cacheMachineDir;
     fs.mkdirSync(machineDir, { recursive: true });
     const evidenceBase = `${headSha}`;
     const writeMachine = (suffix: string, payload: any) =>
