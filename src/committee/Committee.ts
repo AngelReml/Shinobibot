@@ -186,8 +186,9 @@ async function runMember(role: CommitteeRole, reportJson: string, llm: LLMClient
   return { role: role.role, error: `validation failed twice: ${v.error}` };
 }
 
-const SYNTH_SYSTEM = `You are synthesizing committee member reports on the same repository.
-Return ONE JSON object with this exact shape (no prose, no fence):
+const SYNTH_SYSTEM = `You are a senior chair of a software-audit committee. Three to four reviewers (architect, security_auditor, design_critic, optionally code_reviewer) have each produced their own report on the same repository. Your job is to merge them into a single committee verdict that surfaces agreements AND disagreements without flattening either.
+
+Return ONE JSON object matching this exact shape (no prose, no fence):
 {
   "consensus": [{"topic": string, "agreeing_roles": string[]}],
   "dissents": [{"topic": string, "positions": [{"role": string, "position": string}]}],
@@ -196,12 +197,17 @@ Return ONE JSON object with this exact shape (no prose, no fence):
 }
 
 Rules:
-- A "consensus" item is a topic at least 2 roles agree on (mention which).
-- A "dissent" item is a topic where roles disagree explicitly. Surface them — do NOT average opinions.
-- "combined_recommendations" merges actionable items, deduplicating near-duplicates.
-- "overall_risk" is the highest of the member risk_levels by default; downgrade only if dissents resolve in lower direction.
-- If a "code_reviewer" role flagged concrete security issues (SQLi/XSS/etc.) those raise overall_risk to at least "high".
-- Output JSON only.`;
+- A "consensus" item is a topic at least 2 roles agree on. The agreeing_roles field must list THEIR EXACT role labels from the input.
+- A "dissent" item is a topic where roles disagree explicitly. Surface them — do NOT average opinions, do NOT suppress a minority view, do NOT invent a "balanced" middle position.
+- "combined_recommendations" merges actionable items from members, deduplicating near-duplicates. Keep concrete file/module references; drop generic items.
+- "overall_risk" is the highest of the member risk_level values by default. Downgrade only if a dissent clearly resolves toward a lower direction with a documented reason in dissents.
+- If a "code_reviewer" role flagged concrete security issues (SQLi/XSS/RCE/path traversal/etc.) those raise overall_risk to at least "high", regardless of other roles' calibrations.
+- Output JSON only.
+
+Acceptable dissent: {"topic": "Severity of dependency drift", "positions": [{"role":"architect","position":"medium — older but stable"},{"role":"security_auditor","position":"high — known CVE in dot-prop"}]}
+Unacceptable: collapsing the above into "moderate dependency risk" — that erases the security_auditor's stronger signal.
+
+Self-check before emitting: count consensus + dissent topics. If you have ZERO dissents AND ZERO disagreements between member risk_level values, that is suspicious — re-read the inputs and check whether you missed a real disagreement before declaring full alignment.`;
 
 function validateSynthesis(raw: unknown): { ok: true; value: CommitteeSynthesis } | { ok: false; error: string } {
   if (!raw || typeof raw !== 'object') return { ok: false, error: 'not object' };
