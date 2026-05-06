@@ -1,0 +1,191 @@
+[
+  {
+    "path": "/",
+    "purpose": "Shinobi is an autonomous Windows-native agent designed for Spanish-speaking YouTubers, providing tools for content adaptation and automation.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Defines project metadata, dependencies, and build setup."
+      },
+      {
+        "name": "README.md",
+        "role": "Details project purpose, installation steps, and development setup."
+      },
+      {
+        "name": "tsconfig.json",
+        "role": "Configures TypeScript compiler options."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "@nut-tree-fork/nut-js",
+        "axios",
+        "better-sqlite3",
+        "dotenv",
+        "openai",
+        "playwright",
+        "sqlite-vec"
+      ]
+    },
+    "concerns": [
+      "No tests are specified in the package.json file, raising concerns about coverage.",
+      "README states certain elements are 'closed' but does not specify detailed testing procedures.",
+      "The author is listed as 'AngelReml' without further context or contact.",
+      "The project aims to serve a specific demographic, may limit broader usability.",
+      "The build process for the distributable .exe lacks thorough documentation on handling production."
+    ]
+  },
+  {
+    "path": "src/watchers/hermes_watcher.ts",
+    "purpose": "Manages the release notifications from the upstream Hermes repository using GitHub's API.",
+    "key_files": [
+      {
+        "name": "hermes_watcher.ts",
+        "role": "Main watcher for Hermes releases."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "node:fs",
+        "node:os",
+        "node:path"
+      ]
+    },
+    "concerns": [
+      "No unit tests for critical functions like `checkOnce` and `renderNotice`.",
+      "Potential failure in network requests to GitHub API without proper handling.",
+      "State file path management might lead to persistence issues if not handled correctly.",
+      "Error handling could be improved to better indicate the source of failures."
+    ]
+  },
+  {
+    "path": "scripts",
+    "purpose": "This folder contains scripts for testing and running parts of the application involving reading arguments and generating reports.",
+    "key_files": [
+      {
+        "name": "a3_smoke.ts",
+        "role": "Tests the parseReadArgs function."
+      },
+      {
+        "name": "a4_run.ts",
+        "role": "Runs the read function on specified repositories and generates reports."
+      },
+      {
+        "name": "b1_diff_run.ts",
+        "role": "Executes self-diff check and exits based on success."
+      },
+      {
+        "name": "b1_run.ts",
+        "role": "Runs self-check to produce self_report."
+      },
+      {
+        "name": "b1_smoke.ts",
+        "role": "Tests the parseSelfArgs function."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "../src/reader/cli.js",
+        "../src/reader/self.js"
+      ],
+      "external": [
+        "fs",
+        "os",
+        "path"
+      ]
+    },
+    "concerns": [
+      "A4 run script appends raw dumps without evaluating them.",
+      "Error handling silently ignored when reading report and subreport files in a4_run.ts.",
+      "No unit tests for the runSelfDiff function in b1_diff_run.ts.",
+      "Temporary files created in b1_smoke.ts are not cleaned up on error.",
+      "Test output in console does not include failure details in a3_smoke.ts."
+    ]
+  },
+  {
+    "path": "docs",
+    "purpose": "Documentation for the Shinobi ecosystem, detailing identity, architecture, roadmap, current state, and pending tasks.",
+    "key_files": [
+      {
+        "name": "00_identity.md",
+        "role": "Describes the identity, work style, and preferences of the author."
+      },
+      {
+        "name": "01_ecosystem.md",
+        "role": "Outlines the architecture, components, and operational flow of the Shinobi ecosystem."
+      },
+      {
+        "name": "02_roadmap.md",
+        "role": "Details the roadmap and phases for commercial product development and capabilities."
+      },
+      {
+        "name": "03_state.md",
+        "role": "Summarizes current operational status and features of the Shinobi CLI and OpenGravity."
+      },
+      {
+        "name": "04_pending.md",
+        "role": "Tracks closed and open technical issues and pending tasks."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "Several tasks are pending publication; no posts have been made yet.",
+      "Cloudflare Turnstile issue is noted but considered out of current scope.",
+      "Some roadmap phases are incomplete; calls for human decision-making.",
+      "Documentation on pending technical issues needs to be addressed.",
+      "Manual publication workflow slows down visibility on updates."
+    ]
+  },
+  {
+    "path": "artifacts/y2_video_raw.json",
+    "purpose": "Holds raw data extracted from a specific YouTube video including navigated URL and content.",
+    "key_files": [],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": []
+  },
+  {
+    "path": "misc/",
+    "purpose": "Contains various reports, configurations, and demos for managing Shinobi's functionalities.",
+    "key_files": [
+      {
+        "name": "audits/sindresorhus__dot-prop__8e818432.md",
+        "role": "Audit Report"
+      },
+      {
+        "name": "audits/sindresorhus__escape-string-regexp__cbc42403.md",
+        "role": "Audit Report"
+      },
+      {
+        "name": "missions/2026-05-06T06-29-19-701Z_self/meta.json",
+        "role": "Mission Metadata"
+      },
+      {
+        "name": "missions/2026-05-06T06-29-19-701Z_self/report.json",
+        "role": "Mission Report"
+      },
+      {
+        "name": "demos/full-self-improve-2026-05-04T09-23-04-525Z.transcript.txt",
+        "role": "Demo Transcript"
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "Several audits highlight high and medium risks due to lack of tests and documentation.",
+      "Mission reports indicate potential for errors in network and file operations handling.",
+      "Demo transcripts show several successful task executions but lack detailed descriptions of failures.",
+      "Audit reports have unreadable sections, indicating possible hidden risks.",
+      "Outdated dependencies in some audit reports raise maintenance concerns."
+    ]
+  }
+]
