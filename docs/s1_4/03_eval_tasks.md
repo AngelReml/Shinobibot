@@ -7,21 +7,20 @@ Definición formal de las 5 tareas que se ejecutarán **antes** de reescribir pr
 
 ## 0. Modelo y configuración real
 
-El briefing del prompt menciona `openrouter/z-ai/glm-4.7-flash` como modelo objetivo. **Decisión que el humano debe firmar antes de pasar a CHECKPOINT 4**:
+**Firmado por humano: Ruta B — `openrouter/z-ai/glm-4.7-flash` para todo.**
 
-- **Estado actual del repo**: `OPENROUTER_API_KEY` **NO está configurada** en `.env` (solo `OPENAI_API_KEY` y `GROQ_API_KEY` están seteadas). El `llm_adapter.ts` usa el fallback `OPENAI_FALLBACK` mapeando `claude-haiku-4-5 → gpt-4o-mini` y `claude-opus-4-7 → gpt-4o`. Es **lo que Shinobi corre hoy** en runtime real cuando un usuario abre la CLI.
-- **`glm-4.7-flash` no está accesible** sin alta de OpenRouter. Si lo configuras, el adapter lo enrutaría sin cambios de código (ya admite OpenRouter base URL).
+- **Modelo único** (sub-agents, synth, committee miembros, code_reviewer, improvements, learn, regenerate): `z-ai/glm-4.7-flash` (alias OpenRouter `openrouter/z-ai/glm-4.7-flash`).
+- **Provider**: OpenRouter (`https://openrouter.ai/api/v1/chat/completions`). Requiere `OPENROUTER_API_KEY` en `.env`.
+- **Temperature**: `0` (F1 ya activo).
+- **Voting**: `votingRuns=3` para Committee (T1, T3).
+- **Aplica a**: tanto baseline (CHECKPOINT 4) como after (CHECKPOINT 6). **Mismo modelo en ambos lados es prerrequisito para que la comparación A/B sea válida.** Si el modelo varía, no se está midiendo el efecto del prompt sino el efecto del modelo.
 
-**Dos rutas posibles**:
+**Implementación**:
+- El runner `scripts/s1_4_runner.ts` setea `process.env.S14_FORCE_MODEL = 'z-ai/glm-4.7-flash'` al arrancar.
+- `src/reader/llm_adapter.ts` lee `S14_FORCE_MODEL` y lo usa en lugar del logical name habitual cuando está set. Override low-risk: solo activo durante baselines/after, default OFF.
+- Esto NO modifica el contrato del Plan v1.0 — runtime normal sigue con Haiku/Opus. Solo el A/B usa glm-4.7-flash.
 
-| Ruta | Modelo baseline | Modelo after | Pro | Contra |
-|------|----------------|--------------|------|--------|
-| **A** | `gpt-4o-mini` (sub-agents) + `gpt-4o` (synth/committee) | igual | mide lo que el repo realmente corre hoy | no es lo que el briefing pide literalmente |
-| **B** | `glm-4.7-flash` para todo | igual | literal del briefing, modelo único, más barato | requiere configurar `OPENROUTER_API_KEY` antes de CHECKPOINT 4 |
-
-**Recomendación de Claude**: Ruta A. Mide el sistema real, evita configuración fuera de scope, y los prompts deberían mejorar con cualquier modelo razonable (la calidad de un prompt no es model-specific). Si el humano prefiere Ruta B, configurar la key antes de aceptar este checkpoint y todos los runs (baseline + after) usan el mismo modelo.
-
-> Esta sección se cierra con la firma humana del CHECKPOINT 3.
+**Decisión histórica** (Ruta A descartada): la batería de baseline llegó a 1/15 con OpenAI por `insufficient_quota` (no rate limit). Cargar saldo en OpenAI también habría servido pero Iván eligió OpenRouter por independencia de billing y por tener el modelo único más barato/rápido para 30 runs.
 
 ---
 

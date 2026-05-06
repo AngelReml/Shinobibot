@@ -24,6 +24,19 @@ if (phase !== 'baseline' && phase !== 'after') {
 const OUT_DIR = path.join(process.cwd(), 'docs', 's1_4', phase);
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
+// CHECKPOINT 3 §0 firmado: Ruta B — modelo único z-ai/glm-4.7-flash vía OpenRouter
+// para sub-agents, synth, committee, code_reviewer, improvements, learn, regenerate.
+// El override S14_FORCE_MODEL del adapter (src/reader/llm_adapter.ts) hace que
+// TODA la cadena use este modelo durante baseline y after, garantizando que la
+// comparación A/B mida el efecto del prompt, no el efecto del modelo.
+process.env.S14_FORCE_MODEL = 'z-ai/glm-4.7-flash';
+if (!process.env.OPENROUTER_API_KEY) {
+  console.error('OPENROUTER_API_KEY no está en .env. Ruta B requiere OpenRouter.');
+  console.error('Aborta: configura la key en .env y vuelve a ejecutar.');
+  process.exit(2);
+}
+console.log(`[s1_4_runner] phase=${phase}, model=${process.env.S14_FORCE_MODEL} (OpenRouter)`);
+
 interface RunRecord { task: string; run: number; durationMs: number; ok: boolean; outFile: string; notes?: string }
 const records: RunRecord[] = [];
 

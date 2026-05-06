@@ -31,8 +31,13 @@ export function makeLLMClient(defaults: MakeLLMClientOptions = {}): LLMClient {
     async chat(messages, opts) {
       const logical = opts?.model ?? 'claude-haiku-4-5';
       const temperature = opts?.temperature ?? defaults.temperature;
+      // S14 override: durante baselines/after S1.4 forzamos un único modelo en
+      // toda la cadena (sub-agents + synth + committee + everything) para que
+      // la comparación A/B mida el efecto del prompt, no el efecto del modelo.
+      // Default OFF: solo activo cuando el runner setea S14_FORCE_MODEL.
+      const forced = process.env.S14_FORCE_MODEL;
       if (orKey) {
-        const model = OPENROUTER_ALIAS[logical] ?? logical;
+        const model = forced ?? (OPENROUTER_ALIAS[logical] ?? logical);
         return gateway.chat(messages as any, {
           provider: 'openai',
           model,
@@ -41,7 +46,7 @@ export function makeLLMClient(defaults: MakeLLMClientOptions = {}): LLMClient {
           temperature,
         });
       }
-      const model = OPENAI_FALLBACK[logical] ?? logical;
+      const model = forced ?? (OPENAI_FALLBACK[logical] ?? logical);
       return gateway.chat(messages as any, { provider: 'openai', model, temperature });
     },
   };
