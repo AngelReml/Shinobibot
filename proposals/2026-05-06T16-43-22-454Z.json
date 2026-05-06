@@ -1,0 +1,21 @@
+{
+  "source": "C:\\Users\\angel\\Desktop\\shinobibot\\committee_reports\\2026-05-06T16-43-16-139Z.json",
+  "proposals": [
+    {
+      "id": "add-automated-testing-to-package-json",
+      "file": "package.json",
+      "motive": "Integrating automated testing frameworks will improve reliability by ensuring code is tested consistently.",
+      "risk": "low",
+      "diff": "diff --git a/package.json b/package.json\nindex 3e979ea..5e52b63 100644\n--- a/package.json\n+++ b/package.json\n@@ -27,7 +27,7 @@\n   \"scripts\": {\n     \"start\": \"ts-node src/index.ts\",\n     \"dev\": \"ts-node-dev --respawn --transpile-only src/index.ts\",\n-    \"test\": \"echo \\\"Error: no test specified\\\" && exit 1\"\n+    \"test\": \"jest\"\n   },\n   \"keywords\": [],\n   \"author\": \"AngelReml\",",
+      "applicability": "ok"
+    },
+    {
+      "id": "update-readme-with-state-block-examples",
+      "file": "README.md",
+      "motive": "Including code snippets for state blocks will help eliminate ambiguity and improve understanding.",
+      "risk": "low",
+      "diff": "diff --git a/README.md b/README.md\nindex 0349a8e..d04a351 100644\n--- a/README.md\n+++ b/README.md\n@@ -18,6 +18,12 @@ Email: <hola@zapweave.com>\n | Bloque | Tema | Estado |\n |--------|------|--------|\n | B0 | Bootstrap del agente y memoria local | ✅ cerrado |\n+\n+```javascript\n+// Ejemplo de inicialización del agente\n+const agent = new Agent();\n+agent.initializeMemory();\n+```\n | B1 | Tools de archivo y comando | ✅ cerrado |\n | B2 | Migración a OpenGravity para LLM | ✅ cerrado |\n | B3 | Bridge HTTP con el Kernel | ✅ cerrado |",
+      "applicability": "ok"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "source": "C:\\Users\\angel\\Desktop\\shinobibot\\committee_reports\\2026-05-06T16-45-41-992Z.json",
+  "proposals": [
+    {
+      "id": "resolve-licensing-discrepancy",
+      "file": "README.md",
+      "motive": "Resolve licensing discrepancies by ensuring the README and package.json have consistent license information.",
+      "risk": "low",
+      "diff": "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -104,4 +104,4 @@ build_sea.mjs     Empaquetado Node SEA\n \n ## Licencia\n \n-ISC. Ver `package.json`.\n+MIT. Ver `package.json`.",
+      "applicability": "ok"
+    },
+    {
+      "id": "increase-test-coverage",
+      "file": "README.md",
+      "motive": "Increase unit and integration test coverage to ensure reliability and early bug detection.",
+      "risk": "medium",
+      "diff": "--- /dev/null\n+++ b/tests/README.md\n@@ -0,0 +1,5 @@\n+# Testing Strategy\n+\n+This document outlines the testing strategy for the project. It includes unit tests for individual modules and integration tests for module interactions. Ensure all new features are covered by tests.\n+\n+Refer to the test directory for specific test cases and instructions on running them.\n",
+      "applicability": "ok"
+    },
+    {
+      "id": "enhance-hermes-state-management",
+      "file": "src/hermesWatcher.ts",
+      "motive": "Enhance state management in Hermes Watcher to support concurrency and multiple instances.",
+      "risk": "medium",
+      "diff": "--- a/src/hermesWatcher.ts\n+++ b/src/hermesWatcher.ts\n@@ -10,6 +10,10 @@\n class HermesWatcher {\n     constructor() {\n         this.state = {};\n+        this.lock = new Mutex();\n     }\n \n+    async updateState(newState) {\n+        await this.lock.acquire();\n+        this.state = { ...this.state, ...newState };\n+        this.lock.release();\n+    }\n }\n",
+      "applicability": "broken",
+      "apply_error": "error: corrupt patch at line 16"
+    },
+    {
+      "id": "rename-miscellaneous-directory",
+      "file": "README.md",
+      "motive": "Rename 'Miscellaneous' to something more descriptive, like 'Resources' or 'Documentation' to enhance clarity.",
+      "risk": "low",
+      "diff": "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -65,6 +65,8 @@ node build_sea.mjs           # produce build/shinobi.exe\n \n ### Estructura\n \n+### Recursos\n+\n ```\n src/\n   coordinator/    Bucle principal de tools (orchestrator.ts)",
+      "applicability": "ok"
+    },
+    {
+      "id": "implement-input-validation",
+      "file": "scripts/validateInput.js",
+      "motive": "Implement input validation and sanitization in scripts to mitigate command injection risks.",
+      "risk": "high",
+      "diff": "--- /dev/null\n+++ b/scripts/validateInput.js\n@@ -0,0 +1,10 @@\n+function validateInput(input) {\n+    const sanitizedInput = input.replace(/[^a-zA-Z0-9_]/g, '');\n+    if (sanitizedInput !== input) {\n+        throw new Error('Invalid input detected');\n+    }\n+    return sanitizedInput;\n+}\n+\n+module.exports = validateInput;\n",
+      "applicability": "broken",
+      "apply_error": "error: corrupt patch at line 13"
+    }
+  ]
+}

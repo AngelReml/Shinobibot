@@ -1,0 +1,31 @@
+{
+  "source": "C:\\Users\\angel\\Desktop\\shinobibot\\committee_reports\\2026-05-06T16-38-02-841Z.json",
+  "proposals": [
+    {
+      "id": "resolve-license-contradiction",
+      "file": "LICENSE",
+      "motive": "Clarifying the license to avoid legal issues by selecting a single, clear license.",
+      "risk": "low",
+      "diff": "--- a/LICENSE\n+++ b/LICENSE\n@@ -1,3 +1,3 @@\n-This project is licensed under the MIT License and ISC License.\n+This project is licensed under the MIT License.\n \n See LICENSE file for details.",
+      "applicability": "broken",
+      "apply_error": "error: LICENSE: No such file or directory"
+    },
+    {
+      "id": "refactor-hermes-watcher-api-urls",
+      "file": "src/hermes_watcher.ts",
+      "motive": "Improve maintainability by replacing hardcoded API URLs with environment variables.",
+      "risk": "medium",
+      "diff": "--- a/src/hermes_watcher.ts\n+++ b/src/hermes_watcher.ts\n@@ -10,7 +10,9 @@\n const axios = require('axios');\n \n-const GITHUB_API_URL = 'https://api.github.com/repos/username/repo';\n+// Use environment variable for GitHub API URL\n+const GITHUB_API_URL = process.env.GITHUB_API_URL || 'https://api.github.com/repos/username/repo';\n+\n \n function checkForUpdates() {\n     axios.get(`${GITHUB_API_URL}/releases/latest`)",
+      "applicability": "broken",
+      "apply_error": "error: corrupt patch at line 13"
+    },
+    {
+      "id": "enhance-readme-with-examples",
+      "file": "README.md",
+      "motive": "Aid user onboarding by providing detailed configuration examples.",
+      "risk": "low",
+      "diff": "diff --git a/README.md b/README.md\nindex 0349a8e..0440788 100644\n--- a/README.md\n+++ b/README.md\n@@ -44,6 +44,11 @@ git clone <repo-url> shinobibot && cd shinobibot\n npm install\n \n # 3. Configurar .env\n+# Ejemplo detallado de configuración:\n+# OPENAI_API_KEY=tu_clave_aqui\n+# OPENROUTER_API_KEY=tu_clave_aqui\n+# OPENGRAVITY_URL=https://tu_open_gravity_url\n+# SHINOBI_API_KEY=tu_clave_shinobi\n cp .env.example .env\n # edita y rellena al menos: OPENAI_API_KEY (o OPENROUTER_API_KEY)\n # y, si usas el cloud, OPENGRAVITY_URL + SHINOBI_API_KEY.",
+      "applicability": "ok"
+    }
+  ]
+}
