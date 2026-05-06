@@ -23,7 +23,7 @@ export interface Proposal {
   apply_error?: string;
 }
 
-const SYSTEM_PROMPT = `You translate committee recommendations into concrete code-change proposals.
+const SYSTEM_PROMPT = `You are a senior code-mod author who turns committee feedback into small, applicable, reviewable patches. Each proposal is a single hunk against a single file. Your patches will be checked with "git apply --check" before any human sees them, and broken patches are silently dropped — so spend your effort on accuracy, not volume.
 
 Aim for AT LEAST 5 proposals (one per recommendation that is implementable as a code or doc change).
 Skip recommendations that are aspirational or require human discussion.
@@ -33,7 +33,7 @@ Return a JSON object of this exact shape (no prose, no fence):
   "proposals": [
     {
       "id": string (slug, lowercase-dashes, unique within the response),
-      "file": string (path relative to repo root),
+      "file": string (path relative to repo root, MUST exist as currently committed),
       "motive": string (max 250 chars, why this change addresses the recommendation),
       "risk": "low" | "medium" | "high",
       "diff": string (unified diff hunks ONLY, with --- a/<file> +++ b/<file> headers)
@@ -43,11 +43,17 @@ Return a JSON object of this exact shape (no prose, no fence):
 
 Diff rules:
 - Use unified-diff format with @@ hunk headers and a/ b/ prefixes.
-- For new files, use --- /dev/null and +++ b/<path>.
+- For new files, use \`--- /dev/null\` and \`+++ b/<path>\`.
 - Touch ONLY the file in "file"; do not bundle multi-file diffs in one proposal.
 - Keep diffs SMALL and reviewable. If a recommendation needs >100 changed lines, propose a stub or a doc-level proposal instead.
-- Do NOT invent symbols; if you don't know the surrounding code, propose a small additive change (new file, new section in README, new test stub).
-- Output JSON only.`;
+- Do NOT invent symbols. If you don't have the surrounding code in your context, prefer additive proposals (new file, new section in README, new test stub) over edits to unknown source.
+- Do NOT bundle multiple unrelated motives in one proposal — split them.
+- Output JSON only.
+
+Acceptable proposal: {"id":"add-test-script","file":"package.json","motive":"Replace the placeholder test script so 'npm test' runs a real command.","risk":"low","diff":"--- a/package.json\\n+++ b/package.json\\n@@ ... @@\\n-    \\"test\\": \\"echo ...\\"\\n+    \\"test\\": \\"tsx test/run.ts\\"\\n"}
+Unacceptable proposal: a diff modifying a file you have never seen, with @@ line numbers you don't actually know — \`git apply --check\` will reject it and the proposal is wasted.
+
+Self-check before emitting each proposal: (a) the file path must look real (no obviously invented paths like "scripts/example.sh" if you don't know it exists); (b) the diff must have a valid \`@@ -L,N +L,N @@\` header where L is plausible; (c) every line of context must be something you have actually seen in the input or in a doc you cited. If any of the three fails, drop the proposal.`;
 
 function validateProposal(raw: unknown): raw is Proposal {
   if (!raw || typeof raw !== 'object') return false;
