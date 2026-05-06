@@ -1,0 +1,99 @@
+{
+  "repo_purpose": "Shinobi: an autonomous agent toolkit providing release monitoring (Hermes/GitHub), abort controls, path/command safety utilities, and validation/audit scripts for self-analysis and repo reads.",
+  "architecture_summary": "## Overview\nShinobi appears to be a TypeScript/Node.js autonomous agent framework. The readable portions reveal two main code areas:\n\n- **`src/`**: Core runtime utilities including a Hermes release watcher (GitHub polling + state persistence), a Windows ESC kill-switch (via PowerShell child process), path/permission validation, and a synchronous command runner.\n- **`scripts/`**: Smoke tests and audit runners (a3/a4/b1 suite) that exercise CLI parsers (`parseReadArgs`, `parseSelfArgs`) and run `/read` and `/self` audits, depending internally on `src/reader/cli.js` and `src/reader/self.js`.\n\n## Coverage Gaps\nSeveral top-level paths could not be analyzed:\n- Root `/`, `docs/`, and `misc/` sub-reports failed validation twice (key_files schema).\n- `missions/` timed out repeatedly (90s) across all scan attempts — its contents are entirely undetermined.\n\n## Notable Inference\nScripts reference `src/reader/cli.js` and `src/reader/self.js`, but the `src/` sub-report did not enumerate a `reader/` subfolder — either it exists but was not reported, or there is an unresolved internal reference.",
+  "modules": [
+    {
+      "name": "missions",
+      "path": "missions",
+      "responsibility": "Mission configuration and runtime logic for Shinobi autonomous agent (contents unverified — scan timed out)."
+    },
+    {
+      "name": "src",
+      "path": "src",
+      "responsibility": "Core utilities: Hermes release watcher, ESC kill-switch, path/permission validation, and synchronous command execution."
+    },
+    {
+      "name": "scripts",
+      "path": "scripts",
+      "responsibility": "Smoke tests and audit runners for /read and /self flows; validates CLI parsers and executes full-repo audits."
+    }
+  ],
+  "entry_points": [
+    {
+      "file": "scripts/a3_smoke.ts",
+      "kind": "smoke-test"
+    },
+    {
+      "file": "scripts/a4_run.ts",
+      "kind": "audit-runner"
+    },
+    {
+      "file": "scripts/b1_run.ts",
+      "kind": "self-report-runner"
+    },
+    {
+      "file": "scripts/b1_smoke.ts",
+      "kind": "smoke-test"
+    },
+    {
+      "file": "scripts/b1_diff_run.ts",
+      "kind": "diff-runner"
+    },
+    {
+      "file": "src/watchers/hermes_watcher.ts",
+      "kind": "background-watcher"
+    }
+  ],
+  "risks": [
+    {
+      "severity": "high",
+      "description": "missions/ directory timed out at 90s on all scan attempts; entire module unanalyzed — major coverage gap in architecture understanding."
+    },
+    {
+      "severity": "medium",
+      "description": "Root / sub-report unreadable (validation failed twice on key_files schema); no package.json, license, or top-level config verified."
+    },
+    {
+      "severity": "medium",
+      "description": "docs/ sub-report unreadable (validation failed twice); documentation structure and completeness unknown."
+    },
+    {
+      "severity": "medium",
+      "description": "misc/ sub-report unreadable (validation failed twice); contents and purpose undetermined."
+    },
+    {
+      "severity": "medium",
+      "description": "scripts/ references src/reader/cli.js and src/reader/self.js, but src/ sub-report lists no reader/ subdirectory — possible missing module or unreported path."
+    },
+    {
+      "severity": "medium",
+      "description": "src/utils/runner.ts uses execSync without timeout; vulnerable to hanging on long-running commands (per src sub-report)."
+    },
+    {
+      "severity": "medium",
+      "description": "src/watchers/hermes_watcher.ts has no rate-limiting on GitHub API; risks hitting 60 req/hr unauthenticated limit if interval reduced."
+    },
+    {
+      "severity": "medium",
+      "description": "scripts/a4_run.ts hardcodes Windows paths (C:\\\\Users\\\\angel\\\\Desktop\\\\*); non-portable across OS/machines."
+    },
+    {
+      "severity": "low",
+      "description": "scripts/a4_run.ts silently catches read failures with empty catch blocks; errors go unlogged per scripts sub-report."
+    },
+    {
+      "severity": "low",
+      "description": "src/utils/permissions.ts sensitive-paths list incomplete for Linux (missing /home, /root, /var variants per src sub-report)."
+    },
+    {
+      "severity": "low",
+      "description": "src/watchers/hermes_watcher.ts silently truncates release body to 4000 chars without logging the truncation."
+    }
+  ],
+  "evidence": {
+    "subagent_count": 6,
+    "tokens_total": 0,
+    "duration_ms": 15107,
+    "subreports_referenced": 6
+  }
+}
