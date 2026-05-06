@@ -37,7 +37,10 @@ function makeStubLLM(): LLMClient {
       const user = messages.find((m) => m.role === 'user')?.content ?? '';
 
       // Final synthesizer
-      if (sys.includes('synthesizing a single repo report')) {
+      // Robust shape detection — final synth always feeds "Sub-reports (JSON array):"
+      // in the user message; intermediate synth feeds "Branch path:". Substring on
+      // system prompt was too coupled to prompt wording.
+      if (user.startsWith('Sub-reports (JSON array):') || sys.includes('synthesizing N parallel sub-reports') || sys.includes('synthesizing a single repo report')) {
         return JSON.stringify({
           repo_purpose: 'test repo',
           architecture_summary: 'test',
@@ -49,7 +52,8 @@ function makeStubLLM(): LLMClient {
       }
 
       // Intermediate sub-supervisor synth
-      if (sys.includes('sub-supervisor consolidating leaf sub-reports')) {
+      // Intermediate synth: user message starts with "Branch path:". Stable across rewrites.
+      if (user.startsWith('Branch path:') || sys.includes('sub-supervisor consolidating')) {
         const branchMatch = user.match(/Branch path:\s*(\S+)/);
         const branch = branchMatch ? branchMatch[1] : 'unknown';
         return JSON.stringify({
