@@ -7,20 +7,29 @@ Definición formal de las 5 tareas que se ejecutarán **antes** de reescribir pr
 
 ## 0. Modelo y configuración real
 
-**Firmado por humano: Ruta B — `openrouter/z-ai/glm-4.7-flash` para todo.**
+**Firmado por humano (revisión 2): A/B mide el sistema REAL, con cerebros por tarea, vía OpenRouter.**
 
-- **Modelo único** (sub-agents, synth, committee miembros, code_reviewer, improvements, learn, regenerate): `z-ai/glm-4.7-flash` (alias OpenRouter `openrouter/z-ai/glm-4.7-flash`).
+Cada prompt llama al modelo lógico que Shinobi usa en producción para esa tarea concreta. El override de modelo único (`S14_FORCE_MODEL`) que se introdujo en la revisión 1 fue **revertido** porque medía un sistema artificial que no es el que el usuario final ejecuta.
+
 - **Provider**: OpenRouter (`https://openrouter.ai/api/v1/chat/completions`). Requiere `OPENROUTER_API_KEY` en `.env`.
+- **Modelos lógicos** (mapeo `OPENROUTER_ALIAS` en `src/reader/llm_adapter.ts`):
+  - `claude-haiku-4-5` → `anthropic/claude-haiku-4.5`. Usado por: SubAgent leaves (P-001).
+  - `claude-opus-4-7` → `anthropic/claude-opus-4.7`. Usado por: synth Reader (P-002, P-003, P-004), miembros del committee architect / code_reviewer (P-005, P-010), synth committee (P-009), improvements generator (P-011), regenerate find/replace (P-012), learn synth (P-013).
+  - Los otros 2 miembros del committee (security_auditor, design_critic en P-006/P-007) usan `claude-haiku-4-5` por configuración del repo en `DEFAULT_ROLES`.
 - **Temperature**: `0` (F1 ya activo).
 - **Voting**: `votingRuns=3` para Committee (T1, T3).
-- **Aplica a**: tanto baseline (CHECKPOINT 4) como after (CHECKPOINT 6). **Mismo modelo en ambos lados es prerrequisito para que la comparación A/B sea válida.** Si el modelo varía, no se está midiendo el efecto del prompt sino el efecto del modelo.
+- **Aplica a**: tanto baseline (CHECKPOINT 4) como after (CHECKPOINT 6). Mismo mapping en ambos lados — el A/B mide el efecto del prompt manteniendo constante la asignación de modelo por tarea.
 
-**Implementación**:
-- El runner `scripts/s1_4_runner.ts` setea `process.env.S14_FORCE_MODEL = 'z-ai/glm-4.7-flash'` al arrancar.
-- `src/reader/llm_adapter.ts` lee `S14_FORCE_MODEL` y lo usa en lugar del logical name habitual cuando está set. Override low-risk: solo activo durante baselines/after, default OFF.
-- Esto NO modifica el contrato del Plan v1.0 — runtime normal sigue con Haiku/Opus. Solo el A/B usa glm-4.7-flash.
+**Por qué se revirtió el override de modelo único**:
 
-**Decisión histórica** (Ruta A descartada): la batería de baseline llegó a 1/15 con OpenAI por `insufficient_quota` (no rate limit). Cargar saldo en OpenAI también habría servido pero Iván eligió OpenRouter por independencia de billing y por tener el modelo único más barato/rápido para 30 runs.
+1. El override hacía que TODOS los prompts del Plan v1.0 + F-suite ejecutaran sobre el mismo modelo (`z-ai/glm-4.7-flash`), pero **eso no es cómo Shinobi corre en producción**. En producción, el SubAgent es Haiku (rápido, barato) y el synth es Opus (caro, capaz de resolver contradicciones). Reescribir un prompt asumiendo que lo va a leer Haiku es muy distinto a reescribirlo asumiendo Opus.
+2. Una mejora de prompt válida debe demostrarse contra el modelo que la va a ejecutar en producción. Si la reescritura ayuda a glm-4.7-flash pero perjudica a Opus, no sirve. La rúbrica del Paso 2 ya tiene C1 ("rol senior") y C4 ("ejemplos del dominio") — esos criterios funcionan distinto en cerebros distintos.
+3. Decisión: A/B mide el sistema real. Cada tarea con su cerebro nominal vía OpenRouter (Iván paga OpenRouter, los modelos están disponibles bajo esa key).
+
+**Decisión histórica** (cronología):
+- Revisión 1: Ruta A (OpenAI directo, gpt-4o + gpt-4o-mini) → bloqueada por `insufficient_quota` tras 1/15 runs.
+- Revisión 1.5: Ruta B (OpenRouter, modelo único `z-ai/glm-4.7-flash`) → revertida por la razón de arriba.
+- **Revisión 2 (vigente)**: OpenRouter con cerebros por tarea (mapping del adapter en producción).
 
 ---
 
