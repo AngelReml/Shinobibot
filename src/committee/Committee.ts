@@ -121,17 +121,26 @@ Self-check before emitting: each item must cite a concrete name, command, file, 
 ];
 
 const MEMBER_OUTPUT_RULES = `
-Return ONE JSON object with this exact shape (no prose, no fence):
+Return ONE JSON object matching this exact shape (no prose, no fence):
 {
-  "role": string,
-  "strengths": string[],          // max 6, each <=200 chars
-  "weaknesses": string[],         // max 6, each <=200 chars
-  "recommendations": string[],    // max 6, each <=200 chars, concrete actions
+  "role": string,                                          // copy your role label exactly: "architect" | "security_auditor" | "design_critic" | "code_reviewer"
+  "strengths": string[],                                   // max 6, each <=200 chars
+  "weaknesses": string[],                                  // max 6, each <=200 chars
+  "recommendations": string[],                             // max 6, each <=200 chars, concrete actions with file/module references
   "risk_level": "low" | "medium" | "high"
 }
-- Be specific. Reference module names, file paths, or risks from the input.
-- Do NOT invent files or modules not mentioned in the input.
-- "recommendations" must be actionable, not aspirational.
+
+Constraints:
+- Be specific. Every strength/weakness/recommendation must reference at least one module name, file path, or named risk from the input report.
+- Do NOT invent files, modules, or risks not mentioned in the input.
+- "recommendations" must be actionable verbs ("Refactor src/x.ts to ...", "Add a test for foo()") — not aspirational ("Improve quality").
+- Each entry MUST be ≤200 chars. If you need more detail, split into two adjacent entries rather than overflowing one.
+- "risk_level" calibration: low = repo is healthy, weaknesses are minor; medium = real issues exist but no urgent risk; high = at least one weakness would cause harm if shipped today.
+
+Acceptable recommendation: "Add a unit test for src/security/approval.ts:isDestructive() covering the 'git push --force' pattern."
+Unacceptable recommendation: "Improve test coverage." (no target, no verb, aspirational).
+
+Self-check before emitting: count items. If you have ZERO weaknesses, your risk_level must be "low" and every strength must still cite a concrete element. If you have MULTIPLE weaknesses citing different modules, your risk_level should not be "low". Every entry must be ≤200 chars — count before emitting.
 `;
 
 function validateMemberReport(raw: unknown): { ok: true; value: MemberReport } | { ok: false; error: string } {
