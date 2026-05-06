@@ -124,7 +124,7 @@ async function runMember(role: CommitteeRole, reportJson: string, llm: LLMClient
   return { role: role.role, error: `validation failed twice: ${v.error}` };
 }
 
-const SYNTH_SYSTEM = `You are synthesizing three committee member reports on the same repository.
+const SYNTH_SYSTEM = `You are synthesizing committee member reports on the same repository.
 Return ONE JSON object with this exact shape (no prose, no fence):
 {
   "consensus": [{"topic": string, "agreeing_roles": string[]}],
@@ -134,10 +134,11 @@ Return ONE JSON object with this exact shape (no prose, no fence):
 }
 
 Rules:
-- A "consensus" item is a topic at least 2 of the 3 roles agree on (mention which).
+- A "consensus" item is a topic at least 2 roles agree on (mention which).
 - A "dissent" item is a topic where roles disagree explicitly. Surface them — do NOT average opinions.
 - "combined_recommendations" merges actionable items, deduplicating near-duplicates.
 - "overall_risk" is the highest of the member risk_levels by default; downgrade only if dissents resolve in lower direction.
+- If a "code_reviewer" role flagged concrete security issues (SQLi/XSS/etc.) those raise overall_risk to at least "high".
 - Output JSON only.`;
 
 function validateSynthesis(raw: unknown): { ok: true; value: CommitteeSynthesis } | { ok: false; error: string } {
@@ -201,7 +202,7 @@ export class Committee {
     const members = await Promise.all(this.roles.map((r) => runMember(r, reportJson, this.llm, this.temperature)));
 
     const userPrompt =
-      'Three member reports (JSON array):\n\n' + JSON.stringify(members, null, 2);
+      `Member reports (${members.length}, JSON array):\n\n` + JSON.stringify(members, null, 2);
 
     const callOnce = async (extra = ''): Promise<unknown> => {
       const raw = await this.llm.chat(

@@ -9,193 +9,193 @@
       "id": "0.0",
       "level": "leaf",
       "label": "/",
-      "start_ms": 27,
+      "start_ms": 34,
       "status": "ok",
       "children": [],
-      "end_ms": 5945,
-      "duration_ms": 5918,
+      "end_ms": 15614,
+      "duration_ms": 15580,
       "payload": {
         "type": "sub_report",
-        "size_chars": 608
+        "size_chars": 858
       }
     },
     {
       "id": "0.1",
       "level": "sub_supervisor",
       "label": "vulnerabilities",
-      "start_ms": 35,
+      "start_ms": 72,
       "status": "ok",
       "children": [
         {
           "id": "0.1.0",
           "level": "leaf",
           "label": "/",
-          "start_ms": 60,
+          "start_ms": 100,
           "status": "ok",
           "children": [],
-          "end_ms": 5367,
-          "duration_ms": 5307,
+          "end_ms": 4798,
+          "duration_ms": 4698,
           "payload": {
             "type": "sub_report",
-            "size_chars": 473
+            "size_chars": 731
           }
         },
         {
           "id": "0.1.1",
           "level": "leaf",
           "label": "misc/",
-          "start_ms": 62,
+          "start_ms": 103,
           "status": "ok",
           "children": [],
-          "end_ms": 7782,
-          "duration_ms": 7720,
+          "end_ms": 7034,
+          "duration_ms": 6931,
           "payload": {
             "type": "sub_report",
-            "size_chars": 983
+            "size_chars": 1207
           }
         }
       ],
-      "end_ms": 13517,
-      "duration_ms": 13482,
+      "end_ms": 10582,
+      "duration_ms": 10510,
       "payload": {
         "type": "sub_synth",
-        "size_chars": 1160
+        "size_chars": 1445
       }
     },
     {
       "id": "0.2",
       "level": "sub_supervisor",
       "label": "dvwa",
-      "start_ms": 66,
+      "start_ms": 107,
       "status": "ok",
       "children": [
         {
           "id": "0.2.0",
           "level": "leaf",
           "label": "/",
-          "start_ms": 69,
+          "start_ms": 110,
           "status": "ok",
           "children": [],
-          "end_ms": 5620,
-          "duration_ms": 5551,
+          "end_ms": 5148,
+          "duration_ms": 5038,
           "payload": {
             "type": "sub_report",
-            "size_chars": 629
+            "size_chars": 790
           }
         },
         {
           "id": "0.2.1",
           "level": "leaf",
           "label": "misc/",
-          "start_ms": 71,
+          "start_ms": 112,
           "status": "ok",
           "children": [],
-          "end_ms": 7803,
-          "duration_ms": 7732,
+          "end_ms": 14142,
+          "duration_ms": 14030,
           "payload": {
             "type": "sub_report",
-            "size_chars": 789
+            "size_chars": 784
           }
         }
       ],
-      "end_ms": 10199,
-      "duration_ms": 10133,
+      "end_ms": 17542,
+      "duration_ms": 17435,
       "payload": {
         "type": "sub_synth",
-        "size_chars": 1116
+        "size_chars": 1146
       }
     },
     {
       "id": "0.3",
       "level": "sub_supervisor",
       "label": ".github",
-      "start_ms": 74,
+      "start_ms": 116,
       "status": "ok",
       "children": [
         {
           "id": "0.3.0",
           "level": "leaf",
           "label": "/",
-          "start_ms": 75,
+          "start_ms": 118,
           "status": "ok",
           "children": [],
-          "end_ms": 6279,
-          "duration_ms": 6204,
+          "end_ms": 5106,
+          "duration_ms": 4988,
           "payload": {
             "type": "sub_report",
-            "size_chars": 774
+            "size_chars": 721
           }
         },
         {
           "id": "0.3.1",
           "level": "leaf",
           "label": "misc/",
-          "start_ms": 77,
+          "start_ms": 119,
           "status": "ok",
           "children": [],
-          "end_ms": 8232,
-          "duration_ms": 8155,
+          "end_ms": 6987,
+          "duration_ms": 6868,
           "payload": {
             "type": "sub_report",
-            "size_chars": 1196
+            "size_chars": 1093
           }
         }
       ],
-      "end_ms": 11193,
-      "duration_ms": 11119,
+      "end_ms": 10166,
+      "duration_ms": 10050,
       "payload": {
         "type": "sub_synth",
-        "size_chars": 1110
+        "size_chars": 1146
       }
     },
     {
       "id": "0.4",
       "level": "sub_supervisor",
       "label": "database",
-      "start_ms": 80,
+      "start_ms": 122,
       "status": "ok",
       "children": [
         {
           "id": "0.4.0",
           "level": "leaf",
           "label": "/",
-          "start_ms": 81,
+          "start_ms": 123,
           "status": "ok",
           "children": [],
-          "end_ms": 5906,
-          "duration_ms": 5825,
+          "end_ms": 5036,
+          "duration_ms": 4913,
           "payload": {
             "type": "sub_report",
-            "size_chars": 737
+            "size_chars": 711
           }
         }
       ],
-      "end_ms": 7027,
-      "duration_ms": 6947,
+      "end_ms": 7039,
+      "duration_ms": 6917,
       "payload": {
         "type": "sub_synth",
-        "size_chars": 277
+        "size_chars": 739
       }
     },
     {
       "id": "0.5",
       "level": "leaf",
       "label": "misc/",
-      "start_ms": 83,
+      "start_ms": 126,
       "status": "ok",
       "children": [],
-      "end_ms": 10314,
-      "duration_ms": 10231,
+      "end_ms": 5641,
+      "duration_ms": 5515,
       "payload": {
         "type": "sub_report",
-        "size_chars": 923
+        "size_chars": 966
       }
     }
   ],
-  "end_ms": 20555,
-  "duration_ms": 20555,
+  "end_ms": 25767,
+  "duration_ms": 25767,
   "payload": {
     "type": "final_synth",
-    "size_chars": 2795
+    "size_chars": 3562
   }
 }
