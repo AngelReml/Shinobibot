@@ -1,0 +1,224 @@
+[
+  {
+    "path": "/",
+    "purpose": "This repository showcases various design patterns implemented in Java for educational purposes.",
+    "key_files": [],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "ZK framework"
+      ]
+    },
+    "concerns": []
+  },
+  {
+    "path": "localization",
+    "purpose": "Provides localized versions of design patterns documentation in Chinese.",
+    "key_files": [
+      {
+        "name": "zh/README.md",
+        "role": "Main overview of the localization content."
+      },
+      {
+        "name": "zh/visitor/README.md",
+        "role": "Documentation for the Visitor pattern."
+      },
+      {
+        "name": "zh/version-number/README.md",
+        "role": "Documentation for the Version Number pattern."
+      },
+      {
+        "name": "zh/value-object/README.md",
+        "role": "Documentation for the Value Object pattern."
+      },
+      {
+        "name": "zh/update-method/README.md",
+        "role": "Documentation for the Update Method pattern."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": []
+  },
+  {
+    "path": "hexagonal-architecture",
+    "purpose": "Demonstrates the Hexagonal Architecture pattern in Java, emphasizing decoupling of business logic from external interfaces for maintainability and testability.",
+    "key_files": [
+      {
+        "name": "App.java",
+        "role": "Entry point of the application."
+      },
+      {
+        "name": "LotteryAdministration.java",
+        "role": "Manages lottery rounds."
+      },
+      {
+        "name": "LotteryService.java",
+        "role": "Handles lottery ticket operations."
+      },
+      {
+        "name": "AppTest.java",
+        "role": "Unit tests for the App class."
+      },
+      {
+        "name": "LotteryTestUtils.java",
+        "role": "Utilities for creating lottery tickets in tests."
+      },
+      {
+        "name": "MongoEventLogTest.java",
+        "role": "Tests for MongoDB event logging."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "src/test/java/com/iluwatar/hexagonal/AppTest.java",
+        "src/test/java/com/iluwatar/hexagonal/test/LotteryTestUtils.java",
+        "src/test/java/com/iluwatar/hexagonal/eventlog/MongoEventLogTest.java"
+      ],
+      "external": [
+        "org.slf4j:slf4j-api",
+        "ch.qos.logback:logback-classic",
+        "org.junit.jupiter:junit-jupiter-engine",
+        "com.google.inject:guice",
+        "de.flapdoodle.embed:de.flapdoodle.embed.mongo",
+        "org.mongodb:bson",
+        "org.mongodb:mongodb-driver-legacy"
+      ]
+    },
+    "concerns": [
+      "No tests are present for LotteryAdministration and LotteryService classes.",
+      "MongoEventLogTest is disabled, making those tests non-executable.",
+      "General comments in the code indicate potential areas for further implementation.",
+      "Some methods in LotteryAdministration and LotteryService have incomplete implementations.",
+      "The README lacks examples for integrating with the database."
+    ]
+  },
+  {
+    "path": "page-object",
+    "purpose": "Demonstrates the implementation of the Page Object design pattern in Java for automated UI testing.",
+    "key_files": [
+      {
+        "name": "README.md",
+        "role": "Documentation that explains the Page Object pattern and its benefits."
+      },
+      {
+        "name": "pom.xml",
+        "role": "Maven project configuration with dependencies for the Page Object module."
+      },
+      {
+        "name": "test-automation/pom.xml",
+        "role": "Maven configuration for the test automation module with necessary dependencies."
+      },
+      {
+        "name": "test-automation/src/test/java/com/iluwatar/pageobject/AlbumListPageTest.java",
+        "role": "JUnit test class for testing album selection and listing functionality."
+      },
+      {
+        "name": "test-automation/src/test/java/com/iluwatar/pageobject/AlbumPageTest.java",
+        "role": "JUnit test class for testing album page operations."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "test-automation/src/test/java/com/iluwatar/pageobject/AlbumListPageTest.java",
+        "test-automation/src/test/java/com/iluwatar/pageobject/AlbumPageTest.java"
+      ],
+      "external": [
+        "org.junit.jupiter",
+        "org.htmlunit",
+        "org.slf4j",
+        "ch.qos.logback"
+      ]
+    },
+    "concerns": [
+      "Tests using WebClient may not have complete browser simulation.",
+      "Missing tests for edge cases and exception handling in the page objects.",
+      "Potential for dead code if page objects are not updated with UI changes.",
+      "No clear separation of test logic and verifications in some tests.",
+      "Need for additional tests to confirm functionality across different page states."
+    ]
+  },
+  {
+    "path": "microservices-api-gateway",
+    "purpose": "This repository provides an implementation of the Microservices API Gateway design pattern in Java, optimizing communication between client and microservices.",
+    "key_files": [
+      {
+        "name": "ApiGateway.java",
+        "role": "Main entry point for routing requests to microservices."
+      },
+      {
+        "name": "ImageClientImpl.java",
+        "role": "Client implementation for retrieving images from the Image microservice."
+      },
+      {
+        "name": "PriceClientImpl.java",
+        "role": "Client implementation for retrieving prices from the Price microservice."
+      },
+      {
+        "name": "pom.xml",
+        "role": "Project configuration file for Maven dependencies and modules."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "src/main/java/com/iluwatar/price/microservice",
+        "src/main/java/com/iluwatar/image/microservice"
+      ],
+      "external": [
+        "org.springframework:spring-webmvc",
+        "org.springframework.boot:spring-boot-starter-web",
+        "org.junit.jupiter:junit-jupiter-engine"
+      ]
+    },
+    "concerns": [
+      "Missing tests for ApiGateway and its methods.",
+      "No error handling in API client implementations.",
+      "Test cases in price-microservice may be insufficient for real use cases.",
+      "Potential high availability setups not addressed in the documentation.",
+      "No examples provided for using the API Gateway in real scenarios."
+    ]
+  },
+  {
+    "path": "misc/",
+    "purpose": "This folder contains implementations and documentation for various design patterns used in software development, including specifications for their application in Java.",
+    "key_files": [
+      {
+        "name": "specification/README.md",
+        "role": "Documentation of the Specification design pattern"
+      },
+      {
+        "name": "specification/pom.xml",
+        "role": "Maven configuration for the Specification pattern module"
+      },
+      {
+        "name": "commander/README.md",
+        "role": "Documentation of the Commander design pattern"
+      },
+      {
+        "name": "commander/pom.xml",
+        "role": "Maven configuration for the Commander pattern module"
+      },
+      {
+        "name": "microservices-distributed-tracing/README.md",
+        "role": "Documentation of the Microservices Distributed Tracing design pattern"
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "org.slf4j",
+        "ch.qos.logback",
+        "org.junit.jupiter",
+        "org.mockito"
+      ]
+    },
+    "concerns": [
+      "Some patterns lack comprehensive testing examples in the documentation.",
+      "Potential performance overhead from added complexity in design patterns like Commander and Distributed Tracing.",
+      "Documentation in folders may not include clear examples for each design pattern implementation.",
+      "Regular updates may be needed to keep dependencies aligned with latest standards."
+    ]
+  }
+]

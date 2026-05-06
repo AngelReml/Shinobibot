@@ -1,0 +1,193 @@
+[
+  {
+    "path": "/",
+    "purpose": "Damn Vulnerable Web Application (DVWA) is designed to help security professionals test their skills in a controlled environment and to assist developers in understanding web application security.",
+    "key_files": [],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "Several translations of the README file available.",
+      "Warnings about security risks if DVWA is deployed in a public web server.",
+      "Configuration scripts require user attention and modifications.",
+      "Installation instructions mention needing root permissions.",
+      "No executable or functional code in the root directory."
+    ]
+  },
+  {
+    "path": "vulnerabilities",
+    "purpose": "This branch contains modules demonstrating web vulnerabilities and security concepts, focusing on cryptography and token validation examples.",
+    "key_files": [
+      {
+        "name": ".htaccess",
+        "role": "Configures URL rewriting for API routing."
+      },
+      {
+        "name": "bootstrap.php",
+        "role": "Loads dependencies using Composer's autoload."
+      },
+      {
+        "name": "index.php",
+        "role": "Handles cryptography vulnerability demonstration and page rendering."
+      },
+      {
+        "name": "check_token_high.php",
+        "role": "Processes token validation for high security level."
+      },
+      {
+        "name": "README.md",
+        "role": "Provides an overview and documentation for the project."
+      },
+      {
+        "name": "LICENSE",
+        "role": "Specifies the legal terms under which the project can be used."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "dvwa/includes/dvwaPage.inc.php",
+        "vulnerabilities/cryptography/source/token_library_high.php"
+      ],
+      "external": []
+    },
+    "concerns": [
+      "No validation on included files; could lead to including arbitrary files.",
+      "No tests found for the functions defined in check_token_high.php.",
+      "Potential exposure of sensitive tokens through improper error handling.",
+      "Direct response output may lead to information leakage in error messages."
+    ]
+  },
+  {
+    "path": "dvwa",
+    "purpose": "This branch hosts the main dashboard web application including setup, configuration files, styling, and script resources. It features critical components such as layout styling and content rendering scripts.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Manages project dependencies and scripts."
+      },
+      {
+        "name": "README.md",
+        "role": "Provides project overview and installation instructions."
+      },
+      {
+        "name": "LICENSE",
+        "role": "States the licensing terms for the project."
+      },
+      {
+        "name": "css/help.css",
+        "role": "Styles for help sections with light and dark themes."
+      },
+      {
+        "name": "css/login.css",
+        "role": "Styles for the login page layout and design."
+      },
+      {
+        "name": "includes/dvwaPage.inc.php",
+        "role": "PHP includes for DVWA page structure and session management."
+      },
+      {
+        "name": "includes/Parsedown.php",
+        "role": "Markdown parsing library for converting text."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "express",
+        "lodash"
+      ]
+    },
+    "concerns": [
+      "Missing detailed contribution guidelines.",
+      "Some dependencies may be outdated.",
+      "No CI/CD configuration found.",
+      "Inconsistent formatting in README document.",
+      "Lack of unit tests in the project."
+    ]
+  },
+  {
+    "path": ".github",
+    "purpose": "The .github branch contains configuration files for CI workflows, code analysis, issue templates, and project documentation, ensuring consistency across the application development process.",
+    "key_files": [
+      {
+        "name": "codeql-analysis.yml",
+        "role": "Defines CodeQL analysis workflow for code scanning."
+      },
+      {
+        "name": "docker-image.yml",
+        "role": "Defines workflow for building and pushing Docker images."
+      },
+      {
+        "name": "bug-report---installation.md",
+        "role": "Template for reporting installation-related bugs."
+      },
+      {
+        "name": "bug-report---vulnerability.md",
+        "role": "Template for reporting bugs related to vulnerabilities."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "actions/checkout",
+        "github/codeql-action",
+        "docker/setup-qemu-action",
+        "docker/setup-buildx-action",
+        "docker/login-action"
+      ]
+    },
+    "concerns": [
+      "Workflows may require customization for different projects.",
+      "Some workflow steps have commented-out alternatives not in use.",
+      "Issue templates lack examples for expected inputs.",
+      "No validation for mandatory fields in bug reports.",
+      "README lacks contribution guidelines, causing potential user confusion."
+    ]
+  },
+  {
+    "path": "database",
+    "purpose": "This branch is dedicated to managing all database-related functionalities and configurations for the application, ensuring efficient and secure data storage and retrieval.",
+    "key_files": [],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": []
+  },
+  {
+    "path": "misc/",
+    "purpose": "Contains testing scripts, configuration files, documentation, and external libraries for DVWA.",
+    "key_files": [
+      {
+        "name": "tests/test_url.py",
+        "role": "Test script for checking URLs in PHP files"
+      },
+      {
+        "name": "config/config.inc.php.dist",
+        "role": "Configuration template for DVWA database settings"
+      },
+      {
+        "name": "docs/pdf.html",
+        "role": "Documentation link for DVWA"
+      },
+      {
+        "name": "external/recaptcha/recaptchalib.php",
+        "role": "PHP library for Google reCAPTCHA integration"
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "requests"
+      ]
+    },
+    "concerns": [
+      "Test URL function needs refactoring to avoid duplicates and handle ignored URLs more cleanly.",
+      "There are commented-out sections in config that may cause confusion.",
+      "PDF link in documentation might be outdated without version monitoring.",
+      "Some test cases may timeout due to reliance on external URLs being accessible.",
+      "No explicit tests found for the recaptcha functions."
+    ]
+  }
+]

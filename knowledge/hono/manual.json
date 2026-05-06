@@ -1,0 +1,35 @@
+{
+  "purpose": "Hono is an ultrafast, lightweight web framework built on Web Standards, supporting any JavaScript runtime, ideal for creating web applications across multiple environments like Cloudflare, Deno, and Node.js.",
+  "install": "npm create hono@latest my-app",
+  "public_api": [
+    {
+      "name": "Hono",
+      "signature": "const app = new Hono()",
+      "summary": "Creates a new instance of the Hono application."
+    }
+  ],
+  "usage_patterns": [
+    {
+      "title": "Basic Routing",
+      "body": "Define routes using app.get() or app.post() with a path and a handler function that takes a context parameter."
+    }
+  ],
+  "gotchas": [
+    "Environment-specific features such as static file serving may vary.",
+    "Middleware must be adapted per environment if specific features are needed."
+  ],
+  "examples": [
+    {
+      "title": "Hello World",
+      "code": "import { Hono } from 'hono'; const app = new Hono(); app.get('/', (c) => c.text('Hello Hono!')); export default app;"
+    }
+  ],
+  "synonyms": [
+    "Hono"
+  ],
+  "source": {
+    "kind": "url",
+    "origin": "https://hono.dev",
+    "pages_or_files": 20
+  }
+}

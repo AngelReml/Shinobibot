@@ -1,0 +1,274 @@
+[
+  {
+    "path": "/",
+    "purpose": "Shinobi is an autonomous Windows-native AI assistant designed for Spanish-speaking YouTubers, enabling workflows and tasks using automation.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Defines project metadata, dependencies, scripts, and build configurations."
+      },
+      {
+        "name": "README.md",
+        "role": "Provides an overview of the project, setup instructions, and documentation for users."
+      },
+      {
+        "name": "tsconfig.json",
+        "role": "Configures TypeScript compiler options for the project."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "@nut-tree-fork/nut-js",
+        "axios",
+        "better-sqlite3",
+        "dotenv",
+        "openai",
+        "playwright",
+        "sqlite-vec"
+      ]
+    },
+    "concerns": [
+      "No tests are currently specified in the package.json.",
+      "The README suggests editing a .env file for configuration, requiring external API keys.",
+      "The project uses an MIT license, but it also mentions ISC in README.",
+      "Development scripts rely on ts-node, requiring TypeScript knowledge.",
+      "Some sections in the README detail blocks that might not have dedicated testing."
+    ]
+  },
+  {
+    "path": "src",
+    "purpose": "The src branch houses the core application source files, encompassing both general project configuration and specialized utilities for repository interaction.",
+    "key_files": [
+      {
+        "name": "README.md",
+        "role": "Project documentation and overview"
+      },
+      {
+        "name": "package.json",
+        "role": "Project metadata and dependencies configuration"
+      },
+      {
+        "name": "tools/browser_click.ts",
+        "role": "Defines a tool for clicking elements in a browser via CDP."
+      },
+      {
+        "name": "reader/cli.ts",
+        "role": "Provides CLI integration for reading repositories using specified options."
+      },
+      {
+        "name": "build.gradle",
+        "role": "Build tool configuration"
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "reader/RepoReader.js",
+        "reader/llm_adapter.js",
+        "reader/schemas.js",
+        "tools/tool_registry.js"
+      ],
+      "external": [
+        "express",
+        "react",
+        "lodash",
+        "fs",
+        "path",
+        "playwright"
+      ]
+    },
+    "concerns": [
+      "No installation or setup instructions in README.md.",
+      "No tests are present for tools and reader functionalities.",
+      "LICENSE file is present but not clearly stated in README.md.",
+      "package.json has several unused dependencies.",
+      "Error handling could be improved for better debugging."
+    ]
+  },
+  {
+    "path": "scripts",
+    "purpose": "This branch contains various scripts focused on data extraction and interaction with web pages, including analyses on NotebookLM and CoinGecko.",
+    "key_files": [
+      {
+        "name": "notebooklm/inspect_card_structure.ts",
+        "role": "Inspects the DOM structure of NotebookLM and saves the inventory."
+      },
+      {
+        "name": "notebooklm/n1_list_notebooks.ts",
+        "role": "Lists notebooks from NotebookLM and determines the best selector."
+      },
+      {
+        "name": "coingecko/c1_top_ranking.ts",
+        "role": "Fetches top ranking coins from CoinGecko and saves the results."
+      },
+      {
+        "name": "coingecko/c2_position_183.ts",
+        "role": "Retrieves information about a coin at a specific rank from CoinGecko."
+      },
+      {
+        "name": "package.json",
+        "role": "Defines project metadata, dependencies, and scripts for building and running the project."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "../../src/tools/index.js",
+        "../../src/tools/tool_registry.js"
+      ],
+      "external": [
+        "express",
+        "mongoose"
+      ]
+    },
+    "concerns": [
+      "The scripts depend on a local Chrome instance for Playwright and may fail if not running.",
+      "Hardcoded paths may cause issues when running on different machines.",
+      "There are no tests included for any of the scripts.",
+      "The extracted data may require validation for accuracy after scraping.",
+      "README.md is missing a usage example."
+    ]
+  },
+  {
+    "path": "docs",
+    "purpose": "Compile essential documentation providing context, workflow details, development phases, and management strategies for the project.",
+    "key_files": [
+      {
+        "name": "00_identity.md",
+        "role": "Introduction and operational rules"
+      },
+      {
+        "name": "01_ecosystem.md",
+        "role": "Architecture overview"
+      },
+      {
+        "name": "02_roadmap.md",
+        "role": "Product development phases"
+      },
+      {
+        "name": "03_state.md",
+        "role": "Current status of the project"
+      },
+      {
+        "name": "04_pending.md",
+        "role": "Known technical issues"
+      },
+      {
+        "name": "05_decisions.md",
+        "role": "Architectural decisions"
+      },
+      {
+        "name": "2026-05-01_validacion_30_tareas.md",
+        "role": "Session log detailing task validation"
+      },
+      {
+        "name": "01_inno_setup.md",
+        "role": "Inno Setup installer creation manual"
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "src/cloud/opengravity_client.ts",
+        "src/cloud/types.ts",
+        "src/tools/cloud_mission.ts",
+        "src/tools/index.ts",
+        "src/api/v1/router.ts",
+        "src/auth/api_keys.ts",
+        "docs/contracts/api_v1.md"
+      ],
+      "external": [
+        "node",
+        "Inno Setup",
+        "Cloudflare"
+      ]
+    },
+    "concerns": [
+      "Multiple bugs listed as pending across sessions, including CAPTCHA issues.",
+      "Careful management of deployment steps indicated in session notes.",
+      "Incomplete automation for Inno Setup, with manual steps detailed.",
+      "Risk of spam/phishing due to email settings lacking SPF, DKIM, DMARC.",
+      "Validation pending for Cloudflare email routing as described."
+    ]
+  },
+  {
+    "path": "artifacts",
+    "purpose": "This branch consolidates metadata, configurations, and data analysis outputs from NotebookLM and CoinGecko, providing comprehensive project information and external data insights.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Project configuration and dependencies management"
+      },
+      {
+        "name": "README.md",
+        "role": "Project overview and instructions"
+      },
+      {
+        "name": "LICENSE",
+        "role": "Legal terms under which the project is distributed"
+      },
+      {
+        "name": "notebooklm/card_structure_inspection.json",
+        "role": "Contains structure and element details of NotebookLM card inspection."
+      },
+      {
+        "name": "notebooklm/n1_notebooks.json",
+        "role": "Lists notebook titles and UI component selectors for NotebookLM."
+      },
+      {
+        "name": "coingecko/c1_raw.json",
+        "role": "Raw data from CoinGecko including navigated URLs and analysis."
+      },
+      {
+        "name": "coingecko/c1_top.json",
+        "role": "Top coins' data extracted from CoinGecko with rankings and prices."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "No explicit mention of error handling or fallback mechanisms in the data retrieval.",
+      "Lack of tests or validation for the retrieved data from both NotebookLM and CoinGecko.",
+      "Duplicated elements in notebook titles that might indicate redundant data entries.",
+      "Extremely long body text in CoinGecko raw output might create parsing issues.",
+      "Unclear navigation paths in the CoinGecko analysis could impact data retrieval."
+    ]
+  },
+  {
+    "path": "misc/",
+    "purpose": "Contains various reports, configurations, and auditing files for managing project functionalities.",
+    "key_files": [
+      {
+        "name": "audits/sindresorhus__dot-prop__8e818432.md",
+        "role": "Audit report indicating a failing verdict due to high risks"
+      },
+      {
+        "name": "audits/sindresorhus__escape-string-regexp__cbc42403.md",
+        "role": "Audit report with a passing verdict but several medium risk concerns"
+      },
+      {
+        "name": "missions/2026-05-06T06-29-35-849Z_self/meta.json",
+        "role": "Metadata for agent performance including target and budget"
+      },
+      {
+        "name": "missions/2026-05-06T06-29-35-849Z_self/report.json",
+        "role": "Detailed report summarizing the project's architecture and risks"
+      },
+      {
+        "name": "skills/desktop/README.md",
+        "role": "Documentation for Windows-native skills for automation"
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "Audit of dot-prop shows high risks and lack of edge case tests.",
+      "Audit of escape-string-regexp reveals no tests for edge cases.",
+      "Meta report indicates operational budget but lacks completeness.",
+      "Shinobi's architecture lacks testing and error handling strategies.",
+      "Desktop skills README suggests TODOs for validation on actual machines."
+    ]
+  }
+]

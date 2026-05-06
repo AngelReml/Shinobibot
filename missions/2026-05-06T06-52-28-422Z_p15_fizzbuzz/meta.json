@@ -1,0 +1,12 @@
+{
+  "target": "C:\\Users\\angel\\Desktop\\test_repos\\fizzbuzz_ee",
+  "budget": {
+    "maxSubagents": 6,
+    "tokensTotal": 50000,
+    "perSubagentTimeoutMs": 90000,
+    "totalTimeoutMs": 180000
+  },
+  "duration_ms": 19081,
+  "ok": true,
+  "timestamp": "2026-05-06T06-52-28-422Z"
+}

@@ -1,0 +1,244 @@
+[
+  {
+    "path": "/",
+    "purpose": "Hono is an ultrafast web framework built on Web Standards for various JavaScript runtimes.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Contains metadata, dependencies, and script commands for the project."
+      },
+      {
+        "name": "README.md",
+        "role": "Provides an overview, usage examples, and documentation links for Hono."
+      },
+      {
+        "name": "LICENSE",
+        "role": "Specifies the terms under which the code may be used or distributed."
+      },
+      {
+        "name": "tsconfig.json",
+        "role": "Configures TypeScript compiler options and project references."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": []
+  },
+  {
+    "path": "src",
+    "purpose": "The branch contains key configurations, middleware, and adapter functions essential for the development and operation of a software project.",
+    "key_files": [
+      {
+        "name": "README.md",
+        "role": "Provides an overview and documentation for the project."
+      },
+      {
+        "name": "package.json",
+        "role": "Lists project dependencies, scripts, and metadata."
+      },
+      {
+        "name": "LICENSE",
+        "role": "Defines the terms under which the project can be used."
+      },
+      {
+        "name": "middleware/trailing-slash/index.ts",
+        "role": "Defines middleware for appending/removing trailing slashes."
+      },
+      {
+        "name": "middleware/trailing-slash/index.test.ts",
+        "role": "Tests for trailing slash middleware functionality."
+      },
+      {
+        "name": "adapter/vercel/conninfo.ts",
+        "role": "Provides connection info retrieval for requests."
+      },
+      {
+        "name": "adapter/vercel/conninfo.test.ts",
+        "role": "Tests for connection info retrieval function."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "types",
+        "helper/conninfo"
+      ],
+      "external": [
+        "express",
+        "mongoose",
+        "react",
+        "hono"
+      ]
+    },
+    "concerns": [
+      "README.md needs updates for the latest features.",
+      "LICENSE file lacks clarity on usage rights.",
+      "No tests cover edge cases for all options in trailing slash middleware.",
+      "Missing test coverage for critical components.",
+      "Outdated dependencies may not be compatible with the latest framework versions."
+    ]
+  },
+  {
+    "path": "benchmarks",
+    "purpose": "This branch contains various benchmarking modules for web applications, focused on JSX processing and router performance evaluations.",
+    "key_files": [
+      {
+        "name": "jsx/package.json",
+        "role": "Configuration for JSX project with dependencies and scripts."
+      },
+      {
+        "name": "jsx/tsconfig.json",
+        "role": "TypeScript configuration for JSX compilation."
+      },
+      {
+        "name": "routers/README.md",
+        "role": "Documentation for router benchmarking."
+      },
+      {
+        "name": "routers/package.json",
+        "role": "Configuration for router benchmarking project."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "hono",
+        "tsx",
+        "express",
+        "find-my-way",
+        "koa-router",
+        "koa-tree-router",
+        "memoirist",
+        "mitata",
+        "radix3",
+        "rou3",
+        "trek-router",
+        "react"
+      ]
+    },
+    "concerns": [
+      "No tests found for core benchmarking functionalities.",
+      "Outdated README for router benchmarks.",
+      "Potential version conflicts with multiple frameworks in dependencies.",
+      "Scripts may require updates for compatibility.",
+      "No clear integration of Hono in routers benchmark."
+    ]
+  },
+  {
+    "path": "runtime-tests",
+    "purpose": "This branch contains runtime test configurations and utilities to support testing across different projects.",
+    "key_files": [
+      {
+        "name": "README.md",
+        "role": "Project overview and documentation"
+      },
+      {
+        "name": "package.json",
+        "role": "Project dependencies and scripts configuration"
+      },
+      {
+        "name": "LICENSE",
+        "role": "Project licensing information"
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "../../src/jsx/jsx-runtime.ts"
+      ],
+      "external": [
+        "express",
+        "react",
+        "lodash",
+        "@std/assert",
+        "@std/path",
+        "@std/testing"
+      ]
+    },
+    "concerns": [
+      "Missing unit tests for critical components.",
+      "Inconsistent code style across various files.",
+      "Outdated dependencies that need an update.",
+      "No continuous integration setup indicated.",
+      "Lack of contribution guidelines in the documentation."
+    ]
+  },
+  {
+    "path": "perf-measures",
+    "purpose": "Provides performance measurement scripts and configurations for type-checking and bundle size verification.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Defines project metadata, scripts, and dependencies."
+      },
+      {
+        "name": "README.md",
+        "role": "Provides an overview and documentation for the project."
+      },
+      {
+        "name": ".gitignore",
+        "role": "Specifies files and directories to be ignored by Git."
+      },
+      {
+        "name": "client.ts",
+        "role": "Type checks for the client application using imported types."
+      },
+      {
+        "name": "check-bundle-size.ts",
+        "role": "Checks the bundle size of the application using esbuild."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "src/client"
+      ],
+      "external": [
+        "esbuild"
+      ]
+    },
+    "concerns": [
+      "No explicit license file found.",
+      "README.md may need updates for setup instructions.",
+      "Missing scripts for testing in package.json.",
+      "Scripts in misc/ directory lack tests.",
+      "check-bundle-size.ts does not handle errors from fs.statSync properly."
+    ]
+  },
+  {
+    "path": "misc/",
+    "purpose": "Contains supplementary files related to community guidelines, contribution instructions, and development environment setup.",
+    "key_files": [
+      {
+        "name": ".github/FUNDING.yml",
+        "role": "Funding configuration"
+      },
+      {
+        "name": ".github/pull_request_template.md",
+        "role": "Template for pull requests"
+      },
+      {
+        "name": "docs/CODE_OF_CONDUCT.md",
+        "role": "Code of conduct for contributors"
+      },
+      {
+        "name": "docs/CONTRIBUTING.md",
+        "role": "Guidelines for contributing to the project"
+      },
+      {
+        "name": ".devcontainer/devcontainer.json",
+        "role": "Configuration for development container environment"
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "The contribution guide notes that not all submitted ideas may be accepted.",
+      "Pull request template suggests adding tests but doesn't specify test coverage requirements.",
+      "Code of conduct enforces serious behaviors but lacks fines or penalties for violations.",
+      "Local development instructions rely on Docker but do not mention platform-specific requirements.",
+      "No explicit tests or examples are provided for the contributions outlined."
+    ]
+  }
+]
