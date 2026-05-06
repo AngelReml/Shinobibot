@@ -222,10 +222,19 @@ export async function runAudit(opts: AuditOptions): Promise<AuditResult> {
     const router = new KnowledgeRouter({ knowledgeDir: path.join(process.cwd(), 'knowledge') });
     const knowledgeInjector = (taskText: string) => router.buildPromptInjection(taskText, missionId).text;
 
+    // Honor --budget if provided. Fall back to DEFAULT_BUDGET inside HierarchicalReader.
+    let budget: { tokensTotal: number; maxSubagents: number; perSubagentTimeoutMs: number; totalTimeoutMs: number } | undefined;
+    if (opts.budgetTokens !== undefined) {
+      const tokensTotal = Math.max(8_000, opts.budgetTokens);
+      const maxSubagents = Math.max(2, Math.min(12, Math.floor(tokensTotal / 8_000)));
+      budget = { tokensTotal, maxSubagents, perSubagentTimeoutMs: 90_000, totalTimeoutMs: 180_000 };
+    }
+
     // Habilidad D.2 — depth=2 hierarchical read.
     const reader = new HierarchicalReader({
       llm: makeLLMClient(),
       depth: 2,
+      budget,
       missionId,
       knowledgeInjector,
       onProgress: (ev) => {

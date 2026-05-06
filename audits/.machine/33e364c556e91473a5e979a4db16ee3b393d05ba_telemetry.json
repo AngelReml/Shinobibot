@@ -1,0 +1,201 @@
+{
+  "id": "0",
+  "level": "supervisor",
+  "label": "root",
+  "start_ms": 0,
+  "status": "ok",
+  "children": [
+    {
+      "id": "0.0",
+      "level": "leaf",
+      "label": "/",
+      "start_ms": 27,
+      "status": "ok",
+      "children": [],
+      "end_ms": 5945,
+      "duration_ms": 5918,
+      "payload": {
+        "type": "sub_report",
+        "size_chars": 608
+      }
+    },
+    {
+      "id": "0.1",
+      "level": "sub_supervisor",
+      "label": "vulnerabilities",
+      "start_ms": 35,
+      "status": "ok",
+      "children": [
+        {
+          "id": "0.1.0",
+          "level": "leaf",
+          "label": "/",
+          "start_ms": 60,
+          "status": "ok",
+          "children": [],
+          "end_ms": 5367,
+          "duration_ms": 5307,
+          "payload": {
+            "type": "sub_report",
+            "size_chars": 473
+          }
+        },
+        {
+          "id": "0.1.1",
+          "level": "leaf",
+          "label": "misc/",
+          "start_ms": 62,
+          "status": "ok",
+          "children": [],
+          "end_ms": 7782,
+          "duration_ms": 7720,
+          "payload": {
+            "type": "sub_report",
+            "size_chars": 983
+          }
+        }
+      ],
+      "end_ms": 13517,
+      "duration_ms": 13482,
+      "payload": {
+        "type": "sub_synth",
+        "size_chars": 1160
+      }
+    },
+    {
+      "id": "0.2",
+      "level": "sub_supervisor",
+      "label": "dvwa",
+      "start_ms": 66,
+      "status": "ok",
+      "children": [
+        {
+          "id": "0.2.0",
+          "level": "leaf",
+          "label": "/",
+          "start_ms": 69,
+          "status": "ok",
+          "children": [],
+          "end_ms": 5620,
+          "duration_ms": 5551,
+          "payload": {
+            "type": "sub_report",
+            "size_chars": 629
+          }
+        },
+        {
+          "id": "0.2.1",
+          "level": "leaf",
+          "label": "misc/",
+          "start_ms": 71,
+          "status": "ok",
+          "children": [],
+          "end_ms": 7803,
+          "duration_ms": 7732,
+          "payload": {
+            "type": "sub_report",
+            "size_chars": 789
+          }
+        }
+      ],
+      "end_ms": 10199,
+      "duration_ms": 10133,
+      "payload": {
+        "type": "sub_synth",
+        "size_chars": 1116
+      }
+    },
+    {
+      "id": "0.3",
+      "level": "sub_supervisor",
+      "label": ".github",
+      "start_ms": 74,
+      "status": "ok",
+      "children": [
+        {
+          "id": "0.3.0",
+          "level": "leaf",
+          "label": "/",
+          "start_ms": 75,
+          "status": "ok",
+          "children": [],
+          "end_ms": 6279,
+          "duration_ms": 6204,
+          "payload": {
+            "type": "sub_report",
+            "size_chars": 774
+          }
+        },
+        {
+          "id": "0.3.1",
+          "level": "leaf",
+          "label": "misc/",
+          "start_ms": 77,
+          "status": "ok",
+          "children": [],
+          "end_ms": 8232,
+          "duration_ms": 8155,
+          "payload": {
+            "type": "sub_report",
+            "size_chars": 1196
+          }
+        }
+      ],
+      "end_ms": 11193,
+      "duration_ms": 11119,
+      "payload": {
+        "type": "sub_synth",
+        "size_chars": 1110
+      }
+    },
+    {
+      "id": "0.4",
+      "level": "sub_supervisor",
+      "label": "database",
+      "start_ms": 80,
+      "status": "ok",
+      "children": [
+        {
+          "id": "0.4.0",
+          "level": "leaf",
+          "label": "/",
+          "start_ms": 81,
+          "status": "ok",
+          "children": [],
+          "end_ms": 5906,
+          "duration_ms": 5825,
+          "payload": {
+            "type": "sub_report",
+            "size_chars": 737
+          }
+        }
+      ],
+      "end_ms": 7027,
+      "duration_ms": 6947,
+      "payload": {
+        "type": "sub_synth",
+        "size_chars": 277
+      }
+    },
+    {
+      "id": "0.5",
+      "level": "leaf",
+      "label": "misc/",
+      "start_ms": 83,
+      "status": "ok",
+      "children": [],
+      "end_ms": 10314,
+      "duration_ms": 10231,
+      "payload": {
+        "type": "sub_report",
+        "size_chars": 923
+      }
+    }
+  ],
+  "end_ms": 20555,
+  "duration_ms": 20555,
+  "payload": {
+    "type": "final_synth",
+    "size_chars": 2795
+  }
+}

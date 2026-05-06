@@ -1,0 +1,202 @@
+[
+  {
+    "path": "/",
+    "purpose": "Shinobi is an autonomous Windows-native agent designed for Spanish-speaking YouTubers to research and create briefs for channel formats.",
+    "key_files": [
+      {
+        "name": "README.md",
+        "role": "Documentation explaining the purpose and usage of the project."
+      },
+      {
+        "name": "package.json",
+        "role": "Project metadata including dependencies, scripts, and entry points."
+      },
+      {
+        "name": "tsconfig.json",
+        "role": "TypeScript configuration for compilation settings."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "@nut-tree-fork/nut-js",
+        "axios",
+        "better-sqlite3",
+        "dotenv",
+        "openai",
+        "playwright",
+        "sqlite-vec"
+      ]
+    },
+    "concerns": [
+      "No tests specified in package.json.",
+      "The README suggests editing the .env file, but there's no example provided.",
+      "License mentioned as ISC in README but MIT in package.json, inconsistency.",
+      "Development setup requires user actions that could be automated.",
+      "No clear instructions on how to run end-to-end tests."
+    ]
+  },
+  {
+    "path": "src/watchers/hermes_watcher.ts",
+    "purpose": "A continuous watcher that polls GitHub releases for the Hermes repo and notifies users of new releases.",
+    "key_files": [
+      {
+        "name": "hermes_watcher.ts",
+        "role": "Main functionality for checking and notifying new releases"
+      },
+      {
+        "name": "hermes_watcher.test.ts",
+        "role": "End-to-end tests for hermes_watcher functionality"
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "node:fs",
+        "node:os",
+        "node:path"
+      ]
+    },
+    "concerns": [
+      "No tests for concurrent access to state file.",
+      "State file loading can fail silently and return null values.",
+      "No error handling for JSON parsing when loading state.",
+      "Potential race conditions in file access with notify functionality.",
+      "Environment variable HERMES_WATCH_REPO can default to unsafe repo if not set."
+    ]
+  },
+  {
+    "path": "audits/.machine/716c72a1f55d206374367c457fd175166d0f7549_subreports.json",
+    "purpose": "Contains detailed subreports related to the audit of the AngelReml/Shinobibot repository, focusing on its architecture and security risks.",
+    "key_files": [],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "Lack of a unified testing strategy across various components increases risk of undetected vulnerabilities.",
+      "High-risk vulnerabilities identified in 'dot-prop' with inadequate edge case testing.",
+      "Inconsistent README.md files can lead to improper project setup and exploitation.",
+      "Hardcoded paths in scripts could lead to failures or vulnerabilities in different environments.",
+      "Pending validation of Cloudflare email routing poses a risk of information exposure."
+    ]
+  },
+  {
+    "path": "scripts",
+    "purpose": "Contains test scripts for validating the functionality of the LLM mock and self report generation.",
+    "key_files": [
+      {
+        "name": "a3_smoke.ts",
+        "role": "Tests parseReadArgs function."
+      },
+      {
+        "name": "a4_run.ts",
+        "role": "Runs read functionality across multiple repositories."
+      },
+      {
+        "name": "b1_diff_run.ts",
+        "role": "Tests self report differentiation."
+      },
+      {
+        "name": "b1_run.ts",
+        "role": "Executes self report generation."
+      },
+      {
+        "name": "b1_smoke.ts",
+        "role": "Tests parseSelfArgs function."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "../src/reader/cli.js",
+        "../src/reader/self.js"
+      ],
+      "external": [
+        "fs",
+        "os",
+        "path"
+      ]
+    },
+    "concerns": [
+      "All tests should be verified for accuracy and completeness.",
+      "Running tests depends on the existence of appropriate files in the specified directories.",
+      "No error handling in cases where JSON files cannot be read in a4_run.ts.",
+      "Temporary directories created in b1_smoke.ts may need cleanup if exceptions occur before deletion.",
+      "Ensure consistency in report data structures generated across tests."
+    ]
+  },
+  {
+    "path": "docs",
+    "purpose": "Documentation for the Shinobi project, covering identity, ecosystem architecture, roadmap, state, and pending technical tasks.",
+    "key_files": [
+      {
+        "name": "00_identity.md",
+        "role": "Outlines the identity and operational rules for the project leader."
+      },
+      {
+        "name": "01_ecosystem.md",
+        "role": "Describes the ecosystem architecture and components of the Shinobi project."
+      },
+      {
+        "name": "02_roadmap.md",
+        "role": "Details the project roadmap divided into three parallel axes."
+      },
+      {
+        "name": "03_state.md",
+        "role": "Presents the current operational state and confirmed functionalities."
+      },
+      {
+        "name": "04_pending.md",
+        "role": "Lists technical tasks that are pending or completed."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "Multiple pending tasks need manual intervention for completion.",
+      "Cloudflare Turnstile detection issues remain unresolved and outside current scope.",
+      "No posts have been published on LinkedIn as per roadmap specifications.",
+      "Validation of the agent through real missions has not yet been executed.",
+      "Filtering constraints for LinkedIn results need to be refined to avoid false positives."
+    ]
+  },
+  {
+    "path": "misc/",
+    "purpose": "Aggregates various artifacts, missions, demos, skills, and reports related to design patterns and AI workflows.",
+    "key_files": [
+      {
+        "name": "artifacts/youtube/y1_channel_urls.json",
+        "role": "Contains a list of YouTube channel URLs."
+      },
+      {
+        "name": "artifacts/youtube/y1_raw.json",
+        "role": "Holds a raw output of a YouTube search query."
+      },
+      {
+        "name": "missions/2026-05-06T06-42-53-652Z_p12_patterns/meta.json",
+        "role": "Defines mission parameters and analysis."
+      },
+      {
+        "name": "missions/2026-05-06T06-42-53-652Z_p12_patterns/report.json",
+        "role": "Summarizes the educational purposes and architecture of design patterns."
+      },
+      {
+        "name": "demos/full-self-improve-2026-05-04T09-23-04-525Z.transcript.txt",
+        "role": "Transcription of a demo regarding self-improvement tasks."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "No direct tests noted for various modules and functionalities in patterns.",
+      "Some design patterns documentation may lack comprehensive examples.",
+      "Missing test coverage for certain core classes as mentioned in reports.",
+      "Documentation might not be up to date with the latest implementations.",
+      "Potential issues with outdated YouTube links in the artifact files."
+    ]
+  }
+]
