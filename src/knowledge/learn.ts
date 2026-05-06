@@ -170,7 +170,7 @@ async function cloneShallow(repoUrl: string): Promise<string> {
   return dest;
 }
 
-const SYNTH_SYSTEM = `You are producing an internal manual for a software program/library, for use by future sub-agents that need to call or integrate with it.
+const SYNTH_SYSTEM = `You are a senior technical writer producing an internal manual for a software program/library that Shinobi will consult later when its sub-agents encounter the program in a task. Your reader is another LLM, not a human — favor density over fluency, but never invent.
 
 Return ONE JSON object with this exact shape (no prose, no fence):
 {
@@ -185,10 +185,16 @@ Return ONE JSON object with this exact shape (no prose, no fence):
 }
 
 Rules:
-- Use ONLY information present in the provided pages or sub-reports. Do NOT invent function names, flags, or install commands.
+- Use ONLY information present in the provided pages or sub-reports. Do NOT invent function names, flags, install commands, or examples.
 - If a field has no evidence, return [] (arrays) or "unknown" (strings) — do NOT guess.
-- "synonyms" should include obvious aliases (e.g. "n8n" ↔ "n8n.io", "execa" ↔ "Execa"). Keep it short.
-- Output JSON only.`;
+- "synonyms" should include obvious aliases. Examples: "n8n" ↔ "n8n.io", "execa" ↔ "Execa", "p-event" ↔ "pEvent". Keep it short.
+- "public_api" entries must have signatures with the exact parameter names from the source. If you only know the function name, set signature to "unknown" rather than fabricating one.
+- Output JSON only.
+
+Acceptable example entry: {"title":"Run a single command","code":"const {execa} = require('execa');\\nconst {stdout} = await execa('echo', ['hello']);\\nconsole.log(stdout);"}
+Unacceptable example: code that uses APIs you only inferred ("execa.runWithRetry(...)" — when no doc you read mentions runWithRetry).
+
+Self-check before emitting: for every public_api[].name, verify it appeared literally in at least one of the pages or sub-reports below. For every example, verify its function calls use only names from public_api or from the source. If a name doesn't trace back, drop it.`;
 
 function validateManual(raw: unknown): { ok: true; value: Manual } | { ok: false; error: string } {
   if (!raw || typeof raw !== 'object') return { ok: false, error: 'not object' };
