@@ -233,6 +233,7 @@ Return ONE JSON object matching this exact schema (no prose, no fence):
 Rules:
 - Detect contradictions between sub-reports and surface them as risks (severity medium or high) with a one-line description naming the conflicting reports.
 - If a sub-report has "[unreadable]", mention it as a risk severity medium ("module X not read — gap").
+- If a sub-report has "[degraded-empty]" (F-01: visible files but no extraction), mention it as a risk severity low ("module X read but extraction empty — verify manually").
 - Do NOT invent files, modules, or entry_points that no sub-report mentioned. If a path appears nowhere in the sub-reports, do not put it in the output.
 - Use the literal "path" from sub-reports for modules[].path. Do not normalize, prettify, or shorten.
 - Each risks[].description MUST be ≤200 chars. If you need more detail, split into two adjacent risks rather than overflowing one.

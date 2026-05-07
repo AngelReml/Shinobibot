@@ -74,6 +74,7 @@ Return ONE JSON object matching this exact schema (no prose, no fence):
 Rules:
 - Detect contradictions between sub-reports and surface them as risks (severity medium/high) with a one-line description naming the conflicting reports.
 - If a sub-report has "[unreadable]", mention it as a risk severity medium ("module X not read — gap").
+- If a sub-report has "[degraded-empty]" (F-01: visible files but no extraction), mention it as a risk severity low ("module X read but extraction empty — verify manually").
 - Do NOT invent files, modules, or entry_points that no sub-report mentioned.
 - Branch-level sub-reports describe a folder's role; do not collapse multiple branches into one module unless they truly are one module split across folders.
 - Use the literal "path" from sub-reports for modules[].path. Do not normalize, prettify, or shorten.
