@@ -124,9 +124,9 @@ const MEMBER_OUTPUT_RULES = `
 Return ONE JSON object matching this exact shape (no prose, no fence):
 {
   "role": string,                                          // copy your role label exactly: "architect" | "security_auditor" | "design_critic" | "code_reviewer"
-  "strengths": string[],                                   // max 6, each <=200 chars
-  "weaknesses": string[],                                  // max 6, each <=200 chars
-  "recommendations": string[],                             // max 6, each <=200 chars, concrete actions with file/module references
+  "strengths": string[],                                   // max 6, each <=400 chars
+  "weaknesses": string[],                                  // max 6, each <=400 chars
+  "recommendations": string[],                             // max 6, each <=400 chars, concrete actions with file/module references
   "risk_level": "low" | "medium" | "high"
 }
 
@@ -134,13 +134,13 @@ Constraints:
 - Be specific. Every strength/weakness/recommendation must reference at least one module name, file path, or named risk from the input report.
 - Do NOT invent files, modules, or risks not mentioned in the input.
 - "recommendations" must be actionable verbs ("Refactor src/x.ts to ...", "Add a test for foo()") — not aspirational ("Improve quality").
-- Each entry MUST be ≤200 chars. If you need more detail, split into two adjacent entries rather than overflowing one.
+- Aim for entries under 400 chars. If a single point genuinely needs more, write a longer one — coherence over arbitrary brevity. The validator will accept up to 400.
 - "risk_level" calibration: low = repo is healthy, weaknesses are minor; medium = real issues exist but no urgent risk; high = at least one weakness would cause harm if shipped today.
 
 Acceptable recommendation: "Add a unit test for src/security/approval.ts:isDestructive() covering the 'git push --force' pattern."
 Unacceptable recommendation: "Improve test coverage." (no target, no verb, aspirational).
 
-Self-check before emitting: count items. If you have ZERO weaknesses, your risk_level must be "low" and every strength must still cite a concrete element. If you have MULTIPLE weaknesses citing different modules, your risk_level should not be "low". Every entry must be ≤200 chars — count before emitting.
+Self-check before emitting: count items. If you have ZERO weaknesses, your risk_level must be "low" and every strength must still cite a concrete element. If you have MULTIPLE weaknesses citing different modules, your risk_level should not be "low".
 `;
 
 function validateMemberReport(raw: unknown): { ok: true; value: MemberReport } | { ok: false; error: string } {
@@ -150,7 +150,7 @@ function validateMemberReport(raw: unknown): { ok: true; value: MemberReport } |
   for (const k of ['strengths', 'weaknesses', 'recommendations']) {
     const arr = r[k];
     if (!Array.isArray(arr) || arr.length > 6) return { ok: false, error: `${k} must be array len<=6` };
-    if (!arr.every((s) => typeof s === 'string' && s.length <= 200)) return { ok: false, error: `${k} item invalid` };
+    if (!arr.every((s) => typeof s === 'string' && s.length <= 400)) return { ok: false, error: `${k} item invalid` };
   }
   if (!['low', 'medium', 'high'].includes(r.risk_level as string)) return { ok: false, error: 'risk_level invalid' };
   return { ok: true, value: raw as MemberReport };
