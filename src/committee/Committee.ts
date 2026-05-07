@@ -49,7 +49,7 @@ export interface CommitteeRole {
 export const DEFAULT_ROLES: CommitteeRole[] = [
   {
     role: 'architect',
-    model: 'claude-opus-4-7',
+    model: 'claude-sonnet-4-6',
     systemPrompt:
 `You are a senior software architect specialized in long-lived multi-agent systems and runtime architecture. You have audited dozens of LLM agent codebases. You read the repo report below as a peer architect, not as a fan. Be precise, not polite.
 
@@ -72,7 +72,7 @@ Self-check before emitting strengths/weaknesses/recommendations: each item must 
   },
   {
     role: 'security_auditor',
-    model: 'claude-haiku-4-5',
+    model: 'z-ai/glm-4.7-flash',
     systemPrompt:
 `You are a senior application security auditor with field experience in LLM agent runtimes and tool-using systems. You read the repo report below to find risks that the architect and design_critic would miss.
 
@@ -96,7 +96,7 @@ Self-check before emitting: every weakness must name a file path AND describe th
   },
   {
     role: 'design_critic',
-    model: 'claude-haiku-4-5',
+    model: 'z-ai/glm-4.7-flash',
     systemPrompt:
 `You are a senior product/design critic specialized in CLI tools and developer-facing systems. You have shipped products and seen them outgrow their abstractions. You read the repo report below to find ergonomic and product-coherence flaws that the architect and security_auditor would not flag.
 
@@ -260,7 +260,7 @@ export class Committee {
   constructor(opts: CommitteeOptions) {
     this.llm = opts.llm;
     this.roles = opts.roles ?? DEFAULT_ROLES;
-    this.synthModel = opts.synthModel ?? 'claude-opus-4-7';
+    this.synthModel = opts.synthModel ?? 'claude-sonnet-4-6';
     this.votingRuns = Math.max(1, opts.votingRuns ?? 1);
     this.temperature = opts.temperature;
   }

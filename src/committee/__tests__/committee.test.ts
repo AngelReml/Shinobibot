@@ -43,7 +43,10 @@ function makeStubLLM(opts: { failOneMember?: boolean } = {}): LLMClient {
       if (opts.failOneMember && memberCalls === 1) {
         return 'not json {{{';
       }
-      const role = (callOpts?.model === 'claude-opus-4-7') ? 'architect' : (memberCalls % 2 === 0 ? 'security_auditor' : 'design_critic');
+      // Stub asigna architect cuando el modelo es el "tier balanced" (post-S1.5 remapping).
+      // Mantengo back-compat con claude-opus-4-7 por si algún test legacy lo referencia.
+      const isArchitectModel = callOpts?.model === 'claude-sonnet-4-6' || callOpts?.model === 'claude-opus-4-7';
+      const role = isArchitectModel ? 'architect' : (memberCalls % 2 === 0 ? 'security_auditor' : 'design_critic');
       return JSON.stringify({
         role,
         strengths: ['clear separation', 'security gate present'],
