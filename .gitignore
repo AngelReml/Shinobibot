@@ -33,3 +33,19 @@ demos/runs/
 demos/test_site/pdfs/
 demos/test_site/manifest.json
 
+# === Nuevas reglas de limpieza (Audit 2026-05-07) ===
+missions/
+self_reports/
+committee_reports/
+logs.txt
+*.db
+*.docx
+*.pdf
+*.xlsx
+*.png
+*.mp4
+*.gif
+docs/
+audits/
+knowledge/
+
