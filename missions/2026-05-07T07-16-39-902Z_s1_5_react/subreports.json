@@ -1,0 +1,186 @@
+[
+  {
+    "path": "/",
+    "purpose": "React is a JavaScript library for building user interfaces with declarative, component-based architecture. This is a monorepo (via Yarn workspaces) containing the core React packages.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Monorepo root configuration with workspaces, build scripts, and dev dependencies"
+      },
+      {
+        "name": "README.md",
+        "role": "Project overview, installation, documentation links, and contribution guidelines"
+      },
+      {
+        "name": "LICENSE",
+        "role": "MIT License from Meta Platforms, Inc. and affiliates"
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "@babel/cli",
+        "@babel/core",
+        "@babel/parser",
+        "@rollup/plugin-babel",
+        "@rollup/plugin-commonjs",
+        "@rollup/plugin-node-resolve",
+        "@rollup/plugin-typescript",
+        "@typescript-eslint/eslint-plugin",
+        "@typescript-eslint/parser",
+        "babel-plugin-syntax-hermes-parser",
+        "chalk",
+        "danger",
+        "eslint",
+        "flow-bin",
+        "jest",
+        "prettier",
+        "rollup",
+        "typescript",
+        "yargs"
+      ]
+    },
+    "concerns": [
+      "Jest configuration explicitly prevents direct test execution via testRegex pointing to a non-existent path",
+      "Private workspace with 'private: true' flag indicates internal-only monorepo structure",
+      "Extensive Babel plugin dependencies suggest complex transpilation and JSX/TypeScript support needs",
+      "Multiple release channel variants (stable, experimental, www-classic, www-modern) managed via build scripts"
+    ]
+  },
+  {
+    "path": "compiler",
+    "purpose": "[unreadable]",
+    "error": "validation failed twice: key_files item invalid (name/role)"
+  },
+  {
+    "path": "fixtures/view-transition",
+    "purpose": "Test fixture demonstrating React View Transitions API integration with server-side rendering, navigation interception, and transition type support.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Project metadata, dev/runtime dependencies, build and dev scripts."
+      },
+      {
+        "name": "README.md",
+        "role": "Setup and usage instructions for running the fixture."
+      },
+      {
+        "name": "src/index.js",
+        "role": "Client-side entry point; hydrates React app with assets and initial URL."
+      },
+      {
+        "name": "src/components/App.js",
+        "role": "Main app component managing routing, Navigation API interception, and transition types."
+      },
+      {
+        "name": "src/components/Chrome.css",
+        "role": "Global styles including view-transition pseudo-element rules."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "react",
+        "react-dom/client",
+        "concurrently",
+        "http-proxy-middleware",
+        "react-scripts",
+        "@babel/plugin-proposal-private-property-in-object",
+        "@babel/register",
+        "express",
+        "ignore-styles",
+        "animation-timelines"
+      ]
+    },
+    "concerns": [
+      "Missing Chrome.js and Page.js component implementations (imported but not provided).",
+      "Missing server.js and loader/server.js files referenced in scripts but not shown.",
+      "Hard-coded copy of build artifacts from ../../build/oss-experimental/* in predev/prestart/prebuild scripts.",
+      "Navigation API feature detection uses loose check (typeof navigation === 'object') without null/undefined guards.",
+      "No test files present despite react-scripts test script defined in package.json."
+    ]
+  },
+  {
+    "path": "packages/use-sync-external-store",
+    "purpose": "Backwards-compatible shim for React.useSyncExternalStore hook, supporting React 16.8+.",
+    "key_files": [
+      {
+        "name": "package.json",
+        "role": "Project metadata, peer dependencies (React 16.8+), and multiple export entry points."
+      },
+      {
+        "name": "README.md",
+        "role": "Documentation describing the shim and link to React 18 discussions."
+      },
+      {
+        "name": "index.js",
+        "role": "Main entry point exporting useSyncExternalStore from src/useSyncExternalStore."
+      },
+      {
+        "name": "with-selector.js",
+        "role": "Named export entry point for useSyncExternalStoreWithSelector variant."
+      },
+      {
+        "name": "src/isServerEnvironment.js",
+        "role": "Utility for detecting server vs browser environment using canUseDOM."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "src/useSyncExternalStore",
+        "src/useSyncExternalStoreWithSelector"
+      ],
+      "external": [
+        "react",
+        "shared/ExecutionEnvironment"
+      ]
+    },
+    "concerns": [
+      "isServerEnvironment.js imports from 'shared/ExecutionEnvironment' (path not verifiable as relative or npm package from visible content).",
+      "Multiple export entry points (./shim, ./with-selector, ./shim/with-selector) reference files not shown; validation incomplete."
+    ]
+  },
+  {
+    "path": "scripts",
+    "purpose": "[unreadable]",
+    "error": "validation failed twice: key_files item invalid (name/role)"
+  },
+  {
+    "path": "misc/",
+    "purpose": "Configuration and type definitions for GitHub workflows, Flow type checking, and development environment setup for React repository.",
+    "key_files": [
+      {
+        "name": ".github/dependabot.yml",
+        "role": "Automated dependency update configuration for npm fixtures."
+      },
+      {
+        "name": ".github/PULL_REQUEST_TEMPLATE.md",
+        "role": "PR submission guidelines and checklist for contributors."
+      },
+      {
+        "name": "flow-typed/npm/error-stack-parser_v2.x.x.js",
+        "role": "Flow type definitions for error-stack-parser library."
+      },
+      {
+        "name": "flow-typed/npm/minimist_v1.x.x.js",
+        "role": "Flow type definitions for minimist CLI argument parser."
+      },
+      {
+        "name": ".claude/instructions.md",
+        "role": "Development instructions and project structure documentation."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "error-stack-parser",
+        "minimist"
+      ]
+    },
+    "concerns": [
+      "Dependabot configured with open-pull-requests-limit: 0, meaning all PRs are ignored automatically.",
+      "Flow type definitions include TODO comment in minimist types about string keys not working.",
+      "PR template references yarn commands but does not mention React Compiler's separate scope."
+    ]
+  }
+]
