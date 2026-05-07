@@ -1,0 +1,107 @@
+{
+  "repo_purpose": "Shinobi: an autonomous agent system with upstream release monitoring (Hermes watcher), CLI read/self-analysis tooling, mission configuration, keyboard-based abort handling, and path/command security validation.",
+  "architecture_summary": "## Overview\nShinobi appears to be a TypeScript-based autonomous agent framework with the following layers (inferred from readable sub-reports only):\n\n- **src/**: Core runtime utilities including a GitHub release watcher (`hermes_watcher.ts`) for NousResearch/hermes-agent, a Windows PowerShell-based ESC kill switch, path-traversal/command safety validation, and a synchronous command runner.\n- **scripts/**: Smoke tests and integration runners for CLI argument parsing (`parseReadArgs`, `parseSelfArgs`) and self-analysis workflows (`runRead`, `runSelf`, `runSelfDiff`). Scripts import from `src/reader/cli.js` and `src/reader/self.js` (note: these paths are referenced but not directly covered by the src/ sub-report).\n- **missions/**: Mission configuration and runtime logic (unverified — scan timed out).\n- **docs/**, **misc/**, and repo root: Unreadable due to validation failures.\n\n## Dependencies\nExternal deps noted are all Node.js built-ins (`node:fs`, `node:os`, `node:path`, `child_process`). No third-party runtime dependencies surfaced in readable reports.\n\n## Gaps\nFour of six sub-reports are partially or fully unreadable, so architecture coverage is incomplete.",
+  "modules": [
+    {
+      "name": "src",
+      "path": "src",
+      "responsibility": "Core utilities: Hermes release watcher, ESC kill switch, path/command permission validation, synchronous command runner."
+    },
+    {
+      "name": "scripts",
+      "path": "scripts",
+      "responsibility": "Smoke tests and integration runners for CLI parsing and self-analysis (read/self/self-diff workflows)."
+    },
+    {
+      "name": "missions",
+      "path": "missions",
+      "responsibility": "Mission configuration and runtime logic for Shinobi agent tasks (contents unverified — subagent timed out)."
+    }
+  ],
+  "entry_points": [
+    {
+      "file": "scripts/a4_run.ts",
+      "kind": "integration-runner"
+    },
+    {
+      "file": "scripts/b1_run.ts",
+      "kind": "runner"
+    },
+    {
+      "file": "scripts/b1_diff_run.ts",
+      "kind": "runner"
+    },
+    {
+      "file": "scripts/a3_smoke.ts",
+      "kind": "test"
+    },
+    {
+      "file": "scripts/b1_smoke.ts",
+      "kind": "test"
+    },
+    {
+      "file": "src/watchers/hermes_watcher.ts",
+      "kind": "background-watcher"
+    },
+    {
+      "file": "src/utils/kill_switch.ts",
+      "kind": "background-watcher"
+    }
+  ],
+  "risks": [
+    {
+      "severity": "high",
+      "description": "missions/ directory unreadable: subagent timed out at 90s on all attempts. Core mission logic not analyzed — major coverage gap."
+    },
+    {
+      "severity": "medium",
+      "description": "Repo root (/) not read — validation failed twice on key_files. No top-level manifest, package.json, or license visible."
+    },
+    {
+      "severity": "medium",
+      "description": "docs/ not read — validation failed twice on key_files. Documentation coverage unknown."
+    },
+    {
+      "severity": "medium",
+      "description": "misc/ not read — validation failed twice on concerns field. Contents unknown."
+    },
+    {
+      "severity": "medium",
+      "description": "src/utils/runner.ts uses execSync with no timeout; long-running commands freeze the entire process."
+    },
+    {
+      "severity": "medium",
+      "description": "src/utils/kill_switch.ts spawns PowerShell without timeout; risk of runaway child process if the script hangs."
+    },
+    {
+      "severity": "medium",
+      "description": "scripts/a4_run.ts contains hardcoded Windows paths (C:\\Users\\angel\\...) — not portable across environments."
+    },
+    {
+      "severity": "medium",
+      "description": "scripts/a4_run.ts silently swallows JSON.parse errors with empty catch blocks, masking output corruption."
+    },
+    {
+      "severity": "low",
+      "description": "src/utils/permissions.ts sensitive-path list mixes Unix and Windows entries inconsistently; cross-platform edge cases missed."
+    },
+    {
+      "severity": "low",
+      "description": "hermes_watcher.ts truncates release body to 4000 chars without indicating truncation; users unaware of omitted content."
+    },
+    {
+      "severity": "low",
+      "description": "hermes_watcher.ts polling has no rate-limit jitter; parallel instances risk GitHub API quota exhaustion."
+    },
+    {
+      "severity": "low",
+      "description": "scripts reference src/reader/cli.js and src/reader/self.js, but src/ sub-report did not enumerate a reader/ subdirectory — possible coverage gap in src report."
+    }
+  ],
+  "evidence": {
+    "subagent_count": 6,
+    "tokens_total": 0,
+    "duration_ms": 14648,
+    "subreports_referenced": 6
+  }
+}

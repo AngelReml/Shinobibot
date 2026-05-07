@@ -18,7 +18,7 @@ const ROOT = resolve(__dirname, '..', '..');
 const OG_ROOT = resolve(ROOT, '..', 'OpenGravity');
 const SHINOBI_BENCH_ROOT = resolve(ROOT, '..', 'shinobi-bench');
 
-const KERNEL_BASE = process.env.KERNEL_BASE_URL ?? process.env.OPENGRAVITY_URL ?? 'https://kernel.zapweave.com';
+const KERNEL_BASE = process.env.KERNEL_BASE_URL ?? process.env.OPENGRAVITY_URL ?? 'http://localhost:9900';
 const ZAPWEAVE_BASE = process.env.ZAPWEAVE_BASE_URL ?? 'https://zapweave.com';
 
 function step(name, skipEnv) {

@@ -13,7 +13,10 @@ function makeStubLLM(opts: { failOneMember?: boolean } = {}): LLMClient {
   return {
     async chat(messages, callOpts) {
       const sys = messages.find((m) => m.role === 'system')?.content ?? '';
-      const isSynth = sys.includes('synthesizing committee member reports');
+      // Robust shape detection: synth user message starts with "Member reports".
+      // Substring on system prompt is too coupled to wording (volátil en S1.4).
+      const userMsg = messages.find((m) => m.role === 'user')?.content ?? '';
+      const isSynth = userMsg.startsWith('Member reports') || sys.includes('committee member reports') || sys.includes('chair of a software-audit committee');
       if (isSynth) {
         return JSON.stringify({
           consensus: [
@@ -40,7 +43,10 @@ function makeStubLLM(opts: { failOneMember?: boolean } = {}): LLMClient {
       if (opts.failOneMember && memberCalls === 1) {
         return 'not json {{{';
       }
-      const role = (callOpts?.model === 'claude-opus-4-7') ? 'architect' : (memberCalls % 2 === 0 ? 'security_auditor' : 'design_critic');
+      // Stub asigna architect cuando el modelo es el "tier balanced" (post-S1.5 remapping).
+      // Mantengo back-compat con claude-opus-4-7 por si algún test legacy lo referencia.
+      const isArchitectModel = callOpts?.model === 'claude-sonnet-4-6' || callOpts?.model === 'claude-opus-4-7';
+      const role = isArchitectModel ? 'architect' : (memberCalls % 2 === 0 ? 'security_auditor' : 'design_critic');
       return JSON.stringify({
         role,
         strengths: ['clear separation', 'security gate present'],

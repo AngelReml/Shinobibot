@@ -44,7 +44,10 @@ function makeStubLLM(opts: {
     async chat(messages, callOpts) {
       const systemMsg = messages.find((m) => m.role === 'system')?.content ?? '';
       const userMsg = messages.find((m) => m.role === 'user')?.content ?? '';
-      const isSynth = systemMsg.includes('synthesizing a single repo report');
+      // Robust shape detection: synth call always feeds a JSON array of sub-reports
+      // in the user message; leaf calls feed file blocks delimited by `--- name ---`.
+      // Substring-on-system-prompt is too coupled to prompt wording.
+      const isSynth = userMsg.startsWith('Sub-reports (JSON array):') || systemMsg.includes('synthesizing');
 
       if (isSynth) {
         synthCalls++;

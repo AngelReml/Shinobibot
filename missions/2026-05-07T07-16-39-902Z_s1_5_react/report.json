@@ -1,0 +1,90 @@
+{
+  "repo_purpose": "React monorepo containing the core React JavaScript library for building user interfaces, managed via Yarn workspaces. Includes packages, compiler, build scripts, test fixtures, and development tooling configuration.",
+  "architecture_summary": "## Overview\nThis is the React monorepo from Meta Platforms, organized as a Yarn workspaces monorepo (private, MIT licensed).\n\n## Structure\n- **Root**: Monorepo configuration with Babel, Rollup, Jest, TypeScript, Flow, ESLint tooling. Manages multiple release channels (stable, experimental, www-classic, www-modern).\n- **packages/**: Individual React packages published to npm (e.g., `use-sync-external-store` shim for React 16.8+ compatibility).\n- **compiler/**: React Compiler (sub-report unreadable).\n- **scripts/**: Build and release automation (sub-report unreadable).\n- **fixtures/**: Example/test applications demonstrating React features (e.g., view-transition API integration with SSR).\n- **misc/**: GitHub workflows (.github/), Flow type definitions (flow-typed/), and development instructions (.claude/).\n\n## Tooling\nBabel + Rollup for builds, Jest for tests, Flow and TypeScript for type-checking, ESLint + Prettier for linting/formatting, Danger for PR automation.",
+  "modules": [
+    {
+      "name": "root",
+      "path": "/",
+      "responsibility": "Monorepo root with Yarn workspaces, build scripts, dev dependencies, and multi-channel release management."
+    },
+    {
+      "name": "compiler",
+      "path": "compiler",
+      "responsibility": "React Compiler module (sub-report unreadable — responsibility not verifiable)."
+    },
+    {
+      "name": "view-transition fixture",
+      "path": "fixtures/view-transition",
+      "responsibility": "Test fixture demonstrating React View Transitions API with SSR, Navigation API interception, and transition types."
+    },
+    {
+      "name": "use-sync-external-store",
+      "path": "packages/use-sync-external-store",
+      "responsibility": "Backwards-compatible shim for React.useSyncExternalStore hook supporting React 16.8+."
+    },
+    {
+      "name": "scripts",
+      "path": "scripts",
+      "responsibility": "Build and release automation scripts (sub-report unreadable — responsibility not verifiable)."
+    },
+    {
+      "name": "misc config",
+      "path": "misc/",
+      "responsibility": "GitHub workflow configs, Flow type definitions for npm packages, PR templates, and dev environment instructions."
+    }
+  ],
+  "entry_points": [
+    {
+      "file": "src/index.js",
+      "kind": "client-side hydration entry (view-transition fixture)"
+    },
+    {
+      "file": "index.js",
+      "kind": "package main entry (use-sync-external-store)"
+    },
+    {
+      "file": "with-selector.js",
+      "kind": "named subpath export (use-sync-external-store)"
+    }
+  ],
+  "risks": [
+    {
+      "severity": "medium",
+      "description": "compiler/ sub-report unreadable (validation failed twice) — architectural role of React Compiler module not verified in this synthesis."
+    },
+    {
+      "severity": "medium",
+      "description": "scripts/ sub-report unreadable (validation failed twice) — build/release automation not verified; significant gap given monorepo's reliance on scripts."
+    },
+    {
+      "severity": "medium",
+      "description": "fixtures/view-transition references missing files (Chrome.js, Page.js, server.js, loader/server.js) imported but not shown in sub-report."
+    },
+    {
+      "severity": "medium",
+      "description": "fixtures/view-transition has hard-coded copy of build artifacts from ../../build/oss-experimental/* in predev/prestart/prebuild scripts, coupling it to build layout."
+    },
+    {
+      "severity": "low",
+      "description": "use-sync-external-store imports 'shared/ExecutionEnvironment' with unverifiable resolution (not confirmed as relative path or npm package)."
+    },
+    {
+      "severity": "low",
+      "description": "Dependabot configured with open-pull-requests-limit: 0 per misc/ report, effectively disabling automated dependency PRs."
+    },
+    {
+      "severity": "low",
+      "description": "Root Jest config uses testRegex pointing to non-existent path, preventing direct test execution at root level."
+    },
+    {
+      "severity": "low",
+      "description": "view-transition fixture defines react-scripts test script but contains no test files."
+    }
+  ],
+  "evidence": {
+    "subagent_count": 6,
+    "tokens_total": 0,
+    "duration_ms": 12171,
+    "subreports_referenced": 6
+  }
+}

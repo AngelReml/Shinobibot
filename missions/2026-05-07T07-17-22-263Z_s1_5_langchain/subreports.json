@@ -1,0 +1,71 @@
+[
+  {
+    "path": "/",
+    "purpose": "LangChain: Agent engineering platform for building LLM-powered applications with interoperable components and third-party integrations.",
+    "key_files": [
+      {
+        "name": "LICENSE",
+        "role": "MIT License copyright LangChain, Inc."
+      },
+      {
+        "name": "README.md",
+        "role": "Project overview, quickstart, ecosystem links, and feature descriptions."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": [
+      "Root files provided do not include package.json, pyproject.toml, or build configuration — entry points and dependency management cannot be verified."
+    ]
+  },
+  {
+    "path": "libs",
+    "purpose": "[unreadable]",
+    "error": "validation failed twice: concerns must be string[] len<=5, item<=150"
+  },
+  {
+    "path": ".github",
+    "purpose": "GitHub configuration for workflows, PR templates, code ownership rules, and dependency management across monorepo packages.",
+    "key_files": [
+      {
+        "name": "CODEOWNERS",
+        "role": "Defines code ownership and review responsibilities by folder path."
+      },
+      {
+        "name": "dependabot.yml",
+        "role": "Configures Dependabot for monthly GitHub Actions and uv package updates."
+      },
+      {
+        "name": "PULL_REQUEST_TEMPLATE.md",
+        "role": "PR submission template requiring issue links, commit format, and testing verification."
+      },
+      {
+        "name": "workflows/auto-label-by-package.yml",
+        "role": "GitHub Action to auto-label issues based on package field in issue template."
+      },
+      {
+        "name": "workflows/check_agents_sync.yml",
+        "role": "GitHub Action ensuring CLAUDE.md and AGENTS.md remain synchronized."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3",
+        "actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd"
+      ]
+    },
+    "concerns": [
+      "auto-label-by-package.yml has hardcoded regex to extract package section; workflow fails if issue template changes without updating regex.",
+      "PR template enforces external PRs require prior maintainer approval but depends on manual assignment; no automation blocks unapproved PRs.",
+      "dependabot.yml configuration groups major/minor/patch updates but all directories under uv package-ecosystem use identical grouping strategy."
+    ]
+  },
+  {
+    "path": ".devcontainer",
+    "purpose": "[unreadable]",
+    "error": "validation failed twice: key_files item invalid (name/role)"
+  }
+]

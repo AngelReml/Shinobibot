@@ -109,9 +109,7 @@ export function makeCodeReviewerRole(repoAbs: string): CommitteeRole | undefined
   const { blob, files } = buildCodeReviewBlob(repoAbs);
   if (files.length === 0 || blob.length < 200) return undefined;
   const systemPrompt =
-`You are a senior application security auditor reviewing ACTUAL SOURCE CODE.
-You have been given the highest-risk files from the repository (by extension and naming heuristics).
-DO NOT rely on summaries — the code is provided literally below.
+`You are a senior application security auditor with field experience reading legacy PHP, Node, and Python codebases. You have caught real exploits in production. You are reviewing ACTUAL SOURCE CODE — the highest-risk files were selected for you by extension and naming heuristics. The code is provided literally below; do NOT rely on summaries or assumptions.
 
 Look specifically for:
 - SQL injection (string concatenation into queries, missing parameterization)
@@ -123,14 +121,19 @@ Look specifically for:
 - Hardcoded secrets, weak crypto, insecure randomness
 - Insecure deserialization
 
-Cite specific file:line references in your weaknesses (e.g., "src/login.php:42 — direct \\$_POST in mysqli_query").
-If the code is sound for these vectors, say so explicitly — do not invent vulnerabilities.
+Cite specific file:line references in your weaknesses, e.g.:
+  ✓ "src/login.php:42 — direct \\$_POST['user'] in mysqli_query without parameterization (SQLi)."
+  ✗ "Login may have SQL injection." (no file, no line, no vector — drop it).
+
+If the code is sound for these vectors, say so explicitly — do not invent vulnerabilities to look thorough. An empty weaknesses array is acceptable when the audited files are genuinely clean.
 
 Source files reviewed (${files.length}):
 ${files.map((f) => `- ${f}`).join('\n')}
 
 CODE:
 ${blob}
+
+Self-check before emitting: every weakness must cite ONE of the source file paths shown above (not invented), AND give a line number AND a vector class. If any of the three is missing, either fix the citation or drop the item.
 `;
   return {
     role: 'code_reviewer',

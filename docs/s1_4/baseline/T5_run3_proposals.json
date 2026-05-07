@@ -1,0 +1,66 @@
+{
+  "source": "C:\\Users\\angel\\Desktop\\shinobibot\\committee_reports\\2026-05-06T20-36-02-064Z.json",
+  "proposals": [
+    {
+      "id": "runner-dangerous-command-guard",
+      "file": "src/utils/runner.ts",
+      "motive": "Add a defensive wrapper that enforces isDangerousCommand checks before any execSync call, preventing accidental injection from unsanitized callers.",
+      "risk": "medium",
+      "diff": "diff --git a/src/utils/runner.ts b/src/utils/runner.ts\n--- a/src/utils/runner.ts\n+++ b/src/utils/runner.ts\n@@ -1,5 +1,39 @@\n import { execSync } from 'child_process';\n \n+/**\n+ * Patterns considered dangerous in shell commands. Used to guard against\n+ * accidental injection from unsanitized callers before invoking execSync.\n+ */\n+const DANGEROUS_PATTERNS: RegExp[] = [\n+  /rm\\s+-rf\\s+\\//,      // recursive delete from root\n+  /:\\(\\)\\s*\\{.*\\};:/,   // fork bomb\n+  /\\bmkfs(\\.|\\s)/,       // filesystem format\n+  /\\bdd\\s+if=.*of=\\/dev\\//, // raw device write\n+  />\\s*\\/dev\\/sd[a-z]/,  // redirect to block device\n+  /\\bshutdown\\b|\\breboot\\b|\\bhalt\\b/,\n+  /[;&|`$]\\s*(curl|wget)\\s+[^|]*\\|\\s*(sh|bash)/, // piped remote exec\n+];\n+\n+/**\n+ * Returns true if the given command string matches any known-dangerous pattern.\n+ */\n+export function isDangerousCommand(command: string): boolean {\n+  if (!command || typeof command !== 'string') return true;\n+  return DANGEROUS_PATTERNS.some((pattern) => pattern.test(command));\n+}\n+\n+/**\n+ * Defensive wrapper around execSync that enforces isDangerousCommand checks\n+ * before executing. All internal callers MUST route through this function\n+ * rather than calling execSync directly.\n+ */\n+function safeExecSync(command: string, options: Parameters<typeof execSync>[1]): string | Buffer {\n+  if (isDangerousCommand(command)) {\n+    throw new Error(`[Runner] Refusing to execute dangerous command: ${command}`);\n+  }\n+  return execSync(command, options);\n+}\n+\n /**\n  * Runner utility for Shinobibot to execute system commands.\n  * This is used to trigger the OpenGravity Kernel and other CLI tools.\n@@ -7,7 +41,7 @@ import { execSync } from 'child_process';\n export async function run_command(command: string, cwd: string = process.cwd()): Promise<string> {\n   try {\n     console.log(`[Runner] Executing: ${command}`);\n-    const output = execSync(command, { cwd, encoding: 'utf-8', stdio: 'pipe' });\n+    const output = safeExecSync(command, { cwd, encoding: 'utf-8', stdio: 'pipe' }) as string;\n     return output;\n   } catch (error: any) {\n     const stderr = error.stderr ? error.stderr.toString() : '';",
+      "applicability": "ok"
+    },
+    {
+      "id": "missions-schema-validator",
+      "file": "src/missions/validateMission.ts",
+      "motive": "Provide a JSON-schema validator stub for missions/ files so imperative code in mission configs is rejected before execution.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/src/missions/validateMission.ts\n@@\n+/**\n+ * Mission config validator.\n+ * Missions MUST be declarative JSON. This module rejects any mission file\n+ * that contains executable hooks (e.g. `eval`, `require`, `exec`, `shell`).\n+ */\n+import { readFileSync } from 'fs';\n+\n+const FORBIDDEN_KEYS = ['eval', 'exec', 'shell', 'require', 'spawn', 'cmd'];\n+const FORBIDDEN_PATTERNS = [/\\beval\\s*\\(/, /\\brequire\\s*\\(/, /child_process/];\n+\n+export interface MissionDoc {\n+  name: string;\n+  description?: string;\n+  steps: Array<Record<string, unknown>>;\n+}\n+\n+export function validateMissionObject(doc: unknown): asserts doc is MissionDoc {\n+  if (!doc || typeof doc !== 'object') throw new Error('mission must be an object');\n+  const d = doc as Record<string, unknown>;\n+  if (typeof d.name !== 'string') throw new Error('mission.name must be string');\n+  if (!Array.isArray(d.steps)) throw new Error('mission.steps must be array');\n+  const json = JSON.stringify(doc);\n+  for (const key of FORBIDDEN_KEYS) {\n+    if (json.includes(`\"${key}\"`)) throw new Error(`mission contains forbidden key: ${key}`);\n+  }\n+  for (const pat of FORBIDDEN_PATTERNS) {\n+    if (pat.test(json)) throw new Error(`mission contains forbidden pattern: ${pat}`);\n+  }\n+}\n+\n+export function loadAndValidateMission(path: string): MissionDoc {\n+  const raw = readFileSync(path, 'utf8');\n+  const parsed = JSON.parse(raw);\n+  validateMissionObject(parsed);\n+  return parsed as MissionDoc;\n+}\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    },
+    {
+      "id": "permissions-require-workspace-root",
+      "file": "src/utils/permissions.ts",
+      "motive": "Document and enforce that WORKSPACE_ROOT must be explicit; emit a loud warning when falling back to cwd to remove silent traversal risk.",
+      "risk": "low",
+      "diff": "diff --git a/src/utils/permissions.ts b/src/utils/permissions.ts\n--- a/src/utils/permissions.ts\n+++ b/src/utils/permissions.ts\n@@ -5,9 +5,19 @@ import * as path from 'path';\n  * Prevents directory traversal attacks and restricts access to the workspace.\n  */\n export function validatePath(requestedPath: string, mode: 'read' | 'write' = 'read') {\n-  // In a real production system, this should be tightly bound to the actual workspace root.\n-  // For Shinobibot, we use the current working directory as the workspace root.\n-  const workspaceRoot = process.env.WORKSPACE_ROOT || process.cwd();\n+  // SECURITY: WORKSPACE_ROOT should be set explicitly to the intended sandbox directory.\n+  // Falling back to process.cwd() is risky because the effective root then depends on\n+  // wherever the process happened to be launched, which can silently widen file access.\n+  // We still fall back to cwd to avoid breaking local dev, but emit a loud warning so\n+  // the misconfiguration is visible in logs and CI.\n+  let workspaceRoot = process.env.WORKSPACE_ROOT;\n+  if (!workspaceRoot) {\n+    workspaceRoot = process.cwd();\n+    console.warn(\n+      `[permissions] WARNING: WORKSPACE_ROOT is not set. Falling back to cwd (${workspaceRoot}). ` +\n+      `Set WORKSPACE_ROOT explicitly in production to prevent unintended filesystem access.`\n+    );\n+  }\n   \n   const resolvedPath = path.resolve(requestedPath);",
+      "applicability": "broken",
+      "apply_error": "error: corrupt patch at line 26"
+    },
+    {
+      "id": "a4-run-remove-hardcoded-paths",
+      "file": "scripts/a4_run.ts",
+      "motive": "Replace developer-specific hardcoded paths with environment-variable lookups so the script is portable and does not leak local system structure.",
+      "risk": "low",
+      "diff": "diff --git a/scripts/a4_run.ts b/scripts/a4_run.ts\n--- a/scripts/a4_run.ts\n+++ b/scripts/a4_run.ts\n@@ -4,9 +4,16 @@ import * as fs from 'fs';\n import * as path from 'path';\n import { runRead } from '../src/reader/cli.js';\n \n+const OPENGRAVITY_PATH = process.env.A4_OPENGRAVITY_PATH;\n+const EXECA_PATH = process.env.A4_EXECA_PATH;\n+if (!OPENGRAVITY_PATH || !EXECA_PATH) {\n+  console.error('[a4_run] FATAL: set A4_OPENGRAVITY_PATH and A4_EXECA_PATH env vars to the target repo paths.');\n+  process.exit(1);\n+}\n+\n const TARGETS = [\n-  { label: 'opengravity', name: 'OpenGravity', path: 'C:\\\\Users\\\\angel\\\\Desktop\\\\OpenGravity' },\n-  { label: 'execa', name: 'execa', path: 'C:\\\\Users\\\\angel\\\\Desktop\\\\test_repos\\\\execa' },\n+  { label: 'opengravity', name: 'OpenGravity', path: OPENGRAVITY_PATH },\n+  { label: 'execa', name: 'execa', path: EXECA_PATH },\n ];\n \n async function main() {",
+      "applicability": "ok"
+    },
+    {
+      "id": "killswitch-timeout",
+      "file": "src/runtime/killSwitch.ts",
+      "motive": "Provide a spawn-based kill-switch helper with a 5s timeout and explicit cleanup so PowerShell subprocesses cannot become zombies.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/src/runtime/killSwitch.ts\n@@\n+import { spawn } from 'child_process';\n+\n+export interface KillSwitchOptions {\n+  timeoutMs?: number;\n+  onTimeout?: () => void;\n+}\n+\n+/**\n+ * Run a PowerShell command as part of the kill-switch path with a hard\n+ * timeout and guaranteed child cleanup. Replace any existing direct\n+ * `execSync('powershell ...')` calls in the runtime with this helper.\n+ */\n+export function runKillSwitchPS(script: string, opts: KillSwitchOptions = {}): Promise<number> {\n+  const timeoutMs = opts.timeoutMs ?? 5000;\n+  return new Promise((resolve) => {\n+    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {\n+      stdio: 'ignore',\n+      windowsHide: true,\n+    });\n+    let settled = false;\n+    const timer = setTimeout(() => {\n+      if (settled) return;\n+      settled = true;\n+      try { child.kill('SIGKILL'); } catch { /* ignore */ }\n+      opts.onTimeout?.();\n+      resolve(-1);\n+    }, timeoutMs);\n+    child.on('exit', (code) => {\n+      if (settled) return;\n+      settled = true;\n+      clearTimeout(timer);\n+      resolve(code ?? 0);\n+    });\n+    child.on('error', () => {\n+      if (settled) return;\n+      settled = true;\n+      clearTimeout(timer);\n+      resolve(-2);\n+    });\n+  });\n+}\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    },
+    {
+      "id": "github-actions-ci",
+      "file": ".github/workflows/ci.yml",
+      "motive": "Establish baseline CI with build, lint, npm audit, and a test stub so future regressions and known-vuln deps are caught automatically on every PR.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/.github/workflows/ci.yml\n@@\n+name: ci\n+\n+on:\n+  push:\n+    branches: [main]\n+  pull_request:\n+\n+jobs:\n+  build-and-audit:\n+    runs-on: windows-latest\n+    steps:\n+      - uses: actions/checkout@v4\n+      - uses: actions/setup-node@v4\n+        with:\n+          node-version: '20'\n+          cache: 'npm'\n+      - name: Install\n+        run: npm ci\n+      - name: Lint (best-effort)\n+        run: npm run lint --if-present\n+      - name: Build\n+        run: npm run build --if-present\n+      - name: Test\n+        run: npm test --if-present\n+      - name: npm audit (high+)\n+        run: npm audit --audit-level=high\n+        continue-on-error: true\n+      - name: Grep for hardcoded user paths\n+        shell: pwsh\n+        run: |\n+          $hits = Select-String -Path 'src/**/*.ts','scripts/**/*.ts' -Pattern 'C:\\\\Users\\\\' -ErrorAction SilentlyContinue\n+          if ($hits) { $hits; throw 'Hardcoded user paths detected' }\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    },
+    {
+      "id": "eslint-security-rules",
+      "file": ".eslintrc.security.json",
+      "motive": "Add an ESLint config fragment enabling security-focused rules (no-eval, detect-child-process) for SAST coverage referenced by the CI pipeline.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/.eslintrc.security.json\n@@\n+{\n+  \"plugins\": [\"security\"],\n+  \"extends\": [\"plugin:security/recommended\"],\n+  \"rules\": {\n+    \"no-eval\": \"error\",\n+    \"no-implied-eval\": \"error\",\n+    \"no-new-func\": \"error\",\n+    \"security/detect-child-process\": \"warn\",\n+    \"security/detect-non-literal-fs-filename\": \"warn\",\n+    \"security/detect-unsafe-regex\": \"warn\",\n+    \"security/detect-eval-with-expression\": \"error\"\n+  }\n+}\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    }
+  ]
+}

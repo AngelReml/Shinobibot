@@ -1,0 +1,49 @@
+{
+  "source": "C:\\Users\\angel\\Desktop\\shinobibot\\committee_reports\\2026-05-06T21-50-05-460Z.json",
+  "proposals": [
+    {
+      "id": "add-security-recommendations-doc",
+      "file": "docs/security-recommendations.md",
+      "motive": "Capture the committee's security findings and recommendations in a tracked doc so follow-up patches have a reference and progress can be measured.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/docs/security-recommendations.md\n@@\n+# Security Recommendations (Committee Report 2026-05-06)\n+\n+This document tracks high-priority security recommendations produced by the\n+self-review committee. Each item should be resolved by a follow-up PR and\n+then ticked off below.\n+\n+## High-priority\n+\n+- [ ] **runner.ts command injection hardening.** Refactor `src/utils/runner.ts`\n+  to accept command arguments as an array (not a single string), use\n+  `execFile()` instead of `execSync()`, and add a 30s timeout with signal\n+  handling. LLM-generated command strings must not be passed to a shell.\n+- [ ] **permissions.ts symlink traversal.** Update `src/utils/permissions.ts`\n+  to resolve `WORKSPACE_ROOT` via `path.resolve(process.cwd())` and\n+  `fs.realpathSync()` before boundary checks, so a symlinked cwd cannot\n+  escape the workspace.\n+- [ ] **permissions.ts symlink test.** Add a unit test covering the\n+  symlink-as-cwd case and verify the resolved root is outside an attacker-\n+  controlled link.\n+- [ ] **hermes_watcher.ts retry/backoff.** Implement retry with exponential\n+  backoff, jitter, 429/5xx detection, and a max-retry cap in\n+  `src/watchers/hermes_watcher.ts` to prevent update-check lockup.\n+- [ ] **Lockfile.** Generate and commit `package-lock.json`; pin transitive\n+  dependencies in CI to block semver-range injection from the npm registry.\n+- [ ] **missions/ scan.** Increase the self-scan timeout past 120s or split\n+  `missions/mission.ts` into smaller modules so LLM decision logic is\n+  actually reviewed each cycle.\n+\n+## Non-goals\n+\n+These are intentionally out of scope for the immediate hardening pass but\n+should be revisited:\n+\n+- Full sandboxing of `@nut-tree-fork/nut-js` desktop automation.\n+- Code-signing the SEA binary produced by `build_sea.mjs`.\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    },
+    {
+      "id": "add-permissions-symlink-test-stub",
+      "file": "test/permissions.symlink.test.ts",
+      "motive": "Create a test stub for the symlink-as-cwd traversal case so the recommendation is tracked in CI and implemented incrementally.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/test/permissions.symlink.test.ts\n@@\n+/**\n+ * Regression test stub for src/utils/permissions.ts.\n+ *\n+ * Committee recommendation (2026-05-06): verify WORKSPACE_ROOT cannot be\n+ * escaped when process.cwd() is a symlink pointing outside the intended\n+ * workspace. This test is intentionally a stub; implement once\n+ * permissions.ts is updated to use fs.realpathSync() on the resolved root.\n+ *\n+ * Steps the real test should perform:\n+ *   1. mkdtempSync() a real directory OUTSIDE the workspace.\n+ *   2. symlinkSync() a path inside the workspace -> that directory.\n+ *   3. chdir() into the symlink.\n+ *   4. Import permissions and assert WORKSPACE_ROOT resolves to the real\n+ *      path, and that writes to the real path are rejected as out-of-bounds.\n+ */\n+\n+// TODO(security): implement once permissions.ts gains realpath resolution.\n+// Intentionally no assertions yet so this stub does not mask the gap.\n+export {};\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    },
+    {
+      "id": "add-hermes-backoff-note",
+      "file": "README.md",
+      "motive": "Document the required retry/backoff contract for hermes_watcher.ts so the fix is specified before code changes land.",
+      "risk": "low",
+      "diff": "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -93,6 +93,25 @@ build_sea.mjs     Empaquetado Node SEA\n \n ---\n \n+## Contrato de retry/backoff para `hermes_watcher.ts`\n+\n+Antes de tocar el código, este es el contrato que debe cumplir el watcher de Hermes ante fallos transitorios (timeouts, 5xx, disconnects):\n+\n+- **Política**: reintentos con backoff exponencial + jitter.\n+- **Intentos máximos**: 5 por evento (el primer intento + 4 reintentos).\n+- **Delay base**: 500 ms.\n+- **Fórmula**: `delay_n = min(base * 2^n, cap) + random(0, 250ms)` donde `n` es el número de reintento (0-indexed) y `cap = 30_000 ms`.\n+- **Errores reintetables**: `ETIMEDOUT`, `ECONNRESET`, `ECONNREFUSED`, `EAI_AGAIN`, HTTP 408/425/429/5xx.\n+- **Errores NO reintetables**: 4xx distintos de 408/425/429 (se propagan inmediatamente).\n+- **Respeto a `Retry-After`**: si la respuesta trae `Retry-After` (segundos o fecha), se usa ese valor en lugar de la fórmula, acotado por `cap`.\n+- **Cancelación**: el loop debe abortar si el `AbortSignal` del watcher se dispara, incluso durmiendo en el backoff.\n+- **Observabilidad**: cada reintento emite un log estructurado `{ event, attempt, delay_ms, reason }` y se incrementa la métrica `hermes_watcher_retries_total{reason}`.\n+- **Dead-letter**: al agotar los 5 intentos, el evento se envía a la cola `hermes:dead` con el último error serializado, y se emite `hermes_watcher_dead_total`.\n+\n+Cualquier PR que modifique `hermes_watcher.ts` debe incluir tests que cubran: éxito al primer intento, éxito tras N reintentos, error no reintetable, respeto a `Retry-After`, cancelación por `AbortSignal` y dead-letter al agotar intentos.\n+\n+---\n+\n ## Filosofía\n \n - **Local-first**: la memoria y los archivos viven en tu PC.",
+      "applicability": "ok"
+    },
+    {
+      "id": "add-runner-hardening-todo",
+      "file": "docs/runner-hardening.md",
+      "motive": "Specify the execFile()/array-arg/timeout contract for src/utils/runner.ts so the refactor has a reviewable target before code changes.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/docs/runner-hardening.md\n@@\n+# runner.ts hardening spec\n+\n+`src/utils/runner.ts` currently shells out via `execSync(commandString)`.\n+LLM-generated strings reach this call directly, which means any prompt\n+injection that produces e.g. `foo & rmdir /s /q C:\\\\` is a shell command.\n+\n+## Required contract for the refactor\n+\n+1. **Array arguments only.** The public API MUST accept `(cmd: string,\n+   args: string[], opts?)`. No single-string overload, no template-literal\n+   helper — those re-introduce shell parsing.\n+2. **execFile, not exec.** Use `child_process.execFile` (or `spawn` with\n+   `shell: false`). This guarantees no `/bin/sh` or `cmd.exe` interpolation.\n+3. **Timeout.** Default `timeout: 30_000` ms, killable via `AbortSignal`.\n+   On timeout, send SIGTERM then SIGKILL after 2s grace.\n+4. **Allowlist.** The `cmd` value MUST be matched against a static\n+   allowlist of executable basenames (e.g. `git`, `node`, `npm`, `pwsh`)\n+   before invocation. Absolute paths must be resolved and re-checked.\n+5. **Output caps.** Cap captured stdout/stderr at 1 MiB each; truncate with\n+   a marker rather than buffering unbounded.\n+6. **No `shell: true`.** Ever. Reviewers should reject any PR that adds it.\n+\n+## Migration\n+\n+Callers that construct shell pipelines (`a | b > c`) must be rewritten to\n+compose multiple `runner()` calls in JS, or to use a dedicated, reviewed\n+helper that explicitly opts into shell semantics with a comment justifying\n+the risk.\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    },
+    {
+      "id": "add-lockfile-ci-note",
+      "file": "docs/dependency-pinning.md",
+      "motive": "Document the lockfile and CI pinning policy so the 'commit package-lock.json' recommendation has an owner and enforcement target.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/docs/dependency-pinning.md\n@@\n+# Dependency pinning policy\n+\n+## Why\n+\n+Without a committed lockfile, `npm install` resolves semver ranges at\n+install time. A compromised minor or patch release of any transitive\n+dependency would be silently pulled into the agent's runtime, which has\n+filesystem write, shell execution, and desktop automation privileges.\n+\n+## Policy\n+\n+1. `package-lock.json` MUST be committed to the repository.\n+2. CI MUST run `npm ci` (not `npm install`), which fails if\n+   `package-lock.json` is out of sync with `package.json`.\n+3. Dependency updates go through a dedicated PR that shows the lockfile\n+   diff. Reviewers should skim added/changed transitive packages for\n+   unexpected maintainers or scope changes.\n+4. `npm audit --production` runs in CI and blocks on `high` or `critical`\n+   advisories. `moderate` advisories are logged but non-blocking.\n+5. Production builds (including `build_sea.mjs`) MUST be produced from a\n+   clean `npm ci` install, never from a developer's mutated `node_modules`.\n+\n+## Exceptions\n+\n+None. If a dependency cannot be pinned (e.g. a git URL), it must be\n+vendored into the repo and reviewed as source.\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    }
+  ]
+}

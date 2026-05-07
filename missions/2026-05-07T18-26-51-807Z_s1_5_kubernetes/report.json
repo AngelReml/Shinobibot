@@ -1,0 +1,85 @@
+{
+  "repo_purpose": "Open source container orchestration system (Kubernetes) for managing containerized applications across multiple hosts, with tooling for XML test output pruning, Windows service integration, staged repository management, and OpenAPI specifications.",
+  "architecture_summary": "## Repository Structure\n\n**Root (`/`)**: Go module root defining dependencies and build configuration under Apache 2.0. Key external deps include cadvisor, cobra, OpenTelemetry, and containernetworking plugins.\n\n**`api/`**: OpenAPI v2/v3 specifications for all Kubernetes APIs, including OIDC discovery and vendor extensions. No Go code — purely declarative specs.\n\n**`pkg/`**: Runtime packages including Windows service lifecycle management (`pkg/windows/service/service.go`) and volume package documentation for kubelet integration.\n\n**`staging/`**: Staging area for split repositories (e.g., `k8s.io/streaming`) that are published independently. Acts as a monorepo shim with ownership and contribution guidance.\n\n**`cmd/prune-junit-xml` (`.`)**: Standalone CLI tool parsing and pruning JUnit XML test output, with a klog parser in `logparse/logparse.go` and optional SIG ownership label appending.\n\n**`misc/`**: Unreadable due to timeout — contents and responsibilities unknown.\n\n## Key Patterns\n- Staged repos under `staging/src/k8s.io/` are synced to standalone repos.\n- Vendor directory managed by custom scripts (`hack/pin-dependency.sh`), not standard `go mod vendor`.\n- Windows-specific service control uses `unsafe` and direct Windows API calls.\n- Go version pinned to 1.26.0 via godebug directive.",
+  "modules": [
+    {
+      "name": "root",
+      "path": "/",
+      "responsibility": "Go module root for Kubernetes; defines all dependencies, build constraints, and project metadata."
+    },
+    {
+      "name": "prune-junit-xml",
+      "path": ".",
+      "responsibility": "CLI tool that prunes JUnit XML test output by removing large logs and appending SIG ownership labels."
+    },
+    {
+      "name": "pkg",
+      "path": "pkg",
+      "responsibility": "Runtime packages: Windows service lifecycle handler and kubelet volume package documentation."
+    },
+    {
+      "name": "staging",
+      "path": "staging",
+      "responsibility": "Staging area for independently published Kubernetes sub-repositories (e.g., k8s.io/streaming)."
+    },
+    {
+      "name": "api",
+      "path": "api",
+      "responsibility": "OpenAPI v2/v3 specifications for Kubernetes APIs, OIDC discovery, and vendor extension documentation."
+    }
+  ],
+  "entry_points": [
+    {
+      "file": "prunexml.go",
+      "kind": "CLI main entry point for prune-junit-xml tool"
+    },
+    {
+      "file": "windows\\service\\service.go",
+      "kind": "Windows service control handler entry point"
+    }
+  ],
+  "risks": [
+    {
+      "severity": "medium",
+      "description": "misc/ sub-report is [unreadable] due to 90s timeout — contents, responsibilities, and any critical files in that directory are unknown."
+    },
+    {
+      "severity": "medium",
+      "description": "prunexml.go uses panic(err) on nil error and panic(fmt.Errorf(...)) in lookupSubmatch, making error handling brittle and unrecoverable."
+    },
+    {
+      "severity": "medium",
+      "description": "pkg/windows/service uses a global variable `thehandler` and imports `unsafe` for direct Windows API memory access — thread-safety and portability concern."
+    },
+    {
+      "severity": "medium",
+      "description": "No unit tests visible for Windows service handler logic in pkg/windows/service/service.go — service lifecycle correctness is unverified."
+    },
+    {
+      "severity": "medium",
+      "description": "Vendor directory is managed via custom hack/ scripts rather than standard `go mod vendor`, increasing risk of drift and reproducibility issues."
+    },
+    {
+      "severity": "low",
+      "description": "Using k8s.io/kubernetes as a library is explicitly unsupported per root go.mod, but it appears as an internal dependency — may cause compatibility issues."
+    },
+    {
+      "severity": "low",
+      "description": "Go version pinned to 1.26.0 via godebug directive; upgrading Go runtime requires coordinated changes across the generated go.mod."
+    },
+    {
+      "severity": "low",
+      "description": "TODO comment in lookupSubmatch (prunexml.go) indicates incomplete implementation for storing regex match fields."
+    },
+    {
+      "severity": "low",
+      "description": "pkg/windows/service relies on os.Exit(0) for graceful Windows SCM exit — bypasses deferred cleanup and may hide shutdown errors."
+    }
+  ],
+  "evidence": {
+    "subagent_count": 6,
+    "tokens_total": 0,
+    "duration_ms": 90273,
+    "subreports_referenced": 6
+  }
+}
