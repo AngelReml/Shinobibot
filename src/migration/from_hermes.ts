@@ -330,7 +330,7 @@ function writeShinobiConfigFromHermes(cfg: HermesConfig, target: string, opts: I
   const backup = backupBeforeWrite(target);
   const shinobiCfg = {
     opengravity_api_key: cfg.api_key ?? '',
-    opengravity_url: cfg.api_url ?? 'https://kernel.zapweave.com',
+    opengravity_url: cfg.api_url ?? 'http://localhost:9900',
     language: (cfg.language === 'en' ? 'en' : 'es'),
     memory_path: cfg.memory_path ?? path.join(SHINOBI_DEFAULT, 'memory.db'),
     onboarded_at: new Date().toISOString(),

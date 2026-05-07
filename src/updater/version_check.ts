@@ -71,7 +71,7 @@ function compareSemver(a: string, b: string): number {
 }
 
 export async function fetchManifest(opts: CheckOptions = {}): Promise<VersionManifest> {
-  const base = opts.baseUrl ?? process.env.OPENGRAVITY_URL ?? 'https://kernel.zapweave.com';
+  const base = opts.baseUrl ?? process.env.OPENGRAVITY_URL ?? 'http://localhost:9900';
   const url = base.replace(/\/$/, '') + '/v1/version';
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), opts.timeoutMs ?? 5000);

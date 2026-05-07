@@ -1,0 +1,42 @@
+{
+  "repo_purpose": "Repository purpose unknown — all sub-reports timed out and could not be read.",
+  "architecture_summary": "No architectural information could be extracted. All 6 sub-reports returned timeout errors (90000ms). Folders observed: `/`, `compiler`, `packages`, `scripts`, `fixtures`, `misc/`.",
+  "modules": [],
+  "entry_points": [],
+  "risks": [
+    {
+      "severity": "high",
+      "description": "Root folder `/` sub-report unreadable — timeout 90000ms. Repo purpose, entry points, and top-level config unknown."
+    },
+    {
+      "severity": "high",
+      "description": "Module `compiler` sub-report unreadable — timeout 90000ms. Compiler logic and structure are entirely unknown — gap."
+    },
+    {
+      "severity": "high",
+      "description": "Module `packages` sub-report unreadable — timeout 90000ms. Package structure and dependencies are entirely unknown — gap."
+    },
+    {
+      "severity": "medium",
+      "description": "Module `scripts` sub-report unreadable — timeout 90000ms. Build/tooling scripts unknown — gap."
+    },
+    {
+      "severity": "medium",
+      "description": "Module `fixtures` sub-report unreadable — timeout 90000ms. Test fixtures and their scope are unknown — gap."
+    },
+    {
+      "severity": "medium",
+      "description": "Module `misc/` sub-report unreadable — timeout 90000ms. Miscellaneous content unknown — gap."
+    },
+    {
+      "severity": "high",
+      "description": "All 6 sub-reports timed out. No facts could be verified or cross-checked. Full manual review of the repository is required."
+    }
+  ],
+  "evidence": {
+    "subagent_count": 6,
+    "tokens_total": 0,
+    "duration_ms": 90276,
+    "subreports_referenced": 6
+  }
+}

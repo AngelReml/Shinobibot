@@ -22,23 +22,38 @@ export interface LLMClient {
   chat(messages: { role: string; content: string }[], opts?: { model?: string; temperature?: number }): Promise<string>;
 }
 
-const SYSTEM_PROMPT = `You are a sub-agent reading one folder of a code repository.
-Return ONE JSON object matching this exact schema (no prose, no markdown fence):
+const SYSTEM_PROMPT = `You are a static code analyst reading exactly ONE folder of a repository as part of a hierarchical reading swarm. Your scope is this folder only — siblings are read by other workers in parallel. Stay factual; another worker will synthesize.
 
+Return ONE JSON object matching this exact schema (no prose, no markdown fence):
 {
   "path": string,
   "purpose": string (max 200 chars),
-  "key_files": [{"name": string, "role": string (max 100)}]   // max 8
+  "key_files": [{"name": string, "role": string (max 100)}],   // max 8
   "dependencies": {"internal": string[], "external": string[]},
   "concerns": string[]   // max 5, each <=150 chars
 }
 
 Rules:
-- If you cannot read a file, set the field to null. Do NOT invent paths or function names.
-- "internal" dependencies = paths within this repo (use relative paths like "src/utils/foo").
-- "external" dependencies = npm/PyPI/etc package names you literally see imported.
-- "concerns" = factual observations only (TODO comments, dead code, missing tests). No speculation.
-- All array fields are required (use [] when empty). Output JSON only.`;
+- If you cannot read a file (binary, truncated, missing), set the field to null. Do NOT invent paths, function names, or dependencies.
+- "internal" = paths within THIS repo (use relative paths like "src/utils/foo"). Verify by checking the file content shown — if a path isn't imported in the visible code, omit it.
+- "external" = npm/PyPI/etc package names you literally see imported. Quote the import line if uncertain.
+- "concerns" = factual observations only (TODO comments, dead code, missing tests, known anti-patterns). No speculation. No "could be better" — only what IS.
+- All array fields are required (use [] when empty). Output JSON only.
+
+Example of an acceptable output (real, from p-event audit):
+{
+  "path": "/",
+  "purpose": "p-event promisifies event emitter results, simplifying async operations in Node.js and browsers.",
+  "key_files": [
+    {"name": "package.json", "role": "Project metadata, dependencies, and scripts."},
+    {"name": "readme.md", "role": "Documentation for usage and API details."}
+  ],
+  "dependencies": {"internal": [], "external": ["p-timeout", "@types/node", "ava", "delay", "tsd", "xo"]},
+  "concerns": []
+}
+Counter-example to avoid: a "purpose" like "this folder probably contains the main logic" — speculation, no evidence. Or listing "lodash" as external when no file imports it — invention.
+
+Self-check before emitting: every entry in dependencies.internal/external must appear in at least one of the file blocks above. Every key_files name must be one of the files actually shown. If you can't verify, omit.`;
 
 function buildUserPrompt(task: SubTask, fileContents: { name: string; content: string }[]): string {
   const fileBlocks = fileContents
@@ -103,6 +118,17 @@ export async function runSubAgent(
     return tryParseJSON(raw);
   };
 
+  // F-01 — sub-report es "sospechosamente vacío" cuando validación pasa pero
+  // todos los arrays vienen vacíos para una carpeta que SÍ tenía archivos
+  // visibles. No es un fallo de protocolo, es señal de que el LLM no extrajo
+  // nada. Lo tratamos como degradación, NO como sub-report válido.
+  const hadVisibleFiles = task.files_to_read.length > 0;
+  const isEmptyShape = (r: SubReport): boolean =>
+    r.key_files.length === 0 &&
+    r.dependencies.internal.length === 0 &&
+    r.dependencies.external.length === 0 &&
+    r.concerns.length === 0;
+
   // First attempt
   let parsed: unknown;
   try {
@@ -112,7 +138,40 @@ export async function runSubAgent(
   }
 
   let v = validateSubReport(parsed);
-  if (v.ok) return v.value;
+  if (v.ok) {
+    if (!hadVisibleFiles || !isEmptyShape(v.value)) return v.value;
+    // F-01: sospechosamente vacío. Retry con guidance específica.
+    try {
+      parsed = await callOnce(
+        `Your previous response had ALL arrays empty (key_files, dependencies.internal, dependencies.external, concerns) for this folder. The folder has ${task.files_to_read.length} visible file blocks above — that is suspicious. Re-read the file contents more carefully and emit at least:\n` +
+        `- file names actually shown (in key_files)\n` +
+        `- the most-imported package or import statement (in dependencies.external)\n` +
+        `- any TODO comments, dead code, or known anti-patterns you observe (in concerns)\n` +
+        `If the folder genuinely has nothing extractable (only binary assets, only generated code, etc.), return arrays empty AGAIN — that confirms it is intentionally empty, not a missed read.`,
+      );
+    } catch (e: any) {
+      return {
+        path: task.sub_path,
+        purpose: '[degraded-empty]',
+        error: `suspicious-empty + retry call failed: ${e?.message ?? String(e)}`,
+      };
+    }
+    const v2 = validateSubReport(parsed);
+    if (v2.ok) {
+      if (!isEmptyShape(v2.value)) return v2.value;
+      // Sigue vacío tras retry: marcar como degraded, NO devolver como válido.
+      return {
+        path: task.sub_path,
+        purpose: '[degraded-empty]',
+        error: `suspicious empty subreport — ${task.files_to_read.length} files visible but no content extracted (after empty-aware retry)`,
+      };
+    }
+    return {
+      path: task.sub_path,
+      purpose: '[degraded-empty]',
+      error: `suspicious-empty + retry validation failed: ${v2.error}`,
+    };
+  }
 
   // Retry once with the validation error as additional guidance
   try {
@@ -128,7 +187,15 @@ export async function runSubAgent(
   }
 
   v = validateSubReport(parsed);
-  if (v.ok) return v.value;
+  if (v.ok) {
+    if (!hadVisibleFiles || !isEmptyShape(v.value)) return v.value;
+    // Pasó validación tras retry pero está vacío con archivos visibles.
+    return {
+      path: task.sub_path,
+      purpose: '[degraded-empty]',
+      error: `suspicious empty subreport after validation retry — ${task.files_to_read.length} files visible`,
+    };
+  }
 
   return {
     path: task.sub_path,

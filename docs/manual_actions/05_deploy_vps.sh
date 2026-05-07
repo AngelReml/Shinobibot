@@ -5,7 +5,7 @@ set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-/root/OpenGravity}"
 SERVICE="${SERVICE:-opengravity.service}"
-KERNEL_URL="${KERNEL_URL:-https://kernel.zapweave.com}"
+KERNEL_URL="${KERNEL_URL:-${OPENGRAVITY_URL:-http://localhost:9900}}"
 KEY="${KEY:?Set KEY=<your X-Shinobi-Key> before running}"
 
 cd "$REPO_DIR"

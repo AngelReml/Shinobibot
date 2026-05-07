@@ -59,35 +59,57 @@ export interface HierarchicalOptions {
   missionId?: string;
 }
 
-const SYNTH_SYSTEM_FINAL = `You are a senior architect synthesizing a single repo report from N sub-reports (which themselves may already be syntheses of deeper sub-trees).
+const SYNTH_SYSTEM_FINAL = `You are a senior software architect synthesizing N parallel sub-reports into a single repository overview. The sub-reports may be either leaf-level (one folder each) OR branch-level (a sub-supervisor that already consolidated its own leaves) — treat both the same way: every fact you emit must trace back to one of them.
+
 Return ONE JSON object matching this exact schema (no prose, no fence):
 {
   "repo_purpose": string (max 300),
   "architecture_summary": string (max 1500, markdown allowed),
   "modules": [{"name": string, "path": string, "responsibility": string (max 200)}],
   "entry_points": [{"file": string, "kind": string}],
-  "risks": [{"severity": "low"|"medium"|"high", "description": string (max 200)}],
+  "risks": [{"severity": "low"|"medium"|"high", "description": string (max 200, split into multiple risks if you need more detail)}],
   "evidence": {"subagent_count": number, "tokens_total": number, "duration_ms": number, "subreports_referenced": number}
 }
-Rules:
-- Detect contradictions between sub-reports and surface them as risks (severity medium/high).
-- If a sub-report has "[unreadable]", mention it as a risk severity medium.
-- Do NOT invent files or modules that no sub-report mentioned.
-- Output JSON only.`;
 
-const SYNTH_SYSTEM_INTERMEDIATE = `You are a sub-supervisor consolidating leaf sub-reports for ONE branch of a repository.
+Rules:
+- Detect contradictions between sub-reports and surface them as risks (severity medium/high) with a one-line description naming the conflicting reports.
+- If a sub-report has "[unreadable]", mention it as a risk severity medium ("module X not read — gap").
+- If a sub-report has "[degraded-empty]" (F-01: visible files but no extraction), mention it as a risk severity low ("module X read but extraction empty — verify manually").
+- Do NOT invent files, modules, or entry_points that no sub-report mentioned.
+- Branch-level sub-reports describe a folder's role; do not collapse multiple branches into one module unless they truly are one module split across folders.
+- Use the literal "path" from sub-reports for modules[].path. Do not normalize, prettify, or shorten.
+- Each risks[].description MUST be ≤200 chars. If you need more detail, split into two adjacent risks rather than overflowing one.
+- Output JSON only.
+
+Acceptable risk: "[HIGH] Two sub-reports disagree on license: src/ says ISC, root says MIT." (concrete, traces to inputs).
+Unacceptable risk: "[MEDIUM] Code quality could be improved." (vague, untraceable).
+
+Self-check before emitting: every modules[].path must equal a path from at least one input sub-report (whether leaf or branch). Cascade is allowed; invention is not. Every risks[].description must be ≤200 chars — count before emitting.`;
+
+const SYNTH_SYSTEM_INTERMEDIATE = `You are a sub-supervisor consolidating leaf sub-reports into a single SubReport for ONE branch of a repository. The branch is a folder (e.g. "src/audit") whose children were each read by their own leaf worker. Your job is aggregation — you do NOT read code yourself.
+
 Return ONE JSON object matching the SubReport schema, treating this branch as a single folder:
 {
-  "path": string,
-  "purpose": string (max 200),
-  "key_files": [{"name": string, "role": string (max 100)}],   // max 8, picked from leaves
+  "path": string,                                            // the branch path, copied verbatim
+  "purpose": string (max 200),                              // what THIS branch does as a whole
+  "key_files": [{"name": string, "role": string (max 100)}], // max 8, picked from leaves
   "dependencies": {"internal": string[], "external": string[]},
-  "concerns": string[]   // max 5, each <=150 chars
+  "concerns": string[]                                       // max 5, each <=150 chars
 }
+
 Rules:
-- Aggregate the leaves you receive. Do NOT invent new files or paths.
-- "purpose" describes the BRANCH, not any single leaf.
-- Output JSON only.`;
+- Aggregate the leaves you receive. Do NOT invent new files, paths, or dependencies that no leaf mentioned.
+- "purpose" describes the BRANCH, not any single leaf. Avoid copy-pasting a leaf's purpose verbatim — abstract one level up.
+- "key_files" must be picked from the leaves' key_files; pick the most representative 8 max, prefer files that appear in multiple leaves' contexts (entry points, configs, indices).
+- "dependencies" union the leaves' dependencies, deduplicated.
+- "concerns" carry forward only the concerns that affect the branch as a whole. Drop leaf-specific concerns ("TODO at line 42 of foo.ts") in favor of branch-wide ones ("no test coverage in any leaf").
+- Output JSON only.
+
+Acceptable purpose: "Hierarchical reading swarm — leaf SubAgent + supervisor RepoReader + depth=2 HierarchicalReader." (abstraction at branch level).
+Unacceptable purpose: "Files for the reader." (no information).
+
+Self-check: every key_files[].name must appear in at least one leaf's key_files. Every external dep must appear in at least one leaf's dependencies.external. If you can't trace it, drop it.`;
+
 
 function nowMs(start: number): number { return Date.now() - start; }
 
@@ -135,8 +157,8 @@ export class HierarchicalReader {
     this.llm = opts.llm;
     this.depth = opts.depth ?? 1;
     this.budget = opts.budget ?? DEFAULT_BUDGET;
-    this.subagentModel = opts.subagentModel ?? 'claude-haiku-4-5';
-    this.synthModel = opts.synthModel ?? 'claude-opus-4-7';
+    this.subagentModel = opts.subagentModel ?? 'z-ai/glm-4.7-flash';
+    this.synthModel = opts.synthModel ?? 'claude-sonnet-4-6';
     this.onProgress = opts.onProgress ?? (() => {});
     this.knowledgeInjector = opts.knowledgeInjector;
     this.missionId = opts.missionId ?? 'unknown';

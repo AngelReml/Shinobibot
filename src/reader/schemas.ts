@@ -11,7 +11,13 @@ export interface SubReport {
 
 export interface SubReportError {
   path: string;
-  purpose: '[unreadable]';
+  /**
+   * Sentinel describing why this sub-report degraded:
+   * - '[unreadable]' — LLM could not parse files / call failed / validation failed twice.
+   * - '[degraded-empty]' — F-01: validation passed but all arrays empty for a folder
+   *   that had visible files. Not silent: synthesizer treats it as a low-severity gap.
+   */
+  purpose: '[unreadable]' | '[degraded-empty]';
   error: string;
 }
 

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const PROD_URL = 'https://kernel.zapweave.com';
+const PROD_URL = process.env.OPENGRAVITY_URL || "http://localhost:9900";
 const KEY = 'sk_dev_master';
 const headers = { 'X-Shinobi-Key': KEY, 'Content-Type': 'application/json' };
 

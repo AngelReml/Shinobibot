@@ -55,9 +55,10 @@ export class OpenGravityBridge {
         const lang = detectLanguage(cleanCodeFiltered);
         const scriptPath = path.join(tmpDir, 'sre_task.tmp');
 
+        const OG_ROOT = process.env.OPENGRAVITY_PATH || path.join(process.cwd(), '..', 'OpenGravity');
         const VENV_PYTHON = process.platform === 'win32'
-            ? 'C:\\Users\\angel\\Desktop\\OpenGravity\\sandbox_venv\\Scripts\\python.exe'
-            : 'C:/Users/angel/Desktop/OpenGravity/sandbox_venv/bin/python';
+            ? path.join(OG_ROOT, 'sandbox_venv', 'Scripts', 'python.exe')
+            : path.join(OG_ROOT, 'sandbox_venv', 'bin', 'python');
 
         let finalPath: string;
         let cmd: string;

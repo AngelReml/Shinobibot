@@ -83,6 +83,46 @@ function countFilesRecursive(dirAbs: string, cap = 200): number {
   return n;
 }
 
+// F-04 — scoring estructural sobre el filecount.
+// Promueve directorios donde vive el código real (cmd/, pkg/, libs/, packages/...)
+// sobre fixtures, tests, vendor o builds. Detecta también la presencia de un
+// manifest de módulo (package.json, pyproject.toml, etc.) como bonus de
+// "ciudadanía estructural".
+const STRUCTURAL_NAMES = new Set([
+  'src', 'lib', 'libs', 'core', 'app', 'server', 'cmd', 'api',
+  'internal', 'packages', 'pkg', 'staging', 'cli', 'compiler',
+  'engine', 'runtime', 'kernel',
+]);
+const FIXTURE_LIKE_NAMES = new Set([
+  'fixture', 'fixtures', 'test', 'tests', '__tests__', 'example',
+  'examples', 'demo', 'demos', 'sandbox', 'sandboxes', 'playground',
+  'benchmark', 'benchmarks', 'spec', 'specs', 'mocks', '__mocks__',
+  'testdata', 'test-data', 'e2e',
+]);
+const HEAVY_PENALTY_NAMES = new Set([
+  'vendor', 'vendored', 'third_party', 'thirdparty', 'node_modules',
+  'dist', 'build', 'target', 'out', 'coverage', '_build', '.cache',
+]);
+const MODULE_MANIFEST_FILES = [
+  'package.json', 'pyproject.toml', 'Cargo.toml', 'go.mod', 'pom.xml',
+  'Gemfile', 'composer.json', 'mix.exs', 'build.gradle', 'CMakeLists.txt',
+];
+
+export function scoreDirectory(absPath: string, name: string, fileCount: number): number {
+  let s = Math.min(fileCount, 200);
+  const lower = name.toLowerCase();
+  if (STRUCTURAL_NAMES.has(lower)) s += 80;
+  if (FIXTURE_LIKE_NAMES.has(lower)) s -= 100;
+  if (HEAVY_PENALTY_NAMES.has(lower)) s -= 200;
+  // Manifest de módulo en la raíz del directorio: bonus.
+  for (const m of MODULE_MANIFEST_FILES) {
+    try {
+      if (fs.existsSync(path.join(absPath, m))) { s += 50; break; }
+    } catch { /* ignore */ }
+  }
+  return s;
+}
+
 function gatherFiles(dirAbs: string, cap: number): string[] {
   const files: string[] = [];
   const stack = [dirAbs];
@@ -126,9 +166,13 @@ export function partition(repoAbs: string, budget: Budget = DEFAULT_BUDGET): Par
     .filter((f) => ROOT_META_FILES.has(f.name) || /^README/i.test(f.name))
     .map((f) => f.abs);
 
-  // Score directories by file count (rough proxy for "weight").
-  const ranked = dirs.map((d) => ({ ...d, files: countFilesRecursive(d.abs) }))
-    .sort((a, b) => b.files - a.files);
+  // F-04 — Score directories combinando filecount con relevancia estructural.
+  // (Antes: sólo filecount → fixtures grandes ganaban a módulos core pequeños.)
+  const ranked = dirs.map((d) => {
+      const files = countFilesRecursive(d.abs);
+      return { ...d, files, score: scoreDirectory(d.abs, d.name, files) };
+    })
+    .sort((a, b) => b.score - a.score);
 
   const maxBranches = Math.max(1, budget.maxSubagents - 1); // keep one slot for root_meta
   const heavy = ranked.slice(0, maxBranches - 1);
@@ -174,23 +218,31 @@ export function partition(repoAbs: string, budget: Budget = DEFAULT_BUDGET): Par
   return { rootMeta, branches };
 }
 
-const SYNTH_SYSTEM = `You are a senior architect synthesizing a single repo report from N sub-reports.
-Return ONE JSON object matching this exact schema (no prose, no markdown fence):
+const SYNTH_SYSTEM = `You are a senior software architect synthesizing N parallel folder reports into a single repository overview. You have NOT read the code yourself — every fact must trace back to one of the sub-reports below. Your job is to detect agreements, contradictions, and gaps.
 
+Return ONE JSON object matching this exact schema (no prose, no fence):
 {
   "repo_purpose": string (max 300),
   "architecture_summary": string (max 1500, markdown allowed),
   "modules": [{"name": string, "path": string, "responsibility": string (max 200)}],
   "entry_points": [{"file": string, "kind": string}],
-  "risks": [{"severity": "low"|"medium"|"high", "description": string (max 200)}],
+  "risks": [{"severity": "low"|"medium"|"high", "description": string (max 200, split into multiple risks if you need more detail)}],
   "evidence": {"subagent_count": number, "tokens_total": number, "duration_ms": number, "subreports_referenced": number}
 }
 
 Rules:
-- Detect contradictions between sub-reports and surface them as risks (severity medium or high).
-- If a sub-report has "[unreadable]", mention it as a risk severity medium.
-- Do NOT invent files or modules that no sub-report mentioned.
-- Output JSON only.`;
+- Detect contradictions between sub-reports and surface them as risks (severity medium or high) with a one-line description naming the conflicting reports.
+- If a sub-report has "[unreadable]", mention it as a risk severity medium ("module X not read — gap").
+- If a sub-report has "[degraded-empty]" (F-01: visible files but no extraction), mention it as a risk severity low ("module X read but extraction empty — verify manually").
+- Do NOT invent files, modules, or entry_points that no sub-report mentioned. If a path appears nowhere in the sub-reports, do not put it in the output.
+- Use the literal "path" from sub-reports for modules[].path. Do not normalize, prettify, or shorten.
+- Each risks[].description MUST be ≤200 chars. If you need more detail, split into two adjacent risks rather than overflowing one.
+- Output JSON only.
+
+Acceptable risk example: "[HIGH] Two sub-reports disagree on license: src/ says ISC, root says MIT." (concrete, traces to sub-reports).
+Unacceptable risk example: "[MEDIUM] Code quality could be improved." (vague, untraceable, speculative).
+
+Self-check before emitting: every modules[].path and every entry_points[].file must appear literally in at least one sub-report's path or key_files[].name. If you can't trace it, drop it. Every risks[].description must be ≤200 chars — count before emitting.`;
 
 export interface ReadResult {
   ok: true;
@@ -222,8 +274,8 @@ export class RepoReader {
   constructor(opts: RepoReaderOptions) {
     this.llm = opts.llm;
     this.budget = opts.budget ?? DEFAULT_BUDGET;
-    this.subagentModel = opts.subagentModel ?? 'claude-haiku-4-5';
-    this.synthModel = opts.synthModel ?? 'claude-opus-4-7';
+    this.subagentModel = opts.subagentModel ?? 'z-ai/glm-4.7-flash';
+    this.synthModel = opts.synthModel ?? 'claude-sonnet-4-6';
     this.onProgress = opts.onProgress ?? (() => {});
   }
 

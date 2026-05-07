@@ -136,7 +136,7 @@ export async function runFirstRunWizard(): Promise<ShinobiConfig> {
 
   const config: ShinobiConfig = {
     opengravity_api_key: apiKey,
-    opengravity_url: 'https://kernel.zapweave.com',
+    opengravity_url: process.env.OPENGRAVITY_URL || 'http://localhost:9900',
     language: lang as 'es' | 'en',
     memory_path: memoryPath,
     onboarded_at: new Date().toISOString(),

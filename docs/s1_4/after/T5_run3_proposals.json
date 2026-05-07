@@ -1,0 +1,57 @@
+{
+  "source": "C:\\Users\\angel\\Desktop\\shinobibot\\committee_reports\\2026-05-06T22-03-08-753Z.json",
+  "proposals": [
+    {
+      "id": "add-reader-module-doc",
+      "file": "docs/reader-module.md",
+      "motive": "Document the phantom src/reader/* dependency referenced by scripts/ so reviewers can resolve or remove it; additive doc stub avoids touching unseen code.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/docs/reader-module.md\n@@\n+# Reader Module Status\n+\n+## Problem\n+\n+Several scripts import from `src/reader/cli.js` and `src/reader/self.js`:\n+\n+- `scripts/a3_smoke.ts`\n+- `scripts/b1_run.ts`\n+- `scripts/b1_smoke.ts`\n+- `scripts/b1_diff_run.ts`\n+\n+However, the most recent automated audit did not enumerate a `src/reader/`\n+subfolder in the module map. This leaves the audit unable to verify the\n+boundary between runtime (`src/`) and tooling (`scripts/`).\n+\n+## Required follow-up\n+\n+One of the following must happen before the next self-audit run:\n+\n+1. Confirm `src/reader/cli.ts` and `src/reader/self.ts` (or `.js`) exist,\n+   and ensure they are included in the module map consumed by the audit\n+   tooling.\n+2. If the reader module has been moved or renamed, update the importing\n+   scripts to point at the real location.\n+3. If the reader module has been deleted, remove the dangling imports.\n+\n+Until this is resolved, treat any audit conclusion about `src/` boundary\n+integrity as provisional.\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    },
+    {
+      "id": "scripts-readme-audit-root",
+      "file": "README.md",
+      "motive": "Document SHINOBI_AUDIT_ROOT contract so scripts/a4_run.ts can be refactored away from hardcoded C:\\Users\\angel paths; doc-first proposal keeps patch reviewable.",
+      "risk": "low",
+      "diff": "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -93,6 +93,12 @@ build_sea.mjs     Empaquetado Node SEA\n \n ---\n \n+## Variables de entorno clave\n+\n+- `SHINOBI_AUDIT_ROOT` — raíz donde los scripts de auditoría (p.ej. `scripts/a4_run.ts`) escriben logs y artefactos. Si no está definida, se usa `./audit` relativo al repo. **Nunca hardcodear rutas absolutas tipo `C:\\Users\\...` en código**; leer siempre de esta variable para que funcione en cualquier máquina/CI.\n+\n+---\n+\n ## Filosofía\n \n - **Local-first**: la memoria y los archivos viven en tu PC.",
+      "applicability": "ok"
+    },
+    {
+      "id": "missions-index-manifest-doc",
+      "file": "README.md",
+      "motive": "Propose an index manifest to break the 90s scan timeout on missions/ so audit tooling can enumerate incrementally, per consensus recommendation.",
+      "risk": "low",
+      "diff": "diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -93,6 +93,15 @@ build_sea.mjs     Empaquetado Node SEA\n \n ---\n \n+## Auditoría de misiones\n+\n+Para evitar el timeout de 90s al escanear `missions/`, las herramientas de\n+auditoría deben leer el manifiesto incremental `missions/INDEX.json` en lugar\n+de recorrer el directorio completo. El manifiesto lista misiones por shard y\n+permite enumeración paginada (ver consenso B14).\n+\n+---\n+\n ## Filosofía\n \n - **Local-first**: la memoria y los archivos viven en tu PC.",
+      "applicability": "ok"
+    },
+    {
+      "id": "hermes-ratelimit-design-doc",
+      "file": "docs/hermes-ratelimit.md",
+      "motive": "Capture the required rate-limit/backoff and ETag design for src/watchers/hermes_watcher.ts before code changes, addressing the consensus GitHub 60-req/hr risk.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/docs/hermes-ratelimit.md\n@@\n+# Hermes Watcher — rate-limit & conditional-request plan\n+\n+`src/watchers/hermes_watcher.ts` polls GitHub on an interval derived from\n+config. Today it has no awareness of the unauthenticated 60-req/hr cap,\n+so a config change can silently breach the limit and the watcher will\n+fail without signal.\n+\n+## Required behavior\n+\n+1. **Auth token (optional).** If `GITHUB_TOKEN` is set, send it as a\n+   bearer token. This raises the quota from 60/hr to 5000/hr.\n+2. **Quota logging.** On every response, log\n+   `x-ratelimit-remaining` and `x-ratelimit-reset` as structured fields.\n+3. **Backoff threshold.** When `remaining` drops below 10% of the cap,\n+   the watcher must skip its next tick and sleep until `reset`.\n+4. **Conditional requests.** Persist the `ETag` (or `Last-Modified`)\n+   from each response and send it back as `If-None-Match` (or\n+   `If-Modified-Since`) on the next request. 304 responses do **not**\n+   count against the rate limit.\n+5. **429 / secondary limits.** On HTTP 429 or a `retry-after` header,\n+   honor the delay and emit a warning-level log.\n+\n+## Non-goals\n+\n+- Switching to webhooks. Polling is retained to keep the inbound\n+  attack surface minimal.\n+- Per-mission quota accounting.\n+\n+## Test hooks\n+\n+The watcher should accept an injected `fetch`-like function so tests\n+can simulate 304, 429, and low-remaining responses without a real\n+GitHub round-trip.\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    },
+    {
+      "id": "runner-timeout-design-doc",
+      "file": "docs/runner-timeout.md",
+      "motive": "Specify the timeout contract for src/utils/runner.ts so callers (watchers, audit runners) have an assigned policy, per architect+security consensus.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/docs/runner-timeout.md\n@@\n+# runner.ts — timeout policy\n+\n+`src/utils/runner.ts` wraps `child_process.execSync`. Today it does not\n+pass a `timeout` option, so any caller — including watchers and audit\n+runners that shell out to LLM-driven commands — can hang indefinitely.\n+\n+## Contract\n+\n+The runner exposes a single `run(cmd, opts)` entry point. `opts.timeout`\n+(milliseconds) is **required** at the type level, with the following\n+rules:\n+\n+- Default (when callers pass `undefined` explicitly): **30_000 ms**.\n+- Hard upper bound enforced inside the runner: **300_000 ms** (5 min).\n+  Values above the cap are clamped and a warning is logged.\n+- On timeout, `execSync` raises; the runner must re-throw with a\n+  structured error containing `{ cmd, timeoutMs, killed: true }`.\n+\n+## Caller obligations\n+\n+- `src/watchers/hermes_watcher.ts`: pass a timeout shorter than its\n+  polling interval so a hung call cannot overlap the next tick.\n+- `scripts/a4_run.ts` and other audit runners: pass an explicit bound\n+  derived from the audit budget; do not rely on the default.\n+- Any caller invoking LLM-generated command strings: must pass an\n+  explicit timeout and must not exceed the hard cap.\n+\n+## Migration\n+\n+1. Add the `timeout` parameter with the default above.\n+2. Add a test that asserts a sleeping command is killed at the bound.\n+3. Update each call site to pass an explicit value; leave the default\n+   only for interactive/dev paths.\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    },
+    {
+      "id": "a4-error-logging-doc",
+      "file": "docs/a4-error-handling.md",
+      "motive": "Record the requirement to remove empty catch blocks in scripts/a4_run.ts and route failures to the audit log, per consensus recommendation.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/docs/a4-error-handling.md\n@@\n+# a4_run.ts — error handling requirements\n+\n+`scripts/a4_run.ts` currently contains empty `catch` blocks that\n+silently swallow read failures. This undermines the self-analysis\n+purpose of the runner: audit-time faults, permission denials, and\n+potential injection attempts become invisible.\n+\n+## Required changes\n+\n+1. **No empty catches.** Every `catch` must either:\n+   - Re-throw after annotating context, or\n+   - Write a structured entry to the audit log stream.\n+2. **Structured log entry.** Minimum fields:\n+   - `level`: `\"error\"` or `\"warn\"`.\n+   - `phase`: which audit step was running.\n+   - `path`: the file or directory being processed, if applicable.\n+   - `errorType`: `err.name` or `err.code`.\n+   - `message`: `err.message`.\n+   - `llmInput`: the LLM-produced string that led here, when available\n+     (redact secrets before logging).\n+3. **Exit codes.** An audit pass with any `level: \"error\"` entries must\n+   exit non-zero so CI surfaces the failure.\n+\n+## Rationale\n+\n+The committee (architect + security_auditor, consensus) flagged the\n+empty catches as a high-risk gap: they mask both operational bugs and\n+injection patterns in LLM-generated inputs. Routing errors through the\n+same audit log the runner already produces keeps observability in one\n+place.\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    }
+  ]
+}

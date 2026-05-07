@@ -1,0 +1,16 @@
+{
+  "repo": "langchain",
+  "url": "https://github.com/langchain-ai/langchain",
+  "sha": "2fe237a0b095",
+  "cloneSizeBytes": 36489481,
+  "cloneDurationMs": 16552,
+  "readDurationMs": 83594,
+  "totalFiles": 2879,
+  "topLevelEntries": 16,
+  "subagentCount": 4,
+  "miscBranchPresent": false,
+  "filesCoveredApprox": 15,
+  "filesIgnoredApprox": 2864,
+  "estimatedTokensIn": 14636,
+  "estimatedTokensOut": 2445
+}

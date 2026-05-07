@@ -1,0 +1,100 @@
+{
+  "repo_purpose": "Shinobi: autonomous Windows-native AI agent for Spanish-language content creators. TypeScript monorepo with local-first memory, desktop automation, web scraping, and optional cloud backend.",
+  "architecture_summary": "Shinobi is a TypeScript monorepo targeting Windows-native deployment (Node SEA .exe) for autonomous AI agent workflows. The architecture separates concerns across several top-level directories:\n\n- **src/**: Core application logic including upstream release watchers (hermes_watcher), kill-switch safety controls (PowerShell ESC monitor), permission/path validation, and command execution utilities.\n- **scripts/**: Validation, smoke test, and integration runner scripts for /read and /self endpoints, using a lightweight pass/fail pattern rather than a standard test framework.\n- **missions/**: Mission configuration directory (content unreadable due to subagent timeout).\n- **docs/**, **misc/**: Unreadable during scan.\n\nKey external dependencies include OpenAI SDK, Playwright (web scraping), better-sqlite3 + sqlite-vec (local vector memory), @nut-tree-fork/nut-js (desktop automation), and axios. Build tooling uses esbuild, tsx, ts-node, and a custom build_sea.mjs for single-executable packaging.\n\nThe project follows a local-first philosophy with optional cloud backend (OpenGravity). Internal module references from package.json suggest a planned layout (coordinator, tools, cloud, bridge, db, memory, utils, runtime, persistence, skills) though only src/watchers and src/utils were directly observed.",
+  "modules": [
+    {
+      "name": "watchers",
+      "path": "src/watchers",
+      "responsibility": "Polls GitHub API for Hermes upstream releases, persists state, and notifies CLI on new tags"
+    },
+    {
+      "name": "utils",
+      "path": "src/utils",
+      "responsibility": "System interaction helpers: kill-switch (ESC monitor), permission/path validation, command execution wrapper"
+    },
+    {
+      "name": "scripts",
+      "path": "scripts",
+      "responsibility": "Smoke tests, integration runners, and diff validation for /read and /self endpoints"
+    },
+    {
+      "name": "missions",
+      "path": "missions",
+      "responsibility": "Mission configurations and runtime logic for autonomous agent tasks (content not verified)"
+    }
+  ],
+  "entry_points": [
+    {
+      "file": "build_sea.mjs",
+      "kind": "build-script"
+    },
+    {
+      "file": "package.json",
+      "kind": "manifest"
+    },
+    {
+      "file": "scripts/a4_run.ts",
+      "kind": "integration-runner"
+    },
+    {
+      "file": "scripts/b1_run.ts",
+      "kind": "integration-runner"
+    }
+  ],
+  "risks": [
+    {
+      "severity": "medium",
+      "description": "missions/ directory is unreadable due to repeated 90s subagent timeouts; structure and purpose undetermined"
+    },
+    {
+      "severity": "medium",
+      "description": "docs/ directory scan unreadable (validation failed twice); documentation structure unverified"
+    },
+    {
+      "severity": "medium",
+      "description": "misc/ directory scan unreadable (validation failed twice)"
+    },
+    {
+      "severity": "medium",
+      "description": "package.json declares both ISC and MIT licenses, creating license ambiguity"
+    },
+    {
+      "severity": "medium",
+      "description": "Test script in package.json prints 'no test specified' despite existence of test_b*.ts and __tests__ files; no standardized framework (jest/vitest/mocha)"
+    },
+    {
+      "severity": "high",
+      "description": "runner.ts executes commands via execSync without invoking permissions.isDangerousCommand(); dangerous-command guard exists but is unused, creating a security gap"
+    },
+    {
+      "severity": "medium",
+      "description": "scripts/a4_run.ts contains hardcoded absolute Windows paths (C:\\\\Users\\\\angel\\\\...) that break portability"
+    },
+    {
+      "severity": "medium",
+      "description": "hermes_watcher.ts updates last_check_iso even on API failures, potentially masking outage intervals"
+    },
+    {
+      "severity": "medium",
+      "description": "kill_switch.ts silently leaves proc=null if PowerShell spawn fails, defeating the safety mechanism without notification"
+    },
+    {
+      "severity": "low",
+      "description": "permissions.ts WORKSPACE_ROOT falls back to cwd() which may drift at runtime, weakening path-traversal guarantees"
+    },
+    {
+      "severity": "low",
+      "description": "runner.ts execSync has no timeout/signal handling; long-running commands block the event loop"
+    },
+    {
+      "severity": "low",
+      "description": "a4_run.ts appends to docs/A4_VALIDATION.md without rotation; file grows unbounded"
+    }
+  ],
+  "evidence": {
+    "subagent_count": 6,
+    "tokens_total": 0,
+    "duration_ms": 16307,
+    "subreports_referenced": 6
+  }
+}

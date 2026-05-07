@@ -1,0 +1,114 @@
+{
+  "repo_purpose": "Shinobi: autonomous Windows-native AI agent for Spanish YouTubers that researches, transcribes, and analyzes video formats to generate localization briefs, packaged as a single executable.",
+  "architecture_summary": "## Overview\nShinobi is a TypeScript-based autonomous agent targeting Windows, built on Node.js with ESNext/NodeNext module resolution and packaged via Node SEA (Single Executable Application) into `shinobi.exe`.\n\n## Core Layers\n- **Root**: Build orchestration (`build_sea.mjs`), project metadata (`package.json`), and TypeScript config.\n- **src/**: Core utilities including GitHub release watchers (Hermes), a PowerShell-based ESC kill-switch for aborting screen actions, path/permission validation, and command execution via `child_process.execSync`.\n- **scripts/**: Smoke tests and runner scripts for the reader's `/read` and `/self` endpoints, producing validation markdown artifacts.\n- **missions/**: Intended to hold mission configuration and runtime logic (unverified — scan timeouts).\n- **docs/**, **misc/**: Not readable in this pass.\n\n## External Stack\nPlaywright (browser automation), better-sqlite3 + sqlite-vec (local vector memory), OpenAI SDK, @nut-tree-fork/nut-js (desktop automation), axios, dotenv. Build tooling: esbuild, tsx, ts-node, typescript.\n\n## Coverage Gaps\nThe root README references sub-modules (coordinator, tools, cloud, bridge, db, memory, persistence, skills, notifications) that were not individually scanned in the provided sub-reports, so internal architecture beyond src/utils and src/watchers is inferred only from the root's dependency list.",
+  "modules": [
+    {
+      "name": "root",
+      "path": "/",
+      "responsibility": "Project metadata, build scripts (SEA packaging), TypeScript config, and README."
+    },
+    {
+      "name": "src",
+      "path": "src",
+      "responsibility": "Core utilities: Hermes release watcher, ESC kill-switch, permissions/path validation, command runner."
+    },
+    {
+      "name": "scripts",
+      "path": "scripts",
+      "responsibility": "Smoke tests and runner scripts for reader CLI /read and /self endpoints."
+    },
+    {
+      "name": "missions",
+      "path": "missions",
+      "responsibility": "Mission configuration and runtime logic (contents unverified due to scan timeouts)."
+    },
+    {
+      "name": "docs",
+      "path": "docs",
+      "responsibility": "Documentation folder — not readable in this pass."
+    },
+    {
+      "name": "misc",
+      "path": "misc/",
+      "responsibility": "Miscellaneous folder — not readable in this pass."
+    }
+  ],
+  "entry_points": [
+    {
+      "file": "package.json",
+      "kind": "npm-manifest"
+    },
+    {
+      "file": "build_sea.mjs",
+      "kind": "build-script"
+    },
+    {
+      "file": "scripts/a4_run.ts",
+      "kind": "runner-script"
+    },
+    {
+      "file": "scripts/b1_run.ts",
+      "kind": "runner-script"
+    },
+    {
+      "file": "scripts/b1_diff_run.ts",
+      "kind": "runner-script"
+    }
+  ],
+  "risks": [
+    {
+      "severity": "high",
+      "description": "missions/ folder unreadable: subagent timed out at 90s on all attempts. Core mission logic entirely unverified — major architecture gap."
+    },
+    {
+      "severity": "medium",
+      "description": "docs/ not read — validation failed twice on key_files schema; documentation coverage gap."
+    },
+    {
+      "severity": "medium",
+      "description": "misc/ not read — validation failed twice on key_files schema; coverage gap."
+    },
+    {
+      "severity": "medium",
+      "description": "License contradiction: root package.json declares both MIT and ISC fields; README confirms ISC. Ambiguous license per root sub-report."
+    },
+    {
+      "severity": "medium",
+      "description": "Test suite not implemented at root (npm test exits 1), yet README marks B11 E2E complete and test_b*.ts files are referenced but absent per root report."
+    },
+    {
+      "severity": "medium",
+      "description": "src/utils/runner.ts uses execSync with no timeout, no input sanitization, and no privilege checks — command injection / blocking risk."
+    },
+    {
+      "severity": "medium",
+      "description": "src/utils/kill_switch.ts embeds hard-coded PowerShell Win32 API calls; brittle to PS execution policy and Windows-only."
+    },
+    {
+      "severity": "medium",
+      "description": "src/utils/permissions.ts falls back WORKSPACE_ROOT to cwd with no symlink resolution; path traversal defenses may be bypassable in production."
+    },
+    {
+      "severity": "low",
+      "description": "src/watchers/hermes_watcher.ts hardcodes NousResearch/hermes-agent repo and lacks 429/5xx retry or rate-limit handling."
+    },
+    {
+      "severity": "low",
+      "description": "scripts/a4_run.ts hardcodes Windows paths (C:\\Users\\angel\\...) limiting portability; silently swallows JSON parse errors."
+    },
+    {
+      "severity": "low",
+      "description": "scripts/b1_smoke.ts uses cache-busting dynamic import query string indicating module caching / test isolation issue."
+    },
+    {
+      "severity": "low",
+      "description": "No lock file visible at root per sub-report; npm install resolves semver ranges non-deterministically."
+    }
+  ],
+  "evidence": {
+    "subagent_count": 6,
+    "tokens_total": 0,
+    "duration_ms": 15561,
+    "subreports_referenced": 6
+  }
+}

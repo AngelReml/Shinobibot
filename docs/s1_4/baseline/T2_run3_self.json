@@ -1,0 +1,154 @@
+{
+  "repo_purpose": "Shinobi: Windows-native autonomous AI agent (v1.0.0) for Spanish-speaking YouTubers. Researches, transcribes, analyzes video formats, and generates localization briefs through coordinated tool execution and screen-action loops.",
+  "architecture_summary": "## Overview\nShinobi is a TypeScript/Node.js CLI agent targeting Windows x64, packaged as a single executable. It combines autonomous task coordination, browser automation (Playwright), screen interaction (nut-js), local SQLite-vec storage, and OpenAI integration.\n\n## Layers\n- **Entry/Coordinator (`src/coordinator`)**: Orchestrates missions and tool usage.\n- **Tools & Skills (`src/tools`, `src/skills`)**: Discrete agent capabilities.\n- **Cloud/Bridge (`src/cloud`, `src/bridge`)**: External service & IPC integration.\n- **Persistence (`src/db`, `src/persistence`, `src/memory`)**: SQLite-backed state and vector memory.\n- **Runtime & Utils (`src/runtime`, `src/utils`)**: Kill-switch (PowerShell ESC detection), permissions/path validation, command execution.\n- **Watchers (`src/watchers`)**: Polls GitHub for upstream Hermes releases with persisted state.\n- **Notifications (`src/notifications`)**: User-facing CLI notices.\n- **Scripts (`scripts/`)**: Ad-hoc smoke/integration runners for `/read` and `/self` reader subsystems (referenced via `src/reader/*`).\n- **Missions (`missions/`)**: Mission configuration directory (contents unverified).\n\n## Build & Distribution\nUses esbuild + a custom `build_sea.mjs` to produce a Windows SEA binary; bundles `better-sqlite3` native `.node` files. No CI/CD detected; rebuilds via `rebuild.cmd`.",
+  "modules": [
+    {
+      "name": "coordinator",
+      "path": "src/coordinator",
+      "responsibility": "Mission orchestration and tool dispatch for autonomous agent loops"
+    },
+    {
+      "name": "tools",
+      "path": "src/tools",
+      "responsibility": "Discrete agent tool implementations"
+    },
+    {
+      "name": "skills",
+      "path": "src/skills",
+      "responsibility": "Higher-level reusable agent skills"
+    },
+    {
+      "name": "cloud",
+      "path": "src/cloud",
+      "responsibility": "Cloud/external service integration (e.g., OpenAI)"
+    },
+    {
+      "name": "bridge",
+      "path": "src/bridge",
+      "responsibility": "IPC/bridge layer between subsystems"
+    },
+    {
+      "name": "db",
+      "path": "src/db",
+      "responsibility": "SQLite database access via better-sqlite3"
+    },
+    {
+      "name": "persistence",
+      "path": "src/persistence",
+      "responsibility": "Durable state persistence layer"
+    },
+    {
+      "name": "memory",
+      "path": "src/memory",
+      "responsibility": "Vector memory store using sqlite-vec"
+    },
+    {
+      "name": "runtime",
+      "path": "src/runtime",
+      "responsibility": "Runtime execution context and lifecycle"
+    },
+    {
+      "name": "notifications",
+      "path": "src/notifications",
+      "responsibility": "CLI user notification formatting and delivery"
+    },
+    {
+      "name": "watchers",
+      "path": "src/watchers",
+      "responsibility": "Polls GitHub API for Hermes releases with state persistence"
+    },
+    {
+      "name": "utils",
+      "path": "src/utils",
+      "responsibility": "Kill-switch (ESC), permissions/path validation, command runner"
+    },
+    {
+      "name": "missions",
+      "path": "missions",
+      "responsibility": "Mission configuration files (contents unverified due to scan timeout)"
+    },
+    {
+      "name": "scripts",
+      "path": "scripts",
+      "responsibility": "Smoke/integration test runners for reader CLI (/read, /self)"
+    }
+  ],
+  "entry_points": [
+    {
+      "file": "package.json",
+      "kind": "npm-bin/CLI definition"
+    },
+    {
+      "file": "build_sea.mjs",
+      "kind": "build script (Windows SEA binary)"
+    },
+    {
+      "file": "rebuild.cmd",
+      "kind": "manual rebuild script"
+    },
+    {
+      "file": "scripts/a4_run.ts",
+      "kind": "integration runner for /read"
+    },
+    {
+      "file": "scripts/b1_run.ts",
+      "kind": "integration runner for /self"
+    }
+  ],
+  "risks": [
+    {
+      "severity": "high",
+      "description": "License conflict in package.json: MIT in header but ISC in license field — must be resolved before redistribution."
+    },
+    {
+      "severity": "high",
+      "description": "runner.ts run_command uses execSync without invoking isDangerousCommand; command injection risk if callers don't sanitize."
+    },
+    {
+      "severity": "medium",
+      "description": "missions/ directory unreadable: subagent timed out at 90s on all scans; structure and contents unverified."
+    },
+    {
+      "severity": "medium",
+      "description": "docs/ sub-report unreadable (validation failed twice); documentation coverage cannot be assessed."
+    },
+    {
+      "severity": "medium",
+      "description": "misc/ sub-report unreadable (validation failed twice on concerns format); contents unverified."
+    },
+    {
+      "severity": "medium",
+      "description": "permissions.ts falls back to process.cwd() when WORKSPACE_ROOT unset, potentially allowing unintended filesystem access."
+    },
+    {
+      "severity": "medium",
+      "description": "Windows-only lock-in: pkg targets win-x64, kill_switch uses PowerShell, hermes_watcher hardcodes APPDATA fallback."
+    },
+    {
+      "severity": "medium",
+      "description": "No automated test framework or CI/CD; tests are manual ts-node scripts with console-based pass/fail counting."
+    },
+    {
+      "severity": "medium",
+      "description": "Hardcoded absolute user paths (C:\\Users\\angel\\...) in scripts/a4_run.ts break portability."
+    },
+    {
+      "severity": "medium",
+      "description": "kill_switch PowerShell subprocess spawned without timeout/cleanup guarantee; potential zombie processes."
+    },
+    {
+      "severity": "low",
+      "description": "hermes_watcher.checkOnce persists state even on partial GitHub API failure, risking inconsistent state."
+    },
+    {
+      "severity": "low",
+      "description": "a4_run.ts silently swallows JSON parse errors with empty catch blocks, masking real failures."
+    }
+  ],
+  "evidence": {
+    "subagent_count": 6,
+    "tokens_total": 0,
+    "duration_ms": 15786,
+    "subreports_referenced": 6
+  }
+}
