@@ -1,0 +1,16 @@
+{
+  "repo": "react",
+  "url": "https://github.com/facebook/react",
+  "sha": "dd453071d976",
+  "cloneSizeBytes": 37150432,
+  "cloneDurationMs": 26189,
+  "readDurationMs": 26753,
+  "totalFiles": 6879,
+  "topLevelEntries": 36,
+  "subagentCount": 6,
+  "miscBranchPresent": true,
+  "filesCoveredApprox": 18,
+  "filesIgnoredApprox": 6861,
+  "estimatedTokensIn": 34852,
+  "estimatedTokensOut": 4737
+}
