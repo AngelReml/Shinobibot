@@ -156,8 +156,8 @@ export class HierarchicalReader {
     this.llm = opts.llm;
     this.depth = opts.depth ?? 1;
     this.budget = opts.budget ?? DEFAULT_BUDGET;
-    this.subagentModel = opts.subagentModel ?? 'claude-haiku-4-5';
-    this.synthModel = opts.synthModel ?? 'claude-opus-4-7';
+    this.subagentModel = opts.subagentModel ?? 'z-ai/glm-4.7-flash';
+    this.synthModel = opts.synthModel ?? 'claude-sonnet-4-6';
     this.onProgress = opts.onProgress ?? (() => {});
     this.knowledgeInjector = opts.knowledgeInjector;
     this.missionId = opts.missionId ?? 'unknown';

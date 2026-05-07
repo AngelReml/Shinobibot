@@ -230,7 +230,7 @@ async function synthesizeManualFromRepo(repoReportPath: string, repoOrigin: stri
 function sleep(ms: number): Promise<void> { return new Promise((r) => setTimeout(r, ms)); }
 
 async function synthesizeManual(userPrompt: string, llm: LLMClient): Promise<{ ok: true; value: Manual } | { ok: false; error: string }> {
-  const callOnce = async (extra = '', model = 'claude-opus-4-7'): Promise<unknown> => {
+  const callOnce = async (extra = '', model = 'claude-sonnet-4-6'): Promise<unknown> => {
     const raw = await llm.chat(
       [
         { role: 'system', content: SYNTH_SYSTEM + (extra ? '\n\n' + extra : '') },
@@ -250,7 +250,7 @@ async function synthesizeManual(userPrompt: string, llm: LLMClient): Promise<{ o
     if (msg.includes('429')) {
       console.log('[learn] rate-limited on opus; backing off 8s and retrying with haiku');
       await sleep(8_000);
-      try { parsed = await callOnce('', 'claude-haiku-4-5'); }
+      try { parsed = await callOnce('', 'z-ai/glm-4.7-flash'); }
       catch (e2: any) { return { ok: false, error: `LLM call failed (after 429 backoff): ${e2?.message ?? e2}` }; }
     } else {
       return { ok: false, error: `LLM call failed: ${msg}` };

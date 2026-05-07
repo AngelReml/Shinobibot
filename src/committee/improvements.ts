@@ -102,7 +102,7 @@ export async function generateProposals(committeeReportPath: string, llm: LLMCli
   ];
   let parsed: any;
   try {
-    const txt = await llm.chat(messages, { model: 'claude-opus-4-7' });
+    const txt = await llm.chat(messages, { model: 'claude-sonnet-4-6' });
     parsed = tryParseJSON(txt);
   } catch (e: any) {
     return { ok: false, proposals: [], error: `LLM call failed: ${e?.message ?? e}` };
@@ -294,7 +294,7 @@ Self-check before emitting: copy your "find" and ctrl-F it mentally in the file 
   try {
     raw = await llm.chat(
       [{ role: 'system', content: sys }, { role: 'user', content: user }],
-      { model: 'claude-opus-4-7', temperature: 0 },
+      { model: 'claude-sonnet-4-6', temperature: 0 },
     );
   } catch { return undefined; }
   let parsed: any;
