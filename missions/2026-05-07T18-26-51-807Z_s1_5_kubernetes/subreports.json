@@ -1,0 +1,182 @@
+[
+  {
+    "path": "/",
+    "purpose": "Open source container orchestration system for managing applications across multiple hosts.",
+    "key_files": [
+      {
+        "name": "go.mod",
+        "role": "Defines Go module, versions, and dependency replacements."
+      },
+      {
+        "name": "LICENSE",
+        "role": "Apache License 2.0 legal text."
+      },
+      {
+        "name": "README.md",
+        "role": "Project description, build instructions, and community links."
+      },
+      {
+        "name": "hack/pin-dependency.sh",
+        "role": "Script referenced in go.mod for dependency management."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "k8s.io/api",
+        "k8s.io/apiserver",
+        "k8s.io/apimachinery",
+        "k8s.io/client-go",
+        "k8s.io/kubernetes/staging/src/k8s.io/kubernetes"
+      ],
+      "external": [
+        "github.com/Microsoft/go-winio",
+        "github.com/google/cadvisor",
+        "github.com/onsi/ginkgo/v2",
+        "github.com/spf13/cobra",
+        "k8s.io/klog/v2",
+        "go.opentelemetry.io/otel",
+        "github.com/containernetworking/plugins",
+        "github.com/containerd/cgroups"
+      ]
+    },
+    "concerns": [
+      "Generated go.mod file has explicit instructions not to edit directly.",
+      "Usage of k8s.io/kubernetes as a library is explicitly not supported.",
+      "Vendor directory is managed via custom scripts, not standard go mod vendor.",
+      "Go version is pinned to 1.26.0 via godebug directive."
+    ]
+  },
+  {
+    "path": ".",
+    "purpose": "Prunes JUnit XML test output, removing large logs and condensing test cases, and optionally appending SIG ownership labels.",
+    "key_files": [
+      {
+        "name": "prunexml.go",
+        "role": "Main entry point and XML processing logic."
+      },
+      {
+        "name": "prunexml_test.go",
+        "role": "Unit tests for pruning and XML parsing functions."
+      },
+      {
+        "name": "prunexml/OWNERS",
+        "role": "Maintainer and labeling configuration for this tool."
+      },
+      {
+        "name": "logparse/logparse.go",
+        "role": "Parser for klog text format in test output."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "k8s.io/kubernetes/cmd/prune-junit-xml/logparse",
+        "k8s.io/kubernetes/third_party/forked/gotestsum/junitxml"
+      ],
+      "external": [
+        "github.com/stretchr/testify/assert",
+        "sigs.k8s.io/yaml"
+      ]
+    },
+    "concerns": [
+      "panic(err) in main panics on nil errors (incorrect usage).",
+      "TODO comment found in lookupSubmatch regarding storing regex match fields.",
+      "lookupSubmatch uses panic(fmt.Errorf(...)) which prevents handling of regex errors."
+    ]
+  },
+  {
+    "path": "pkg",
+    "purpose": "Implements Windows service logic for Kubernetes daemons and documents the volume package for kubelet integration.",
+    "key_files": [
+      {
+        "name": "windows\\service\\service.go",
+        "role": "Implements Windows service control handler, preshutdown logic, and service lifecycle management."
+      },
+      {
+        "name": "volume\\doc.go",
+        "role": "Package documentation defining volume types and kubelet utility methods."
+      },
+      {
+        "name": "OWNERS",
+        "role": "Defines code review owners and approval policies for the package."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "k8s.io/apiserver/pkg/server",
+        "k8s.io/klog/v2",
+        "golang.org/x/sys/windows",
+        "golang.org/x/sys/windows/svc"
+      ]
+    },
+    "concerns": [
+      "Uses a global variable `thehandler` for Windows service instance management.",
+      "Relies on `os.Exit(0)` to satisfy Windows Service Control Manager requirements for graceful exit.",
+      "Imports the `unsafe` package for direct Windows API memory access.",
+      "No unit tests visible for the service handler logic in the provided files."
+    ]
+  },
+  {
+    "path": "staging",
+    "purpose": "Central staging area for split Kubernetes repositories containing documentation, ownership, and publishing instructions.",
+    "key_files": [
+      {
+        "name": "README.md",
+        "role": "Lists staged repos and explains creation/publishing processes."
+      },
+      {
+        "name": "OWNERS",
+        "role": "Defines approvers and reviewers for the staging directory."
+      },
+      {
+        "name": "src/k8s.io/streaming/doc.go",
+        "role": "Package declaration stub for the streaming module."
+      },
+      {
+        "name": "src/k8s.io/streaming/CONTRIBUTING.md",
+        "role": "Instructions directing contributions to the parent kubernetes/kubernetes repo."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": []
+  },
+  {
+    "path": "api",
+    "purpose": "Contains OpenAPI specifications for Kubernetes APIs, including vendor extensions, OIDC configuration, and available API groups.",
+    "key_files": [
+      {
+        "name": "openapi-spec\\swagger.json",
+        "role": "OpenAPI definitions for Kubernetes resources."
+      },
+      {
+        "name": "openapi-spec\\README.md",
+        "role": "Documentation for OpenAPI vendor extensions."
+      },
+      {
+        "name": "openapi-spec\\v3\\apis_openapi.json",
+        "role": "API documentation for the /apis endpoint."
+      },
+      {
+        "name": "openapi-spec\\v3\\.well-known__openid-configuration_openapi.json",
+        "role": "API documentation for the OIDC discovery endpoint."
+      },
+      {
+        "name": "OWNERS",
+        "role": "Project ownership and approval configuration."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": []
+  },
+  {
+    "path": "misc/",
+    "purpose": "[unreadable]",
+    "error": "timeout 90000ms"
+  }
+]
