@@ -1,0 +1,32 @@
+[
+  {
+    "path": "/",
+    "purpose": "[unreadable]",
+    "error": "timeout 90000ms"
+  },
+  {
+    "path": "compiler",
+    "purpose": "[unreadable]",
+    "error": "timeout 90000ms"
+  },
+  {
+    "path": "packages",
+    "purpose": "[unreadable]",
+    "error": "timeout 90000ms"
+  },
+  {
+    "path": "scripts",
+    "purpose": "[unreadable]",
+    "error": "timeout 90000ms"
+  },
+  {
+    "path": "fixtures",
+    "purpose": "[unreadable]",
+    "error": "timeout 90000ms"
+  },
+  {
+    "path": "misc/",
+    "purpose": "[unreadable]",
+    "error": "timeout 90000ms"
+  }
+]

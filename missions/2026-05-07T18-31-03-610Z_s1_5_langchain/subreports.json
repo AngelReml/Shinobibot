@@ -1,0 +1,153 @@
+[
+  {
+    "path": "/",
+    "purpose": "Framework for building agents and LLM-powered applications, providing standard interfaces for models, embeddings, and vector stores.",
+    "key_files": [
+      {
+        "name": "LICENSE",
+        "role": "MIT License text defining copyright and usage terms."
+      },
+      {
+        "name": "README.md",
+        "role": "Project overview, quickstart guide, and ecosystem links."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": []
+    },
+    "concerns": []
+  },
+  {
+    "path": "libs",
+    "purpose": "Monorepo directory for LangChain core packages, integrations, and utilities.",
+    "key_files": [
+      {
+        "name": "README.md",
+        "role": "Describes monorepo structure and lists packages (core, langchain, partners, etc.)."
+      },
+      {
+        "name": "Makefile",
+        "role": "Defines targets to lock dependencies across multiple packages (core, text-splitters, langchain)."
+      },
+      {
+        "name": "text-splitters/pyproject.toml",
+        "role": "Defines project metadata, dependencies, and tool configurations for text splitters."
+      },
+      {
+        "name": "text-splitters/Makefile",
+        "role": "Orchestrates build, lint, test, and type checking for text splitters."
+      },
+      {
+        "name": "text-splitters/extended_testing_deps.txt",
+        "role": "Lists additional test dependencies (lxml, beautifulsoup4) for extended testing."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "core"
+      ],
+      "external": [
+        "ruff",
+        "mypy",
+        "lxml-stubs",
+        "types-requests",
+        "tiktoken",
+        "beautifulsoup4",
+        "jupyter",
+        "pytest",
+        "freezegun",
+        "pytest-mock",
+        "pytest-watcher",
+        "pytest-asyncio",
+        "pytest-socket",
+        "spacy",
+        "nltk",
+        "transformers",
+        "sentence-transformers"
+      ]
+    },
+    "concerns": [
+      "External test group `test_integration` defines a dependency on `en-core-web-sm` model wheel requiring download.",
+      "Additional constraint dependency `pygments` added to address CVE-2026-4539."
+    ]
+  },
+  {
+    "path": ".github",
+    "purpose": "Defines GitHub repository configuration, automation rules, and contribution guidelines including CODEOWNERS, Dependabot settings, PR templates, and workflow scripts.",
+    "key_files": [
+      {
+        "name": "CODEOWNERS",
+        "role": "Assigns repository owners to specific file paths."
+      },
+      {
+        "name": "dependabot.yml",
+        "role": "Configures automated dependency update schedules and grouping for multiple ecosystems."
+      },
+      {
+        "name": "PULL_REQUEST_TEMPLATE.md",
+        "role": "Standardizes PR submission format and contribution instructions."
+      },
+      {
+        "name": "workflows/auto-label-by-package.yml",
+        "role": "Labels issues automatically based on the 'Package' selection in the issue body."
+      },
+      {
+        "name": "workflows/check_agents_sync.yml",
+        "role": "Verifies that CLAUDE.md and AGENTS.md contain identical content."
+      }
+    ],
+    "dependencies": {
+      "internal": [],
+      "external": [
+        "actions/github-script",
+        "actions/checkout"
+      ]
+    },
+    "concerns": [
+      "Regex in auto-labeling workflow depends on specific markdown headers (## Package) which may break if the issue template changes."
+    ]
+  },
+  {
+    "path": ".devcontainer",
+    "purpose": "Configuration for a VS Code development container environment using Docker Compose to build and run LangChain locally without local tool installation.",
+    "key_files": [
+      {
+        "name": "README.md",
+        "role": "User documentation for dev container usage, setup, and tips."
+      },
+      {
+        "name": "devcontainer.json",
+        "role": "Primary dev container configuration defining service, mounts, and VS Code customizations."
+      },
+      {
+        "name": "docker-compose.yaml",
+        "role": "Docker Compose file defining the langchain service build and network configuration."
+      }
+    ],
+    "dependencies": {
+      "internal": [
+        "./docker-compose.yaml",
+        "libs/langchain/dev.Dockerfile"
+      ],
+      "external": [
+        "ms-python.python",
+        "ms-python.debugpy",
+        "ms-python.mypy-type-checker",
+        "ms-python.isort",
+        "unifiedjs.vscode-mdx",
+        "davidanson.vscode-markdownlint",
+        "ms-toolsai.jupyter",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "ghcr.io/devcontainers/features/git:1",
+        "ghcr.io/devcontainers/features/github-cli:1",
+        "uv"
+      ]
+    },
+    "concerns": [
+      "Forwarded ports are disabled (commented out) in devcontainer.json.",
+      "Running as root is disabled by default in devcontainer.json."
+    ]
+  }
+]

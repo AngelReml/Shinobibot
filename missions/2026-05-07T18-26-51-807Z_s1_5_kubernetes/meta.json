@@ -1,0 +1,16 @@
+{
+  "repo": "kubernetes",
+  "url": "https://github.com/kubernetes/kubernetes",
+  "sha": "d80217f87329",
+  "cloneSizeBytes": 263901426,
+  "cloneDurationMs": 111326,
+  "readDurationMs": 141957,
+  "totalFiles": 29944,
+  "topLevelEntries": 34,
+  "subagentCount": 6,
+  "miscBranchPresent": true,
+  "filesCoveredApprox": 20,
+  "filesIgnoredApprox": 29924,
+  "estimatedTokensIn": 43771,
+  "estimatedTokensOut": 4045
+}
