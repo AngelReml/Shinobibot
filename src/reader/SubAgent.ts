@@ -118,6 +118,17 @@ export async function runSubAgent(
     return tryParseJSON(raw);
   };
 
+  // F-01 — sub-report es "sospechosamente vacío" cuando validación pasa pero
+  // todos los arrays vienen vacíos para una carpeta que SÍ tenía archivos
+  // visibles. No es un fallo de protocolo, es señal de que el LLM no extrajo
+  // nada. Lo tratamos como degradación, NO como sub-report válido.
+  const hadVisibleFiles = task.files_to_read.length > 0;
+  const isEmptyShape = (r: SubReport): boolean =>
+    r.key_files.length === 0 &&
+    r.dependencies.internal.length === 0 &&
+    r.dependencies.external.length === 0 &&
+    r.concerns.length === 0;
+
   // First attempt
   let parsed: unknown;
   try {
@@ -127,7 +138,40 @@ export async function runSubAgent(
   }
 
   let v = validateSubReport(parsed);
-  if (v.ok) return v.value;
+  if (v.ok) {
+    if (!hadVisibleFiles || !isEmptyShape(v.value)) return v.value;
+    // F-01: sospechosamente vacío. Retry con guidance específica.
+    try {
+      parsed = await callOnce(
+        `Your previous response had ALL arrays empty (key_files, dependencies.internal, dependencies.external, concerns) for this folder. The folder has ${task.files_to_read.length} visible file blocks above — that is suspicious. Re-read the file contents more carefully and emit at least:\n` +
+        `- file names actually shown (in key_files)\n` +
+        `- the most-imported package or import statement (in dependencies.external)\n` +
+        `- any TODO comments, dead code, or known anti-patterns you observe (in concerns)\n` +
+        `If the folder genuinely has nothing extractable (only binary assets, only generated code, etc.), return arrays empty AGAIN — that confirms it is intentionally empty, not a missed read.`,
+      );
+    } catch (e: any) {
+      return {
+        path: task.sub_path,
+        purpose: '[degraded-empty]',
+        error: `suspicious-empty + retry call failed: ${e?.message ?? String(e)}`,
+      };
+    }
+    const v2 = validateSubReport(parsed);
+    if (v2.ok) {
+      if (!isEmptyShape(v2.value)) return v2.value;
+      // Sigue vacío tras retry: marcar como degraded, NO devolver como válido.
+      return {
+        path: task.sub_path,
+        purpose: '[degraded-empty]',
+        error: `suspicious empty subreport — ${task.files_to_read.length} files visible but no content extracted (after empty-aware retry)`,
+      };
+    }
+    return {
+      path: task.sub_path,
+      purpose: '[degraded-empty]',
+      error: `suspicious-empty + retry validation failed: ${v2.error}`,
+    };
+  }
 
   // Retry once with the validation error as additional guidance
   try {
@@ -143,7 +187,15 @@ export async function runSubAgent(
   }
 
   v = validateSubReport(parsed);
-  if (v.ok) return v.value;
+  if (v.ok) {
+    if (!hadVisibleFiles || !isEmptyShape(v.value)) return v.value;
+    // Pasó validación tras retry pero está vacío con archivos visibles.
+    return {
+      path: task.sub_path,
+      purpose: '[degraded-empty]',
+      error: `suspicious empty subreport after validation retry — ${task.files_to_read.length} files visible`,
+    };
+  }
 
   return {
     path: task.sub_path,
