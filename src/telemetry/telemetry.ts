@@ -48,7 +48,7 @@ export function saveConfig(cfg: TelemetryConfig): void {
 }
 
 export function defaultEndpoint(): string {
-  const base = process.env.OPENGRAVITY_URL ?? 'https://kernel.zapweave.com';
+  const base = process.env.OPENGRAVITY_URL ?? 'http://localhost:9900';
   return base.replace(/\/$/, '') + '/v1/telemetry/event';
 }
 
