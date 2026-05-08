@@ -1,0 +1,6 @@
+[17:12:23] Shinobi demo — mode=task T16
+[17:12:23] OBS recording: skipped (default off — pass --record to enable)
+[17:12:23] Voy a ejecutar la tarea T16 — Math word problem.
+[17:12:23] Categoria: reasoning.
+[17:12:23] Verificador: verifyExactString.
+[17:12:23] Result: PASS — ok

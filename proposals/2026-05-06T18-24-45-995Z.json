@@ -1,0 +1,47 @@
+{
+  "source": "C:\\Users\\angel\\Desktop\\shinobibot\\committee_reports\\2026-05-06T18-24-32-365Z.json",
+  "proposals": [
+    {
+      "id": "refactor-hardcoded-paths",
+      "file": "scripts/a4_run.ts",
+      "motive": "Refactor hardcoded paths to use environment variables, enhancing portability and security.",
+      "risk": "medium",
+      "diff": "diff --git a/scripts/a4_run.ts b/scripts/a4_run.ts\n--- a/scripts/a4_run.ts\n+++ b/scripts/a4_run.ts\n@@ -5,7 +5,7 @@ import * as path from 'path';\n import { runRead } from '../src/reader/cli.js';\n \n const TARGETS = [\n-  { label: 'opengravity', name: 'OpenGravity', path: 'C:\\\\Users\\\\angel\\\\Desktop\\\\OpenGravity' },\n+  { label: 'opengravity', name: 'OpenGravity', path: process.env.OPEN_GRAVITY_PATH || 'C:\\\\Users\\\\angel\\\\Desktop\\\\OpenGravity' },\n   { label: 'execa', name: 'execa', path: 'C:\\\\Users\\\\angel\\\\Desktop\\\\test_repos\\\\execa' },\n ];",
+      "applicability": "broken",
+      "apply_error": "error: corrupt patch at line 12"
+    },
+    {
+      "id": "add-error-handling-hermes-watcher",
+      "file": "src/hermesWatcher.ts",
+      "motive": "Implement error handling in Hermes watcher to prevent application crashes.",
+      "risk": "medium",
+      "diff": "--- a/src/hermesWatcher.ts\n+++ b/src/hermesWatcher.ts\n@@ -10,6 +10,10 @@\n function fetchData() {\n   fetch('some/api/endpoint')\n     .then(response => response.json())\n+    .catch(error => {\n+      console.error('Fetch error:', error);\n+      // Handle error appropriately\n+    })\n     .then(data => {\n       // Process data\n     });\n",
+      "applicability": "broken",
+      "apply_error": "error: src/hermesWatcher.ts: No such file or directory"
+    },
+    {
+      "id": "add-tests-to-package-json",
+      "file": "package.json",
+      "motive": "Specify tests in package.json to improve maintainability and ensure consistent testing practices.",
+      "risk": "low",
+      "diff": "diff --git a/package.json b/package.json\n--- a/package.json\n+++ b/package.json\n@@ -27,7 +27,7 @@\n   \"scripts\": {\n     \"start\": \"ts-node src/index.ts\",\n     \"dev\": \"ts-node-dev --respawn --transpile-only src/index.ts\",\n-    \"test\": \"echo \\\"Error: no test specified\\\" && exit 1\"\n+    \"test\": \"mocha --require ts-node/register tests/**/*.test.ts\"\n   },\n   \"keywords\": [],\n   \"author\": \"AngelReml\",",
+      "applicability": "ok"
+    },
+    {
+      "id": "standardize-documentation",
+      "file": "docs/README.md",
+      "motive": "Standardize documentation across modules to ensure clear and consistent project setup instructions.",
+      "risk": "low",
+      "diff": "diff --git a/docs/README.md b/docs/README.md\n--- a/docs/README.md\n+++ b/docs/README.md\n@@ -12,7 +12,15 @@ Este directorio existe para que cualquier sesión nueva (con cualquier IA, model\n 6. `05_decisions.md` — Decisiones arquitectónicas tomadas y razonadas\n 7. `sessions/` — Log cronológico de sesiones de trabajo (la más reciente arriba)\n \n-## Cómo se usa\n+## Cómo configurar y usar el proyecto\n+\n+### Configuración inicial\n+\n+1. Clona el repositorio en tu máquina local.\n+2. Asegúrate de tener las dependencias necesarias instaladas.\n+3. Configura las variables de entorno según sea necesario.\n+\n+### Uso\n \n - **Al empezar una sesión nueva:** la IA lee 00 → 05 y la última session.\n - **Al cerrar una sesión:** se añade nueva entrada en `sessions/` con fecha.",
+      "applicability": "ok"
+    },
+    {
+      "id": "enable-typescript-emits",
+      "file": "tsconfig.json",
+      "motive": "Enable TypeScript emits to streamline the compilation process and reduce manual intervention.",
+      "risk": "low",
+      "diff": "diff --git a/tsconfig.json b/tsconfig.json\n--- a/tsconfig.json\n+++ b/tsconfig.json\n@@ -7,7 +7,7 @@\n     \"forceConsistentCasingInFileNames\": true,\n     \"strict\": true,\n     \"skipLibCheck\": true,\n-    \"noEmit\": true,\n+    \"noEmit\": false,\n     \"allowImportingTsExtensions\": true,\n     \"resolveJsonModule\": true,\n     \"isolatedModules\": true",
+      "applicability": "ok"
+    }
+  ]
+}

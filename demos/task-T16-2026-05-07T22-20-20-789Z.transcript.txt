@@ -1,0 +1,2 @@
+[22:20:20] Shinobi demo — mode=task T16
+[22:20:20] OBS recording: skipped (default off — pass --record to enable)

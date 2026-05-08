@@ -1,0 +1,3 @@
+[09:22:30] Shinobi demo — mode=task T16
+[09:22:30] OBS recording: skipped (--no-record)
+[09:22:30] ERROR: Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. On Windows, absolute paths must be valid file:// URLs. Received protocol 'c:'
