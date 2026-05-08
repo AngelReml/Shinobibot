@@ -1,0 +1,48 @@
+{
+  "source": "C:\\Users\\angel\\Desktop\\shinobibot\\committee_reports\\2026-05-06T19-29-02-787Z.json",
+  "proposals": [
+    {
+      "id": "patch-dot-prop",
+      "file": "package.json",
+      "motive": "Addresses high-risk vulnerability in external dependency 'dot-prop' by updating to a patched version.",
+      "risk": "low",
+      "diff": "--- a/package.json\n+++ b/package.json\n@@ -1,5 +1,5 @@\n {\n   \"name\": \"shinobibot\",\n   \"version\": \"1.0.0\",\n-  \"dot-prop\": \"4.2.1\",\n+  \"dot-prop\": \"5.3.0\",\n   \"type\": \"module\",\n   \"main\": \"dist/index.js\",\n   \"scripts\": {\n@@ -3,5 +3,5 @@\n     \"test\": \"vitest\"\n   },\n   \"license\": \"MIT, ISC\"\n-}\n+}\n",
+      "applicability": "broken",
+      "apply_error": "error: patch fragment without header at line 12: @@ -3,5 +3,5 @@"
+    },
+    {
+      "id": "fix-hardcoded-paths",
+      "file": "scripts/a4_run.ts",
+      "motive": "Ensures test scripts run on non-Windows systems and for different users by replacing hardcoded Windows paths with dynamic OS paths.",
+      "risk": "low",
+      "diff": "diff --git a/scripts/a4_run.ts b/scripts/a4_run.ts\n--- a/scripts/a4_run.ts\n+++ b/scripts/a4_run.ts\n@@ -2,11 +2,12 @@\n // Vuelca los reports crudos en docs/A4_VALIDATION.md sin evaluar.\n import * as fs from 'fs';\n import * as path from 'path';\n+import * as os from 'os';\n import { runRead } from '../src/reader/cli.js';\n \n const TARGETS = [\n-  { label: 'opengravity', name: 'OpenGravity', path: 'C:\\\\Users\\\\angel\\\\Desktop\\\\OpenGravity' },\n-  { label: 'execa', name: 'execa', path: 'C:\\\\Users\\\\angel\\\\Desktop\\\\test_repos\\\\execa' },\n+  { label: 'opengravity', name: 'OpenGravity', path: path.join(os.homedir(), 'Desktop', 'OpenGravity') },\n+  { label: 'execa', name: 'execa', path: path.join(os.homedir(), 'Desktop', 'test_repos', 'execa') },\n ];\n \n async function main() {",
+      "applicability": "ok"
+    },
+    {
+      "id": "add-unit-tests",
+      "file": "src/runner.test.ts",
+      "motive": "Stabilizes critical system interactions by implementing unit tests for the core runner module.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/src/runner.test.ts\n@@ -0,0 +1,10 @@\n+import { describe, it, expect } from 'vitest';\n+import { runner } from './runner';\n+\n+describe('runner', () => {\n+  it('should initialize without errors', () => {\n+    expect(() => runner.initialize()).not.toThrow();\n+  });\n+\n+  it('should handle valid mission paths', () => {\n+    expect(runner.validatePath('/valid/path')).toBe(true);\n+  });\n+});\n",
+      "applicability": "ok"
+    },
+    {
+      "id": "remove-dead-code",
+      "file": "src/kernel.ts",
+      "motive": "Reduces cognitive load and maintenance burden by removing unused 'LoopDetector' logic from the kernel.",
+      "risk": "medium",
+      "diff": "--- a/src/kernel.ts\n+++ b/src/kernel.ts\n@@ -1,10 +1,3 @@\n import { MissionRuntime } from './mission_runtime';\n \n-export class LoopDetector {\n-  constructor() {}\n-  detectCycle(): boolean {\n-    return false;\n-  }\n-}\n-\n export class Kernel {\n   private runtime: MissionRuntime;\n   \n",
+      "applicability": "broken",
+      "apply_error": "error: src/kernel.ts: No such file or directory"
+    },
+    {
+      "id": "standardize-license",
+      "file": "package.json",
+      "motive": "Resolves conflicting license declarations (MIT vs ISC) in package.json for legal clarity and consistency.",
+      "risk": "low",
+      "diff": "--- a/package.json\n+++ b/package.json\n@@ -1,5 +1,5 @@\n {\n   \"name\": \"shinobibot\",\n   \"version\": \"1.0.0\",\n   \"dot-prop\": \"5.3.0\",\n   \"type\": \"module\",\n   \"main\": \"dist/index.js\",\n   \"scripts\": {\n     \"test\": \"vitest\"\n   },\n-  \"license\": \"MIT, ISC\"\n+  \"license\": \"MIT\"\n }\n",
+      "applicability": "broken",
+      "apply_error": "error: corrupt patch at line 9"
+    }
+  ]
+}

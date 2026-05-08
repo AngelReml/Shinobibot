@@ -1,0 +1,14 @@
+{
+  "source": "C:\\Users\\angel\\Desktop\\shinobibot\\committee_reports\\2026-05-06T21-38-48-157Z.json",
+  "proposals": [
+    {
+      "id": "security-audit-doc",
+      "file": "docs/security_audit_2026_05.md",
+      "motive": "Capture committee security findings as a tracked audit document so recommendations have a durable home and can be checked off.",
+      "risk": "low",
+      "diff": "--- /dev/null\n+++ b/docs/security_audit_2026_05.md\n@@\n+# Security Audit — 2026-05-06\n+\n+Source: self_reports/2026-05-06T21-37-15-238Z.json (security_auditor)\n+\n+Overall risk: **medium**.\n+\n+## Open recommendations\n+\n+- [ ] **scripts/a4_run.ts**: replace hardcoded `C:\\Users\\angel\\...` paths with\n+  `os.homedir()` + `path.join()`, and validate every file op through\n+  `src/utils/permissions.ts`.\n+- [ ] **src/utils/runner.ts**: add a 30s timeout to `execSync` calls and log\n+  the offending command when a timeout fires.\n+- [ ] **src/utils/kill_switch.ts**: add a 10s timeout around the PowerShell\n+  spawn; on timeout, log the PID and emit an abort signal to the parent.\n+- [ ] **scripts/a4_run.ts**: remove empty `catch` blocks around `JSON.parse`;\n+  log the raw input snippet and reject malformed JSON.\n+- [ ] **missions/**: audit every mission task path — confirm LLM output flows\n+  through `permissions.ts` path checks and `runner.ts` command checks.\n+- [ ] **src/utils/permissions.ts**: select the sensitive-path list per\n+  `process.platform` so Windows entries cannot bypass Unix validation (and\n+  vice versa).\n+\n+## Strengths worth preserving\n+\n+- Allowlist-based path validation in `permissions.ts`.\n+- ESC-key kill switch avoids catchable POSIX signals.\n+- Minimal third-party runtime dependencies.\n+- Synchronous runner avoids concurrent-process races.\n+\n+Close each item by linking the PR that lands the fix.\n",
+      "applicability": "broken",
+      "apply_error": "error: No valid patches in input (allow with \"--allow-empty\")"
+    }
+  ]
+}

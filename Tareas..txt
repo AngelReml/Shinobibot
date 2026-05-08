@@ -1,0 +1,371 @@
+EJE A — COMPATIBILIDAD ECOSISTEMA HERMES
+A1 — Investigación spec agentskills.io
+
+ A1.1 Fetch del spec oficial agentskills.io
+ A1.2 Identificar formato manifiesto (campos requeridos/opcionales/tipos)
+ A1.3 Identificar formato de permisos
+ A1.4 Identificar formato de triggers (regex/intent/comando)
+ A1.5 Identificar formato engine (node/python)
+ A1.6 Generar docs/research/agentskills_diff.md con diferencias vs formato Shinobi actual
+
+A2 — Refactor catálogo skills
+
+ A2.1 Modificar SkillSchema añadiendo campos agentskills.io
+ A2.2 Migrar skills existentes en %APPDATA%/Shinobi/approved_skills/
+ A2.3 Adaptar SkillsAgent para generar manifiestos compatibles
+ A2.4 Adaptar SkillValidator para validar formato
+ A2.5 Test E2E: cargar skill agentskills.io y ejecutarla
+ A2.6 Commit feat(A2): catálogo skills compatible agentskills.io
+
+A3 — Compatibilidad MCP estándar
+
+ A3.1 Auditar implementación MCP actual
+ A3.2 Identificar gaps con spec oficial Anthropic MCP
+ A3.3 Refactor cliente MCP a protocolo oficial completo (stdio + HTTP)
+ A3.4 Añadir tool filtering por servidor
+ A3.5 Añadir sampling support
+ A3.6 Test E2E: conectar a GitHub MCP server externo
+ A3.7 Commit feat(A3): MCP standard compliance
+
+A4 — Tool shinobi import-from-hermes
+
+ A4.1 Crear src/migration/from_hermes.ts
+ A4.2 Función detectHermesInstall() → busca ~/.hermes o %USERPROFILE%/.hermes
+ A4.3 Parser ~/.hermes/config.yaml → config.json Shinobi
+ A4.4 Parser ~/.hermes/MEMORY.md y USER.md → SQLite memory Shinobi
+ A4.5 Parser ~/.hermes/skills/*/ → catálogo skills Shinobi
+ A4.6 Parser API keys (OpenRouter/OpenAI/Anthropic/ElevenLabs) → .env Shinobi
+ A4.7 Modo --dry-run (preview sin escribir)
+ A4.8 Modo --overwrite para conflictos
+ A4.9 Comando CLI shinobi import hermes
+ A4.10 Test con fixture ~/.hermes simulado
+ A4.11 Documentar en docs/migrations/from_hermes.md
+ A4.12 Commit feat(A4): import-from-hermes completo
+
+A5 — Vigilancia continua de Hermes
+
+ A5.1 Crear cron skill que vigile repo NousResearch/hermes-agent cada 24h
+ A5.2 Si hay release nueva, descargar changelog y manifests skills nuevas
+ A5.3 Notificar al usuario en CLI con propuesta de import
+ A5.4 Commit feat(A5): vigilancia continua ecosistema Hermes
+
+
+EJE B — NICHO IMPENETRABLE WINDOWS NATIVO
+B1 — Inno Setup installer
+
+ B1.1 Instalar Inno Setup en máquina dev (acción manual del usuario, Claude Code lo asume hecho)
+ B1.2 Crear installer/shinobi.iss con configuración:
+
+ App name, version, publisher, output dir
+ Install dir Program Files\Shinobi\
+ Acceso directo Escritorio (opcional)
+ Entrada Menú Inicio
+ Auto-start Windows (default OFF)
+
+
+ B1.3 Empaquetar dentro .iss: build/shinobi.exe + build/node_modules/
+ B1.4 Compilar ShinobiSetup.exe
+ B1.5 Probar en VM Windows limpia (script automatizable o checkpoint manual)
+ B1.6 Commit feat(B1): instalador Windows Inno Setup
+
+B2 — Auto-update mechanism
+
+ B2.1 Endpoint kernel.zapweave.com /v1/version que devuelve versión actual
+ B2.2 Cliente Shinobi llama /v1/version al arrancar
+ B2.3 Si hay nueva, ofrece update en CLI
+ B2.4 Descarga ShinobiSetup-X.Y.Z.exe desde GitHub Releases
+ B2.5 Lanza instalador en modo silent y se cierra
+ B2.6 Commit feat(B2): auto-update integrado
+
+B3 — Voice mode
+
+ B3.1 Decisión stack: Whisper API + fallback whisper.cpp local
+ B3.2 Instalar dependencia captura audio (node-mic o equivalente)
+ B3.3 Crear src/voice/voice_input.ts con recordAndTranscribe()
+ B3.4 Crear src/voice/voice_output.ts con TTS OpenAI/ElevenLabs
+ B3.5 Comando CLI /voice on activa modo escucha continua
+ B3.6 Hotkey global Ctrl+Alt+S inicia grabación
+ B3.7 Test E2E: grabar audio, transcribir, responder con voz
+ B3.8 Commit feat(B3): voice mode entrada y salida
+
+B4 — 6 skills desktop nativas Windows
+
+ B4.1 Skill desktop_excel_open_and_extract (abrir Excel, leer celdas, JSON)
+ B4.2 Skill desktop_outlook_send_email (abrir Outlook, redactar, enviar)
+ B4.3 Skill desktop_premiere_basic_cut (abrir Premiere, cut básico)
+ B4.4 Skill desktop_obs_setup_scene (abrir OBS, configurar escena)
+ B4.5 Skill desktop_photoshop_resize_export (abrir Photoshop, resize, export)
+ B4.6 Skill desktop_chrome_login_and_action (Chrome del usuario con sesiones)
+ B4.7 Tests E2E automatizados de cada skill
+ B4.8 Commit feat(B4): 6 skills desktop nativas
+
+
+EJE C — AUTO-MEJORA VISIBLE
+C1 — Diseño ShinobiBench v1
+
+ C1.1 Definir estructura JSON tarea: id, category, description, setup, expected_output, verification_function
+ C1.2 Diseñar 30 tareas distribuidas (5 web + 5 desktop + 5 archivo + 5 razonamiento + 5 compuestas + 5 adversariales)
+ C1.3 Función verificación por tarea (assertion automatizada)
+ C1.4 Documentar cada tarea en benchmark/tasks/T01_...md a T30_...md
+ C1.5 Crear repo público AngelReml/shinobi-bench con todas las tareas (Claude Code lo crea via GitHub API con tu token)
+ C1.6 Commit feat(C1): ShinobiBench v1 30 tareas
+
+C2 — OpenGravity ejecuta benchmark
+
+ C2.1 Endpoint /v1/benchmark/run acepta {agent_url, agent_api_key, task_ids[]}
+ C2.2 Loader descarga tareas desde repo shinobi-bench
+ C2.3 Runner invoca agente externo via HTTP, pasa tarea, recibe respuesta
+ C2.4 Verificador ejecuta verification_function, devuelve PASS/FAIL
+ C2.5 Logger guarda cada tarea en hash chain (forensic ledger ya existe)
+ C2.6 Endpoint /v1/benchmark/results/<run_id> devuelve scoreboard
+ C2.7 Test: correr benchmark contra Shinobi, score baseline
+ C2.8 Commit feat(C2): OpenGravity ejecuta ShinobiBench
+
+C3 — Loop auto-mejora
+
+ C3.1 Cuando tarea falla, OG manda logs al SkillsAgent
+ C3.2 SkillsAgent analiza fallo y propone hipótesis de skill
+ C3.3 Genera 3 candidatas (variaciones distintas)
+ C3.4 Cada candidata se prueba en sandbox aislado contra tarea fallida
+ C3.5 La que pasa se aprueba auto e inyecta al catálogo Shinobi
+ C3.6 Re-ejecución tarea con skill nueva, verificación
+ C3.7 Si pasa, marcar gap_resolved y guardar en hash chain
+ C3.8 Endpoint /v1/benchmark/improve/<run_id> dispara loop completo
+ C3.9 Test: correr benchmark, identificar 5 fallos, correr improve, ver score subir
+ C3.10 Commit feat(C3): loop auto-mejora completo
+
+C4 — Dashboard live auto-mejora
+
+ C4.1 Página HTML dashboard/improve_live.html standalone
+ C4.2 Conexión WebSocket a OG (/v1/benchmark/stream)
+ C4.3 Visualización tiempo real:
+
+ Tabla 30 tareas, color por estado
+ Gráfico score acumulado
+ Stream skills generándose con código visible
+ Hash chain stream
+
+
+ C4.4 Tema dark monoespaciado terminal
+ C4.5 Servir desde kernel.zapweave.com/dashboard/live
+ C4.6 Commit feat(C4): dashboard live WebSocket
+
+
+EJE D — REBRAND OPENGRAVITY → AGENTAUDIT B2B
+D1 — Naming (decisión técnica)
+
+ D1.1 Brainstorm 10 nombres candidatos en docs/decisions/D1_naming.md
+ D1.2 Verificar disponibilidad dominio .com para top 5 (Claude Code via WHOIS o web_fetch)
+ D1.3 Verificar disponibilidad handle GitHub para top 3
+ D1.4 Generar tabla decisión final
+ D1.5 Commit docs(D1): decisión naming AgentAudit
+
+Nota: la compra del dominio la haces tú, manual.
+D2 — Posicionamiento técnico documentado
+
+ D2.1 Documentar value prop en docs/positioning/audit_b2b.md
+ D2.2 Definir 5 casos uso target (bancos, healthcare, legal, gobierno, SaaS)
+ D2.3 Comparativa con LangSmith, Helicone, Braintrust
+ D2.4 Commit docs(D2): posicionamiento B2B AgentAudit
+
+D3 — Landing B2B
+
+ D3.1 Crear web/audit/index.html
+ D3.2 Hero con titular + subtítulo + CTA "Request Demo"
+ D3.3 Sección "Cómo funciona" con diagrama agente → audit → veredicto
+ D3.4 Sección "Casos uso" 5 verticals
+ D3.5 Sección "Compatibilidad": Hermes, Shinobi, Claude Code, Codex, Operator
+ D3.6 Sección "Pricing" → "Contact us"
+ D3.7 Formulario "Request Demo" (nombre, empresa, email, agente, volumen)
+ D3.8 Conectar form a Formspree (placeholder ID que tú reemplazas)
+ D3.9 Deploy en audit.zapweave.com (subdominio nuevo, requiere DNS manual)
+ D3.10 Commit feat(D3): landing B2B AgentAudit
+
+D4 — SDKs y adapter público
+
+ D4.1 SDK Python agentaudit-py con función audit(agent, task, response)
+ D4.2 SDK Node agentaudit-node equivalente
+ D4.3 Webhook receiver en OG /v1/audit/event
+ D4.4 OpenAI-compatible proxy en audit.zapweave.com/v1/chat/completions que loga via medio
+ D4.5 Documentar en docs/sdks/
+ D4.6 Commit feat(D4): SDKs Python/Node + webhook + proxy OpenAI
+
+Nota: publicar en PyPI/npm lo haces tú, manual con tus credenciales.
+
+EJE E — INFRA TÉCNICA (no marketing)
+E1 — Public build log
+
+ E1.1 Crear web/build-log.html
+ E1.2 Auto-generar feed desde commits repos Shinobi + OG + Zapweave
+ E1.3 Cada commit renderizado: hash, mensaje, timestamp, archivos
+ E1.4 RSS feed
+ E1.5 Commit feat(E1): public build log con RSS
+
+E2 — Infraestructura GitHub
+
+ E2.1 Pasar repo shinobibot a público (Claude Code via API con tu token, requiere tu confirmación)
+ E2.2 README maestro con badges, demos embedded, install instructions
+ E2.3 GitHub topics: ai-agent, agent, windows-agent, self-improving-agent, agent-verification
+ E2.4 Issue templates en .github/ISSUE_TEMPLATE/
+ E2.5 Discussions activadas via API
+ E2.6 Commit chore(E2): GitHub repo público y configurado
+
+
+EJE F — PRE-LANZAMIENTO (técnico)
+F1 — Verificación end-to-end
+
+ F1.1 Script verify_release.sh que prueba:
+
+ Demo Auto-Mejora corre de principio a fin
+ Demo Windows Native ejecuta una skill desktop
+ ShinobiSetup.exe instala en VM Windows limpia
+ shinobi import hermes funciona con fixture
+ audit.zapweave.com responde y form funciona
+ kernel.zapweave.com /v1/health 200 OK
+ zapweave.com landing carga
+
+
+ F1.2 Cualquier test FAIL → blocker reportado
+ F1.3 Commit chore(F1): verify_release script
+
+F2 — Releases en GitHub
+
+ F2.1 Tag versión v1.0.0 en repo Shinobi
+ F2.2 GitHub Release con assets:
+
+ ShinobiSetup-1.0.0.exe
+ shinobi-portable-1.0.0.zip
+ CHANGELOG.md
+
+
+ F2.3 Tag v1.0.0 en repo OpenGravity
+ F2.4 GitHub Release de OG con assets equivalentes
+ F2.5 Commit release(F2): v1.0.0 publicada
+
+
+EJE G — POST-LANZAMIENTO (infraestructura)
+G1 — Sistema de issues automatizado
+
+ G1.1 Bot que clasifica issues nuevas (bug/feature/question) con LLM
+ G1.2 Auto-asignación de label
+ G1.3 Auto-respuesta inicial agradeciendo y avisando timeline
+ G1.4 Commit feat(G1): issue triage automatizado
+
+G2 — Telemetría opcional opt-in
+
+ G2.1 Modulo src/telemetry/ con eventos anónimos básicos
+ G2.2 Wizard pregunta opt-in al primer arranque
+ G2.3 Endpoint OG /v1/telemetry/event que agrega
+ G2.4 Dashboard interno con métricas de uso
+ G2.5 Commit feat(G2): telemetría opt-in
+
+G3 — Release cycle automatizado
+
+ G3.1 GitHub Action: cada push a main que cambia version → build .exe + release
+ G3.2 Auto-changelog desde commits con conventional commits
+ G3.3 Notificación a Discord webhook (URL la pones tú)
+ G3.4 Commit ci(G3): release cycle automatizado
+
+
+EJE H — LA GUINDA: SHINOBI SE GRABA A SÍ MISMO EN OBS
+Esto es el bonus que pediste. Pura virilidad técnica. Demo perfecta auto-referencial.
+H1 — Skill desktop_obs_record_self
+
+ H1.1 Crear skill que abre OBS si no está abierto
+ H1.2 Detecta si ya hay configuración de "Shinobi Self-Recording" cargada, si no la crea
+ H1.3 Configura escena con 3 sources:
+
+ Display Capture (pantalla principal)
+ Audio Output Capture (audio del sistema)
+ Audio Input Capture (micrófono opcional)
+
+
+ H1.4 Pulsa "Start Recording" via screen_act o WebSocket de OBS (obs-websocket plugin)
+ H1.5 Devuelve a Shinobi: "grabación activa, archivo destino X"
+ H1.6 Commit feat(H1): skill desktop_obs_record_self
+
+H2 — Skill desktop_obs_stop_and_save
+
+ H2.1 Comando stop via WebSocket OBS
+ H2.2 Espera confirmación archivo cerrado
+ H2.3 Devuelve path del MP4 generado
+ H2.4 Commit feat(H2): skill desktop_obs_stop_and_save
+
+H3 — Skill compuesta record_my_session
+
+ H3.1 Comando CLI /record start invoca H1
+ H3.2 Comando CLI /record stop invoca H2
+ H3.3 Output del archivo se muestra en CLI con path absoluto
+ H3.4 Opcional: post-procesado básico (recortar primeros 3s, exportar 1080p)
+ H3.5 Commit feat(H3): comando /record para auto-grabación
+
+H4 — Modo "Demo Mode"
+
+ H4.1 Comando CLI shinobi demo --task <task_id> que:
+
+ Inicia grabación OBS automáticamente
+ Ejecuta la tarea X verbalmente narrando cada paso
+ Para grabación al finalizar
+ Genera MP4 en demos/auto-<timestamp>.mp4
+
+
+ H4.2 Plantillas narración por tipo de tarea
+ H4.3 Commit feat(H4): demo mode auto-grabable
+
+H5 — Demo de auto-mejora grabándose a sí misma
+
+ H5.1 Pipeline integrado:
+
+ Shinobi arranca grabación OBS
+ Lanza el benchmark ShinobiBench v1
+ Loop auto-mejora corre en directo
+ Cuando termina, para grabación
+ Genera vídeo final + opcional subtítulos automáticos via Whisper
+
+
+ H5.2 Comando CLI: shinobi run-demo full-self-improve
+ H5.3 Output: demos/full-self-improve-<timestamp>.mp4 listo para subir a YouTube
+ H5.4 Test E2E completo
+ H5.5 Commit feat(H5): demo auto-mejora auto-grabable end-to-end
+
+
+TOTAL TAREAS CLAUDE CODE: ~115
+
+DEPENDENCIAS CRÍTICAS
+A2 → C3      (skills compatibles antes de loop auto-mejora)
+B1 → H1      (instalador antes de skills desktop OBS)
+C1 + C2 → C3 + C4 (benchmark antes de loop y dashboard)
+C3 + C4 → H5 (loop e infra antes de demo auto-grabada)
+B4.4 → H1    (skill OBS básico antes de OBS auto-record)
+A2 + A3 → F1 (compatibilidad antes de pre-lanzamiento)
+F1 → F2      (verificación antes de tag de release)
+
+ORDEN DE EJECUCIÓN RECOMENDADO
+1. C1   (benchmark base de todo)
+2. C2   (OG ejecuta)
+3. C3   (loop auto-mejora)
+4. C4   (dashboard live)
+5. A2   (compat skills)
+6. A4   (import from hermes)
+7. B4   (6 skills desktop)
+8. H1   (OBS record self)
+9. H2   (OBS stop and save)
+10. H3  (/record CLI)
+11. H4  (demo mode)
+12. H5  (auto-mejora auto-grabada — la guinda)
+13. B1  (Inno Setup)
+14. B3  (voice mode)
+15. D1  (naming AgentAudit)
+16. D2  (positioning docs)
+17. D3  (landing audit)
+18. D4  (SDKs)
+19. A3  (MCP standard)
+20. A5  (vigilancia Hermes)
+21. B2  (auto-update)
+22. E1  (build log)
+23. E2  (GitHub público)
+24. F1  (verify release)
+25. F2  (tag y release)
+26. G1  (issue triage)
+27. G2  (telemetría)
+28. G3  (release cycle CI)

@@ -1,0 +1,34 @@
+Cinco fixes en orden. Para después de cada gate.
+
+FIX 1 — paths hardcodeados en src/:
+Busca recursivamente en src/ cualquier string con "Users/angel" o "Users\\angel".
+Para cada hallazgo reemplaza por process.env.OG_ROOT || process.cwd()
+Gate: git grep -r "Users.angel" src/ → cero resultados.
+
+FIX 2 — paths hardcodeados en scripts shell raíz:
+Busca en *.sh, *.cmd, *.bat de la raíz cualquier path absoluto con "Users/angel".
+Reemplaza por variables de entorno o rutas relativas.
+Gate: grep -r "Users.angel" *.sh *.cmd *.bat 2>/dev/null → cero resultados.
+
+FIX 3 — .gitignore completo:
+Reescribe el .gitignore añadiendo estas reglas si no están:
+node_modules/, dist/, build/, .env, .env.*, *.db, *.log, *.bak,
+benchmark_venv/, datasets/, reports/, audit_reports/, audit_results/,
+snapshots/, backups/, logs/, tmp/, tmp_run/, workspace_cloud/,
+*.key, *.pem, TopSecretUltraImportante/
+Gate: cat .gitignore muestra todas las reglas añadidas.
+
+FIX 4 — untrack benchmark_venv/:
+git rm -r --cached benchmark_venv/
+Gate: git status no muestra benchmark_venv/ como tracked.
+
+FIX 5 — eliminar archivos .bak:
+git rm --cached src/experimental/v1_agents/*.bak* 2>/dev/null
+Gate: git ls-files src/experimental/ | grep .bak → cero resultados.
+
+Al final de los 5 fixes:
+git add -A
+git commit -m "cleanup: remove hardcoded paths, fix gitignore, untrack venv and bak files"
+git push origin main
+
+Para después de cada gate.

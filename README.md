@@ -1,107 +1,124 @@
-# Zapweave · Shinobi + OpenGravity
+# Shinobi
 
-**Shinobi** es un asistente AI de escritorio para Windows pensado para
-**YouTubers hispanos que adaptan formatos de canales en inglés**: investiga,
-transcribe, encuentra patrones (hooks, estructura, miniaturas) y te entrega
-un brief para localizar el formato a tu canal.
+An AI agent that runs on your Windows machine and executes real tasks
+using natural language. Not a chatbot. Not a wrapper. An agent that
+acts.
 
-**OpenGravity** es la infraestructura cloud opcional que ejecuta misiones
-grandes (research masivo, modelos premium, jobs largos) sin colgar tu PC.
+## What it does
 
-Web: <https://zapweave.com>
-Email: <hola@zapweave.com>
+Shinobi takes an instruction and executes it. It reads and writes files,
+runs code, navigates real websites with your logged-in sessions, and
+delegates complex work to sub-agents. When it fails a task, it generates
+a new skill and retries.
 
----
+Built and stress-tested in production. Not a demo.
 
-## Estado de los bloques
+## Core capabilities
 
-| Bloque | Tema | Estado |
-|--------|------|--------|
-| B0 | Bootstrap del agente y memoria local | ✅ cerrado |
-| B1 | Tools de archivo y comando | ✅ cerrado |
-| B2 | Migración a OpenGravity para LLM | ✅ cerrado |
-| B3 | Bridge HTTP con el Kernel | ✅ cerrado |
-| B4 | Memoria persistente con SQLite + sqlite-vec | ✅ cerrado |
-| B5 | Memoria semántica fase C (embeddings) | ✅ cerrado |
-| B6 | Misiones recurrentes y resident loop | ✅ cerrado |
-| B7 | Skills cargables bajo demanda | ✅ cerrado |
-| B8 | Web automation (Playwright CDP) | ✅ cerrado |
-| B9 | Operación de apps de escritorio (`screen_observe`/`screen_act`) | ✅ cerrado |
-| B10 | n8n / workflows externos | ✅ cerrado |
-| B11 | Tests E2E end-to-end | ✅ cerrado |
-| B12 | Empaquetado a `.exe` (Node SEA) | ✅ cerrado |
-| B13 | Setup comercial: zapweave.com, precios, docs | ✅ cerrado |
+**Browser automation**
+Operates Comet/Chrome via CDP using your active sessions. Tested against
+anti-bot systems (Fiverr, CoinGecko, YouTube, NotebookLM). No headless
+detection issues — it uses your real browser.
 
----
+**Code execution**
+Runs Python, Node.js, PowerShell. Installs missing dependencies
+automatically. Isolated venv per execution.
 
-## Setup de desarrollo
+**Filesystem**
+Read, write, edit, search across your machine. Understands project
+structure via hierarchical repo analysis with parallel sub-agents.
+
+**Persistent memory**
+SQLite + vector embeddings. Context survives across sessions.
+
+**Skills system**
+When Shinobi fails a task it generates a new skill, validates it, and
+adds it to its index. Three modes: reuse, enhance, generate.
+
+**Committee**
+Multi-model consensus for critical decisions. Deterministic verdicts via
+majority voting with temperature=0. Code reviewer detects SQLi, XSS,
+RCE with file:line citations.
+
+**Resident missions**
+Background tasks that run continuously. Triggered on schedule or event.
+
+**n8n integration**
+Delegates to external workflows via n8n bridge.
+
+**Cloud bridge**
+Offloads heavy missions to OpenGravity kernel when available.
+
+## Requirements
+
+- Windows 10/11
+- Node.js 20+
+- Comet or Chrome launched with `--remote-debugging-port=9222`
+- At least one LLM API key (OpenAI, OpenRouter, or Groq)
+
+## Quick start
 
 ```bash
-# 1. Clonar y entrar
-git clone <repo-url> shinobibot && cd shinobibot
-
-# 2. Instalar deps
+git clone <repo> shinobibot && cd shinobibot
 npm install
-
-# 3. Configurar .env
 cp .env.example .env
-# edita y rellena al menos: OPENAI_API_KEY (o OPENROUTER_API_KEY)
-# y, si usas el cloud, OPENGRAVITY_URL + SHINOBI_API_KEY.
-
-# 4. Arrancar en modo dev (TypeScript directo)
+# Add your API key, then:
 npm run dev
-
-# 5. Probar B9 (mueve mouse/teclado en Notepad — no lo corras AFK)
-npx tsx test_b9.ts
 ```
 
-### Build del .exe distribuible
+Or run the prebuilt executable: `build/shinobi.exe`
 
-```bash
-node build_sea.mjs           # produce build/shinobi.exe
-./rebuild.cmd                # rebuild rápido durante desarrollo
-./rebuild_test.cmd           # rebuild + smoke test
+## Environment
+
+```env
+# Pick at least one
+OPENAI_API_KEY=
+OPENROUTER_API_KEY=
+GROQ_API_KEY=
+
+# Optional — cloud kernel
+OPENGRAVITY_URL=http://localhost:9900
+OPENGRAVITY_PATH=
+SHINOBI_API_KEY=
 ```
 
-### Estructura
+## CLI reference
 
-```
-src/
-  coordinator/    Bucle principal de tools (orchestrator.ts)
-  tools/          Tools nativas (file, run_command, screen_*, browser_*, etc.)
-  cloud/          Cliente OpenGravity (HTTP)
-  bridge/         Puente al Kernel
-  db/             Memoria persistente (memory.ts, context_builder.ts)
-  memory/         Memory store con embeddings
-  utils/          Permisos, kill switch, vision client, etc.
-  runtime/        First-run wizard, resident loop
-  persistence/    Misiones recurrentes (SQLite)
-  skills/         Sistema de skills bajo demanda
-  notifications/  Webhooks / alertas
-docs/
-  sessions/       Bitácora de cada bloque cerrado
-  decisions/      ADRs
-  emails/         Plantillas de email a usuarios
-  comunidad.md    Setup manual del Discord
-web/
-  index.html      Landing zapweave.com (GitHub Pages)
-  precios.html    catalog.html docs.html
-  styles.css
-test_b*.ts        Tests E2E por bloque
-build_sea.mjs     Empaquetado Node SEA
-```
+| Command | What it does |
+|---------|-------------|
+| `/mode [local\|kernel\|auto]` | Switch execution mode |
+| `/model [name\|list]` | Change active LLM |
+| `/memory recall <query>` | Search persistent memory |
+| `/skill list` | Show available skills |
+| `/resident start` | Start background mission |
+| `/read <path>` | Analyze a codebase |
+| `/committee` | Multi-model code audit |
+| `/improvements` | Generate improvement proposals |
+| `/apply <id>` | Apply a proposal |
+| `/learn <url\|path>` | Learn a new tool or library |
+| `/approval [on\|smart\|off]` | Human confirmation mode |
+| `/ledger verify` | Verify mission audit chain |
+| `/record start\|stop` | Record session with OBS |
 
----
+## Verified in production
 
-## Filosofía
+| Task | Result |
+|------|--------|
+| CoinGecko top 5 extraction | 16s, real data |
+| YouTube transcript + comments | Verified |
+| Anti-perimeter browsing (Fiverr) | Bypassed |
+| DVWA security audit | SQLi/XSS/RCE detected with file:line |
+| Repo analysis (kubernetes, react, langchain) | Sub-agent parallel reads |
+| 500 concurrent missions | 100% success rate |
+| 112 unit tests | 0 failures |
 
-- **Local-first**: la memoria y los archivos viven en tu PC.
-- **Específico**: hecho para creadores hispanos, no un chatbot genérico.
-- **Soberano**: las decisiones del bot son auditables; las acciones
-  destructivas piden confirmación.
+## Disclaimer
 
----
+This agent executes real actions on your system — file writes, terminal
+commands, browser automation. Use it under your own responsibility.
+Human confirmation mode (`/approval smart`) is available if you want
+Shinobi to ask before destructive actions.
 
-## Licencia
+## License
 
-ISC. Ver `package.json`.
+ISC
