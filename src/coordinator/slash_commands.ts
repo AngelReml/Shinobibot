@@ -19,6 +19,7 @@ import { ShinobiOrchestrator } from './orchestrator.js';
 import { KernelClient } from '../bridge/kernel_client.js';
 import { SkillLoader } from '../skills/skill_loader.js';
 import { skillManager } from '../skills/skill_manager.js';
+import { curatedMemory } from '../memory/curated_memory.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { Notifier } from '../notifications/notifier.js';
 import {
@@ -144,12 +145,89 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
     return true;
   }
 
-  // /memory <recall|store|stats|forget> [args]
+  // /memory <recall|store|stats|forget|user|env|snapshot> ...
   if (trimmed.startsWith('/memory')) {
-    const parts = trimmed.split(' ');
+    const parts = trimmed.split(/\s+/);
     const memAction = parts[1];
     const memArgs = parts.slice(2).join(' ');
 
+    // Bloque 4 — curated memory commands. Coexisten con la transaccional
+    // (recall/store/stats/forget) sin colisión: archivos USER.md/MEMORY.md
+    // vs SQLite memory_store.
+    if (memAction === 'snapshot') {
+      const snap = curatedMemory().getSnapshot();
+      if (!snap) console.log('(snapshot vacío — añade contenido a USER.md o MEMORY.md y reinicia)');
+      else console.log(snap);
+      return true;
+    }
+
+    if (memAction === 'user') {
+      const sub = parts[2];
+      if (sub === 'show') {
+        const text = curatedMemory().showUser();
+        console.log(text || '(USER.md vacío)');
+        return true;
+      }
+      if (sub === 'edit') {
+        // /memory user edit "section name" contenido… | /memory user edit name contenido…
+        const rest = trimmed.slice(trimmed.indexOf('edit') + 'edit'.length).trim();
+        const m = rest.match(/^(?:"([^"]+)"|(\S+))\s+([\s\S]+)$/);
+        if (!m) { console.log('Usage: /memory user edit "<sección>" <contenido>'); return true; }
+        const name = m[1] ?? m[2];
+        const content = m[3];
+        const r = curatedMemory().editUserSection(name, content);
+        console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
+        return true;
+      }
+      console.log('Usage: /memory user show | /memory user edit "<sección>" <contenido>');
+      return true;
+    }
+
+    if (memAction === 'env') {
+      const sub = parts[2];
+      if (sub === 'show') {
+        const text = curatedMemory().showMemory();
+        console.log(text || '(MEMORY.md vacío)');
+        const pending = curatedMemory().listPending();
+        if (pending.length > 0) {
+          console.log(`\n${pending.length} propuesta(s) pendiente(s):`);
+          for (const p of pending) console.log(`  #${p.idx} [${p.ts}] ${p.note.slice(0, 100)}`);
+        }
+        return true;
+      }
+      if (sub === 'append') {
+        const note = trimmed.slice(trimmed.indexOf('append') + 'append'.length).trim();
+        if (!note) { console.log('Usage: /memory env append <nota>'); return true; }
+        const r = curatedMemory().appendEnv(note);
+        console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
+        return true;
+      }
+      if (sub === 'propose') {
+        const note = trimmed.slice(trimmed.indexOf('propose') + 'propose'.length).trim();
+        if (!note) { console.log('Usage: /memory env propose <nota>'); return true; }
+        const r = curatedMemory().proposeEnv(note);
+        console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
+        return true;
+      }
+      if (sub === 'approve' && parts[3]) {
+        const idx = parseInt(parts[3], 10);
+        if (!Number.isFinite(idx)) { console.log('Usage: /memory env approve <idx>'); return true; }
+        const r = curatedMemory().approveEnvProposal(idx);
+        console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
+        return true;
+      }
+      if (sub === 'reject' && parts[3]) {
+        const idx = parseInt(parts[3], 10);
+        if (!Number.isFinite(idx)) { console.log('Usage: /memory env reject <idx>'); return true; }
+        const r = curatedMemory().rejectEnvProposal(idx);
+        console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
+        return true;
+      }
+      console.log('Usage: /memory env show | append <nota> | propose <nota> | approve <idx> | reject <idx>');
+      return true;
+    }
+
+    // Transaccional (existente, no se toca).
     try {
       const store = ShinobiOrchestrator.getMemory();
       if (memAction === 'recall') {
@@ -166,6 +244,9 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
         console.log(ok ? 'Memory forgotten' : 'Memory not found');
       } else {
         console.log('Usage: /memory <recall|store|stats|forget> [args]');
+        console.log('       /memory user show | /memory user edit "<sección>" <contenido>');
+        console.log('       /memory env show | append | propose | approve <idx> | reject <idx>');
+        console.log('       /memory snapshot');
       }
     } catch (e: any) {
       console.error('[memory] Error:', e.message);

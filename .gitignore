@@ -57,3 +57,8 @@ skills/pending/
 skills/approved/
 task_runs.db
 
+# === Bloque 4 — Memoria curada (privada por usuario, no checkear) ===
+USER.md
+MEMORY.md
+MEMORY.md.pending
+
