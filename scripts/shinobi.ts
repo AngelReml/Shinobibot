@@ -313,7 +313,11 @@ async function main() {
   console.log('');
   
   const prompt = () => {
-    rl.question('Shinobi > ', async (input) => {
+    rl.setPrompt('Shinobi > ');
+    rl.prompt();
+  };
+
+  const handleInput = async (input: string): Promise<void> => {
       const trimmed = input.trim();
       
       if (!trimmed) {
@@ -733,11 +737,46 @@ async function main() {
       } catch (err: any) {
         console.error('Error:', err.message);
       }
-      
+
       prompt();
-    });
   };
-  
+
+  // Paste detection: cuando se pega texto multilínea, readline emite un
+  // 'line' event por cada \n en rapidísima sucesión. Sin buffer, solo la
+  // primera línea alcanzaba al orchestrator y el resto se perdía
+  // (rl.question() es one-shot). Esperamos PASTE_WINDOW_MS de silencio
+  // antes de unir todas las líneas acumuladas con \n y pasarlas como un
+  // único mensaje.
+  const PASTE_WINDOW_MS = 50;
+  let pasteBuffer: string[] = [];
+  let pasteTimer: NodeJS.Timeout | null = null;
+  let processing = false;
+
+  const schedulePasteFlush = (): void => {
+    if (pasteTimer) clearTimeout(pasteTimer);
+    pasteTimer = setTimeout(() => { void flushPaste(); }, PASTE_WINDOW_MS);
+  };
+
+  const flushPaste = async (): Promise<void> => {
+    pasteTimer = null;
+    if (pasteBuffer.length === 0 || processing) return;
+    const composed = pasteBuffer.join('\n');
+    pasteBuffer = [];
+    processing = true;
+    try {
+      await handleInput(composed);
+    } finally {
+      processing = false;
+      if (pasteBuffer.length > 0) schedulePasteFlush();
+    }
+  };
+
+  rl.on('line', (line: string) => {
+    pasteBuffer.push(line);
+    if (processing) return; // finally re-agenda al terminar handleInput
+    schedulePasteFlush();
+  });
+
   prompt();
 }
 
