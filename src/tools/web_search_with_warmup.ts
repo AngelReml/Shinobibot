@@ -1,4 +1,6 @@
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
+import { connectOrLaunchCDP } from './browser_cdp.js';
+import { applyStealth } from './browser_engine.js';
 
 const BLOCK_SIGNALS = [
   /it needs a human touch/i,
@@ -12,71 +14,6 @@ const BLOCK_SIGNALS = [
   /cloudflare/i,
   /un momento/i
 ];
-
-const STEALTH_INIT_SCRIPT = `
-// Patch 1: navigator.webdriver
-Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-
-// Patch 2: chrome runtime mock
-if (!window.chrome) {
-  window.chrome = {};
-}
-if (!window.chrome.runtime) {
-  window.chrome.runtime = { 
-    PlatformOs: { MAC: 'mac', WIN: 'win', ANDROID: 'android', CROS: 'cros', LINUX: 'linux', OPENBSD: 'openbsd' },
-    PlatformArch: { ARM: 'arm', X86_32: 'x86-32', X86_64: 'x86-64' },
-    PlatformNaclArch: { ARM: 'arm', X86_32: 'x86-32', X86_64: 'x86-64' },
-    RequestUpdateCheckStatus: { THROTTLED: 'throttled', NO_UPDATE: 'no_update', UPDATE_AVAILABLE: 'update_available' },
-    OnInstalledReason: { INSTALL: 'install', UPDATE: 'update', CHROME_UPDATE: 'chrome_update', SHARED_MODULE_UPDATE: 'shared_module_update' },
-    OnRestartRequiredReason: { APP_UPDATE: 'app_update', OS_UPDATE: 'os_update', PERIODIC: 'periodic' }
-  };
-}
-
-// Patch 3: plugins
-Object.defineProperty(navigator, 'plugins', {
-  get: () => {
-    const plugins = [
-      { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-      { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
-      { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' }
-    ];
-    return Object.assign(plugins, { item: (i) => plugins[i], namedItem: (n) => plugins.find(p => p.name === n) });
-  }
-});
-
-// Patch 4: languages
-Object.defineProperty(navigator, 'languages', { get: () => ['es-ES', 'es', 'en-US', 'en'] });
-
-// Patch 5: permissions API quirk
-const originalQuery = window.navigator.permissions && window.navigator.permissions.query;
-if (originalQuery) {
-  window.navigator.permissions.query = (parameters) => (
-    parameters.name === 'notifications' 
-      ? Promise.resolve({ state: Notification.permission, onchange: null, addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false })
-      : originalQuery(parameters)
-  );
-}
-
-// Patch 6: WebGL vendor/renderer (señal común de detección)
-const getParameter = WebGLRenderingContext.prototype.getParameter;
-WebGLRenderingContext.prototype.getParameter = function(parameter) {
-  if (parameter === 37445) return 'Intel Inc.';
-  if (parameter === 37446) return 'Intel Iris OpenGL Engine';
-  return getParameter.call(this, parameter);
-};
-
-// Patch 7: hairline feature
-try {
-  const elementDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
-  Object.defineProperty(HTMLDivElement.prototype, 'offsetHeight', {
-    ...elementDescriptor,
-    get: function() {
-      if (this.id === 'modernizr') return 1;
-      return elementDescriptor.get.apply(this);
-    }
-  });
-} catch (e) {}
-`;
 
 function detectBlock(stdout: string): { blocked: boolean; signal: string } {
   for (const sig of BLOCK_SIGNALS) {
@@ -110,19 +47,14 @@ const webSearchWithWarmupTool: Tool = {
 
   async execute(args: { query: string; max_retries?: number; backoff_base_ms?: number }): Promise<ToolResult> {
     try {
-      const { chromium } = await import('playwright');
-      const browser = await chromium.connectOverCDP('http://localhost:9222');
+      const browser = await connectOrLaunchCDP();
       const contexts = browser.contexts();
       const ctx = contexts[0];
       if (!ctx) return { success: false, output: '', error: 'no browser context' };
 
-      // CRÍTICO: inyectar stealth en el contexto antes de cualquier petición
-      // addInitScript se aplica a TODAS las páginas creadas en este contexto
-      try {
-        await ctx.addInitScript(STEALTH_INIT_SCRIPT);
-      } catch (e: any) {
-        // Si ya está inyectado en sesiones previas, ignorar
-      }
+      // Bloque 2: STEALTH_INIT_SCRIPT vive ahora en browser_engine.ts y
+      // applyStealth es idempotente por contexto.
+      await applyStealth(ctx);
 
       const targetUrl = args.query;
       const maxRetries = args.max_retries ?? 3;
@@ -200,9 +132,6 @@ const webSearchWithWarmupTool: Tool = {
 
       return { success: blockedAttempts < maxRetries, output: lastResult.stdout + traceSummary };
     } catch (err: any) {
-      if (err.message?.includes('ECONNREFUSED')) {
-        return { success: false, output: '', error: 'No browser on port 9222.' };
-      }
       return { success: false, output: '', error: `web_search_with_warmup error: ${err.message}` };
     }
   }

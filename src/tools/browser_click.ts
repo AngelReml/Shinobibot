@@ -1,4 +1,6 @@
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
+import { connectOrLaunchCDP } from './browser_cdp.js';
+import { extractDom, formatPageState } from './browser_engine.js';
 
 const browserClickTool: Tool = {
   name: 'browser_click',
@@ -31,8 +33,7 @@ const browserClickTool: Tool = {
 
   async execute(args: { button_text?: string; css_selector?: string; aria_label?: string; url_contains?: string; wait_after_ms?: number }): Promise<ToolResult> {
     try {
-      const { chromium } = await import('playwright');
-      const browser = await chromium.connectOverCDP('http://localhost:9222');
+      const browser = await connectOrLaunchCDP();
       const contexts = browser.contexts();
       const allPages = contexts.flatMap(c => c.pages());
 
@@ -136,34 +137,15 @@ const browserClickTool: Tool = {
 
       await page.waitForTimeout(waitMs);
 
-      const afterState = await page.evaluate(() => {
-        const body = document.body;
-        let bodyText = '';
-        if (body) {
-          bodyText = (body.innerText || '').replace(/\s+/g, ' ').trim();
-          if (bodyText.length > 8000) bodyText = bodyText.slice(0, 8000) + '...[truncated]';
-        }
-        const linkNodes = document.querySelectorAll('a[href]');
-        const links = [];
-        for (let i = 0; i < linkNodes.length && links.length < 100; i++) {
-          const a = linkNodes[i];
-          const t = ((a.innerText || a.textContent || '') + '').trim();
-          if (t.length > 0) links.push({ text: t.length > 200 ? t.slice(0, 200) : t, href: a.href });
-        }
-        return { bodyText, links, currentUrl: window.location.href, title: document.title };
-      });
+      // Bloque 2: extracción consolidada en browser_engine. Mismo formato.
+      const afterState = await extractDom(page, { maxBodyChars: 8000, maxLinks: 100, maxInteractive: 0 });
 
       let stdout = `Clicked using strategy: ${strategy_used}\nMatched: ${matched_descriptor}\nTab: ${page.url()}\n\n`;
       stdout += `--- AFTER CLICK ---\nTitle: ${afterState.title}\nURL: ${afterState.currentUrl}\n\n`;
-      stdout += `--- BODY TEXT (${afterState.bodyText.length} chars) ---\n${afterState.bodyText}\n\n`;
-      stdout += `--- LINKS (${afterState.links.length}) ---\n`;
-      stdout += afterState.links.map((l, i) => `${i+1}. [${l.text}] -> ${l.href}`).join('\n');
+      stdout += formatPageState(afterState, { showInteractive: false });
 
       return { success: true, output: stdout };
     } catch (err: any) {
-      if (err.message?.includes('ECONNREFUSED')) {
-        return { success: false, output: '', error: 'No browser on port 9222.' };
-      }
       return { success: false, output: '', error: `browser_click error: ${err.message}` };
     }
   }

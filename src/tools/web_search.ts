@@ -3,6 +3,8 @@
  * Preserved from original Shinobi Playwright integration
  */
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
+import { connectOrLaunchCDP } from './browser_cdp.js';
+import { extractDom, formatPageState } from './browser_engine.js';
 
 const webSearchTool: Tool = {
   name: 'web_search',
@@ -17,9 +19,7 @@ const webSearchTool: Tool = {
 
   async execute(args: { query: string }): Promise<ToolResult> {
     try {
-      const { chromium } = await import('playwright');
-
-      const browser = await chromium.connectOverCDP('http://localhost:9222');
+      const browser = await connectOrLaunchCDP();
       const allContexts = browser.contexts();
       const allPages = allContexts.flatMap(ctx => ctx.pages());
 
@@ -54,59 +54,14 @@ const webSearchTool: Tool = {
         const title = await page.title();
         const finalUrl = page.url();
 
-        // Extracción de contenido real
-        const extracted = await page.evaluate(() => {
-          const body = document.body;
-          let bodyText = '';
-          if (body) {
-            bodyText = (body.innerText || '').replace(/\s+/g, ' ').trim();
-            if (bodyText.length > 12000) {
-              bodyText = bodyText.slice(0, 12000) + '...[truncated]';
-            }
-          }
-          
-          const linkNodes = document.querySelectorAll('a[href]');
-          const links = [];
-          for (let i = 0; i < linkNodes.length && links.length < 150; i++) {
-            const a = linkNodes[i];
-            const text = ((a.innerText || a.textContent || '') + '').trim();
-            if (text.length > 0) {
-              links.push({
-                text: text.length > 200 ? text.slice(0, 200) : text,
-                href: a.href
-              });
-            }
-          }
-          
-          const interactiveSel = 'button, input, select, textarea, [role="button"], [role="link"]';
-          const interactiveNodes = document.querySelectorAll(interactiveSel);
-          const interactive = [];
-          for (let i = 0; i < interactiveNodes.length && interactive.length < 80; i++) {
-            const el = interactiveNodes[i];
-            const tag = el.tagName.toLowerCase();
-            const role = el.getAttribute('role') || '';
-            const ariaLabel = el.getAttribute('aria-label') || '';
-            let text = ((el.innerText || el.textContent || '') + '').trim();
-            if (text.length > 100) text = text.slice(0, 100);
-            const id = el.id || '';
-            const name = el.getAttribute('name') || '';
-            interactive.push({ tag, role, ariaLabel, text, id, name });
-          }
-          
-          return { bodyText, links, interactive };
-        });
+        // Bloque 2: extracción consolidada en browser_engine. Mismo formato de salida.
+        const state = await extractDom(page, { maxBodyChars: 12000, maxLinks: 150, maxInteractive: 80 });
 
         stdout = `Navigated to: ${fullUrl}\nFinal URL: ${finalUrl}\nPage title: ${title}\n`;
         if (finalUrl !== fullUrl) {
           stdout += `[WARNING] Redirected from ${fullUrl} to ${finalUrl}\n`;
         }
-        stdout += `\n--- BODY TEXT (${extracted.bodyText.length} chars) ---\n${extracted.bodyText}\n`;
-        stdout += `\n--- LINKS (${extracted.links.length}) ---\n`;
-        stdout += extracted.links.map((l: any, i: number) => `${i+1}. [${l.text}] -> ${l.href}`).join('\n');
-        stdout += `\n\n--- INTERACTIVE ELEMENTS (${extracted.interactive.length}) ---\n`;
-        stdout += extracted.interactive.map((e: any, i: number) => 
-          `${i+1}. <${e.tag}${e.role ? ` role="${e.role}"` : ''}${e.id ? ` id="${e.id}"` : ''}${e.name ? ` name="${e.name}"` : ''}> ${e.ariaLabel ? `[aria-label: ${e.ariaLabel}] ` : ''}${e.text}`
-        ).join('\n');
+        stdout += '\n' + formatPageState(state, { showInteractive: true });
 
         // NO cerramos la pestaña aunque sea nueva: futuros pasos del flujo (browser_click, browser_scroll, browser_click_position) la necesitan viva.
         return { success: true, output: stdout };
@@ -175,9 +130,6 @@ const webSearchTool: Tool = {
 
       return { success: true, output: stdout };
     } catch (err: any) {
-      if (err.message?.includes('ECONNREFUSED')) {
-        return { success: false, output: '', error: 'No browser detected on port 9222. Start Chrome with: chrome --remote-debugging-port=9222' };
-      }
       return { success: false, output: '', error: `Web search error: ${err.message}` };
     }
   },
