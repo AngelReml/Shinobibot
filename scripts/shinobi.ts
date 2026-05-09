@@ -8,6 +8,7 @@ import { ShinobiOrchestrator } from '../src/coordinator/orchestrator.js';
 import { handleSlashCommand } from '../src/coordinator/slash_commands.js';
 import { KernelClient } from '../src/bridge/kernel_client.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
+import { skillManager } from '../src/skills/skill_manager.js';
 import { ResidentLoop } from '../src/runtime/resident_loop.js';
 import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -305,16 +306,28 @@ async function main() {
     } catch { /* silent */ }
   })();
 
-  // Auto-reload previously approved skills
+  // Auto-reload previously approved skills (executable .mjs from OpenGravity)
   try {
     const r = await SkillLoader.reloadAllApproved();
-    if (r.loaded > 0) console.log(`[Shinobi] Cargadas ${r.loaded} skill(s) aprobadas previamente.`);
+    if (r.loaded > 0) console.log(`[Shinobi] Cargadas ${r.loaded} skill(s) ejecutables aprobadas previamente.`);
     if (r.errors.length > 0) {
       console.log(`[Shinobi] ${r.errors.length} skill(s) fallaron al cargar:`);
       r.errors.forEach(e => console.log('  -', e));
     }
   } catch (e: any) {
     console.log('[Shinobi] Error cargando skills aprobadas:', e.message);
+  }
+
+  // Bloque 3 — Auto-load approved markdown skills (SKILL.md prompts)
+  try {
+    const md = skillManager().loadApproved();
+    if (md.count > 0) console.log(`[Shinobi] Cargadas ${md.count} skill(s) markdown aprobadas previamente.`);
+    if (md.errors.length > 0) {
+      console.log(`[Shinobi] ${md.errors.length} skill(s) markdown fallaron al cargar:`);
+      md.errors.forEach(e => console.log('  -', e));
+    }
+  } catch (e: any) {
+    console.log('[Shinobi] Error cargando skills markdown:', e.message);
   }
 
   console.log('');

@@ -18,6 +18,7 @@ import axios from 'axios';
 import { ShinobiOrchestrator } from './orchestrator.js';
 import { KernelClient } from '../bridge/kernel_client.js';
 import { SkillLoader } from '../skills/skill_loader.js';
+import { skillManager } from '../skills/skill_manager.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { Notifier } from '../notifications/notifier.js';
 import {
@@ -192,26 +193,104 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
     }
 
     if (sub === 'approve' && parts[2]) {
-      const result = await SkillLoader.approveAndLoad(parts[2]);
+      // Bloque 3: try local SKILL.md pending first, then fall back to the
+      // OpenGravity executable-skill flow. Both id namespaces coexist.
+      const id = parts[2];
+      const local = skillManager().approve(id);
+      if (local.ok) {
+        console.log(`✓ ${local.message}`);
+        return true;
+      }
+      const result = await SkillLoader.approveAndLoad(id);
       console.log(result.success ? `✓ ${result.message}` : `✗ ${result.message}`);
       return true;
     }
 
     if (sub === 'list-approved') {
       const files = SkillLoader.listApprovedFiles();
-      console.log(`\n${files.length} skill(s) approved locally:`);
+      console.log(`\n${files.length} executable skill(s) approved locally (.mjs):`);
       files.forEach(f => console.log('  -', f));
+      const md = skillManager().loadApproved();
+      console.log(`\n${md.count} markdown skill(s) approved (SKILL.md):`);
+      // (Re)read the directory directly so we can show name + id even when
+      // loadApproved doesn't expose the index publicly.
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const dir = path.join(process.cwd(), 'skills', 'approved');
+      if (fs.existsSync(dir)) {
+        for (const f of fs.readdirSync(dir).filter((x: string) => x.endsWith('.skill.md'))) {
+          const id = f.replace(/\.skill\.md$/, '');
+          try {
+            const text = fs.readFileSync(path.join(dir, f), 'utf-8');
+            const m = text.match(/^name:\s*(.+)$/m);
+            const nm = m ? m[1].trim().replace(/^["']|["']$/g, '') : '(no name)';
+            console.log(`  - ${id} — ${nm}`);
+          } catch { console.log(`  - ${id}`); }
+        }
+      }
+      if (md.errors.length) {
+        console.log('\nErrors loading markdown skills:');
+        md.errors.forEach(e => console.log('  -', e));
+      }
       return true;
     }
 
     if (sub === 'reload') {
       const r = await SkillLoader.reloadAllApproved();
-      console.log(`Loaded ${r.loaded} skills. Errors: ${r.errors.length}`);
+      console.log(`Loaded ${r.loaded} executable skill(s). Errors: ${r.errors.length}`);
       r.errors.forEach(e => console.log('  -', e));
+      const md = skillManager().loadApproved();
+      console.log(`Loaded ${md.count} markdown skill(s). Errors: ${md.errors.length}`);
+      md.errors.forEach(e => console.log('  -', e));
       return true;
     }
 
-    console.log('Usage: /skill list | /skill approve <id> | /skill list-approved | /skill reload');
+    // Bloque 3: /skill propose [<contexto opcional>]
+    if (sub === 'propose') {
+      const context = trimmed.slice('/skill propose'.length).trim();
+      let effective = context;
+      if (!effective) {
+        const last = skillManager().getLastObservedRun();
+        if (!last) {
+          console.log('No context provided and no recent run observed. Usage: /skill propose <contexto>');
+          return true;
+        }
+        effective = `Last observed task: "${last.input}"\nTool sequence: ${last.toolSequence.join(' -> ')}\nSuccess: ${last.success}${last.error ? `\nError: ${last.error}` : ''}`;
+      }
+      console.log('Generating skill proposal in background…');
+      // Fire-and-forget; the user will see the result via /skill review or
+      // a `skill_event` over WS.
+      void skillManager().proposeSkill(effective, 'manual').then(r => {
+        if (r.ok) console.log(`✓ Skill propuesta creada: ${r.name} (id=${r.id}). Revisa con /skill review.`);
+        else console.log(`✗ Skill proposal failed: ${r.error}`);
+      });
+      return true;
+    }
+
+    // Bloque 3: /skill review
+    if (sub === 'review') {
+      const pending = skillManager().listPending();
+      if (pending.length === 0) {
+        console.log('No pending skills.');
+        return true;
+      }
+      console.log(`\n${pending.length} pending skill(s):`);
+      for (const p of pending) {
+        console.log(`  - ${p.id} | ${p.name} | source=${p.source_kind} | created=${p.created_at}`);
+        if (p.description) console.log(`      ${p.description}`);
+      }
+      console.log('\nUse /skill approve <id> or /skill reject <id>.');
+      return true;
+    }
+
+    // Bloque 3: /skill reject <id>
+    if (sub === 'reject' && parts[2]) {
+      const r = skillManager().reject(parts[2]);
+      console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
+      return true;
+    }
+
+    console.log('Usage: /skill list | /skill approve <id> | /skill reject <id> | /skill list-approved | /skill reload | /skill propose [<contexto>] | /skill review');
     return true;
   }
 

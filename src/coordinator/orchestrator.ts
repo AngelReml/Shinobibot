@@ -5,6 +5,7 @@ import { getAllTools, getTool, toOpenAITools } from '../tools/index.js';
 import { Memory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
 import { MemoryStore } from '../memory/memory_store.js';
+import { skillManager } from '../skills/skill_manager.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -49,10 +50,28 @@ export class ShinobiOrchestrator {
     // Add user input to memory
     await this.memory.addMessage({ role: 'user', content: input });
 
-    return this.executeToolLoop(input);
+    // Bloque 3: track tool sequence for SkillManager.observeRun
+    const toolSequence: string[] = [];
+    let success = false;
+    let error: string | undefined;
+
+    try {
+      const result = await this.executeToolLoop(input, toolSequence);
+      success = result?.verdict === 'VALID_AGENT';
+      if (result?.verdict === 'ERROR' && result?.error) error = String(result.error);
+      return result;
+    } finally {
+      // Fire-and-forget post-task observation. SkillManager may schedule a
+      // proposal asynchronously without blocking the user's response.
+      try {
+        skillManager().observeRun({ input, toolSequence, success, error });
+      } catch (e: any) {
+        console.log(`[Shinobi] observeRun failed: ${e?.message ?? e}`);
+      }
+    }
   }
 
-  private static async executeToolLoop(input: string): Promise<any> {
+  private static async executeToolLoop(input: string, toolSequence: string[] = []): Promise<any> {
     let currentMessages = await this.contextBuilder.buildMessages(input);
 
     const userQuery = currentMessages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
@@ -64,6 +83,15 @@ export class ShinobiOrchestrator {
         }
       } catch (e) { console.error('[memory] context build failed:', (e as Error).message); }
     }
+
+    // Bloque 3: inject matching skill instructions when any approved skill's
+    // trigger_keywords match the input.
+    try {
+      const skillSection = skillManager().getContextSection(input);
+      if (skillSection) {
+        currentMessages = [{ role: 'system', content: skillSection } as any, ...currentMessages];
+      }
+    } catch (e) { console.error('[skill-manager] context build failed:', (e as Error).message); }
 
     const modeHint = this.buildModeHint();
     if (modeHint) {
@@ -146,6 +174,7 @@ export class ShinobiOrchestrator {
           if (toolCall.type !== 'function') continue;
           const functionName = toolCall.function.name;
           const functionArgs = JSON.parse(toolCall.function.arguments);
+          toolSequence.push(functionName);  // Bloque 3 — observed by SkillManager
           console.log(`  [🔨] Tool called: ${functionName}`);
 
           const tool = getTool(functionName);

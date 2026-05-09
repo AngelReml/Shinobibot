@@ -279,6 +279,26 @@
     color: var(--text-dim);
     border: 1px solid var(--border);
   }
+
+  /* Skill toast — Bloque 3 */
+  .skill-toast {
+    position: fixed;
+    right: 20px;
+    bottom: 80px;
+    background: var(--bg-elev-2);
+    color: var(--text);
+    border: 1px solid var(--accent);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    font-family: var(--sans);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    z-index: 50;
+    max-width: 360px;
+    transition: opacity 0.5s, transform 0.5s;
+  }
+  .skill-toast.fade-out { opacity: 0; transform: translateY(10px); }
 </style>
 </head>
 <body class="show-thinking">
@@ -539,7 +559,24 @@
         openAsk(msg.question, msg.requestId);
         return;
       }
+      if (msg.type === 'skill_event' && msg.event) {
+        showSkillToast(msg.event);
+        return;
+      }
     });
+  }
+
+  function showSkillToast(event) {
+    const t = document.createElement('div');
+    t.className = 'skill-toast';
+    let label = '';
+    if (event.type === 'skill_proposed') label = `💡 Nueva skill propuesta: ${event.name || event.id}. Usa /skill review`;
+    else if (event.type === 'skill_approved') label = `✓ Skill aprobada: ${event.name || event.id}`;
+    else if (event.type === 'skill_rejected') label = `✗ Skill descartada: ${event.id}`;
+    else label = JSON.stringify(event);
+    t.textContent = label;
+    document.body.appendChild(t);
+    setTimeout(() => { t.classList.add('fade-out'); setTimeout(() => t.remove(), 600); }, 8000);
   }
 
   function openAsk(q, requestId) {

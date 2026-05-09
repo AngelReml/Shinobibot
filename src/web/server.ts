@@ -26,6 +26,7 @@ import { ShinobiOrchestrator } from '../coordinator/orchestrator.js';
 import { handleSlashCommand } from '../coordinator/slash_commands.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { KernelClient } from '../bridge/kernel_client.js';
+import { setSkillEventListener } from '../skills/skill_manager.js';
 import {
   ensureApprovalModeInitialized,
   setApprovalAsker,
@@ -142,12 +143,22 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server, path: '/ws' });
 
+  // Bloque 3: broadcast skill lifecycle events to every connected UI client.
+  const allClients = new Set<import('ws').WebSocket>();
+  setSkillEventListener((event) => {
+    const payload = JSON.stringify({ type: 'skill_event', event });
+    for (const c of allClients) {
+      try { c.send(payload); } catch { /* ignore individual client errors */ }
+    }
+  });
+
   // Serial queue: only one in-flight request per server. The orchestrator
   // holds shared static state and we monkey-patch console during processing,
   // so concurrent requests would mix output streams.
   let busy = false;
 
   wss.on('connection', (ws) => {
+    allClients.add(ws);
     let pendingAsk: { resolve: (v: string) => void; requestId: string } | null = null;
 
     const ask = (q: string): Promise<string> => new Promise((resolve) => {
@@ -246,6 +257,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     });
 
     ws.on('close', () => {
+      allClients.delete(ws);
       if (pendingAsk) {
         // Resolve any outstanding ask with empty so the awaiting code unblocks.
         pendingAsk.resolve('');
