@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { OpenGravityClient } from '../cloud/opengravity_client.js';
+import { invokeLLMViaOpenRouter, isConnectionError } from '../cloud/openrouter_fallback.js';
 import { getAllTools, getTool, toOpenAITools } from '../tools/index.js';
 import { Memory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
@@ -44,10 +45,10 @@ export class ShinobiOrchestrator {
 
   static async process(input: string): Promise<any> {
     console.log(`[Shinobi] Processing: ${input.slice(0, 50)}...`);
-    
+
     // Add user input to memory
     await this.memory.addMessage({ role: 'user', content: input });
-    
+
     return this.executeToolLoop(input);
   }
 
@@ -94,13 +95,27 @@ export class ShinobiOrchestrator {
         const responseMessage = response.choices[0].message;
         */
 
-        const result = await OpenGravityClient.invokeLLM({ 
-          messages: currentMessages, 
-          model: this.activeModel, 
-          tools: openAITools.length > 0 ? openAITools : undefined, 
+        const llmPayload = {
+          messages: currentMessages,
+          model: this.activeModel,
+          tools: openAITools.length > 0 ? openAITools : undefined,
           tool_choice: openAITools.length > 0 ? 'auto' : 'none',
-          temperature: 0.2
-        });
+          temperature: 0.2,
+        };
+        let result = await OpenGravityClient.invokeLLM(llmPayload);
+
+        // FAIL 1 fallback: si el gateway 9900 está caído, reintentar contra
+        // OpenRouter directo. Aplica simétricamente a CLI y Web (es la misma
+        // capa). Log claro cuando se usa el fallback.
+        if (!result.success && isConnectionError(result.error)) {
+          console.log('[Shinobi] OpenGravity gateway offline, using OpenRouter direct fallback');
+          result = await invokeLLMViaOpenRouter(llmPayload);
+          if (result.success) {
+            console.log('[Shinobi] OpenRouter fallback OK.');
+          } else {
+            console.log(`[Shinobi] OpenRouter fallback failed: ${result.error}`);
+          }
+        }
 
         if (!result.success) {
           throw new Error(`OpenGravity LLM Error: ${result.error}`);
@@ -110,20 +125,20 @@ export class ShinobiOrchestrator {
 
         // If the LLM just responds with text, we are done
         if (!responseMessage.tool_calls || responseMessage.tool_calls.length === 0) {
-           await this.memory.addMessage({ role: 'assistant', content: responseMessage.content || '' });
-           return {
-             verdict: 'VALID_AGENT',
-             mode: this.mode,
-             response: responseMessage.content,
-           };
+          await this.memory.addMessage({ role: 'assistant', content: responseMessage.content || '' });
+          return {
+            verdict: 'VALID_AGENT',
+            mode: this.mode,
+            response: responseMessage.content,
+          };
         }
 
         // Add the LLM's message indicating tool calls to history
         currentMessages.push(responseMessage);
         await this.memory.addMessage({
-            role: 'assistant',
-            content: responseMessage.content || '',
-            tool_calls: responseMessage.tool_calls as any,
+          role: 'assistant',
+          content: responseMessage.content || '',
+          tool_calls: responseMessage.tool_calls as any,
         });
 
         // Execute all requested tool calls
@@ -140,16 +155,16 @@ export class ShinobiOrchestrator {
             toolResultStr = JSON.stringify({ error: `Tool ${functionName} not found` });
           } else {
             console.log(`       Args: ${JSON.stringify(functionArgs).substring(0, 100)}...`);
-            
+
             // Note: In a CLI interface, here is where we would prompt the user if tool.requiresConfirmation() is true.
             // For now, we auto-execute.
-            
+
             const result = await tool.execute(functionArgs);
             toolResultStr = JSON.stringify(result);
             if (result.success) {
-                console.log(`       ✅ Success`);
+              console.log(`       ✅ Success`);
             } else {
-                console.log(`       ❌ Failed: ${result.error}`);
+              console.log(`       ❌ Failed: ${result.error}`);
             }
           }
 
@@ -161,23 +176,23 @@ export class ShinobiOrchestrator {
             content: toolResultStr,
           };
           currentMessages.push(toolMessage);
-          
+
           await this.memory.addMessage({
-              role: 'tool',
-              tool_call_id: toolCall.id,
-              name: functionName,
-              content: toolResultStr
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            name: functionName,
+            content: toolResultStr
           });
         }
 
         // Loop continues, feeding tool results back to LLM...
 
       } catch (error: any) {
-         console.error(`[Shinobi] LLM or Tool Error: ${error.message}`);
-         return {
-             verdict: 'ERROR',
-             error: error.message
-         }
+        console.error(`[Shinobi] LLM or Tool Error: ${error.message}`);
+        return {
+          verdict: 'ERROR',
+          error: error.message
+        }
       }
     }
 

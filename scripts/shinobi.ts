@@ -5,21 +5,18 @@
 
 import * as readline from 'readline';
 import { ShinobiOrchestrator } from '../src/coordinator/orchestrator.js';
+import { handleSlashCommand } from '../src/coordinator/slash_commands.js';
 import { KernelClient } from '../src/bridge/kernel_client.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
 import { ResidentLoop } from '../src/runtime/resident_loop.js';
-import { Notifier } from '../src/notifications/notifier.js';
-import axios from 'axios';
 import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { configExists, loadConfig, runFirstRunWizard } from '../src/runtime/first_run_wizard.js';
+import { acquireLock, formatLockedError } from '../src/runtime/process_lock.js';
 import {
   ensureApprovalModeInitialized,
   setApprovalAsker,
-  setApprovalMode,
-  getApprovalMode,
-  type ApprovalMode,
   type Approval,
 } from '../src/security/approval.js';
 
@@ -158,7 +155,7 @@ async function maybeRunOneShotCommand(): Promise<boolean> {
       if (stopping) return;
       stopping = true;
       console.log(`[shinobi-daemon] ${sig} received — stopping loop`);
-      try { loop.stop(); } catch {}
+      try { loop.stop(); } catch { }
       // Give pending ticks 2 seconds to wind down
       setTimeout(() => process.exit(0), 2000);
     };
@@ -221,6 +218,16 @@ async function maybeRunOneShotCommand(): Promise<boolean> {
 
 async function main() {
   if (await maybeRunOneShotCommand()) return;
+
+  // FAIL 3 — single-instance lock. CLI y Web son mutuamente exclusivos.
+  const lock = acquireLock('shinobi-cli');
+  if (!lock.acquired) {
+    console.error('');
+    console.error(formatLockedError(lock));
+    console.error('');
+    process.exit(2);
+  }
+
   let config = loadConfig();
   if (!config) {
     config = await runFirstRunWizard();
@@ -311,434 +318,59 @@ async function main() {
   }
 
   console.log('');
-  
+
   const prompt = () => {
     rl.setPrompt('Shinobi > ');
     rl.prompt();
   };
 
+  const askViaRl = (q: string): Promise<string> =>
+    new Promise<string>((res) => rl.question(q, (a) => res(a)));
+
   const handleInput = async (input: string): Promise<void> => {
-      const trimmed = input.trim();
-      
-      if (!trimmed) {
-        prompt();
-        return;
-      }
-      
-      if (trimmed.toLowerCase() === 'exit') {
-        console.log('Hasta luego.');
-        rl.close();
-        process.exit(0);
-      }
-      
-      // /record start|stop — bracket a session with OBS recording.
-      if (trimmed.startsWith('/record')) {
-        const sub = trimmed.split(/\s+/)[1] ?? '';
-        if (sub !== 'start' && sub !== 'stop') {
-          console.log('Usage: /record start | /record stop');
-        } else {
-          try {
-            const mod: any = await import('../skills/composite/record-my-session/scripts/skill.mjs');
-            const tool = mod.default;
-            const r = await tool.execute({ action: sub });
-            if (r.success) {
-              const parsed = JSON.parse(r.output);
-              if (sub === 'start') console.log(`[record] started — scene=${parsed.scene}${parsed.started_at ? ' at ' + parsed.started_at : ''}`);
-              else console.log(`[record] stopped — output: ${parsed.output_path ?? '(no active recording)'}${parsed.size_bytes ? ' (' + parsed.size_bytes + ' bytes)' : ''}`);
-            } else {
-              console.log('[record] error:', r.error);
-            }
-          } catch (e: any) {
-            console.log('[record] failed:', e?.message ?? e);
-          }
-        }
-        prompt();
-        return;
-      }
+    const trimmed = input.trim();
 
-      // Special commands
-      if (trimmed.startsWith('/mode ')) {
-        const mode = trimmed.split(' ')[1] as 'local' | 'kernel' | 'auto';
-        if (['local', 'kernel', 'auto'].includes(mode)) {
-          ShinobiOrchestrator.setMode(mode);
-        } else {
-          console.log('Modos válidos: local, kernel, auto');
-        }
-        prompt();
-        return;
-      }
-      
-      if (trimmed === '/status') {
-        await checkKernel();
-        prompt();
-        return;
-      }
-
-      if (trimmed.startsWith('/model')) {
-        const parts = trimmed.split(' ');
-        if (parts.length === 1) {
-          console.log(`Modelo activo: ${ShinobiOrchestrator.getModel()} | tier override: ${ShinobiOrchestrator.getTier()}`);
-        } else if (parts[1] === 'auto') {
-          ShinobiOrchestrator.setModel(undefined);
-          console.log('Modelo: auto (router decide por tier)');
-        } else if (parts[1] === 'list') {
-          console.log('Modelos recomendados (override manual; bypassea el router):');
-          console.log('- z-ai/glm-4.7 (REASONING tier default)');
-          console.log('- anthropic/claude-haiku-4.5 (BALANCED tier default)');
-          console.log('- openai/gpt-4o-mini (FAST tier default)');
-          console.log('- openai/gpt-4o, anthropic/claude-3.5-sonnet (otros)');
-        } else {
-          ShinobiOrchestrator.setModel(parts[1]);
-          console.log(`Modelo cambiado a: ${parts[1]} (bypassea router LLM)`);
-        }
-        prompt();
-        return;
-      }
-
-      // D-016 — /tier fast|balanced|reasoning|auto. Modela el override que el
-      // gateway aplica cuando llega req.body.tier sin model explícito. Si el
-      // usuario también fijó /model, el modelo gana (contract gateway-side).
-      if (trimmed.startsWith('/tier')) {
-        const parts = trimmed.split(/\s+/);
-        if (parts.length === 1) {
-          console.log(`Tier activo: ${ShinobiOrchestrator.getTier()} | modelo override: ${ShinobiOrchestrator.getModel()}`);
-        } else {
-          const sub = parts[1].toLowerCase();
-          if (sub === 'auto') {
-            ShinobiOrchestrator.setTier(undefined);
-            console.log('Tier: auto (router clasifica por heurística)');
-          } else if (sub === 'fast' || sub === 'balanced' || sub === 'reasoning') {
-            const t = sub.toUpperCase() as 'FAST' | 'BALANCED' | 'REASONING';
-            ShinobiOrchestrator.setTier(t);
-            console.log(`Tier forzado a: ${t}`);
-            if (ShinobiOrchestrator.getModel() !== 'default') {
-              console.log(`  ⚠ /model está fijado (${ShinobiOrchestrator.getModel()}) — el modelo gana sobre el tier hasta que hagas /model auto.`);
-            }
-          } else {
-            console.log('Usage: /tier fast | balanced | reasoning | auto');
-          }
-        }
-        prompt();
-        return;
-      }
-      
-      if (trimmed.startsWith('/memory')) {
-        const parts = trimmed.split(' ');
-        const memAction = parts[1];
-        const memArgs = parts.slice(2).join(' ');
-        
-        try {
-          const store = ShinobiOrchestrator.getMemory();
-          if (memAction === 'recall') {
-            const results = await store.recall({ query: memArgs, limit: 5 });
-            console.log('--- Memory Recall ---');
-            results.forEach(r => console.log(`[${r.score.toFixed(2)}] ${r.entry.content}`));
-          } else if (memAction === 'store') {
-            const entry = await store.store(memArgs);
-            console.log(`Saved memory (ID: ${entry.id})`);
-          } else if (memAction === 'stats') {
-            console.log(store.stats());
-          } else if (memAction === 'forget') {
-            const ok = store.forget(memArgs);
-            console.log(ok ? 'Memory forgotten' : 'Memory not found');
-          } else {
-            console.log('Usage: /memory <recall|store|stats|forget> [args]');
-          }
-        } catch (e: any) {
-          console.error('[memory] Error:', e.message);
-        }
-        prompt();
-        return;
-      }
-      
-      // Skill commands
-      if (trimmed.startsWith('/skill ')) {
-        const parts = trimmed.split(/\s+/);
-        const sub = parts[1];
-
-        if (sub === 'list') {
-          const baseUrl = process.env.OPENGRAVITY_URL || 'http://localhost:9900';
-          const apiKey = process.env.SHINOBI_API_KEY || '';
-          try {
-            const r = await axios.get(`${baseUrl}/v1/skills/list`, { headers: { 'X-Shinobi-Key': apiKey } });
-            const list = JSON.parse(r.data.output);
-            console.log(`\n${list.length} skill(s):`);
-            for (const s of list) {
-              console.log(`  - ${s.id} | ${s.name} | status=${s.status} | ${s.description.substring(0, 60)}`);
-            }
-          } catch (e: any) { console.log('Error:', e.message); }
-          prompt();
-          return;
-        }
-
-        if (sub === 'approve' && parts[2]) {
-          const result = await SkillLoader.approveAndLoad(parts[2]);
-          console.log(result.success ? `\u2713 ${result.message}` : `\u2717 ${result.message}`);
-          prompt();
-          return;
-        }
-
-        if (sub === 'list-approved') {
-          const files = SkillLoader.listApprovedFiles();
-          console.log(`\n${files.length} skill(s) approved locally:`);
-          files.forEach(f => console.log('  -', f));
-          prompt();
-          return;
-        }
-
-        if (sub === 'reload') {
-          const r = await SkillLoader.reloadAllApproved();
-          console.log(`Loaded ${r.loaded} skills. Errors: ${r.errors.length}`);
-          r.errors.forEach(e => console.log('  -', e));
-          prompt();
-          return;
-        }
-
-        console.log('Usage: /skill list | /skill approve <id> | /skill list-approved | /skill reload');
-        prompt();
-        return;
-      }
-
-      // Resident commands
-      if (trimmed.startsWith('/resident')) {
-        const parts = trimmed.split(/\s+/);
-        const sub = parts[1];
-
-        if (sub === 'start') {
-          residentLoop.start();
-          console.log('Resident loop started. Use /resident status to monitor.');
-          prompt(); return;
-        }
-        if (sub === 'stop') {
-          residentLoop.stop();
-          console.log('Resident loop stopped.');
-          prompt(); return;
-        }
-        if (sub === 'status') {
-          const list = residentLoop.getStore().list();
-          console.log(`Loop running: ${residentLoop.isRunning()}`);
-          console.log(`Missions: ${list.length}`);
-          for (const m of list) {
-            console.log(`  - ${m.id} | ${m.name} | every ${m.cron_seconds}s | enabled=${m.enabled} | last=${m.last_status || 'never'} | fails=${m.consecutive_failures}`);
-          }
-          prompt(); return;
-        }
-        if (sub === 'add') {
-          const rest = trimmed.substring('/resident add'.length).trim();
-          const match = rest.match(/^"([^"]+)"\s+(\d+)\s+(.+)$/);
-          if (!match) { console.log('Usage: /resident add "name" <cron_seconds> <prompt>'); prompt(); return; }
-          const created = residentLoop.getStore().create({ name: match[1], cron_seconds: Number(match[2]), prompt: match[3] });
-          console.log(`Mission created: ${created.id}`);
-          prompt(); return;
-        }
-        if (sub === 'enable' && parts[2]) {
-          residentLoop.getStore().setEnabled(parts[2], true);
-          console.log('Mission enabled.');
-          prompt(); return;
-        }
-        if (sub === 'disable' && parts[2]) {
-          residentLoop.getStore().setEnabled(parts[2], false);
-          console.log('Mission disabled.');
-          prompt(); return;
-        }
-        if (sub === 'reset' && parts[2]) {
-          residentLoop.getStore().resetFailures(parts[2]);
-          console.log('Failures reset.');
-          prompt(); return;
-        }
-        if (sub === 'delete' && parts[2]) {
-          residentLoop.getStore().delete(parts[2]);
-          console.log('Mission deleted.');
-          prompt(); return;
-        }
-        if (sub === 'logs' && parts[2]) {
-          const logs = residentLoop.getStore().getRecentLogs(parts[2], 5);
-          console.log(`Last ${logs.length} logs for ${parts[2]}:`);
-          for (const l of logs) console.log(`  [${l.started_at}] ${l.status} | ${(l.output || l.error || '').substring(0, 200)}`);
-          prompt(); return;
-        }
-        console.log('Usage: /resident start | stop | status | add "name" <secs> <prompt> | enable <id> | disable <id> | delete <id> | reset <id> | logs <id>');
-        prompt(); return;
-      }
-
-      // Notify commands
-      if (trimmed.startsWith('/notify')) {
-        const parts = trimmed.split(/\s+/);
-        const sub = parts[1];
-        if (sub === 'set' && parts[2]) {
-          Notifier.setWorkflow(parts[2]);
-          console.log(`Notifier configured to use workflow: ${parts[2]}`);
-          prompt(); return;
-        }
-        if (sub === 'unset') {
-          Notifier.setWorkflow(null);
-          console.log('Notifier disabled (will only print to console).');
-          prompt(); return;
-        }
-        if (sub === 'test') {
-          const r = await Notifier.send({ level: 'info', title: 'Test notification', body: 'Hola desde Shinobi.' });
-          console.log(`Test send: ${r.success ? 'OK' : 'FAILED — ' + r.error}`);
-          prompt(); return;
-        }
-        console.log('Usage: /notify set <workflow_id> | /notify unset | /notify test');
-        prompt(); return;
-      }
-
-      // /read <path> [--budget=N] — Habilidad A: lectura jerárquica de un repo.
-      if (trimmed.startsWith('/read')) {
-        const argv = trimmed.slice('/read'.length).trim();
-        const { runRead, parseReadArgs } = await import('../src/reader/cli.js');
-        const parsed = parseReadArgs(argv);
-        if (parsed.error) {
-          console.log(parsed.error);
-        } else {
-          await runRead(parsed.path!, { budgetTokens: parsed.budgetTokens });
-        }
-        prompt();
-        return;
-      }
-
-      // /ledger verify | export — Habilidad D.4: integridad de la cadena de misiones.
-      if (trimmed.startsWith('/ledger')) {
-        const sub = trimmed.slice('/ledger'.length).trim().split(/\s+/)[0] ?? '';
-        const { MissionLedger } = await import('../src/ledger/MissionLedger.js');
-        const ledger = new MissionLedger();
-        if (sub === 'verify') {
-          const v = ledger.verify();
-          console.log(`[ledger] entries: ${v.entries}`);
-          console.log(`[ledger] integrity: ${v.ok ? 'INTACT ✅' : 'BROKEN ❌'}`);
-          if (!v.ok) for (const b of v.breakages) console.log(`  - [${b.index}] ${b.reason}`);
-        } else if (sub === 'export') {
-          const exp = ledger.export();
-          const fs = await import('node:fs');
-          const path = await import('node:path');
-          const outDir = path.join(process.cwd(), 'ledger');
-          if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
-          const out = path.join(outDir, `export_${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
-          fs.writeFileSync(out, JSON.stringify(exp, null, 2));
-          console.log(`[ledger] count=${exp.count}  head=${exp.head.slice(0, 12) || '<empty>'}…`);
-          console.log(`[ledger] export → ${out}`);
-        } else {
-          console.log('Usage: /ledger verify | /ledger export');
-        }
-        prompt();
-        return;
-      }
-
-      // /learn <ruta_o_url> — Habilidad C.1: aprende un programa nuevo.
-      if (trimmed.startsWith('/learn')) {
-        const argv = trimmed.slice('/learn'.length).trim();
-        const { runLearn, parseLearnArgs } = await import('../src/knowledge/learn.js');
-        const parsed = parseLearnArgs(argv);
-        if (parsed.error) { console.log(parsed.error); prompt(); return; }
-        await runLearn(parsed.input!);
-        prompt();
-        return;
-      }
-
-      // /improvements — Habilidad B.3: traduce comité → propuestas concretas.
-      if (trimmed.startsWith('/improvements')) {
-        const argv = trimmed.slice('/improvements'.length).trim();
-        const { runImprovements } = await import('../src/committee/improvements.js');
-        await runImprovements(argv || undefined);
-        prompt();
-        return;
-      }
-
-      // /apply <id> — Habilidad B.3: aplica una propuesta tras confirmación humana.
-      if (trimmed.startsWith('/apply')) {
-        const id = trimmed.slice('/apply'.length).trim();
-        if (!id) { console.log('Usage: /apply <proposal_id>'); prompt(); return; }
-        const { applyProposal } = await import('../src/committee/improvements.js');
-        const r = await applyProposal(id, (q) => new Promise<string>((res) => rl.question(q, (a) => res(a))));
-        console.log(`[apply] ${r.ok ? 'OK' : 'FAIL'} — ${r.message}`);
-        prompt();
-        return;
-      }
-
-      // /committee [<report.json>] — Habilidad B.2: 3 modelos revisan un report.
-      if (trimmed.startsWith('/committee')) {
-        const argv = trimmed.slice('/committee'.length).trim();
-        const { runCommittee, parseCommitteeArgs, findLatestSelfReport } = await import('../src/committee/cli.js');
-        let target: string | undefined;
-        if (!argv) {
-          target = findLatestSelfReport();
-          if (!target) {
-            console.log('No self_reports/ found. Run /self first or pass a report path.');
-            prompt();
-            return;
-          }
-          console.log(`[committee] using latest self_report: ${target}`);
-        } else {
-          const parsed = parseCommitteeArgs(argv);
-          if (parsed.error) { console.log(parsed.error); prompt(); return; }
-          target = parsed.path!;
-        }
-        await runCommittee(target);
-        prompt();
-        return;
-      }
-
-      // /self [--diff] [--budget=N] — Habilidad B.1: Shinobi se lee a sí mismo.
-      if (trimmed.startsWith('/self')) {
-        const argv = trimmed.slice('/self'.length).trim();
-        const { runSelf, runSelfDiff, parseSelfArgs } = await import('../src/reader/self.js');
-        const parsed = parseSelfArgs(argv);
-        if (parsed.error) {
-          console.log(parsed.error);
-        } else if (parsed.diff) {
-          await runSelfDiff();
-        } else {
-          await runSelf({ budgetTokens: parsed.budgetTokens });
-        }
-        prompt();
-        return;
-      }
-
-      // /approval — D-017 approval mode control.
-      if (trimmed.startsWith('/approval')) {
-        const parts = trimmed.split(/\s+/);
-        if (parts.length === 1) {
-          console.log(`Approval mode: ${getApprovalMode()}`);
-        } else {
-          const sub = parts[1].toLowerCase();
-          if (sub === 'on' || sub === 'smart' || sub === 'off') {
-            setApprovalMode(sub as ApprovalMode);
-            if (sub === 'off') {
-              console.log('');
-              console.log('═══════════════════════════════════════════════════════════════');
-              console.log('⚠️  APPROVAL OFF — Shinobi tiene permisos absolutos en tu máquina.');
-              console.log('   Sin frenos. Sin confirmaciones. Sin sandbox.');
-              console.log('   Para revertir: /approval smart');
-              console.log('═══════════════════════════════════════════════════════════════');
-              console.log('');
-            } else {
-              console.log(`Approval mode: ${sub}`);
-            }
-          } else {
-            console.log('Usage: /approval [on|smart|off]');
-          }
-        }
-        prompt();
-        return;
-      }
-
-      // Process request
-      console.log('[Engine procesando...]');
-      
-      try {
-        const result = await ShinobiOrchestrator.process(trimmed);
-        if (result && (result as any).output) {
-            console.log('\n--- FINAL MISSION OUTPUT ---');
-            console.log((result as any).output);
-            console.log('----------------------------\n');
-        }
-        console.log(JSON.stringify(result, null, 2));
-      } catch (err: any) {
-        console.error('Error:', err.message);
-      }
-
+    if (!trimmed) {
       prompt();
+      return;
+    }
+
+    if (trimmed.toLowerCase() === 'exit') {
+      console.log('Hasta luego.');
+      rl.close();
+      process.exit(0);
+    }
+
+    // Slash commands extracted to src/coordinator/slash_commands.ts (Bloque 1).
+    // Shared with src/web/server.ts so CLI and Web stay in lockstep.
+    if (trimmed.startsWith('/')) {
+      const handled = await handleSlashCommand(trimmed, {
+        residentLoop,
+        ask: askViaRl,
+      });
+      if (handled) {
+        prompt();
+        return;
+      }
+      // Unrecognised slash → fall through to orchestrator (legacy behaviour).
+    }
+
+    // Process request
+    console.log('[Engine procesando...]');
+
+    try {
+      const result = await ShinobiOrchestrator.process(trimmed);
+      if (result && (result as any).output) {
+        console.log('\n--- FINAL MISSION OUTPUT ---');
+        console.log((result as any).output);
+        console.log('----------------------------\n');
+      }
+      console.log(JSON.stringify(result, null, 2));
+    } catch (err: any) {
+      console.error('Error:', err.message);
+    }
+
+    prompt();
   };
 
   // Paste detection: cuando se pega texto multilínea, readline emite un
