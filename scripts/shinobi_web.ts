@@ -19,6 +19,7 @@ import { acquireLock, formatLockedError } from '../src/runtime/process_lock.js';
 import { KernelClient } from '../src/bridge/kernel_client.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
 import { skillManager } from '../src/skills/skill_manager.js';
+import { curatedMemory } from '../src/memory/curated_memory.js';
 import { startWebServer } from '../src/web/server.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -83,6 +84,15 @@ async function main() {
     }
   } catch (e: any) {
     console.log('[Shinobi] Error cargando skills markdown:', e?.message ?? e);
+  }
+
+  // Bloque 4 — Curated memory snapshot (USER.md + MEMORY.md).
+  try {
+    const r = curatedMemory().loadAtBoot();
+    console.log(`[Shinobi] Curated memory: ${r.userEntries} user entr(ies) (${r.userPct}%) | ${r.memoryEntries} env entr(ies) (${r.memoryPct}%).`);
+    if (r.created.length) console.log(`[Shinobi] Plantillas creadas: ${r.created.join(', ')} — edítalos para personalizar.`);
+  } catch (e: any) {
+    console.log('[Shinobi] Curated memory error:', e?.message ?? e);
   }
 
   const port = Number(process.env.SHINOBI_WEB_PORT || 3333);

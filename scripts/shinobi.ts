@@ -9,6 +9,7 @@ import { handleSlashCommand } from '../src/coordinator/slash_commands.js';
 import { KernelClient } from '../src/bridge/kernel_client.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
 import { skillManager } from '../src/skills/skill_manager.js';
+import { curatedMemory } from '../src/memory/curated_memory.js';
 import { ResidentLoop } from '../src/runtime/resident_loop.js';
 import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -328,6 +329,16 @@ async function main() {
     }
   } catch (e: any) {
     console.log('[Shinobi] Error cargando skills markdown:', e.message);
+  }
+
+  // Bloque 4 — Curated memory snapshot (USER.md + MEMORY.md). Frozen for the
+  // session; mid-session writes via /memory env append refresh on the fly.
+  try {
+    const r = curatedMemory().loadAtBoot();
+    console.log(`[Shinobi] Curated memory: ${r.userEntries} user entr(ies) (${r.userPct}%) | ${r.memoryEntries} env entr(ies) (${r.memoryPct}%).`);
+    if (r.created.length) console.log(`[Shinobi] Plantillas creadas: ${r.created.join(', ')} — edítalos para personalizar.`);
+  } catch (e: any) {
+    console.log('[Shinobi] Curated memory error:', e?.message ?? e);
   }
 
   console.log('');

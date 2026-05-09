@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { SYSTEM_PROMPT } from '../constants/prompts.js';
 import { Memory } from '../db/memory.js';
+import { curatedMemory } from '../memory/curated_memory.js';
 
 /**
  * Drop orphan tool messages and strip dangling assistant.tool_calls before
@@ -91,7 +92,15 @@ export class ContextBuilder {
 
     const sanitized = sanitizeToolSequence(formattedHistory);
 
+    // Bloque 4: prepend the frozen curated-memory snapshot (USER.md +
+    // MEMORY.md) BEFORE the system prompt, so it lives in the stable prefix.
+    // The snapshot is captured at boot and stays constant for the session
+    // (preserves prefix cache). `appendEnv` is the documented exception that
+    // refreshes mid-session.
+    const curatedSnapshot = curatedMemory().getSnapshot();
+
     const messages = [
+      ...(curatedSnapshot ? [{ role: 'system', content: curatedSnapshot }] : []),
       { role: 'system', content: SYSTEM_PROMPT },
       ...sanitized,
       { role: 'user', content: userInput }
