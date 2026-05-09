@@ -1,4 +1,6 @@
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
+import { connectOrLaunchCDP } from './browser_cdp.js';
+import { extractDom, formatPageState } from './browser_engine.js';
 
 const browserScrollTool: Tool = {
   name: 'browser_scroll',
@@ -27,8 +29,7 @@ const browserScrollTool: Tool = {
 
   async execute(args: { scroll_count?: number; scroll_pixels?: number; wait_between_ms?: number; url_contains?: string }): Promise<ToolResult> {
     try {
-      const { chromium } = await import('playwright');
-      const browser = await chromium.connectOverCDP('http://localhost:9222');
+      const browser = await connectOrLaunchCDP();
       const contexts = browser.contexts();
       const allPages = contexts.flatMap(c => c.pages());
 
@@ -70,37 +71,18 @@ const browserScrollTool: Tool = {
         });
       }
 
-      const finalState = await page.evaluate(() => {
-        const body = document.body;
-        let bodyText = '';
-        if (body) {
-          bodyText = (body.innerText || '').replace(/\s+/g, ' ').trim();
-          if (bodyText.length > 12000) bodyText = bodyText.slice(0, 12000) + '...[truncated]';
-        }
-        const linkNodes = document.querySelectorAll('a[href]');
-        const links = [];
-        for (let i = 0; i < linkNodes.length && links.length < 150; i++) {
-          const a = linkNodes[i];
-          const t = ((a.innerText || a.textContent || '') + '').trim();
-          if (t.length > 0) links.push({ text: t.length > 200 ? t.slice(0, 200) : t, href: a.href });
-        }
-        return { bodyText, links, currentUrl: window.location.href, title: document.title, finalScrollY: window.scrollY, finalHeight: document.documentElement.scrollHeight };
-      });
+      // Bloque 2: extracción consolidada en browser_engine. Mismo formato.
+      const finalState = await extractDom(page, { maxBodyChars: 12000, maxLinks: 150, maxInteractive: 0, includeScroll: true });
 
       let stdout = `Scrolled ${cycles} cycles (${pixels}px each, ${waitMs}ms wait) on tab: ${page.url()}\n`;
       stdout += `Final scroll: ${finalState.finalScrollY} / ${finalState.finalHeight}\n\n`;
       stdout += `--- SCROLL LOG ---\n`;
       stdout += scrollLog.map(s => `Cycle ${s.cycle}: scrollY ${s.before_scroll_y}->${s.after_scroll_y} | height grew ${s.height_growth_px}px`).join('\n');
       stdout += `\n\n--- FINAL STATE ---\nTitle: ${finalState.title}\nURL: ${finalState.currentUrl}\n\n`;
-      stdout += `--- BODY TEXT (${finalState.bodyText.length} chars) ---\n${finalState.bodyText}\n\n`;
-      stdout += `--- LINKS (${finalState.links.length}) ---\n`;
-      stdout += finalState.links.map((l, i) => `${i+1}. [${l.text}] -> ${l.href}`).join('\n');
+      stdout += formatPageState(finalState, { showInteractive: false });
 
       return { success: true, output: stdout };
     } catch (err: any) {
-      if (err.message?.includes('ECONNREFUSED')) {
-        return { success: false, output: '', error: 'No browser on port 9222.' };
-      }
       return { success: false, output: '', error: `browser_scroll error: ${err.message}` };
     }
   }
