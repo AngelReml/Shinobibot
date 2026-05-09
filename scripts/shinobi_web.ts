@@ -18,6 +18,7 @@ import { loadConfig } from '../src/runtime/first_run_wizard.js';
 import { acquireLock, formatLockedError } from '../src/runtime/process_lock.js';
 import { KernelClient } from '../src/bridge/kernel_client.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
+import { skillManager } from '../src/skills/skill_manager.js';
 import { startWebServer } from '../src/web/server.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -63,13 +64,25 @@ async function main() {
   // Reload approved skills on boot, same as the CLI.
   try {
     const r = await SkillLoader.reloadAllApproved();
-    if (r.loaded > 0) console.log(`[Shinobi] Cargadas ${r.loaded} skill(s) aprobadas previamente.`);
+    if (r.loaded > 0) console.log(`[Shinobi] Cargadas ${r.loaded} skill(s) ejecutables aprobadas previamente.`);
     if (r.errors.length > 0) {
       console.log(`[Shinobi] ${r.errors.length} skill(s) fallaron al cargar:`);
       r.errors.forEach(e => console.log('  -', e));
     }
   } catch (e: any) {
     console.log('[Shinobi] Error cargando skills aprobadas:', e?.message ?? e);
+  }
+
+  // Bloque 3 — Auto-load approved markdown skills.
+  try {
+    const md = skillManager().loadApproved();
+    if (md.count > 0) console.log(`[Shinobi] Cargadas ${md.count} skill(s) markdown aprobadas previamente.`);
+    if (md.errors.length > 0) {
+      console.log(`[Shinobi] ${md.errors.length} skill(s) markdown fallaron al cargar:`);
+      md.errors.forEach(e => console.log('  -', e));
+    }
+  } catch (e: any) {
+    console.log('[Shinobi] Error cargando skills markdown:', e?.message ?? e);
   }
 
   const port = Number(process.env.SHINOBI_WEB_PORT || 3333);

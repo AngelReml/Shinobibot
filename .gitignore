@@ -52,3 +52,8 @@ knowledge/
 # === Bloque 2 — browser engine screenshots (rotación 50, no checkear) ===
 screenshots/
 
+# === Bloque 3 — Skill Manager (locales por instalación, no checkear) ===
+skills/pending/
+skills/approved/
+task_runs.db
+
