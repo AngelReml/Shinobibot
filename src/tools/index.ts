@@ -13,6 +13,7 @@ import './browser_click_position.js';
 import './cloud_mission.js'; // The new tool to bridge with OpenGravity Cloud
 import './web_search_with_warmup.js';
 import './clean_extract.js';
+import './generate_document.js';
 import './n8n_invoke.js';
 import './n8n_list_catalog.js';
 import './skill_list.js';

@@ -27,6 +27,7 @@ import { handleSlashCommand } from '../coordinator/slash_commands.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { KernelClient } from '../bridge/kernel_client.js';
 import { setSkillEventListener } from '../skills/skill_manager.js';
+import { setDocumentEventListener } from '../documents/factory.js';
 import {
   ensureApprovalModeInitialized,
   setApprovalAsker,
@@ -149,6 +150,14 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     const payload = JSON.stringify({ type: 'skill_event', event });
     for (const c of allClients) {
       try { c.send(payload); } catch { /* ignore individual client errors */ }
+    }
+  });
+
+  // Bloque 5: broadcast document lifecycle events.
+  setDocumentEventListener((event) => {
+    const payload = JSON.stringify({ type: 'document_event', event });
+    for (const c of allClients) {
+      try { c.send(payload); } catch { /* ignore */ }
     }
   });
 
