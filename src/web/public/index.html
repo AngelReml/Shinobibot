@@ -563,7 +563,29 @@
         showSkillToast(msg.event);
         return;
       }
+      if (msg.type === 'document_event' && msg.event) {
+        showDocumentToast(msg.event);
+        return;
+      }
     });
+  }
+
+  function showDocumentToast(event) {
+    const t = document.createElement('div');
+    t.className = 'skill-toast';
+    if (event.type === 'document_generated' && event.doc) {
+      const d = event.doc;
+      const sizeKb = Math.round(d.bytes / 1024);
+      t.innerHTML =
+        '📄 Documento ' + escapeHtml(d.type) + ' generado: <strong>' + escapeHtml(d.title) + '</strong>' +
+        ' (' + sizeKb + ' KB)<br><span style="color:var(--text-dim); font-size:11px;">' + escapeHtml(d.path) + '</span>';
+    } else if (event.type === 'document_offer') {
+      t.textContent = '💡 ' + (event.hint || 'Esta respuesta tiene formato. Usa /doc auto "<descripción>".');
+    } else {
+      t.textContent = JSON.stringify(event);
+    }
+    document.body.appendChild(t);
+    setTimeout(() => { t.classList.add('fade-out'); setTimeout(() => t.remove(), 600); }, 12000);
   }
 
   function showSkillToast(event) {

@@ -564,6 +564,39 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
     return true;
   }
 
+  // /doc <word|pdf|excel|markdown|auto> <instrucción> — Bloque 5
+  if (trimmed.startsWith('/doc')) {
+    const rest = trimmed.slice('/doc'.length).trim();
+    if (!rest) {
+      console.log('Usage: /doc <word|pdf|excel|markdown|auto> <instrucción>');
+      console.log('  ej: /doc word "informe sobre tendencias 2026 — 5 secciones"');
+      console.log('  ej: /doc auto "tabla con los gastos del mes"');
+      return true;
+    }
+    const m = rest.match(/^(word|pdf|excel|markdown|auto)\s+(.+)$/is);
+    if (!m) {
+      console.log('Tipo no reconocido. Usa: word | pdf | excel | markdown | auto.');
+      return true;
+    }
+    const [, t, instruction] = m;
+    const type = t.toLowerCase() as 'word' | 'pdf' | 'excel' | 'markdown' | 'auto';
+    console.log(`[doc] Pidiendo al LLM que genere ${type} con instrucción: "${instruction.slice(0, 80)}…"`);
+    // Slash flow: delegate to the orchestrator which will pick the
+    // generate_document tool autonomously. The user's input becomes the LLM
+    // prompt with an explicit instruction to call generate_document.
+    const llmPrompt =
+      `Generate a ${type === 'auto' ? 'document (auto-detect type)' : type} document. ` +
+      `Use the generate_document tool with type:"${type}" and an appropriate title. ` +
+      `Instruction: ${instruction}`;
+    try {
+      const result = await ShinobiOrchestrator.process(llmPrompt);
+      if (result?.response) console.log(result.response);
+    } catch (e: any) {
+      console.log(`[doc] error: ${e?.message ?? e}`);
+    }
+    return true;
+  }
+
   // /approval [on|smart|off]
   if (trimmed.startsWith('/approval')) {
     const parts = trimmed.split(/\s+/);
