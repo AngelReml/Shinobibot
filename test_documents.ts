@@ -256,6 +256,82 @@ async function main(): Promise<void> {
     }
   }
 
+  // ─── H: Bloque 5.2 FAIL P3+P4 — headers mixtos + bullets Unicode ────────
+  // Casos REALES del output del LLM en producción que el detector debe
+  // capturar (P3: ## **Título**; P4: bullets •), sin caer en falsos
+  // positivos (texto plano largo, lista corta de bullets Unicode).
+  {
+    const t0 = Date.now();
+    try {
+      // H1 (P3): 2+ headers mixtos "## **Título**" → DEBE ofrecer.
+      const mixedHeaders =
+        '## **EigenCloud: arquitectura**\n\n' + 'desarrollo del tema '.repeat(60) +
+        '\n\n## **Comparativa con AWS**\n\n' + 'análisis técnico '.repeat(60) +
+        '\n\n## **Recomendación final**\n\n' + 'cierre largo '.repeat(40);
+      const offerMixed = shouldOfferDocument(mixedHeaders);
+
+      // H2 (P4): bullets Unicode • → DEBE ofrecer (5+ items).
+      const unicodeBullets =
+        'Puntos clave:\n\n' +
+        '• Punto uno: ' + 'contenido extenso '.repeat(40) + '\n' +
+        '• Punto dos: ' + 'contenido extenso '.repeat(40) + '\n' +
+        '• Punto tres: ' + 'contenido extenso '.repeat(40) + '\n' +
+        '• Punto cuatro: ' + 'contenido extenso '.repeat(40) + '\n' +
+        '• Punto cinco: ' + 'contenido extenso '.repeat(40);
+      const offerUnicodeBullets = shouldOfferDocument(unicodeBullets);
+
+      // H3: texto plano 3000+ chars sin estructura → NO ofrecer (control).
+      const plain3000 = 'Texto totalmente plano sin headers ni bullets ni tablas. '.repeat(60);
+      const offerPlain3000 = shouldOfferDocument(plain3000);
+
+      // H4 (control P4 negativo): solo 2 bullets ● → NO ofrecer
+      // aunque crucemos el threshold de 2000 chars con padding.
+      const twoBulletsLong =
+        'Análisis breve:\n\n' +
+        '● Item con bullet circular: ' + 'descripción larga '.repeat(80) + '\n' +
+        '● Otro item: ' + 'descripción larga '.repeat(80);
+      const offerTwoBullets = shouldOfferDocument(twoBulletsLong);
+
+      // H5 (bonus): mezcla de bullets ASCII y Unicode (•/-/*) cuenta
+      // junta — 5 items en total → DEBE ofrecer. Padding por línea para
+      // cruzar el threshold de 2000 chars del gate previo.
+      const mixedBullets =
+        'Lista mezclada:\n\n' +
+        '- ASCII guion: ' + 'detalle '.repeat(80) + '\n' +
+        '* ASCII asterisco: ' + 'detalle '.repeat(80) + '\n' +
+        '• Unicode bullet: ' + 'detalle '.repeat(80) + '\n' +
+        '● Unicode círculo: ' + 'detalle '.repeat(80) + '\n' +
+        '◆ Unicode rombo: ' + 'detalle '.repeat(80);
+      const offerMixedBullets = shouldOfferDocument(mixedBullets);
+
+      // H6 (bonus anti-doble-conteo): una sola línea "## **Título**"
+      // NO debe sumar 2 señales — sigue siendo 1 header.
+      const oneMixedHeader = '## **Sólo un título**\n\n' + 'texto sin más estructura '.repeat(80);
+      const offerOneMixed = shouldOfferDocument(oneMixedHeader);
+
+      const subs = [
+        { label: 'H1 (P3). 3× "## **Título**" > 2000 chars',           got: offerMixed,          expected: true },
+        { label: 'H2 (P4). 5× bullets Unicode • > 2000 chars',         got: offerUnicodeBullets, expected: true },
+        { label: 'H3. 3000+ chars planos sin estructura',              got: offerPlain3000,      expected: false },
+        { label: 'H4. solo 2 bullets ● (< threshold 5)',               got: offerTwoBullets,     expected: false },
+        { label: 'H5 (bonus). bullets ASCII + Unicode mezclados =5',   got: offerMixedBullets,   expected: true },
+        { label: 'H6 (bonus). 1× "## **Título**" NO double-counts',    got: offerOneMixed,       expected: false },
+      ];
+
+      const subResults: string[] = [];
+      let allOk = true;
+      for (const c of subs) {
+        const ok = c.got === c.expected;
+        if (!ok) allOk = false;
+        subResults.push(`  ${ok ? '✓' : '✗'} ${c.label} → ${c.got} (expected ${c.expected})`);
+      }
+      record('H. shouldOfferDocument FAIL P3+P4 fix', allOk, `${subs.length} sub-cases`, t0);
+      for (const line of subResults) console.log(line);
+    } catch (e: any) {
+      record('H. shouldOfferDocument FAIL P3+P4 fix', false, `threw: ${e.message}`, t0);
+    }
+  }
+
   // ─── Summary ──────────────────────────────────────────────────────────────
   console.log('');
   console.log('═════════════════════════════════════════════════════');

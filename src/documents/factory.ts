@@ -171,32 +171,39 @@ export function shouldOfferDocument(responseText: string): boolean {
   if (process.env.SHINOBI_DOC_AUTO_OFFER === '0') return false;
   if (!responseText || responseText.length < AUTO_OFFER_THRESHOLD) return false;
 
-  // Bloque 5.1 (FAIL P8) — el LLM con frecuencia estructura por **bold**
-  // en vez de `#` headers. La heurística cuenta señales individualmente y
+  // Bloque 5.2 (FAIL P3+P4) — combinar todos los patrones header-like en
+  // UN solo bucket por línea (evita doble-conteo cuando una línea es
+  // "## **Título**"), y aceptar bullets Unicode (•●○▪▫★◆) además de
+  // los ASCII clásicos. La heurística cuenta señales individualmente y
   // dispara si ALGUNA cruza su umbral.
 
-  // 1. Headers `#` `##` `###` — necesita ≥2 para evitar disparar con
-  //    respuestas cortas que solo tienen un H1 introductorio.
-  const headerMatches = responseText.match(/^#{1,3}\s+\S/mg);
-  const hasHeaders = !!headerMatches && headerMatches.length >= 2;
+  // 1. Structural header lines — combinación deduplicada por LÍNEA.
+  //    Cubre: `# X`, `## **X**`, `**X:**`, `1. **X**`. Si una línea
+  //    matchea varios patrones cuenta UNA sola vez.
+  const headerLineRxes = [
+    /^#{1,3}\s+.+$/,                     // # Title  (también captura ## **Title** porque .+ engulle)
+    /^\*\*[^*\n]{1,80}\*\*\s*:?\s*$/,    // **Title:**  bold solo
+    /^\d+\.\s+\*\*[^*\n]+\*\*/,          // 1. **Title** ...
+  ];
+  let headerCount = 0;
+  for (const line of responseText.split('\n')) {
+    if (headerLineRxes.some(rx => rx.test(line))) headerCount++;
+  }
+  const hasHeaders = headerCount >= 2;
 
   // 2. Tabla markdown (fila de datos + fila separadora).
   const hasTable = /^\|[^\n]+\|\s*$/m.test(responseText)
     && /^\|[\s:-]+\|\s*$/m.test(responseText);
 
-  // 3. Bullets `-` o `*` — ≥5 para descartar enumeraciones cortas inline.
-  const bulletMatches = responseText.match(/^[-*]\s+\S/mg);
+  // 3. Bullets — ASCII (`-` `*`) + Unicode comunes que usan los LLMs en
+  //    español/inglés (•●○▪▫★◆). Umbral ≥5 para descartar enumeraciones
+  //    cortas inline.
+  const bulletMatches = responseText.match(/^\s*[-*•●○▪▫★◆]\s+\S/mg);
   const hasBullets = !!bulletMatches && bulletMatches.length >= 5;
 
   // 4. Lista numerada — ≥3 items.
   const numberedMatches = responseText.match(/^\d+\.\s+\S/mg);
   const hasNumbered = !!numberedMatches && numberedMatches.length >= 3;
 
-  // 5. Bold-headers — `**Texto:**` o `**Texto**\n` al inicio de línea.
-  //    Necesita ≥3 para considerar que es realmente un patrón estructural,
-  //    no un énfasis aislado.
-  const boldHeaderMatches = responseText.match(/^\s*\*\*[^*\n]{1,80}\*\*\s*:?\s*$/mg);
-  const hasBoldHeaders = !!boldHeaderMatches && boldHeaderMatches.length >= 3;
-
-  return hasHeaders || hasTable || hasBullets || hasNumbered || hasBoldHeaders;
+  return hasHeaders || hasTable || hasBullets || hasNumbered;
 }
