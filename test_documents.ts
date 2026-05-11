@@ -172,22 +172,87 @@ async function main(): Promise<void> {
     }
   }
 
-  // ─── F: shouldOfferDocument detector ─────────────────────────────────────
+  // ─── F: shouldOfferDocument detector (heurística base) ──────────────────
   {
     const t0 = Date.now();
     try {
-      const longStructured = '# Section A\n\n' + 'lorem ipsum '.repeat(300) + '\n\n## Section B\n\nmore text '.repeat(50);
+      const longStructured = '# Section A\n\n## Section B\n\n' + 'lorem ipsum '.repeat(300) + '\n\n## Section C\n\nmore text '.repeat(50);
       const shortFlat = 'just a quick reply.';
       const longFlat = 'lorem '.repeat(800); // long but no structure
       const offerLong = shouldOfferDocument(longStructured);
       const offerShort = shouldOfferDocument(shortFlat);
       const offerLongFlat = shouldOfferDocument(longFlat);
       const ok = offerLong === true && offerShort === false && offerLongFlat === false;
-      record('F. shouldOfferDocument heurístico', ok,
+      record('F. shouldOfferDocument heurístico base', ok,
         `long_struct=${offerLong}, short=${offerShort}, long_flat=${offerLongFlat}`,
         t0);
     } catch (e: any) {
-      record('F. shouldOfferDocument heurístico', false, `threw: ${e.message}`, t0);
+      record('F. shouldOfferDocument heurístico base', false, `threw: ${e.message}`, t0);
+    }
+  }
+
+  // ─── G: Bloque 5.1 FAIL P8 — detección reforzada por bold/bullets ───────
+  // Los 4 casos del fix: bold-only DEBE ofrecer, 5 bullets DEBE ofrecer,
+  // long flat NO ofrece, corto+headers NO ofrece (threshold de chars).
+  {
+    const t0 = Date.now();
+    try {
+      // Caso 1: respuesta solo con bold encabezados (≥3) → DEBE ofrecer.
+      // Estructura típica del LLM: "**Concepto:** descripción larga..."
+      const boldOnly =
+        '**Visión general:**\n\n' + 'lorem ipsum '.repeat(60) +
+        '\n\n**Tendencias:**\n\n' + 'mucho texto '.repeat(60) +
+        '\n\n**Recomendaciones:**\n\n' + 'más contenido '.repeat(60) +
+        '\n\n**Conclusión:**\n\n' + 'cierre largo '.repeat(40);
+      const offerBoldOnly = shouldOfferDocument(boldOnly);
+
+      // Caso 2: 5 bullets sin headers → DEBE ofrecer.
+      const fiveBullets =
+        'Resumen del análisis:\n\n' +
+        '- Punto uno: ' + 'contenido extenso '.repeat(40) + '\n' +
+        '- Punto dos: ' + 'contenido extenso '.repeat(40) + '\n' +
+        '- Punto tres: ' + 'contenido extenso '.repeat(40) + '\n' +
+        '- Punto cuatro: ' + 'contenido extenso '.repeat(40) + '\n' +
+        '- Punto cinco: ' + 'contenido extenso '.repeat(40);
+      const offerBullets = shouldOfferDocument(fiveBullets);
+
+      // Caso 3: respuesta plana 3000 chars sin estructura → NO ofrecer.
+      const longPlain = 'Texto corrido sin headers ni bullets ni tablas. '.repeat(70);
+      const offerPlain = shouldOfferDocument(longPlain);
+
+      // Caso 4: respuesta corta (~800 chars) CON headers → NO ofrecer
+      // porque no cruza el threshold de chars (2000 default).
+      const shortWithHeaders =
+        '# Header 1\n\n' + 'body ' + 'text '.repeat(40) +
+        '\n\n## Header 2\n\n' + 'more body ' + 'words '.repeat(40);
+      const offerShortHeaders = shouldOfferDocument(shortWithHeaders);
+
+      // Bonus: un solo header H1 (típico de respuestas con un título
+      // introductorio) NO debe ofrecer aunque la respuesta sea larga.
+      const oneHeaderLong = '# Único título\n\n' + 'texto largo sin más estructura '.repeat(80);
+      const offerOneHeader = shouldOfferDocument(oneHeaderLong);
+
+      const subs = [
+        { label: 'G1. bold-only (≥3 **Texto:**) > 2000 chars', got: offerBoldOnly, expected: true },
+        { label: 'G2. 5 bullets sin headers > 2000 chars',     got: offerBullets,  expected: true },
+        { label: 'G3. 3000 chars planos sin estructura',       got: offerPlain,    expected: false },
+        { label: 'G4. corto (800 chars) con headers',          got: offerShortHeaders, expected: false },
+        { label: 'G5. solo 1 H1 + texto largo (NO suficiente)', got: offerOneHeader, expected: false },
+      ];
+
+      const subResults: string[] = [];
+      let allOk = true;
+      for (const c of subs) {
+        const ok = c.got === c.expected;
+        if (!ok) allOk = false;
+        subResults.push(`  ${ok ? '✓' : '✗'} ${c.label} → ${c.got} (expected ${c.expected})`);
+      }
+      record('G. shouldOfferDocument reforzado (FAIL P8 fix)', allOk,
+        `${subs.length} sub-cases`,
+        t0);
+      for (const line of subResults) console.log(line);
+    } catch (e: any) {
+      record('G. shouldOfferDocument reforzado (FAIL P8 fix)', false, `threw: ${e.message}`, t0);
     }
   }
 

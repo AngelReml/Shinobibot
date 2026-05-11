@@ -170,11 +170,33 @@ const AUTO_OFFER_THRESHOLD = parseInt(process.env.SHINOBI_DOC_AUTO_OFFER_THRESHO
 export function shouldOfferDocument(responseText: string): boolean {
   if (process.env.SHINOBI_DOC_AUTO_OFFER === '0') return false;
   if (!responseText || responseText.length < AUTO_OFFER_THRESHOLD) return false;
-  // Structural signals: at least one H1/H2 header OR a markdown table OR
-  // multiple ordered/unordered list items.
-  const hasH = /^#{1,3}\s+\S/m.test(responseText);
-  const hasTable = /^\|[^\n]+\|\s*$/m.test(responseText) && /^\|[\s:-]+\|\s*$/m.test(responseText);
-  const listMatches = responseText.match(/^(?:[-*]\s+|\d+\.\s+)\S/mg);
-  const hasList = !!listMatches && listMatches.length >= 3;
-  return hasH || hasTable || hasList;
+
+  // Bloque 5.1 (FAIL P8) — el LLM con frecuencia estructura por **bold**
+  // en vez de `#` headers. La heurística cuenta señales individualmente y
+  // dispara si ALGUNA cruza su umbral.
+
+  // 1. Headers `#` `##` `###` — necesita ≥2 para evitar disparar con
+  //    respuestas cortas que solo tienen un H1 introductorio.
+  const headerMatches = responseText.match(/^#{1,3}\s+\S/mg);
+  const hasHeaders = !!headerMatches && headerMatches.length >= 2;
+
+  // 2. Tabla markdown (fila de datos + fila separadora).
+  const hasTable = /^\|[^\n]+\|\s*$/m.test(responseText)
+    && /^\|[\s:-]+\|\s*$/m.test(responseText);
+
+  // 3. Bullets `-` o `*` — ≥5 para descartar enumeraciones cortas inline.
+  const bulletMatches = responseText.match(/^[-*]\s+\S/mg);
+  const hasBullets = !!bulletMatches && bulletMatches.length >= 5;
+
+  // 4. Lista numerada — ≥3 items.
+  const numberedMatches = responseText.match(/^\d+\.\s+\S/mg);
+  const hasNumbered = !!numberedMatches && numberedMatches.length >= 3;
+
+  // 5. Bold-headers — `**Texto:**` o `**Texto**\n` al inicio de línea.
+  //    Necesita ≥3 para considerar que es realmente un patrón estructural,
+  //    no un énfasis aislado.
+  const boldHeaderMatches = responseText.match(/^\s*\*\*[^*\n]{1,80}\*\*\s*:?\s*$/mg);
+  const hasBoldHeaders = !!boldHeaderMatches && boldHeaderMatches.length >= 3;
+
+  return hasHeaders || hasTable || hasBullets || hasNumbered || hasBoldHeaders;
 }
