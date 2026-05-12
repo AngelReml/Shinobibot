@@ -1,6 +1,5 @@
 import OpenAI from 'openai';
-import { OpenGravityClient } from '../cloud/opengravity_client.js';
-import { invokeLLMViaOpenRouter, isConnectionError } from '../cloud/openrouter_fallback.js';
+import { invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import { getAllTools, getTool, toOpenAITools } from '../tools/index.js';
 import { Memory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
@@ -134,23 +133,14 @@ export class ShinobiOrchestrator {
           tool_choice: openAITools.length > 0 ? 'auto' : 'none',
           temperature: 0.2,
         };
-        let result = await OpenGravityClient.invokeLLM(llmPayload);
-
-        // FAIL 1 fallback: si el gateway 9900 está caído, reintentar contra
-        // OpenRouter directo. Aplica simétricamente a CLI y Web (es la misma
-        // capa). Log claro cuando se usa el fallback.
-        if (!result.success && isConnectionError(result.error)) {
-          console.log('[Shinobi] OpenGravity gateway offline, using OpenRouter direct fallback');
-          result = await invokeLLMViaOpenRouter(llmPayload);
-          if (result.success) {
-            console.log('[Shinobi] OpenRouter fallback OK.');
-          } else {
-            console.log(`[Shinobi] OpenRouter fallback failed: ${result.error}`);
-          }
-        }
-
+        // Bloque 7 — provider_router decide qué client llama según
+        // SHINOBI_PROVIDER. Para 'opengravity' (default legacy) preserva el
+        // fallback a OpenRouter del Bloque 1.1. Para groq/openai/anthropic/
+        // openrouter va directo al provider elegido (sin fallback — el user
+        // eligió, respetamos).
+        const result = await routedInvokeLLM(llmPayload);
         if (!result.success) {
-          throw new Error(`OpenGravity LLM Error: ${result.error}`);
+          throw new Error(`LLM Error: ${result.error}`);
         }
 
         const responseMessage = JSON.parse(result.output);

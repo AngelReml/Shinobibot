@@ -13,6 +13,44 @@ export interface ShinobiConfig {
   memory_path: string;
   onboarded_at: string;
   version: string;
+  // Bloque 7 — onboarding web universal. Todos opcionales para back-compat
+  // con configs legacy que sólo tienen los campos OpenGravity. Si están
+  // presentes, `provider_router` los respeta.
+  provider?: 'groq' | 'openai' | 'anthropic' | 'openrouter' | 'opengravity';
+  provider_key?: string;
+  model_default?: string;
+}
+
+/**
+ * Persist a fresh config to disk (atomic write).
+ * Bloque 7: used by the web onboarding to save the user's choice.
+ */
+export function saveConfig(cfg: ShinobiConfig): void {
+  if (!fs.existsSync(SHINOBI_DIR)) fs.mkdirSync(SHINOBI_DIR, { recursive: true });
+  const tmp = CONFIG_FILE + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), 'utf-8');
+  fs.renameSync(tmp, CONFIG_FILE);
+}
+
+/**
+ * Re-read config from disk and update relevant process.env vars in-place.
+ * Bloque 7: hot reload after web onboarding so the orchestrator picks up
+ * the new provider without restart.
+ */
+export function reloadConfig(): ShinobiConfig | null {
+  const cfg = loadConfig();
+  if (!cfg) return null;
+  process.env.OPENGRAVITY_URL = cfg.opengravity_url || '';
+  process.env.SHINOBI_API_KEY = cfg.opengravity_api_key || '';
+  process.env.SHINOBI_LANGUAGE = cfg.language || 'es';
+  process.env.SHINOBI_MEMORY_PATH = cfg.memory_path || '';
+  if (cfg.provider) process.env.SHINOBI_PROVIDER = cfg.provider;
+  else delete process.env.SHINOBI_PROVIDER;
+  if (cfg.provider_key) process.env.SHINOBI_PROVIDER_KEY = cfg.provider_key;
+  else delete process.env.SHINOBI_PROVIDER_KEY;
+  if (cfg.model_default) process.env.SHINOBI_MODEL_DEFAULT = cfg.model_default;
+  else delete process.env.SHINOBI_MODEL_DEFAULT;
+  return cfg;
 }
 
 class LineReader {

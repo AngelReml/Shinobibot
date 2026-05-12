@@ -47,21 +47,27 @@ async function main() {
     process.exit(2);
   }
 
+  // Bloque 7 — si no hay config, ARRANCAMOS igualmente. El server detectará
+  // la ausencia y servirá la pantalla de onboarding en `/`. Al completar,
+  // reloadConfig() actualiza el process.env en vivo. CLI sigue exigiendo
+  // config explícita.
   const cfg = loadConfig();
-  if (!cfg) {
-    console.error('');
-    console.error('────────────────────────────────────────────────────────────');
-    console.error(' No Shinobi config found.');
-    console.error(' Ejecuta "shinobi.cmd" una vez para completar el wizard de');
-    console.error(' primer arranque y luego vuelve a abrir "shinobi_web.cmd".');
-    console.error('────────────────────────────────────────────────────────────');
-    console.error('');
-    process.exit(2);
+  if (cfg) {
+    process.env.OPENGRAVITY_URL = cfg.opengravity_url;
+    process.env.SHINOBI_API_KEY = cfg.opengravity_api_key;
+    process.env.SHINOBI_LANGUAGE = cfg.language;
+    process.env.SHINOBI_MEMORY_PATH = cfg.memory_path;
+    if (cfg.provider) process.env.SHINOBI_PROVIDER = cfg.provider;
+    if (cfg.provider_key) process.env.SHINOBI_PROVIDER_KEY = cfg.provider_key;
+    if (cfg.model_default) process.env.SHINOBI_MODEL_DEFAULT = cfg.model_default;
+  } else {
+    console.log('');
+    console.log('────────────────────────────────────────────────────────────');
+    console.log(' Shinobi sin config: arrancando con pantalla de onboarding.');
+    console.log(' Abre http://localhost:3333 para elegir provider + key.');
+    console.log('────────────────────────────────────────────────────────────');
+    console.log('');
   }
-  process.env.OPENGRAVITY_URL = cfg.opengravity_url;
-  process.env.SHINOBI_API_KEY = cfg.opengravity_api_key;
-  process.env.SHINOBI_LANGUAGE = cfg.language;
-  process.env.SHINOBI_MEMORY_PATH = cfg.memory_path;
 
   console.log('--- SHINOBIBOT WEB UI (Bloque 1) ---');
   await checkKernel();
