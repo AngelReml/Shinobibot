@@ -99,9 +99,8 @@ html, body {
   width: 36px;
   height: 36px;
   object-fit: contain;
-  /* Recolor del shinobi-mark según tema (Hiru: negro; Yoru: blanco) */
-  filter: brightness(0) saturate(100%) invert(var(--enso-invert, 0%));
-  transition: filter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Sin filter — el PNG tiene fondo crema con el ensō+shinobi como
+     ilustración. Aplicar brightness/invert lo aplanaba a cuadrado blanco. */
 }
 .brand-text {
   display: flex;

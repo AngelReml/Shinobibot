@@ -1,11 +1,13 @@
 // test_bloque8_3.ts
 //
-// Bloque 8.3 — E2E hermético de antesala + chat Stitch.
+// Bloque 8.3 — E2E del chat Stitch (sin antesala).
+// La antesala fue eliminada a petición del usuario. El chat es ahora
+// la primera (y única) pantalla.
+//
 // Cubre:
-//   A. Antesala carga: #antesala visible, SVG presente, papel renderizado
-//   B. sessionStorage shinobiEntered=true → antesala oculta, chat visible directo
-//   C. WebSocket conecta y procesa send → final (con conv-ID)
-//   D. Toggle hiru→yoru cambia data-theme + bg
+//   A. Chat carga directo: #chat-app visible, conv activa creada
+//   B. WebSocket conecta y procesa send → final
+//   C. Toggle hiru→yoru cambia data-theme + bg
 
 import * as fs from 'fs';
 import * as os from 'os';
@@ -17,7 +19,6 @@ process.env.APPDATA = sandbox;
 process.chdir(sandbox);
 console.log(`[test] sandbox: ${sandbox}`);
 
-// Bypass del onboarding gate
 const shinobiDir = path.join(sandbox, 'Shinobi');
 fs.mkdirSync(shinobiDir, { recursive: true });
 fs.writeFileSync(path.join(shinobiDir, 'config.json'), JSON.stringify({
@@ -26,7 +27,6 @@ fs.writeFileSync(path.join(shinobiDir, 'config.json'), JSON.stringify({
   onboarded_at: new Date().toISOString(), version: '2.0.0',
 }));
 
-// Mock LLM
 const { OpenGravityClient } = await import('./src/cloud/opengravity_client.js');
 (OpenGravityClient as any).invokeLLM = async () =>
   ({ success: true, output: JSON.stringify({ role: 'assistant', content: 'mocked' }), error: '' });
@@ -56,73 +56,37 @@ async function main() {
   }
 
   try {
-    // ─── A. Antesala carga fresh ─────────────────────────────────────────
+    // ─── A. Chat carga directo ───────────────────────────────────────────
     {
       const t0 = Date.now();
       const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
       const page = await ctx.newPage();
       try {
         await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'domcontentloaded' });
-        await page.waitForSelector('#antesala', { timeout: 5000 });
+        await page.waitForFunction(() => !!(window as any).ShinobiConvs?.getActive?.(), { timeout: 5000 });
         const data = await page.evaluate(() => {
-          const a = document.getElementById('antesala');
-          const mark = document.getElementById('antesala-mark');
           const chat = document.getElementById('chat-app');
-          const bg = a ? getComputedStyle(a).backgroundColor : '';
+          const antesala = document.getElementById('antesala');
           return {
-            antesalaVisible: a && !a.classList.contains('hidden'),
-            markPresent: !!mark && mark.getAttribute('src') === '/assets/shinobi-mark.png',
-            antesalaBg: bg,
-            chatHidden: chat && (chat.style.opacity === '0' || chat.style.opacity === ''),
+            chatPresent: !!chat,
+            antesalaPresent: !!antesala,
             theme: document.documentElement.getAttribute('data-theme'),
-          };
-        });
-        // bg debe ser negro puro
-        const isBlack = /rgb\(\s*0,\s*0,\s*0\s*\)/.test(data.antesalaBg);
-        const pass = !!data.antesalaVisible && data.markPresent && isBlack && data.theme === 'hiru';
-        record('A. Antesala carga fresh (negro + mark)', pass, JSON.stringify(data), t0);
-      } catch (e: any) {
-        record('A. Antesala carga fresh', false, `threw: ${e.message}`, t0);
-      } finally { await ctx.close(); }
-    }
-
-    // ─── B. sessionStorage shinobiEntered=true salta antesala ────────────
-    {
-      const t0 = Date.now();
-      const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-      const page = await ctx.newPage();
-      try {
-        // Setear sessionStorage ANTES del navigate. Como sessionStorage es per-origin,
-        // hacemos un goto previo a una página vacía para tener origen, luego setear,
-        // luego goto al index real.
-        await page.goto(`http://127.0.0.1:${PORT}/onboarding.html`, { waitUntil: 'domcontentloaded' });
-        await page.evaluate(() => sessionStorage.setItem('shinobiEntered', 'true'));
-        await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'domcontentloaded' });
-        await page.waitForTimeout(200);
-        const data = await page.evaluate(() => {
-          const a = document.getElementById('antesala');
-          const chat = document.getElementById('chat-app');
-          return {
-            antesalaHidden: a && a.classList.contains('hidden'),
-            chatVisible: chat && chat.style.opacity === '1',
             convsActive: !!(window as any).ShinobiConvs?.getActive?.(),
           };
         });
-        const pass = !!data.antesalaHidden && !!data.chatVisible;
-        record('B. shinobiEntered=true salta antesala', pass, JSON.stringify(data), t0);
+        const pass = data.chatPresent && !data.antesalaPresent && data.theme === 'hiru' && data.convsActive;
+        record('A. Chat carga directo (sin antesala)', pass, JSON.stringify(data), t0);
       } catch (e: any) {
-        record('B. shinobiEntered=true salta antesala', false, `threw: ${e.message}`, t0);
+        record('A. Chat carga directo (sin antesala)', false, `threw: ${e.message}`, t0);
       } finally { await ctx.close(); }
     }
 
-    // ─── C. WS conecta + send → final ────────────────────────────────────
+    // ─── B. WS conecta + send → final ────────────────────────────────────
     {
       const t0 = Date.now();
       const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
       const page = await ctx.newPage();
       try {
-        await page.goto(`http://127.0.0.1:${PORT}/onboarding.html`, { waitUntil: 'domcontentloaded' });
-        await page.evaluate(() => sessionStorage.setItem('shinobiEntered', 'true'));
         await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => !!(window as any).ShinobiConvs?.getActive?.(), { timeout: 5000 });
         await killTransitions(page);
@@ -143,20 +107,18 @@ async function main() {
           return { agentMsg };
         });
         const pass = data.agentMsg.includes('Eco') || data.agentMsg.includes('hola');
-        record('C. WS conecta + send → final', pass, `agentMsg="${data.agentMsg.slice(0, 80)}"`, t0);
+        record('B. WS conecta + send → final', pass, `agentMsg="${data.agentMsg.slice(0, 80)}"`, t0);
       } catch (e: any) {
-        record('C. WS conecta + send → final', false, `threw: ${e.message}`, t0);
+        record('B. WS conecta + send → final', false, `threw: ${e.message}`, t0);
       } finally { await ctx.close(); }
     }
 
-    // ─── D. Toggle hiru→yoru cambia bg + data-theme ─────────────────────
+    // ─── C. Toggle hiru→yoru cambia bg + data-theme ─────────────────────
     {
       const t0 = Date.now();
       const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
       const page = await ctx.newPage();
       try {
-        await page.goto(`http://127.0.0.1:${PORT}/onboarding.html`, { waitUntil: 'domcontentloaded' });
-        await page.evaluate(() => sessionStorage.setItem('shinobiEntered', 'true'));
         await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('#theme-toggle', { timeout: 5000 });
         await killTransitions(page);
@@ -171,9 +133,9 @@ async function main() {
           bg: getComputedStyle(document.body).backgroundColor,
         }));
         const pass = before.theme === 'hiru' && after.theme === 'yoru' && before.bg !== after.bg;
-        record('D. Toggle hiru→yoru cambia bg', pass, `before=${JSON.stringify(before)}, after=${JSON.stringify(after)}`, t0);
+        record('C. Toggle hiru→yoru cambia bg', pass, `before=${JSON.stringify(before)}, after=${JSON.stringify(after)}`, t0);
       } catch (e: any) {
-        record('D. Toggle hiru→yoru cambia bg', false, `threw: ${e.message}`, t0);
+        record('C. Toggle hiru→yoru cambia bg', false, `threw: ${e.message}`, t0);
       } finally { await ctx.close(); }
     }
 
