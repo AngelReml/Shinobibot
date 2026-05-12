@@ -1,18 +1,27 @@
-Plan sólido. Mis decisiones:
-A: Una sola "Conversación inicial". Confirmado, según spec. Los mensajes legacy no tienen contexto separado natural en la UI antigua, mezclarlos en una conv inicial es más limpio que fragmentar artificialmente.
-B: B1 — Contexto compartido v1. Documentado como limitación conocida. Refactorizar ContextBuilder para aislar por conversación es trabajo serio que merece su propio bloque (probablemente Bloque 9.x). Para v1 la UI muestra separación visual y eso es suficiente.
-C: Tras 3 mensajes del usuario. Mantenemos el spec. 1 mensaje puede ser muy poco contexto para que el LLM genere un título decente. 3 da material.
-D: Back-compat sessionId confirmado. Crítico para no romper el gateway del Bloque 6.
-E: Agrupación confirmada. Hoy / Esta semana / Antes. Frontend computa.
-F — Las 4 sorpresas que recomiendas, sí. Confirmadas todas:
+DIAGNÓSTICO desde DevTools Console del usuario:
 
-Markdown render
-Cursor parpadeante artesanal
-Empty state poético en sidebar
-Animación del filete del agente (300ms dibujado de arriba abajo)
+:3333/api/conversations:1  Failed to load resource: 404 (Not Found)
+conversations.js:36 [convs] refresh failed SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
 
-Sobre el empty state poético — pon un haiku tuyo o reutiliza la frase del Dojo. Mi voto: que sea un haiku original que evoque inicio, vacío fértil, primera intención. Tres líneas en Cormorant Garamond, centradas, opacity baja. Algo tipo:
-Antes del primer trazo
-el pincel sueña con tinta —
-todo aún es posible.
-Si tienes uno mejor en tu repertorio creativo, úsalo.
+PROBLEMA CRÍTICO: Los endpoints REST nuevos del Bloque 8.2 (GET /api/conversations, POST /api/conversations, GET /api/conversations/:id/messages, PATCH /api/conversations/:id) NO están registrados en server.ts en runtime, aunque el código los define.
+
+El servidor está devolviendo el HTML del index.html para esas rutas (de ahí el SyntaxError parseando "<!DOCTYPE" como JSON).
+
+INVESTIGA:
+1. Lee src/web/server.ts ACTUAL y verifica que los handlers app.get('/api/conversations'), app.post(...) están definidos
+2. Verifica que se registran ANTES del catch-all express.static() o del routing genérico
+3. Si están definidos pero no funcionan, ¿se reinició el servidor tras los cambios? La sesión de shinobi_web.cmd actual puede tener código viejo cargado en memoria
+
+ADEMÁS:
+- El bug del logo enso (rectángulo rojo sin mask-image) probablemente también es de carga: index.html no encuentra el CSS o el path al PNG
+- El bug del botón enviar es porque app.js falla al cargar las conversaciones inicialmente → JS muere → no se bindea ningún listener
+
+ORDEN DE FIX:
+1. Verifica que server.ts tiene los endpoints REST registrados correctamente
+2. Mata cualquier proceso node activo (shinobi_web.cmd previo en memoria)
+3. Arranca shinobi_web.cmd fresco
+4. Verifica que GET /api/conversations devuelve JSON [] en lugar de HTML
+5. Verifica que /api/conversations/:id/messages funciona
+6. Después aborda los bugs visuales (logo enso + marca de agua) que probablemente se resuelven cuando el JS no muere al cargar
+
+Muéstrame qué encuentras en server.ts antes de tocar nada.

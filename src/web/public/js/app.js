@@ -264,9 +264,15 @@
   }
 
   function sendCurrent() {
-    if (!$composer || !ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!$composer) return;
     const text = $composer.value.trim();
     if (!text) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      // Antes fallaba en silencio. Ahora damos feedback visible y
+      // dejamos que el usuario sepa por qué no se envió.
+      pushToast('Conexión perdida', 'Reintentando… intenta enviar de nuevo en un instante.', { ttl: 3000 });
+      return;
+    }
     const active = window.ShinobiConvs.getActive();
     let conversationId = active?.id;
     if (!conversationId) {
@@ -419,7 +425,11 @@
       if (c && $title) $title.textContent = c.title;
     });
 
-    await window.ShinobiConvs.init();
+    // BUG 2 fix — abrir el WS PRIMERO, antes de bloquear en init().
+    // Si init() tarda (red lenta, fetch fallido), el send sigue
+    // operacional en cuanto el WS abre, y el usuario no encuentra un
+    // botón que falla en silencio.
     connectWS();
+    await window.ShinobiConvs.init();
   });
 })();
