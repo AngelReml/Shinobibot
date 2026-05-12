@@ -197,11 +197,45 @@
     const body = target.querySelector('.body');
     const text = String(msg.response ?? '');
     body.innerHTML = window.ShinobiMarkdown.render(text);
+
+    // Typewriter — inscribe el texto carácter a carácter sobre el papel.
+    // El filete del agente se sincroniza con la duración (capped 1.5s).
+    const totalMs = (window.Typewriter && window.Typewriter.reveal(body)) || 0;
+    const fileteMs = Math.max(300, Math.min(totalMs, 1500));
+    target.style.setProperty('--filete-duration', `${fileteMs}ms`);
+
+    // Cursor parpadeante al final del texto mientras escribe; se remueve al terminar.
+    if (totalMs > 250) {
+      const cursor = document.createElement('span');
+      cursor.className = 'typing-cursor';
+      body.appendChild(cursor);
+      setTimeout(() => cursor.remove(), totalMs);
+    }
+
+    // Hanko 忍 — sello al final, animado con bounce.
+    appendHanko(target, { animated: true, delayMs: totalMs + 80 });
+
     if (msg.mode && msg.model) setStatus(`${msg.mode} · ${msg.model}`);
     else if (msg.model) setStatus(msg.model);
     pendingAgent = null;
     syncHasContent();
     scrollToBottom();
+  }
+
+  // Sello 忍 al final de cada mensaje del agente. Animado en live, estático en history.
+  function appendHanko(msgEl, opts) {
+    opts = opts || {};
+    if (msgEl.querySelector('.hanko-wrap')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'hanko-wrap';
+    wrap.innerHTML = `<svg class="hanko ${opts.animated ? 'animated' : 'static'}" viewBox="0 0 32 32" aria-hidden="true">`
+      + `<rect x="2" y="2" width="28" height="28" fill="var(--accent)" stroke="var(--accent)" stroke-width="1"/>`
+      + `<text x="16" y="22" font-family="serif" font-size="19" font-weight="700" fill="var(--bg)" text-anchor="middle">忍</text>`
+      + `</svg>`;
+    if (opts.animated) {
+      wrap.querySelector('.hanko').style.setProperty('--hanko-delay', `${opts.delayMs || 0}ms`);
+    }
+    msgEl.appendChild(wrap);
   }
 
   function appendErrorOnPending(text) {
@@ -239,6 +273,7 @@
         const body = el.querySelector('.body');
         if (role === 'agent') {
           body.innerHTML = window.ShinobiMarkdown.render(String(m.content || ''));
+          appendHanko(el, { animated: false });
           if (Array.isArray(m.thinking) && m.thinking.length > 0) {
             const thinkBody = ensureThinkingBody(el);
             thinkBody.textContent = m.thinking.join('\n');
@@ -379,6 +414,18 @@
     $title.textContent = newTitle;
   }
 
+  // ─── Empty state: la frase se escribe sola (1 vez por sesión) ────────
+  function maybeTypeOpeningPhrase() {
+    const phraseEl = document.querySelector('.opening-phrase');
+    if (!phraseEl) return;
+    if (sessionStorage.getItem('shinobi.phraseTyped') === '1') return;
+    sessionStorage.setItem('shinobi.phraseTyped', '1');
+    const cursor = phraseEl.querySelector('.cursor-blink');
+    if (cursor) cursor.style.opacity = '0';
+    const total = (window.Typewriter && window.Typewriter.reveal(phraseEl, { charDuration: 50, maxTotal: 3000 })) || 0;
+    setTimeout(() => { if (cursor) cursor.style.opacity = ''; }, total + 80);
+  }
+
   // ─── Init ─────────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async () => {
     // Composer wiring
@@ -427,6 +474,7 @@
     });
 
     setupTitleEditing();
+    maybeTypeOpeningPhrase();
 
     // Conversaciones: init y subscribe al cambio de activa
     window.ShinobiConvs.onSelect(async (id) => {
