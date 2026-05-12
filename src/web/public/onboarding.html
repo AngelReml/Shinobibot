@@ -141,7 +141,19 @@
     gap: 8px 16px;
     margin-bottom: 14px;
   }
-  .premium-providers-list a { font-size: 12.5px; }
+  /* Bloque 7.1 — los links premium quedaron huérfanos sin color en v7
+     y caían al default `-webkit-link` (azul oscuro), ilegible sobre el
+     fondo. Mismo tratamiento que .provider-row a para coherencia. */
+  .premium-providers-list a {
+    font-size: 12.5px;
+    color: var(--accent);            /* #8ab4ff — ratio ~6.5:1 contra --bg-elev, pasa AA */
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .premium-providers-list a:hover {
+    color: var(--accent-strong);      /* #6aa1ff — más brillante en hover */
+    text-decoration: underline;
+  }
 
   .skip-row {
     text-align: center;
@@ -199,6 +211,7 @@
 
     <div class="skip-row">
       <a href="#" class="skip-link" id="skip-link">Ya tengo config (skip)</a>
+      <div class="msg" id="skip-msg" style="margin-top: 10px; text-align: left;"></div>
     </div>
   </div>
 
@@ -256,18 +269,29 @@
     });
   });
 
+  // Bloque 7.1 — skip ahora usa mensaje inline (no alert), loguea en
+  // console para DevTools, y muestra feedback visible incluso si la API
+  // responde 400 (config previa ausente/inválida).
   document.getElementById('skip-link').addEventListener('click', async (e) => {
     e.preventDefault();
+    clearMsg('skip-msg');
+    showMsg('skip-msg', 'info', '⏳ Buscando config previa…');
     try {
       const r = await fetch('/api/onboarding/skip', { method: 'POST' });
-      const data = await r.json();
-      if (r.ok && data.ok) {
-        window.location.href = '/';
+      let data = null;
+      try { data = await r.json(); } catch { /* response not JSON */ }
+      console.log('[onboarding-skip] response:', r.status, data);
+      if (r.ok && data && data.ok) {
+        showMsg('skip-msg', 'success', '✓ Config encontrada. Cargando Shinobi…');
+        setTimeout(() => { window.location.href = '/'; }, 500);
       } else {
-        alert(data.error || 'No hay config previa que recuperar. Configura una key arriba.');
+        const errMsg = (data && data.error) ||
+          'No hay config previa que recuperar. Configura una key arriba.';
+        showMsg('skip-msg', 'error', errMsg + ' (HTTP ' + r.status + ')');
       }
-    } catch (e) {
-      alert('Error de red: ' + (e.message || e));
+    } catch (err) {
+      console.error('[onboarding-skip] fetch failed:', err);
+      showMsg('skip-msg', 'error', 'Error de red: ' + (err.message || err));
     }
   });
 
