@@ -15,33 +15,29 @@
 }
 
 /* ─── Marca de agua del ensō ─────────────────────────────────────────────
+ * Bloque 8.2 fix — <img> directa con filter para adaptar al tema. Sin
+ * mask-image (la versión anterior fallaba en Chrome real).
+ *
  * Pintado al fondo, sin interferir con scroll/click. Se desvanece cuando
- * hay mensajes (el cuerpo del chat añade .has-content).
+ * hay mensajes (.chat.has-content).
  */
 .enso-watermark {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: min(60vh, 520px);
-  height: min(60vh, 520px);
-  transform: translate(-50%, -52%);
-  background-color: var(--accent);
-  /* Longhand mask — ver nota en layout.css::.brand-enso. */
-  -webkit-mask-image: url('/assets/enso-logo.png');
-          mask-image: url('/assets/enso-logo.png');
-  -webkit-mask-size: contain;
-          mask-size: contain;
-  -webkit-mask-position: center;
-          mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
-  opacity: 0.04;
+  width: 60%;
+  max-width: 520px;
+  height: auto;
+  transform: translate(-50%, -50%);
+  filter: brightness(0) saturate(100%) invert(var(--enso-invert, 100%));
+  opacity: 0.06;
   pointer-events: none;
   z-index: 0;
-  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), filter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .chat.has-content .enso-watermark {
-  opacity: 0.022;
+  opacity: 0.03;
 }
 
 /* ─── Empty state (frase + cursor parpadeante) ──────────────────────────── */

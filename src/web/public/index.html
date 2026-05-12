@@ -20,7 +20,7 @@
       <div class="sidebar-content">
         <header class="sidebar-header">
           <a class="brand" href="/">
-            <span class="brand-enso" role="img" aria-label="Ensō"></span>
+            <img class="brand-enso-img" src="/assets/enso-logo.png" alt="Ensō" loading="eager">
             <span class="brand-name serif">Shinobi</span>
           </a>
           <button class="icon-btn" id="sidebar-collapse" title="Plegar barra" aria-label="Plegar">
@@ -54,7 +54,7 @@
 
       <div class="sidebar-collapsed" id="sidebar-collapsed">
         <button class="icon-btn brand-mini" id="sidebar-expand" title="Abrir barra" aria-label="Abrir">
-          <span class="brand-enso small" role="img" aria-label="Ensō"></span>
+          <img class="brand-enso-img small" src="/assets/enso-logo.png" alt="Ensō" loading="eager">
         </button>
         <button class="icon-btn" id="new-conv-mini" title="Nueva conversación" aria-label="Nueva">
           <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 3 L8 13 M3 8 L13 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
@@ -75,7 +75,7 @@
       </header>
 
       <section class="chat" id="chat" aria-live="polite">
-        <div class="enso-watermark" aria-hidden="true"></div>
+        <img class="enso-watermark" src="/assets/enso-logo.png" alt="" aria-hidden="true">
         <div class="chat-empty" id="chat-empty">
           <p class="opening-phrase serif">El silencio es el principio de la concentración<span class="cursor-blink" aria-hidden="true"></span></p>
         </div>
@@ -85,11 +85,19 @@
       <footer class="input-bar">
         <div class="input-shell">
           <button class="input-glyph" id="input-glyph" title="Acciones (próximamente)" aria-label="Acciones">
-            <span class="brand-enso tiny" role="img" aria-label="Ensō"></span>
+            <!-- Bloque 8.2 fix — SVG inline en vez de mask-image, invulnerable
+                 a cualquier quirk de mask. Es una aproximación geométrica al
+                 ensō (círculo abierto trazado a mano alzada) hasta que el
+                 Bloque 8.4 traiga el ensō.svg con stroke=currentColor. -->
+            <svg viewBox="0 0 18 18" width="16" height="16" aria-hidden="true">
+              <path d="M14.5 4.5 A6 6 0 1 0 14 13.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
           </button>
           <textarea id="composer" rows="1" placeholder="Escribe a Shinobi…" autocomplete="off" spellcheck="true"></textarea>
           <button class="send-btn" id="send-btn" title="Enviar (Enter)" aria-label="Enviar" disabled>
-            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8 L13 8 M9 4 L13 8 L9 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <!-- Bloque 8.2 fix — stroke 2.2 (era 1.6) para que la flecha
+                 sea visible sobre el accent del botón. -->
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8 L13 8 M9 4 L13 8 L9 12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
         </div>
         <div class="input-hint" id="input-hint">Enter envía · Shift+Enter nueva línea</div>
