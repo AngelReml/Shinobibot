@@ -33,6 +33,7 @@
   const $askOk = document.getElementById('ask-ok');
   const $askCancel = document.getElementById('ask-cancel');
   const $toastStack = document.getElementById('toast-stack');
+  const $themeToggle = document.getElementById('theme-toggle');
 
   // ─── WebSocket ────────────────────────────────────────────────────────
   function wsUrl() {
@@ -378,6 +379,85 @@
     $title.textContent = newTitle;
   }
 
+  // ─── Easter egg: cursor-pincel sobre el input vacío ──────────────────
+  // El brush SVG y el canvas viven a nivel de body (#brush-cursor, #brush-canvas).
+  // Solo se activan cuando: el ratón está sobre .input-shell AND $composer.value es vacío.
+  function setupBrushEasterEgg() {
+    const $brushCursor = document.getElementById('brush-cursor');
+    const $brushCanvas = document.getElementById('brush-canvas');
+    const $inputShell = document.querySelector('.input-shell');
+    if (!$brushCursor || !$brushCanvas || !$inputShell || !$composer) return;
+
+    function fitCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      $brushCanvas.width = window.innerWidth * dpr;
+      $brushCanvas.height = window.innerHeight * dpr;
+      $brushCanvas.style.width = window.innerWidth + 'px';
+      $brushCanvas.style.height = window.innerHeight + 'px';
+      const ctx = $brushCanvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    fitCanvas();
+    window.addEventListener('resize', fitCanvas);
+
+    const trail = [];
+    const TRAIL_TTL = 2000;
+    let active = false;
+
+    function isOver(x, y) {
+      const b = $inputShell.getBoundingClientRect();
+      return x >= b.left && x <= b.right && y >= b.top && y <= b.bottom;
+    }
+
+    document.addEventListener('mousemove', (ev) => {
+      const empty = $composer.value.trim().length === 0;
+      const inside = isOver(ev.clientX, ev.clientY);
+      const shouldBe = inside && empty;
+      if (shouldBe !== active) {
+        active = shouldBe;
+        $inputShell.classList.toggle('brush-active', active);
+        $brushCursor.classList.toggle('visible', active);
+      }
+      if (active) {
+        $brushCursor.style.left = ev.clientX + 'px';
+        $brushCursor.style.top  = ev.clientY + 'px';
+        trail.push({ x: ev.clientX, y: ev.clientY, ts: performance.now() });
+      }
+    });
+
+    function draw() {
+      const ctx = $brushCanvas.getContext('2d');
+      const dpr = window.devicePixelRatio || 1;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, $brushCanvas.width, $brushCanvas.height);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const now = performance.now();
+      while (trail.length > 0 && now - trail[0].ts > TRAIL_TTL) trail.shift();
+      if (trail.length >= 2) {
+        const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#6b150c';
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        for (let i = 1; i < trail.length; i++) {
+          const p0 = trail[i - 1];
+          const p1 = trail[i];
+          const age = now - p1.ts;
+          const alpha = Math.max(0, 1 - age / TRAIL_TTL);
+          // Convertimos hex a rgba con alpha. Si --accent ya es rgb(...) lo usamos directo.
+          ctx.strokeStyle = accent.startsWith('rgb')
+            ? accent.replace(/rgb(a?)\(([^)]+)\)/, `rgba($2, ${alpha * 0.9})`)
+            : `${accent}${Math.round(alpha * 0.9 * 255).toString(16).padStart(2, '0')}`;
+          ctx.lineWidth = 2.5 * alpha + 0.6;
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          ctx.stroke();
+        }
+      }
+      requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  }
+
   // ─── Init ─────────────────────────────────────────────────────────────
   document.addEventListener('DOMContentLoaded', async () => {
     // Composer wiring
@@ -403,6 +483,20 @@
     });
     $rightClose?.addEventListener('click', () => setRightOpen(false));
 
+    // Theme toggle (Hiru ↔ Yoru)
+    $themeToggle?.addEventListener('click', () => {
+      window.ShinobiTheme?.toggle?.();
+    });
+
+    // Modo concentración (Ctrl/Cmd+.)
+    document.addEventListener('keydown', (ev) => {
+      if ((ev.ctrlKey || ev.metaKey) && ev.key === '.') {
+        ev.preventDefault();
+        const on = $dojo?.getAttribute('data-focus') === 'on';
+        $dojo?.setAttribute('data-focus', on ? 'off' : 'on');
+      }
+    });
+
     // Ask modal
     $askOk?.addEventListener('click', () => closeAskModal(true));
     $askCancel?.addEventListener('click', () => closeAskModal(false));
@@ -412,6 +506,7 @@
     });
 
     setupTitleEditing();
+    setupBrushEasterEgg();
 
     // Conversaciones: init y subscribe al cambio de activa
     window.ShinobiConvs.onSelect(async (id) => {

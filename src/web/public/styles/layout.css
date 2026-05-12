@@ -6,11 +6,12 @@
  */
 
 :root {
-  --sidebar-w: 260px;
+  --sidebar-w: 280px;
   --sidebar-collapsed-w: 48px;
   --right-w: 320px;
-  --header-h: 52px;
+  --header-h: 56px;
   --input-h: 96px;
+  --center-max-w: 800px;
 }
 
 html, body {
@@ -34,6 +35,13 @@ html, body {
 .dojo[data-sidebar="collapsed"][data-right="open"] {
   grid-template-columns: var(--sidebar-collapsed-w) 1fr var(--right-w);
 }
+/* Modo concentración (Ctrl+.) — oculta sidebar + right, expande chat */
+.dojo[data-focus="on"] {
+  grid-template-columns: 0px 1fr 0px !important;
+}
+.dojo[data-focus="on"] .sidebar,
+.dojo[data-focus="on"] .right-panel { opacity: 0; pointer-events: none; }
+.dojo[data-focus="on"] .center-header .icon-btn:not(#theme-toggle) { opacity: 0.3; }
 
 /* ─── Sidebar ────────────────────────────────────────────────────────────── */
 
@@ -83,14 +91,33 @@ html, body {
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   color: var(--text-primary);
   text-decoration: none;
 }
+.brand-shinobi-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  /* Recolor del shinobi-mark según tema (Hiru: negro; Yoru: blanco) */
+  filter: brightness(0) saturate(100%) invert(var(--enso-invert, 0%));
+  transition: filter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
 .brand-name {
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.01em;
+  color: var(--accent);
+}
+.brand-sub {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
 }
 
 .sidebar-actions {
@@ -345,6 +372,12 @@ html, body {
   background: var(--bg-overlay);
   color: var(--text-primary);
 }
+/* Theme toggle: muestra el icono opuesto al tema activo (sugiere el switch) */
+#theme-toggle .icon-sun { display: none; }
+#theme-toggle .icon-moon { display: block; }
+[data-theme="yoru"] #theme-toggle .icon-sun { display: block; }
+[data-theme="yoru"] #theme-toggle .icon-moon { display: none; }
+
 .icon-btn.brand-mini {
   width: 32px;
   height: 32px;
