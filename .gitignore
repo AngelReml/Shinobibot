@@ -65,3 +65,9 @@ MEMORY.md.pending
 # === Bloque 5 — Documentos generados (locales, no checkear) ===
 outputs/
 
+# === Bloque 8.1 — Design System assets (sí se versionan) ===
+# El `*.png` global de arriba ignora todos los PNGs por defecto.
+# Excepción para los assets de la UI (enso, marcas, branding):
+!src/web/public/assets/*.png
+!src/web/public/assets/**/*.png
+

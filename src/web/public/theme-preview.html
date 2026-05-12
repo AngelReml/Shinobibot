@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shinobi — Theme Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="/styles/tokens.css">
+<link rel="stylesheet" href="/styles/base.css">
+<style>
+  /* Estilos específicos del preview — NO contaminan tokens.css/base.css. */
+  .preview-shell {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 48px 32px 80px;
+  }
+  .preview-header {
+    margin-bottom: 36px;
+  }
+  .preview-header h1 {
+    margin: 0 0 4px;
+  }
+  .preview-header .sub {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+  }
+
+  .palette-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 24px 0 40px;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-elev);
+    align-items: center;
+  }
+  .palette-picker .label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-right: 8px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .palette-picker button {
+    padding: 7px 14px;
+    font-size: 0.88rem;
+    text-transform: capitalize;
+    border-radius: 6px;
+  }
+  .palette-picker button[data-current="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg);
+  }
+
+  .sample-card {
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+  }
+  .sample-card h2 {
+    margin-top: 0;
+  }
+  .sample-card .meta {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-bottom: 14px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .ink-row {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    margin: 32px 0;
+    padding: 24px;
+    border: 1px solid var(--border);
+    background: var(--bg-overlay);
+    border-radius: 12px;
+  }
+  /* Bloque 8.1 — el enso real (PNG con textura de tinta) se recolorea por
+     tema usando mask-image: el alpha del PNG sirve de máscara y el
+     background-color pinta la forma con el accent del tema activo. */
+  .ink-row .ink-svg {
+    width: 96px;
+    height: 96px;
+    flex-shrink: 0;
+    background-color: var(--accent);
+    -webkit-mask-image: url('/assets/enso-logo.png');
+    mask-image: url('/assets/enso-logo.png');
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  /* Splash de identidad (shinobi-mark.png) — se muestra TAL CUAL, sin
+     recolorear, porque es el artwork principal y conserva su tinta natural. */
+  .brand-splash {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 36px 0 24px;
+    padding: 32px;
+    border: 1px solid var(--border);
+    background: var(--bg-elev);
+    border-radius: 12px;
+  }
+  .brand-splash img {
+    max-width: 240px;
+    height: auto;
+    display: block;
+  }
+  .ink-row .ink-text .quote {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem;
+    font-style: italic;
+    color: var(--text-primary);
+    margin: 0 0 6px;
+  }
+  .ink-row .ink-text .source {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .token-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .token-chip {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: var(--bg-overlay);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.78rem;
+  }
+  .token-chip .swatch {
+    width: 24px; height: 24px;
+    border-radius: 4px;
+    border: 1px solid var(--border-active);
+    flex-shrink: 0;
+  }
+  .token-chip .name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+  }
+
+  .actions-row {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px;
+  }
+</style>
+</head>
+<body>
+  <div class="preview-shell">
+    <div class="preview-header">
+      <h1 class="serif">Shinobi — Design System</h1>
+      <div class="sub">Bloque 8.1 · preview de las 4 paletas (Sumi, Kintsugi, Aurora, Bushido)</div>
+    </div>
+
+    <div class="palette-picker">
+      <span class="label">Paleta</span>
+      <button data-theme-btn="sumi">Sumi</button>
+      <button data-theme-btn="kintsugi">Kintsugi</button>
+      <button data-theme-btn="aurora">Aurora</button>
+      <button data-theme-btn="bushido">Bushido</button>
+    </div>
+
+    <div class="ink-row">
+      <!-- Ensō real (PNG con textura de tinta), recoloreado al accent del
+           tema activo via mask-image. El alpha del PNG hace de máscara. -->
+      <div class="ink-svg" role="img" aria-label="Ensō"></div>
+      <div class="ink-text">
+        <p class="quote">El silencio es el principio de la concentración.</p>
+        <div class="source">Cormorant Garamond · proverbio Zen</div>
+      </div>
+    </div>
+
+    <!-- Marca de identidad (shinobi-mark.png) — artwork principal, sin
+         recolor. Solo visible aquí para verificar que carga; en producción
+         lo usaremos en splash/README. -->
+    <div class="brand-splash">
+      <img src="/assets/shinobi-mark.png" alt="Shinobi mark" loading="lazy">
+    </div>
+
+    <div class="sample-card">
+      <div class="meta">Sample · tipografía</div>
+      <h2 class="serif">La paciencia es amarga, pero su fruto es dulce.</h2>
+      <p>Cuerpo en <strong>Inter</strong> 16 px, line-height 1.6. Para textos largos el ojo prefiere familias humanistas con altura-x media y aperturas suaves — Inter rinde bien tanto a 14 px como a 22 px.</p>
+      <p>Cuando aparece <code class="mono">código_en_línea</code> usa <strong>JetBrains Mono</strong>, con ligatures activadas: <code class="mono">=&gt; != &lt;= &gt;&gt;= |&gt;</code>.</p>
+      <pre class="mono"><code>// Provider routing minimalista
+const r = await routedInvokeLLM(payload);
+if (!r.success) throw new Error(r.error);
+return JSON.parse(r.output);</code></pre>
+      <div class="actions-row">
+        <button>Botón secundario</button>
+        <button class="accent">Conectar y empezar</button>
+      </div>
+    </div>
+
+    <div class="sample-card">
+      <div class="meta">Tokens del tema activo</div>
+      <h3 class="serif">Variables CSS expuestas</h3>
+      <div class="token-grid" id="token-grid"></div>
+    </div>
+  </div>
+
+<script src="/js/theme.js"></script>
+<script>
+  // Sincroniza visual: marca el botón activo + reescribe los swatches al cambiar tema.
+  const TOKENS = [
+    '--bg', '--bg-elev', '--bg-overlay',
+    '--text-primary', '--text-secondary', '--text-muted',
+    '--accent', '--accent-hover',
+    '--border', '--border-active',
+  ];
+
+  function renderTokens() {
+    const grid = document.getElementById('token-grid');
+    grid.innerHTML = '';
+    const style = getComputedStyle(document.documentElement);
+    for (const name of TOKENS) {
+      const v = style.getPropertyValue(name).trim();
+      if (!v) continue;
+      const chip = document.createElement('div');
+      chip.className = 'token-chip';
+      chip.innerHTML = `<span class="swatch" style="background:${v}"></span><span><div class="name">${name}</div><div style="color:var(--text-muted);font-size:0.72rem">${v}</div></span>`;
+      grid.appendChild(chip);
+    }
+  }
+
+  function syncActiveBtn() {
+    const current = window.ShinobiTheme.getTheme();
+    document.querySelectorAll('[data-theme-btn]').forEach(b => {
+      b.setAttribute('data-current', b.dataset.themeBtn === current ? 'true' : 'false');
+    });
+  }
+
+  document.querySelectorAll('[data-theme-btn]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window.ShinobiTheme.setTheme(btn.dataset.themeBtn);
+    });
+  });
+
+  document.addEventListener('themechange', () => {
+    syncActiveBtn();
+    // Esperar 1 frame a que las CSS variables se resuelvan tras el cambio.
+    requestAnimationFrame(renderTokens);
+  });
+
+  // Initial render una vez init() ya colocó data-theme.
+  syncActiveBtn();
+  renderTokens();
+</script>
+</body>
+</html>
