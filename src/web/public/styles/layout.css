@@ -213,7 +213,22 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  position: relative;
+  padding-bottom: 2px;
 }
+/* Trazo de tinta debajo del título de la conversación en hover/active. */
+.conv-item .conv-title-line::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0;
+  height: 1.5px;
+  background: var(--accent);
+  transition: width 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.conv-item:hover .conv-title-line::after { width: 65%; }
+.conv-item.active .conv-title-line::after { width: 65%; }
 .conv-item .conv-actions {
   display: none;
   gap: 4px;

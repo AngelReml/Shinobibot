@@ -14,6 +14,22 @@
   scroll-behavior: smooth;
 }
 
+/* ─── Washi grain — textura de papel sobre toda la UI ─────────────────── */
+.washi-noise {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.05;
+  mix-blend-mode: multiply;
+}
+[data-theme="yoru"] .washi-noise {
+  opacity: 0.07;
+  mix-blend-mode: screen;
+}
+
 /* ─── Marca de agua del ensō ─────────────────────────────────────────────
  * Bloque 8.2 fix — <img> directa con filter para adaptar al tema. Sin
  * mask-image (la versión anterior fallaba en Chrome real).
@@ -38,6 +54,68 @@
 }
 .chat.has-content .enso-watermark {
   opacity: 0.03;
+}
+/* La marca de agua respira — escala 1 → 1.02 muy lentamente. */
+.enso-watermark {
+  animation: enso-breathe 24s ease-in-out infinite;
+}
+.chat.has-content .enso-watermark {
+  animation: enso-breathe-quiet 32s ease-in-out infinite;
+}
+@keyframes enso-breathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(1);     opacity: 0.06; }
+  50%      { transform: translate(-50%, -50%) scale(1.02);  opacity: 0.04; }
+}
+@keyframes enso-breathe-quiet {
+  0%, 100% { transform: translate(-50%, -50%) scale(1);     opacity: 0.03;  }
+  50%      { transform: translate(-50%, -50%) scale(1.015); opacity: 0.018; }
+}
+
+/* ─── Typewriter del agente: cada char/bloque fade-in en orden ─────────── */
+.tw-char, .tw-block {
+  opacity: 0;
+  animation: tw-fade 200ms ease-out forwards;
+}
+@keyframes tw-fade { to { opacity: 1; } }
+
+/* Cursor que sigue al typewriter, removido al terminar el texto */
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  margin-left: 2px;
+  animation: typing-cursor-blink 0.7s steps(2, end) infinite;
+}
+@keyframes typing-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* ─── Hanko 忍 (sello al final de cada mensaje del agente) ──────────────── */
+.hanko-wrap {
+  text-align: right;
+  margin-top: 16px;
+  line-height: 0;
+  user-select: none;
+}
+.hanko {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  transform-origin: center;
+  opacity: 0;
+}
+.hanko.animated {
+  animation: hanko-stamp 0.5s ease-out forwards;
+  animation-delay: var(--hanko-delay, 0ms);
+}
+.hanko.static { opacity: 0.92; }
+@keyframes hanko-stamp {
+  0%   { opacity: 0; transform: scale(1.4) rotate(-8deg); }
+  60%  { opacity: 1; transform: scale(0.94) rotate(3deg); }
+  100% { opacity: 0.92; transform: scale(1) rotate(0); }
 }
 
 /* ─── Empty state (frase + cursor parpadeante) ──────────────────────────── */
@@ -126,7 +204,8 @@
 .msg.agent .body {
   color: var(--text-primary);
 }
-/* Filete vertical del agente — dibujado de arriba a abajo en 300ms al aparecer */
+/* Filete vertical del agente — duración dinámica via --filete-duration
+   (set inline por finalizeAgent para sincronizar con el typewriter). */
 .msg.agent::before {
   content: '';
   position: absolute;
@@ -136,7 +215,7 @@
   height: 0;
   background: var(--accent);
   border-radius: 1px;
-  animation: drawDown 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: drawDown var(--filete-duration, 300ms) cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 .msg.agent.no-anim::before {
   height: 100%;
@@ -284,21 +363,33 @@
   border-top: 1px solid var(--border);
 }
 .input-shell {
-  max-width: 760px;
+  max-width: 800px;
   margin: 0 auto;
   display: flex;
   align-items: flex-end;
   gap: 10px;
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 8px 10px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 6px 2px 10px;
+  position: relative;
+  transition: border-color 0.3s ease;
 }
-.input-shell:focus-within {
-  border-color: var(--border-active);
-  box-shadow: 0 0 0 2px var(--accent-soft, transparent);
+/* Pincel bermellón que crece desde el centro al hacer focus. */
+.input-shell::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -1px;
+  width: 0;
+  height: 2px;
+  background: var(--accent);
+  transform: translateX(-50%);
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
 }
+.input-shell:focus-within::after { width: 100%; }
 .input-glyph {
   display: inline-flex;
   align-items: center;
