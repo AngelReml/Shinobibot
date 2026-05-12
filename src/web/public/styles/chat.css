@@ -201,11 +201,15 @@ body.dojo-quiet .enso-watermark {
 #composer.haiku-mode {
   font-family: 'Cormorant Garamond', 'EB Garamond', serif;
   font-style: italic;
-  font-size: 1.22rem;
+  font-size: 1.45rem;
   text-align: center;
-  letter-spacing: 0.015em;
-  line-height: 1.5;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 0.025em;
+  line-height: 1.55;
+  /* Transición específica — evita janks de height/width que también se
+     transicionarían con `all`. */
+  transition: font-size 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              letter-spacing 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+              line-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ─── Cheat sheet (Ctrl+/) ──────────────────────────────────────────── */
