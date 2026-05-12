@@ -1,757 +1,134 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="sumi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shinobi</title>
-<style>
-  :root {
-    --bg: #0e1014;
-    --bg-elev: #161a21;
-    --bg-elev-2: #1d222b;
-    --border: #262c37;
-    --text: #e6e8ec;
-    --text-dim: #8a93a3;
-    --accent: #7aa2ff;
-    --accent-bg: #1f2942;
-    --user-bg: #2a3f6b;
-    --user-text: #e8efff;
-    --agent-bg: #1d222b;
-    --agent-text: #e6e8ec;
-    --tool-bg: #2b2540;
-    --tool-text: #c8b6ff;
-    --error: #ff7b7b;
-    --ok: #7eff9c;
-    --thinking: #6f7990;
-    --mono: ui-monospace, SFMono-Regular, Consolas, "Cascadia Mono", "Liberation Mono", Menlo, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; height: 100%; }
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 14px;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-  }
-
-  /* StatusLine */
-  .status-line {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 10px 16px;
-    background: var(--bg-elev);
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-    color: var(--text-dim);
-    flex-shrink: 0;
-  }
-  .status-line .brand {
-    color: var(--text);
-    font-weight: 600;
-    letter-spacing: 0.5px;
-  }
-  .status-line .item { display: flex; align-items: center; gap: 6px; }
-  .status-line .item .label { color: var(--text-dim); }
-  .status-line .item .value { color: var(--text); font-family: var(--mono); }
-  .status-line .dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--text-dim);
-  }
-  .status-line .dot.online { background: var(--ok); }
-  .status-line .dot.offline { background: var(--error); }
-  .status-line .spacer { flex: 1; }
-  .toggle-btn {
-    background: var(--bg-elev-2);
-    color: var(--text-dim);
-    border: 1px solid var(--border);
-    padding: 4px 10px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-    font-family: var(--sans);
-  }
-  .toggle-btn:hover { color: var(--text); border-color: var(--accent); }
-  .toggle-btn.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
-
-  /* Chat area */
-  .chat {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  .chat::-webkit-scrollbar { width: 8px; }
-  .chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-  .chat::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
-
-  .row { display: flex; }
-  .row.user { justify-content: flex-end; }
-  .row.agent, .row.system { justify-content: flex-start; }
-
-  .bubble {
-    max-width: 75%;
-    padding: 10px 14px;
-    border-radius: 12px;
-    line-height: 1.5;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    font-family: var(--sans);
-  }
-  .bubble code, .bubble pre {
-    font-family: var(--mono);
-    background: rgba(0,0,0,0.25);
-    padding: 1px 6px;
-    border-radius: 4px;
-    font-size: 12.5px;
-  }
-  .bubble pre {
-    display: block;
-    padding: 10px 12px;
-    overflow-x: auto;
-    margin: 8px 0;
-    white-space: pre;
-  }
-  .row.user .bubble { background: var(--user-bg); color: var(--user-text); border-bottom-right-radius: 4px; }
-  .row.agent .bubble { background: var(--agent-bg); color: var(--agent-text); border-bottom-left-radius: 4px; border: 1px solid var(--border); }
-  .row.system .bubble {
-    background: transparent;
-    color: var(--text-dim);
-    font-style: italic;
-    font-size: 12.5px;
-    max-width: 100%;
-    border: 1px dashed var(--border);
-  }
-
-  .agent-wrap { display: flex; flex-direction: column; gap: 6px; max-width: 75%; }
-  .row.agent .agent-wrap { align-items: flex-start; }
-  .row.agent .bubble { max-width: 100%; }
-
-  .tool-chips { display: flex; flex-wrap: wrap; gap: 4px; }
-  .tool-chip {
-    background: var(--tool-bg);
-    color: var(--tool-text);
-    font-family: var(--mono);
-    font-size: 11.5px;
-    padding: 2px 8px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-  }
-  .tool-chip::before { content: "🔨 "; }
-
-  .thinking-block {
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 10px;
-    font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--thinking);
-    max-height: 280px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  body:not(.show-thinking) .thinking-block { display: none; }
-
-  .typing-indicator {
-    color: var(--text-dim);
-    font-style: italic;
-    font-size: 12px;
-    padding: 4px 0;
-  }
-  .typing-indicator::after {
-    content: '';
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    margin-left: 4px;
-    border-radius: 50%;
-    background: var(--accent);
-    animation: pulse 1s infinite;
-  }
-  @keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
-
-  /* Input area */
-  .input-area {
-    flex-shrink: 0;
-    padding: 12px 16px 16px;
-    background: var(--bg-elev);
-    border-top: 1px solid var(--border);
-    display: flex;
-    gap: 10px;
-    align-items: flex-end;
-  }
-  .input-area textarea {
-    flex: 1;
-    background: var(--bg-elev-2);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 12px;
-    font-family: var(--sans);
-    font-size: 14px;
-    line-height: 1.4;
-    resize: none;
-    min-height: 42px;
-    max-height: 200px;
-    outline: none;
-  }
-  .input-area textarea:focus { border-color: var(--accent); }
-  .input-area textarea::placeholder { color: var(--text-dim); }
-  .input-area .send-btn {
-    background: var(--accent);
-    color: #0a0e16;
-    border: none;
-    border-radius: 10px;
-    padding: 0 18px;
-    height: 42px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 13px;
-    font-family: var(--sans);
-  }
-  .input-area .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .input-area .send-btn:not(:disabled):hover { filter: brightness(1.1); }
-  .input-area .hint {
-    color: var(--text-dim);
-    font-size: 11px;
-    margin-top: 4px;
-  }
-
-  /* Modal for /apply confirmation prompts */
-  .modal-backdrop {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.6);
-    display: none;
-    align-items: center; justify-content: center;
-    z-index: 100;
-  }
-  .modal-backdrop.show { display: flex; }
-  .modal {
-    background: var(--bg-elev);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    max-width: 480px;
-    width: 90%;
-  }
-  .modal h3 { margin: 0 0 8px; font-size: 14px; color: var(--text); }
-  .modal .question {
-    color: var(--text-dim);
-    margin-bottom: 14px;
-    font-family: var(--mono);
-    font-size: 12.5px;
-    white-space: pre-wrap;
-  }
-  .modal input {
-    width: 100%;
-    background: var(--bg-elev-2);
-    color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 10px;
-    font-family: var(--sans);
-    font-size: 13px;
-    outline: none;
-  }
-  .modal input:focus { border-color: var(--accent); }
-  .modal .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
-  .modal button {
-    background: var(--accent);
-    color: #0a0e16;
-    border: none;
-    border-radius: 8px;
-    padding: 8px 14px;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 12.5px;
-  }
-  .modal button.secondary {
-    background: var(--bg-elev-2);
-    color: var(--text-dim);
-    border: 1px solid var(--border);
-  }
-
-  /* Skill toast — Bloque 3 */
-  .skill-toast {
-    position: fixed;
-    right: 20px;
-    bottom: 80px;
-    background: var(--bg-elev-2);
-    color: var(--text);
-    border: 1px solid var(--accent);
-    border-left: 3px solid var(--accent);
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 12.5px;
-    font-family: var(--sans);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-    z-index: 50;
-    max-width: 360px;
-    transition: opacity 0.5s, transform 0.5s;
-  }
-  .skill-toast.fade-out { opacity: 0; transform: translateY(10px); }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shinobi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/styles/tokens.css">
+  <link rel="stylesheet" href="/styles/base.css">
+  <link rel="stylesheet" href="/styles/layout.css">
+  <link rel="stylesheet" href="/styles/chat.css">
 </head>
-<body class="show-thinking">
-  <div class="status-line">
-    <span class="brand">SHINOBI</span>
-    <span class="item"><span class="label">model</span><span class="value" id="st-model">—</span></span>
-    <span class="item"><span class="label">mode</span><span class="value" id="st-mode">—</span></span>
-    <span class="item"><span class="dot" id="st-dot"></span><span class="value" id="st-kernel">kernel ?</span></span>
-    <span class="item"><span class="label">tokens</span><span class="value" id="st-tokens">—</span></span>
-    <span class="item"><span class="label">cost</span><span class="value" id="st-cost">—</span></span>
-    <span class="spacer"></span>
-    <button id="thinking-toggle" class="toggle-btn active">💭 Thinking</button>
-    <button id="reset-session" class="toggle-btn" title="Empezar conversación nueva">↻ New</button>
+<body>
+  <div class="dojo" id="dojo">
+
+    <!-- ───── SIDEBAR ───── -->
+    <aside class="sidebar" id="sidebar" aria-label="Conversaciones">
+      <div class="sidebar-content">
+        <header class="sidebar-header">
+          <a class="brand" href="/">
+            <span class="brand-enso" role="img" aria-label="Ensō"></span>
+            <span class="brand-name serif">Shinobi</span>
+          </a>
+          <button class="icon-btn" id="sidebar-collapse" title="Plegar barra" aria-label="Plegar">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 4 L6 8 L10 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </header>
+
+        <div class="sidebar-actions">
+          <button class="new-conv-btn" id="new-conv-btn">
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 3 L8 13 M3 8 L13 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span>Nueva conversación</span>
+          </button>
+          <div class="search-wrap">
+            <svg class="search-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5 L13 13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <input id="search-input" type="text" placeholder="Buscar (Ctrl+K)" autocomplete="off">
+          </div>
+        </div>
+
+        <nav class="conv-list" id="conv-list" aria-label="Lista de conversaciones">
+          <!-- Renderizado dinámicamente por conversations.js -->
+        </nav>
+
+        <div class="empty-state" id="conv-empty">
+          <div class="haiku serif">
+            <span>Antes del primer trazo</span>
+            <span>el pincel sueña con tinta —</span>
+            <span>todo aún es posible.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-collapsed" id="sidebar-collapsed">
+        <button class="icon-btn brand-mini" id="sidebar-expand" title="Abrir barra" aria-label="Abrir">
+          <span class="brand-enso small" role="img" aria-label="Ensō"></span>
+        </button>
+        <button class="icon-btn" id="new-conv-mini" title="Nueva conversación" aria-label="Nueva">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 3 L8 13 M3 8 L13 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ───── CENTER (chat) ───── -->
+    <main class="center" id="center">
+      <header class="center-header">
+        <h1 id="conv-title" class="serif" spellcheck="false" title="Doble clic para renombrar"></h1>
+        <div class="header-right">
+          <span class="status-chip" id="status-chip" title="Modo del agente"></span>
+          <button class="icon-btn" id="right-toggle" title="Panel contextual" aria-label="Panel contextual">
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M10 3 L10 13" stroke="currentColor" stroke-width="1.4"/></svg>
+          </button>
+        </div>
+      </header>
+
+      <section class="chat" id="chat" aria-live="polite">
+        <div class="enso-watermark" aria-hidden="true"></div>
+        <div class="chat-empty" id="chat-empty">
+          <p class="opening-phrase serif">El silencio es el principio de la concentración<span class="cursor-blink" aria-hidden="true"></span></p>
+        </div>
+        <div class="chat-feed" id="chat-feed"></div>
+      </section>
+
+      <footer class="input-bar">
+        <div class="input-shell">
+          <button class="input-glyph" id="input-glyph" title="Acciones (próximamente)" aria-label="Acciones">
+            <span class="brand-enso tiny" role="img" aria-label="Ensō"></span>
+          </button>
+          <textarea id="composer" rows="1" placeholder="Escribe a Shinobi…" autocomplete="off" spellcheck="true"></textarea>
+          <button class="send-btn" id="send-btn" title="Enviar (Enter)" aria-label="Enviar" disabled>
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8 L13 8 M9 4 L13 8 L9 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </div>
+        <div class="input-hint" id="input-hint">Enter envía · Shift+Enter nueva línea</div>
+      </footer>
+    </main>
+
+    <!-- ───── RIGHT PANEL (placeholder) ───── -->
+    <aside class="right-panel" id="right-panel" aria-label="Panel contextual">
+      <header class="right-header">
+        <span class="right-title serif">Contexto</span>
+        <button class="icon-btn" id="right-close" title="Cerrar" aria-label="Cerrar">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 4 L12 12 M12 4 L4 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </button>
+      </header>
+      <div class="right-body">
+        <p class="right-placeholder">Aquí cobrará vida el contexto del agente —<br>memorias activas, herramientas en uso, fragmentos relevantes.<br><br><em class="serif">Próximamente · Bloque 8.3</em></p>
+      </div>
+    </aside>
   </div>
 
-  <div class="chat" id="chat"></div>
-
-  <div class="input-area">
-    <textarea id="composer" placeholder="Escribe tu orden o un comando /slash..." rows="1" autofocus></textarea>
-    <button id="send" class="send-btn">Send</button>
-  </div>
-
-  <div class="modal-backdrop" id="modal-backdrop">
-    <div class="modal">
-      <h3>Shinobi pregunta</h3>
-      <div class="question" id="modal-question"></div>
-      <input id="modal-input" type="text" autocomplete="off">
-      <div class="actions">
-        <button class="secondary" id="modal-cancel">Cancelar</button>
-        <button id="modal-ok">Responder</button>
+  <!-- ───── ASK MODAL (Bloque 1 preserved) ───── -->
+  <div class="modal-backdrop" id="ask-modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ask-title">
+      <h3 id="ask-title" class="serif">Shinobi pregunta</h3>
+      <div class="ask-question" id="ask-question"></div>
+      <input type="text" id="ask-input" autocomplete="off">
+      <div class="modal-actions">
+        <button class="secondary" id="ask-cancel">Cancelar</button>
+        <button class="accent" id="ask-ok">Responder</button>
       </div>
     </div>
   </div>
 
-<script>
-(() => {
-  const $ = (id) => document.getElementById(id);
-  const chat = $('chat');
-  const composer = $('composer');
-  const sendBtn = $('send');
-  const stModel = $('st-model');
-  const stMode = $('st-mode');
-  const stDot = $('st-dot');
-  const stKernel = $('st-kernel');
-  const stTokens = $('st-tokens');
-  const stCost = $('st-cost');
-  const thinkingToggle = $('thinking-toggle');
-  const resetBtn = $('reset-session');
-  const modalBackdrop = $('modal-backdrop');
-  const modalQuestion = $('modal-question');
-  const modalInput = $('modal-input');
-  const modalOk = $('modal-ok');
-  const modalCancel = $('modal-cancel');
+  <!-- ───── EVENT TOASTS (Bloque 3/5 preserved) ───── -->
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="false"></div>
 
-  // Session id persisted in localStorage so reloads keep history.
-  const SESSION_KEY = 'shinobi.sessionId';
-  let sessionId = localStorage.getItem(SESSION_KEY);
-  if (!sessionId) {
-    sessionId = 'web-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
-    localStorage.setItem(SESSION_KEY, sessionId);
-  }
-
-  // Tracks the in-progress agent bubble while thinking events stream in.
-  let pending = null; // { row, bubble, thinkingBlock, toolChips, lines:[], tools:Set, typing }
-  let ws = null;
-  let pendingAsk = null;
-
-  function escapeHtml(s) {
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
-  function appendUser(text) {
-    const row = document.createElement('div');
-    row.className = 'row user';
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = text;
-    row.appendChild(bubble);
-    chat.appendChild(row);
-    chat.scrollTop = chat.scrollHeight;
-  }
-
-  function appendSystem(text) {
-    const row = document.createElement('div');
-    row.className = 'row system';
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = text;
-    row.appendChild(bubble);
-    chat.appendChild(row);
-    chat.scrollTop = chat.scrollHeight;
-  }
-
-  function startAgent() {
-    const row = document.createElement('div');
-    row.className = 'row agent';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'agent-wrap';
-
-    const toolChips = document.createElement('div');
-    toolChips.className = 'tool-chips';
-    wrap.appendChild(toolChips);
-
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    const typing = document.createElement('span');
-    typing.className = 'typing-indicator';
-    typing.textContent = 'Shinobi está pensando…';
-    bubble.appendChild(typing);
-    wrap.appendChild(bubble);
-
-    const thinkingBlock = document.createElement('div');
-    thinkingBlock.className = 'thinking-block';
-    thinkingBlock.textContent = '';
-    wrap.appendChild(thinkingBlock);
-
-    row.appendChild(wrap);
-    chat.appendChild(row);
-    chat.scrollTop = chat.scrollHeight;
-
-    pending = { row, bubble, thinkingBlock, toolChips, typing, lines: [], tools: new Set() };
-  }
-
-  function appendThinkingLine(line) {
-    if (!pending) startAgent();
-    pending.lines.push(line);
-    pending.thinkingBlock.textContent = pending.lines.join('\n');
-    pending.thinkingBlock.scrollTop = pending.thinkingBlock.scrollHeight;
-  }
-
-  function appendToolCall(name) {
-    if (!pending) startAgent();
-    if (pending.tools.has(name)) return;
-    pending.tools.add(name);
-    const chip = document.createElement('span');
-    chip.className = 'tool-chip';
-    chip.textContent = name;
-    pending.toolChips.appendChild(chip);
-  }
-
-  function finalizeAgent(response) {
-    if (!pending) startAgent();
-    pending.bubble.innerHTML = '';
-    pending.bubble.textContent = response || '(respuesta vacía)';
-    if (pending.lines.length === 0) {
-      pending.thinkingBlock.remove();
-    }
-    pending = null;
-    chat.scrollTop = chat.scrollHeight;
-  }
-
-  function appendErrorOnPending(message) {
-    if (!pending) {
-      appendSystem('[error] ' + message);
-      return;
-    }
-    pending.bubble.innerHTML = '';
-    pending.bubble.textContent = '[error] ' + message;
-    pending.bubble.style.color = 'var(--error)';
-    pending = null;
-  }
-
-  function renderHistoryRow(m) {
-    if (m.role === 'user') {
-      appendUser(m.content);
-      return;
-    }
-    if (m.role === 'system') {
-      appendSystem(m.content);
-      return;
-    }
-    // agent
-    const row = document.createElement('div');
-    row.className = 'row agent';
-    const wrap = document.createElement('div');
-    wrap.className = 'agent-wrap';
-
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
-    bubble.textContent = m.content;
-    wrap.appendChild(bubble);
-
-    if (m.thinking && m.thinking.length) {
-      const tb = document.createElement('div');
-      tb.className = 'thinking-block';
-      tb.textContent = m.thinking.join('\n');
-      wrap.appendChild(tb);
-    }
-    row.appendChild(wrap);
-    chat.appendChild(row);
-  }
-
-  async function loadHistory() {
-    try {
-      const r = await fetch('/api/history?session=' + encodeURIComponent(sessionId));
-      const data = await r.json();
-      for (const m of (data.messages || [])) renderHistoryRow(m);
-      chat.scrollTop = chat.scrollHeight;
-    } catch (e) {
-      // ignore
-    }
-  }
-
-  async function refreshStatus() {
-    try {
-      const r = await fetch('/api/status');
-      const data = await r.json();
-      stModel.textContent = data.model || '—';
-      stMode.textContent = data.mode || '—';
-      stKernel.textContent = data.kernelOnline ? 'kernel online' : 'kernel offline';
-      stDot.className = 'dot ' + (data.kernelOnline ? 'online' : 'offline');
-    } catch (e) {
-      stKernel.textContent = 'kernel ?';
-      stDot.className = 'dot';
-    }
-  }
-
-  function connect() {
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(proto + '//' + location.host + '/ws');
-    ws.addEventListener('open', () => {
-      sendBtn.disabled = false;
-    });
-    ws.addEventListener('close', () => {
-      sendBtn.disabled = true;
-      setTimeout(connect, 1500); // auto-reconnect
-    });
-    ws.addEventListener('message', (ev) => {
-      let msg;
-      try { msg = JSON.parse(ev.data); } catch { return; }
-      if (msg.type === 'thinking_start') {
-        startAgent();
-        return;
-      }
-      if (msg.type === 'thinking') {
-        appendThinkingLine(msg.line);
-        return;
-      }
-      if (msg.type === 'tool_call') {
-        appendToolCall(msg.name);
-        return;
-      }
-      if (msg.type === 'final') {
-        // Refresh status after a successful turn (mode/model may have changed).
-        refreshStatus();
-        finalizeAgent(msg.response);
-        return;
-      }
-      if (msg.type === 'error') {
-        appendErrorOnPending(msg.message);
-        return;
-      }
-      if (msg.type === 'ask') {
-        openAsk(msg.question, msg.requestId);
-        return;
-      }
-      if (msg.type === 'skill_event' && msg.event) {
-        showSkillToast(msg.event);
-        return;
-      }
-      // Bloque 5.4 — UI defensiva: el server.ts envía `{type:'document_event', event:{type,hint|doc}}`
-      // pero aceptamos varios shapes por si algún proxy/cache/test framework lo
-      // reescribe (msg.payload, msg.data, o flat {type:'document_offer', hint}).
-      if (msg.type === 'document_event' || msg.type === 'document_offer' || msg.type === 'document_generated') {
-        const evt =
-          (msg.event && typeof msg.event === 'object') ? msg.event :
-          (msg.payload && typeof msg.payload === 'object') ? msg.payload :
-          (msg.data && typeof msg.data === 'object') ? msg.data :
-          // Flat fallback: el server podría haber colapsado el wrapper.
-          ((msg.type === 'document_offer' || msg.type === 'document_generated') ? msg : null);
-        console.log('[auto-offer] UI received', msg.type, '— resolved event:', evt, '— raw msg:', msg);
-        if (evt && evt.type) {
-          showDocumentToast(evt);
-        } else {
-          console.warn('[auto-offer] UI could NOT resolve event shape; expected msg.event / msg.payload / msg.data or flat. raw=', msg);
-        }
-        return;
-      }
-    });
-  }
-
-  function showDocumentToast(event) {
-    // KNOWN ISSUE Bloque 5 — el toast se inserta visible (rect confirmado
-    // por Bloque 5.6) pero algún proceso EXTERNO lo elimina del DOM
-    // milisegundos después. Greps en index.html no revelaron destructor.
-    // Workaround: el usuario invoca /doc word|pdf|excel|markdown manualmente
-    // (camino que funciona perfecto). Ver
-    // docs/sessions/2026-05-11_bloque5_known_issue.md
-    //
-    // El forced inline styling + requestAnimationFrame + clase
-    // .document-toast se mantienen como fix real. La instrumentación
-    // diagnóstica (MutationObserver + rect log) está comentada con
-    // [DIAG-5.7] para reactivar fácilmente cuando volvamos al tema.
-    if (!event || typeof event !== 'object') {
-      console.warn('[auto-offer] showDocumentToast called with invalid event:', event);
-      return;
-    }
-    const t = document.createElement('div');
-    // Doble clase: `.skill-toast` hereda el estilo (Bloque 3, confirmado
-    // funcional), `.document-toast` identifica en devtools.
-    t.className = 'skill-toast document-toast';
-
-    let label = '';
-    if (event.type === 'document_generated' && event.doc) {
-      const d = event.doc;
-      const sizeKb = Math.round((d.bytes || 0) / 1024);
-      label = `📄 Documento ${d.type || '?'} generado: ${d.title || '(sin título)'} (${sizeKb} KB) — ${d.path || ''}`;
-    } else if (event.type === 'document_offer') {
-      label = `💡 ${event.hint || 'Esta respuesta tiene formato. Usa /doc auto "<descripción>".'}`;
-    } else {
-      label = JSON.stringify(event);
-    }
-    t.textContent = label;
-
-    // [DIAG-5.7] MutationObserver para identificar destructor del nodo.
-    // Reactivar descomentando este bloque cuando volvamos al issue.
-    // const mountedAt = performance.now();
-    // let removalDetected = false;
-    // const observer = new MutationObserver((mutations) => {
-    //   for (const m of mutations) {
-    //     for (const removed of m.removedNodes) {
-    //       if (removed === t) {
-    //         removalDetected = true;
-    //         const since = performance.now() - mountedAt;
-    //         console.error('[auto-offer] 🚨 TOAST REMOVED from DOM after ' + since.toFixed(1) + 'ms');
-    //         console.error('[auto-offer] removed from parent:', m.target);
-    //         console.error('[auto-offer] addedNodes in same batch:', m.addedNodes.length,
-    //           m.addedNodes.length ? Array.from(m.addedNodes).map(n => (n.nodeName + (n.className ? '.' + n.className : ''))) : '');
-    //         console.error('[auto-offer] document.body.children count:', document.body.children.length);
-    //         console.trace('[auto-offer] MutationObserver removal callback');
-    //         observer.disconnect();
-    //         return;
-    //       }
-    //     }
-    //   }
-    // });
-    // observer.observe(document.body, { childList: true, subtree: true });
-
-    document.body.appendChild(t);
-
-    // Force inline visibility — anula cualquier override CSS heredado.
-    t.style.opacity = '1';
-    t.style.visibility = 'visible';
-    t.style.display = 'block';
-    t.style.zIndex = '1000';
-
-    // requestAnimationFrame asegura que el reflow ocurra antes del próximo
-    // paint. Si el navegador estaba en medio de un layout pass cuando
-    // appendChild, esto fuerza un repaint con el toast visible.
-    requestAnimationFrame(() => {
-      t.classList.add('show');
-      // [DIAG-5.7] Rect log para verificar posicionamiento real del toast.
-      // Reactivar descomentando si vuelve a fallar.
-      // const r = t.getBoundingClientRect();
-      // console.log('[auto-offer] toast appended; rect=', {
-      //   x: r.x, y: r.y, w: r.width, h: r.height,
-      //   viewport: { w: window.innerWidth, h: window.innerHeight },
-      //   offscreen: r.x + r.width < 0 || r.y + r.height < 0 || r.x > window.innerWidth || r.y > window.innerHeight,
-      //   styles: { opacity: t.style.opacity, visibility: t.style.visibility, zIndex: t.style.zIndex },
-      //   textPreview: label.slice(0, 80),
-      // });
-    });
-
-    setTimeout(() => {
-      // [DIAG-5.7] guard removalDetected del MutationObserver.
-      // Reactivar junto con el bloque del observer.
-      // if (removalDetected) return;
-      // observer.disconnect();
-      t.classList.add('fade-out');
-      setTimeout(() => t.remove(), 600);
-    }, 12000);
-  }
-
-  function showSkillToast(event) {
-    const t = document.createElement('div');
-    t.className = 'skill-toast';
-    let label = '';
-    if (event.type === 'skill_proposed') label = `💡 Nueva skill propuesta: ${event.name || event.id}. Usa /skill review`;
-    else if (event.type === 'skill_approved') label = `✓ Skill aprobada: ${event.name || event.id}`;
-    else if (event.type === 'skill_rejected') label = `✗ Skill descartada: ${event.id}`;
-    else label = JSON.stringify(event);
-    t.textContent = label;
-    document.body.appendChild(t);
-    setTimeout(() => { t.classList.add('fade-out'); setTimeout(() => t.remove(), 600); }, 8000);
-  }
-
-  function openAsk(q, requestId) {
-    pendingAsk = requestId;
-    modalQuestion.textContent = q;
-    modalInput.value = '';
-    modalBackdrop.classList.add('show');
-    setTimeout(() => modalInput.focus(), 50);
-  }
-  function closeAsk(reply) {
-    if (!pendingAsk) return;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'ask_response', text: reply, requestId: pendingAsk }));
-    }
-    pendingAsk = null;
-    modalBackdrop.classList.remove('show');
-  }
-  modalOk.addEventListener('click', () => closeAsk(modalInput.value));
-  modalCancel.addEventListener('click', () => closeAsk(''));
-  modalInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); closeAsk(modalInput.value); }
-    if (e.key === 'Escape') { e.preventDefault(); closeAsk(''); }
-  });
-
-  function sendMessage() {
-    const text = composer.value;
-    if (!text.trim()) return;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    appendUser(text);
-    ws.send(JSON.stringify({ type: 'send', text, sessionId }));
-    composer.value = '';
-    autoResize();
-  }
-
-  function autoResize() {
-    composer.style.height = 'auto';
-    composer.style.height = Math.min(composer.scrollHeight, 200) + 'px';
-  }
-  composer.addEventListener('input', autoResize);
-  composer.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  });
-  sendBtn.addEventListener('click', sendMessage);
-
-  thinkingToggle.addEventListener('click', () => {
-    document.body.classList.toggle('show-thinking');
-    thinkingToggle.classList.toggle('active', document.body.classList.contains('show-thinking'));
-  });
-
-  resetBtn.addEventListener('click', () => {
-    if (!confirm('Empezar conversación nueva? El historial actual se conservará pero se ocultará.')) return;
-    sessionId = 'web-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2));
-    localStorage.setItem(SESSION_KEY, sessionId);
-    chat.innerHTML = '';
-  });
-
-  // Boot
-  loadHistory();
-  refreshStatus();
-  setInterval(refreshStatus, 15000);
-  connect();
-})();
-</script>
+  <script src="/js/theme.js"></script>
+  <script src="/js/markdown.js"></script>
+  <script src="/js/conversations.js"></script>
+  <script src="/js/app.js"></script>
 </body>
 </html>
