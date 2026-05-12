@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shinobi — Bienvenido</title>
+<style>
+  :root {
+    --bg: #0f1116;
+    --bg-elev: #1a1d24;
+    --bg-elev-2: #232730;
+    --border: #2d323d;
+    --text: #e8e9ec;
+    --text-dim: #9aa0aa;
+    --accent: #8ab4ff;
+    --accent-strong: #6aa1ff;
+    --free: #4ade80;
+    --premium: #f0c674;
+    --error: #f87171;
+    --ok: #4ade80;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Cascadia Mono", "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; }
+  body { display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
+
+  .container {
+    max-width: 640px;
+    width: 100%;
+  }
+  h1 {
+    font-size: 28px;
+    margin: 0 0 8px;
+    color: var(--text);
+  }
+  .lead {
+    color: var(--text-dim);
+    margin: 0 0 28px;
+    font-size: 15px;
+  }
+
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-bottom: 16px;
+  }
+  .card.free { border-left: 3px solid var(--free); }
+  .card.premium { border-left: 3px solid var(--premium); }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .card.free .card-header { color: var(--free); }
+  .card.premium .card-header { color: var(--premium); }
+
+  .provider-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 4px;
+  }
+  .provider-row a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .provider-row a:hover { color: var(--accent-strong); text-decoration: underline; }
+  .provider-tagline {
+    color: var(--text-dim);
+    font-size: 12.5px;
+    margin: 0 0 14px;
+  }
+
+  label.field {
+    display: block;
+    margin-bottom: 10px;
+  }
+  label.field .label-text {
+    display: block;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+  input[type="password"], input[type="text"], select {
+    width: 100%;
+    background: var(--bg-elev-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  select { font-family: var(--sans); }
+  input:focus, select:focus { border-color: var(--accent); }
+  input::placeholder { color: #555a66; }
+
+  button.connect {
+    background: var(--accent);
+    color: #0b0d12;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 13.5px;
+    margin-top: 6px;
+    transition: opacity 0.15s, background 0.15s;
+  }
+  button.connect:hover:not(:disabled) { background: var(--accent-strong); }
+  button.connect:disabled { opacity: 0.5; cursor: wait; }
+
+  .msg {
+    margin-top: 10px;
+    font-size: 12.5px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    display: none;
+  }
+  .msg.error { display: block; background: rgba(248, 113, 113, 0.1); color: var(--error); border: 1px solid rgba(248, 113, 113, 0.3); }
+  .msg.success { display: block; background: rgba(74, 222, 128, 0.1); color: var(--ok); border: 1px solid rgba(74, 222, 128, 0.3); }
+  .msg.info { display: block; background: rgba(138, 180, 255, 0.1); color: var(--accent); border: 1px solid rgba(138, 180, 255, 0.3); }
+
+  .premium-providers-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin-bottom: 14px;
+  }
+  .premium-providers-list a { font-size: 12.5px; }
+
+  .skip-row {
+    text-align: center;
+    margin-top: 18px;
+  }
+  .skip-link {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 12px;
+  }
+  .skip-link:hover { color: var(--text); text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="container">
+    <h1>Bienvenido a Shinobi</h1>
+    <p class="lead">Para empezar necesitas una API key. Elige tu provider:</p>
+
+    <div class="card free" id="card-groq">
+      <div class="card-header">🚀 Gratis — Recomendado para empezar</div>
+      <div class="provider-row">
+        <a href="https://console.groq.com/keys" target="_blank" rel="noopener">Groq (Llama) →</a>
+      </div>
+      <p class="provider-tagline">Llama rápido y gratis. Suficiente para uso normal.</p>
+      <label class="field">
+        <span class="label-text">Pega tu key aquí (gsk_…)</span>
+        <input id="groq-key" type="password" placeholder="gsk_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+      </label>
+      <button class="connect" data-provider="groq">Conectar y empezar</button>
+      <div class="msg" id="groq-msg"></div>
+    </div>
+
+    <div class="card premium" id="card-premium">
+      <div class="card-header">💎 Premium — Más capacidad</div>
+      <div class="premium-providers-list">
+        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI (GPT-4) →</a>
+        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic (Claude) →</a>
+        <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter (todos) →</a>
+      </div>
+      <label class="field">
+        <span class="label-text">Provider</span>
+        <select id="premium-provider">
+          <option value="anthropic">Anthropic (Claude)</option>
+          <option value="openai">OpenAI (GPT-4)</option>
+          <option value="openrouter">OpenRouter (todos)</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="label-text">Pega tu key aquí</span>
+        <input id="premium-key" type="password" placeholder="sk-ant-… / sk-… / sk-or-…" autocomplete="off">
+      </label>
+      <button class="connect" data-provider="premium">Conectar y empezar</button>
+      <div class="msg" id="premium-msg"></div>
+    </div>
+
+    <div class="skip-row">
+      <a href="#" class="skip-link" id="skip-link">Ya tengo config (skip)</a>
+    </div>
+  </div>
+
+<script>
+(() => {
+  function showMsg(id, type, text) {
+    const el = document.getElementById(id);
+    el.className = 'msg ' + type;
+    el.textContent = text;
+  }
+  function clearMsg(id) {
+    const el = document.getElementById(id);
+    el.className = 'msg';
+    el.textContent = '';
+  }
+
+  async function attemptConnect(provider, key, msgId, btn) {
+    if (!key || !key.trim()) {
+      showMsg(msgId, 'error', 'Pega tu key antes de continuar.');
+      return;
+    }
+    btn.disabled = true;
+    showMsg(msgId, 'info', '⏳ Validando key con el provider…');
+    try {
+      const r = await fetch('/api/onboarding', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, key: key.trim() }),
+      });
+      const data = await r.json();
+      if (r.ok && data.ok) {
+        showMsg(msgId, 'success', '✓ Key válida. Configurando Shinobi…');
+        setTimeout(() => { window.location.href = '/'; }, 600);
+      } else {
+        showMsg(msgId, 'error', data.error || 'Validación falló.');
+        btn.disabled = false;
+      }
+    } catch (e) {
+      showMsg(msgId, 'error', 'Error de red: ' + (e.message || e));
+      btn.disabled = false;
+    }
+  }
+
+  document.querySelectorAll('button.connect').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const cardKind = btn.dataset.provider;
+      if (cardKind === 'groq') {
+        const key = document.getElementById('groq-key').value;
+        attemptConnect('groq', key, 'groq-msg', btn);
+      } else {
+        const provider = document.getElementById('premium-provider').value;
+        const key = document.getElementById('premium-key').value;
+        attemptConnect(provider, key, 'premium-msg', btn);
+      }
+    });
+  });
+
+  document.getElementById('skip-link').addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+      const r = await fetch('/api/onboarding/skip', { method: 'POST' });
+      const data = await r.json();
+      if (r.ok && data.ok) {
+        window.location.href = '/';
+      } else {
+        alert(data.error || 'No hay config previa que recuperar. Configura una key arriba.');
+      }
+    } catch (e) {
+      alert('Error de red: ' + (e.message || e));
+    }
+  });
+
+  // Enter en el campo de Groq → click el botón
+  document.getElementById('groq-key').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); document.querySelector('button.connect[data-provider="groq"]').click(); }
+  });
+  document.getElementById('premium-key').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); document.querySelector('button.connect[data-provider="premium"]').click(); }
+  });
+})();
+</script>
+</body>
+</html>

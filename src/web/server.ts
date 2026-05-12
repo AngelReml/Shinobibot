@@ -27,6 +27,8 @@ import { ResidentLoop } from '../runtime/resident_loop.js';
 import { KernelClient } from '../bridge/kernel_client.js';
 import { setSkillEventListener } from '../skills/skill_manager.js';
 import { setDocumentEventListener, shouldOfferDocument, offerDocument } from '../documents/factory.js';
+import { loadConfig, saveConfig, reloadConfig, type ShinobiConfig } from '../runtime/first_run_wizard.js';
+import { getClient, currentProvider } from '../providers/provider_router.js';
 import {
   ensureApprovalModeInitialized,
   setApprovalAsker,
@@ -67,7 +69,89 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
 
   const app = express();
   app.use(express.json());
+
+  // ─── Bloque 7 — onboarding: si no hay config, sirve la pantalla de bienvenida en `/` ─
+  app.get('/', (_req, res, next) => {
+    const cfg = loadConfig();
+    const hasUsableConfig = !!cfg && (
+      (cfg.provider && cfg.provider_key) ||           // provider Bloque 7 configurado
+      (cfg.opengravity_api_key && cfg.opengravity_url) // o config legacy OpenGravity
+    );
+    if (!hasUsableConfig) {
+      res.sendFile(path.join(__dirname, 'public', 'onboarding.html'));
+      return;
+    }
+    next();
+  });
+
   app.use(express.static(path.join(__dirname, 'public')));
+
+  // ─── Bloque 7 — endpoints de onboarding ───────────────────────────────────
+  app.get('/api/onboarding/status', (_req, res) => {
+    const cfg = loadConfig();
+    res.json({
+      configured: !!cfg && ((cfg.provider && cfg.provider_key) || (cfg.opengravity_api_key && cfg.opengravity_url)),
+      currentProvider: currentProvider(),
+      providerLabel: cfg?.provider || null,
+      modelDefault: cfg?.model_default || null,
+    });
+  });
+
+  app.post('/api/onboarding', async (req, res) => {
+    const body = req.body ?? {};
+    const provider = String(body.provider || '').toLowerCase();
+    const key = typeof body.key === 'string' ? body.key.trim() : '';
+    if (!provider || !key) {
+      res.status(400).json({ ok: false, error: 'provider y key son requeridos' });
+      return;
+    }
+    if (!['groq', 'openai', 'anthropic', 'openrouter'].includes(provider)) {
+      res.status(400).json({ ok: false, error: `provider desconocido: ${provider}` });
+      return;
+    }
+    const client = getClient(provider as any);
+    if (!client) {
+      res.status(500).json({ ok: false, error: `cliente para ${provider} no encontrado` });
+      return;
+    }
+    try {
+      const validation = await client.validateKey(key);
+      if (!validation.ok) {
+        res.status(400).json({ ok: false, error: validation.error || 'Key inválida.' });
+        return;
+      }
+      // Construye config — preserva campos legacy si existían.
+      const prev = loadConfig();
+      const newCfg: ShinobiConfig = {
+        opengravity_api_key: prev?.opengravity_api_key || '',
+        opengravity_url: prev?.opengravity_url || '',
+        language: prev?.language || 'es',
+        memory_path: prev?.memory_path || path.join(process.env.APPDATA || process.env.HOME || '', 'Shinobi', 'memory'),
+        onboarded_at: prev?.onboarded_at || new Date().toISOString(),
+        version: prev?.version || '2.0.0',
+        provider: provider as ShinobiConfig['provider'],
+        provider_key: key,
+        model_default: client.defaultModel(),
+      };
+      saveConfig(newCfg);
+      reloadConfig(); // hot reload: actualiza process.env en este mismo proceso
+      console.log(`[onboarding] provider=${provider} guardado y env recargada. defaultModel=${client.defaultModel()}`);
+      res.json({ ok: true, provider, modelDefault: client.defaultModel() });
+    } catch (e: any) {
+      res.status(500).json({ ok: false, error: `error inesperado: ${e?.message ?? e}` });
+    }
+  });
+
+  app.post('/api/onboarding/skip', (_req, res) => {
+    const cfg = loadConfig();
+    if (!cfg) {
+      res.status(400).json({ ok: false, error: 'No hay config previa. Configura una key arriba.' });
+      return;
+    }
+    // Asegura que process.env refleja la config legacy presente.
+    reloadConfig();
+    res.json({ ok: true, currentProvider: currentProvider() });
+  });
 
   app.get('/api/history', (req, res) => {
     const sessionId = String(req.query.session || '').trim();
