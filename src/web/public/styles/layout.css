@@ -313,8 +313,18 @@ html, body {
 .brand-enso {
   display: inline-block;
   background-color: var(--accent);
-  -webkit-mask: url('/assets/enso-logo.png') center/contain no-repeat;
-          mask: url('/assets/enso-logo.png') center/contain no-repeat;
+  /* Longhand mask — mismo patrón que theme-preview.html. El shorthand
+     `mask: url(...) center/contain no-repeat` define implícitamente
+     mask-clip/mask-origin con defaults que rompen el render en algunos
+     Chromium; longhand explícito evita el ambigüedad. */
+  -webkit-mask-image: url('/assets/enso-logo.png');
+          mask-image: url('/assets/enso-logo.png');
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
   width: 24px;
   height: 24px;
   transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);

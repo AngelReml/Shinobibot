@@ -28,30 +28,42 @@
   async function refresh() {
     try {
       const r = await fetch('/api/conversations');
-      const data = await r.json();
+      if (!r.ok) {
+        console.error('[convs] refresh: HTTP', r.status);
+        return;
+      }
+      const data = await r.json().catch(() => ({}));
       conversations = Array.isArray(data.conversations) ? data.conversations : [];
       render();
       emit('change', conversations);
     } catch (e) {
+      // Si la red falla aquí, el resto de init() debe poder seguir y la UI
+      // arrancar con lista vacía. Sin throws.
       console.error('[convs] refresh failed', e);
     }
   }
 
   async function create(opts = {}) {
-    const r = await fetch('/api/conversations', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: opts.title || 'Conversación nueva' }),
-    });
-    const data = await r.json();
-    if (data.conversation) {
-      conversations.unshift(data.conversation);
-      render();
-      emit('change', conversations);
-      setActive(data.conversation.id);
-      return data.conversation;
+    try {
+      const r = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: opts.title || 'Conversación nueva' }),
+      });
+      if (!r.ok) { console.error('[convs] create: HTTP', r.status); return null; }
+      const data = await r.json().catch(() => ({}));
+      if (data.conversation) {
+        conversations.unshift(data.conversation);
+        render();
+        emit('change', conversations);
+        setActive(data.conversation.id);
+        return data.conversation;
+      }
+      return null;
+    } catch (e) {
+      console.error('[convs] create failed', e);
+      return null;
     }
-    return null;
   }
 
   async function rename(id, newTitle) {

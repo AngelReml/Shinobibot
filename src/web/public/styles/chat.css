@@ -26,8 +26,15 @@
   height: min(60vh, 520px);
   transform: translate(-50%, -52%);
   background-color: var(--accent);
-  -webkit-mask: url('/assets/enso-logo.png') center/contain no-repeat;
-          mask: url('/assets/enso-logo.png') center/contain no-repeat;
+  /* Longhand mask — ver nota en layout.css::.brand-enso. */
+  -webkit-mask-image: url('/assets/enso-logo.png');
+          mask-image: url('/assets/enso-logo.png');
+  -webkit-mask-size: contain;
+          mask-size: contain;
+  -webkit-mask-position: center;
+          mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+          mask-repeat: no-repeat;
   opacity: 0.04;
   pointer-events: none;
   z-index: 0;
