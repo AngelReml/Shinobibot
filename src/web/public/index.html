@@ -585,26 +585,34 @@
   }
 
   function showDocumentToast(event) {
-    // Defensa explícita: si nos llega undefined/null, lo flagueamos visiblemente
-    // en consola y abortamos sin renderizar un toast vacío.
+    // Bloque 5.5 — re-escrito siguiendo EXACTAMENTE el patrón de
+    // showSkillToast (Bloque 3, confirmado funcional): textContent puro,
+    // mismo className `.skill-toast`, mismo document.body.appendChild,
+    // mismo setTimeout. Sin innerHTML (evita cualquier sutileza de parsing).
     if (!event || typeof event !== 'object') {
       console.warn('[auto-offer] showDocumentToast called with invalid event:', event);
       return;
     }
+    console.log('[auto-offer] toast step 1: createElement');
     const t = document.createElement('div');
+    console.log('[auto-offer] toast step 2: set className=skill-toast');
     t.className = 'skill-toast';
+    let label = '';
     if (event.type === 'document_generated' && event.doc) {
       const d = event.doc;
       const sizeKb = Math.round((d.bytes || 0) / 1024);
-      t.innerHTML =
-        '📄 Documento ' + escapeHtml(d.type || '?') + ' generado: <strong>' + escapeHtml(d.title || '(sin título)') + '</strong>' +
-        ' (' + sizeKb + ' KB)<br><span style="color:var(--text-dim); font-size:11px;">' + escapeHtml(d.path || '') + '</span>';
+      label = `📄 Documento ${d.type || '?'} generado: ${d.title || '(sin título)'} (${sizeKb} KB) — ${d.path || ''}`;
     } else if (event.type === 'document_offer') {
-      t.textContent = '💡 ' + (event.hint || 'Esta respuesta tiene formato. Usa /doc auto "<descripción>".');
+      label = `💡 ${event.hint || 'Esta respuesta tiene formato. Usa /doc auto "<descripción>".'}`;
     } else {
-      t.textContent = JSON.stringify(event);
+      label = JSON.stringify(event);
     }
+    console.log('[auto-offer] toast step 3: textContent ←', label.slice(0, 120));
+    t.textContent = label;
+    console.log('[auto-offer] toast step 4: append to body; body present?', !!document.body);
     document.body.appendChild(t);
+    const count = document.querySelectorAll('.skill-toast').length;
+    console.log('[auto-offer] toast step 5: appended OK; .skill-toast count in DOM =', count);
     setTimeout(() => { t.classList.add('fade-out'); setTimeout(() => t.remove(), 600); }, 12000);
   }
 
