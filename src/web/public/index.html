@@ -585,19 +585,24 @@
   }
 
   function showDocumentToast(event) {
-    // Bloque 5.6 — el toast entra al DOM (count=1 confirmado) pero queda
-    // invisible. Endurezco con: (1) forced inline visibility tras el
-    // append; (2) requestAnimationFrame para asegurar reflow antes de
-    // pintar; (3) getBoundingClientRect log para saber dónde quedó en
-    // pantalla; (4) clase extra `.document-toast` para devtools.
+    // KNOWN ISSUE Bloque 5 — el toast se inserta visible (rect confirmado
+    // por Bloque 5.6) pero algún proceso EXTERNO lo elimina del DOM
+    // milisegundos después. Greps en index.html no revelaron destructor.
+    // Workaround: el usuario invoca /doc word|pdf|excel|markdown manualmente
+    // (camino que funciona perfecto). Ver
+    // docs/sessions/2026-05-11_bloque5_known_issue.md
+    //
+    // El forced inline styling + requestAnimationFrame + clase
+    // .document-toast se mantienen como fix real. La instrumentación
+    // diagnóstica (MutationObserver + rect log) está comentada con
+    // [DIAG-5.7] para reactivar fácilmente cuando volvamos al tema.
     if (!event || typeof event !== 'object') {
       console.warn('[auto-offer] showDocumentToast called with invalid event:', event);
       return;
     }
     const t = document.createElement('div');
-    // Doble clase: `.skill-toast` para heredar el estilo (Bloque 3, confirmado
-    // funcional), `.document-toast` para identificarlo en devtools sin
-    // confundirlo con un toast de skill.
+    // Doble clase: `.skill-toast` hereda el estilo (Bloque 3, confirmado
+    // funcional), `.document-toast` identifica en devtools.
     t.className = 'skill-toast document-toast';
 
     let label = '';
@@ -612,32 +617,29 @@
     }
     t.textContent = label;
 
-    // Bloque 5.7 — el rect log de Bloque 5.6 confirmó que el toast SÍ se
-    // pinta visible (no offscreen) pero algún proceso lo elimina del DOM
-    // milisegundos después. MutationObserver para capturar QUIÉN lo
-    // remueve y CUÁNDO. Se setup ANTES de appendChild para no perder
-    // ninguna mutación entre el insert y el observe.
-    const mountedAt = performance.now();
-    let removalDetected = false;
-    const observer = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        for (const removed of m.removedNodes) {
-          if (removed === t) {
-            removalDetected = true;
-            const since = performance.now() - mountedAt;
-            console.error('[auto-offer] 🚨 TOAST REMOVED from DOM after ' + since.toFixed(1) + 'ms');
-            console.error('[auto-offer] removed from parent:', m.target);
-            console.error('[auto-offer] addedNodes in same batch:', m.addedNodes.length,
-              m.addedNodes.length ? Array.from(m.addedNodes).map(n => (n.nodeName + (n.className ? '.' + n.className : ''))) : '');
-            console.error('[auto-offer] document.body.children count:', document.body.children.length);
-            console.trace('[auto-offer] MutationObserver removal callback');
-            observer.disconnect();
-            return;
-          }
-        }
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    // [DIAG-5.7] MutationObserver para identificar destructor del nodo.
+    // Reactivar descomentando este bloque cuando volvamos al issue.
+    // const mountedAt = performance.now();
+    // let removalDetected = false;
+    // const observer = new MutationObserver((mutations) => {
+    //   for (const m of mutations) {
+    //     for (const removed of m.removedNodes) {
+    //       if (removed === t) {
+    //         removalDetected = true;
+    //         const since = performance.now() - mountedAt;
+    //         console.error('[auto-offer] 🚨 TOAST REMOVED from DOM after ' + since.toFixed(1) + 'ms');
+    //         console.error('[auto-offer] removed from parent:', m.target);
+    //         console.error('[auto-offer] addedNodes in same batch:', m.addedNodes.length,
+    //           m.addedNodes.length ? Array.from(m.addedNodes).map(n => (n.nodeName + (n.className ? '.' + n.className : ''))) : '');
+    //         console.error('[auto-offer] document.body.children count:', document.body.children.length);
+    //         console.trace('[auto-offer] MutationObserver removal callback');
+    //         observer.disconnect();
+    //         return;
+    //       }
+    //     }
+    //   }
+    // });
+    // observer.observe(document.body, { childList: true, subtree: true });
 
     document.body.appendChild(t);
 
@@ -652,19 +654,23 @@
     // appendChild, esto fuerza un repaint con el toast visible.
     requestAnimationFrame(() => {
       t.classList.add('show');
-      const r = t.getBoundingClientRect();
-      console.log('[auto-offer] toast appended; rect=', {
-        x: r.x, y: r.y, w: r.width, h: r.height,
-        viewport: { w: window.innerWidth, h: window.innerHeight },
-        offscreen: r.x + r.width < 0 || r.y + r.height < 0 || r.x > window.innerWidth || r.y > window.innerHeight,
-        styles: { opacity: t.style.opacity, visibility: t.style.visibility, zIndex: t.style.zIndex },
-        textPreview: label.slice(0, 80),
-      });
+      // [DIAG-5.7] Rect log para verificar posicionamiento real del toast.
+      // Reactivar descomentando si vuelve a fallar.
+      // const r = t.getBoundingClientRect();
+      // console.log('[auto-offer] toast appended; rect=', {
+      //   x: r.x, y: r.y, w: r.width, h: r.height,
+      //   viewport: { w: window.innerWidth, h: window.innerHeight },
+      //   offscreen: r.x + r.width < 0 || r.y + r.height < 0 || r.x > window.innerWidth || r.y > window.innerHeight,
+      //   styles: { opacity: t.style.opacity, visibility: t.style.visibility, zIndex: t.style.zIndex },
+      //   textPreview: label.slice(0, 80),
+      // });
     });
 
     setTimeout(() => {
-      if (removalDetected) return; // ya removido por un tercero
-      observer.disconnect();        // limpia el observer antes del fade
+      // [DIAG-5.7] guard removalDetected del MutationObserver.
+      // Reactivar junto con el bloque del observer.
+      // if (removalDetected) return;
+      // observer.disconnect();
       t.classList.add('fade-out');
       setTimeout(() => t.remove(), 600);
     }, 12000);
