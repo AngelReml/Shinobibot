@@ -1,34 +1,18 @@
-Cinco fixes en orden. Para después de cada gate.
+Plan sólido. Mis decisiones:
+A: Una sola "Conversación inicial". Confirmado, según spec. Los mensajes legacy no tienen contexto separado natural en la UI antigua, mezclarlos en una conv inicial es más limpio que fragmentar artificialmente.
+B: B1 — Contexto compartido v1. Documentado como limitación conocida. Refactorizar ContextBuilder para aislar por conversación es trabajo serio que merece su propio bloque (probablemente Bloque 9.x). Para v1 la UI muestra separación visual y eso es suficiente.
+C: Tras 3 mensajes del usuario. Mantenemos el spec. 1 mensaje puede ser muy poco contexto para que el LLM genere un título decente. 3 da material.
+D: Back-compat sessionId confirmado. Crítico para no romper el gateway del Bloque 6.
+E: Agrupación confirmada. Hoy / Esta semana / Antes. Frontend computa.
+F — Las 4 sorpresas que recomiendas, sí. Confirmadas todas:
 
-FIX 1 — paths hardcodeados en src/:
-Busca recursivamente en src/ cualquier string con "Users/angel" o "Users\\angel".
-Para cada hallazgo reemplaza por process.env.OG_ROOT || process.cwd()
-Gate: git grep -r "Users.angel" src/ → cero resultados.
+Markdown render
+Cursor parpadeante artesanal
+Empty state poético en sidebar
+Animación del filete del agente (300ms dibujado de arriba abajo)
 
-FIX 2 — paths hardcodeados en scripts shell raíz:
-Busca en *.sh, *.cmd, *.bat de la raíz cualquier path absoluto con "Users/angel".
-Reemplaza por variables de entorno o rutas relativas.
-Gate: grep -r "Users.angel" *.sh *.cmd *.bat 2>/dev/null → cero resultados.
-
-FIX 3 — .gitignore completo:
-Reescribe el .gitignore añadiendo estas reglas si no están:
-node_modules/, dist/, build/, .env, .env.*, *.db, *.log, *.bak,
-benchmark_venv/, datasets/, reports/, audit_reports/, audit_results/,
-snapshots/, backups/, logs/, tmp/, tmp_run/, workspace_cloud/,
-*.key, *.pem, TopSecretUltraImportante/
-Gate: cat .gitignore muestra todas las reglas añadidas.
-
-FIX 4 — untrack benchmark_venv/:
-git rm -r --cached benchmark_venv/
-Gate: git status no muestra benchmark_venv/ como tracked.
-
-FIX 5 — eliminar archivos .bak:
-git rm --cached src/experimental/v1_agents/*.bak* 2>/dev/null
-Gate: git ls-files src/experimental/ | grep .bak → cero resultados.
-
-Al final de los 5 fixes:
-git add -A
-git commit -m "cleanup: remove hardcoded paths, fix gitignore, untrack venv and bak files"
-git push origin main
-
-Para después de cada gate.
+Sobre el empty state poético — pon un haiku tuyo o reutiliza la frase del Dojo. Mi voto: que sea un haiku original que evoque inicio, vacío fértil, primera intención. Tres líneas en Cormorant Garamond, centradas, opacity baja. Algo tipo:
+Antes del primer trazo
+el pincel sueña con tinta —
+todo aún es posible.
+Si tienes uno mejor en tu repertorio creativo, úsalo.

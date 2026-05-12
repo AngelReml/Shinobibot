@@ -4,15 +4,20 @@
 // ShinobiOrchestrator without modifying it. Designed to run as an alternative
 // front-end to scripts/shinobi.ts (CLI). Both share src/coordinator/slash_commands.ts.
 //
+// Bloque 8.2 — extendido con conversations CRUD + WS protocol con
+// conversationId (back-compat sessionId) + auto-title tras 3 mensajes
+// del usuario via provider_router.
+//
 // Wire format (WS):
-//   client → server : { type:'send',         text, sessionId }
+//   client → server : { type:'send',         text, conversationId?, sessionId? }
 //   client → server : { type:'ask_response', text, requestId }
 //   server → client : { type:'thinking_start' }
 //   server → client : { type:'thinking',     line }
 //   server → client : { type:'tool_call',    name }
 //   server → client : { type:'ask',          question, requestId }
-//   server → client : { type:'final',        response, mode, model }
+//   server → client : { type:'final',        response, mode, model, conversationId }
 //   server → client : { type:'error',        message }
+//   server → client : { type:'conversation_title_updated', conversationId, title }
 
 import express from 'express';
 import { WebSocketServer } from 'ws';
@@ -28,7 +33,7 @@ import { KernelClient } from '../bridge/kernel_client.js';
 import { setSkillEventListener } from '../skills/skill_manager.js';
 import { setDocumentEventListener, shouldOfferDocument, offerDocument } from '../documents/factory.js';
 import { loadConfig, saveConfig, reloadConfig, type ShinobiConfig } from '../runtime/first_run_wizard.js';
-import { getClient, currentProvider } from '../providers/provider_router.js';
+import { getClient, currentProvider, invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import {
   ensureApprovalModeInitialized,
   setApprovalAsker,
@@ -53,6 +58,56 @@ function stringifyArgs(args: any[]): string {
 export interface StartWebServerOptions {
   port?: number;
   dbPath?: string;
+}
+
+/**
+ * Bloque 8.2 — Genera un título corto para la conversación en background.
+ * Llamado tras el 3er mensaje del usuario. No bloquea el WS; emite
+ * `conversation_title_updated` cuando termina.
+ */
+async function maybeGenerateAutoTitle(
+  store: ChatStore,
+  conversationId: string,
+  broadcast: (payload: any) => void,
+): Promise<void> {
+  try {
+    const conv = store.getConversation(conversationId);
+    if (!conv) return;
+    // No autorrenombrar si el usuario ya lo personalizó.
+    if (conv.title !== 'Conversación nueva') return;
+    const count = store.countUserMessages(conversationId);
+    if (count !== 3) return; // exactamente al 3er mensaje
+    const seeds = store.firstUserMessages(conversationId, 3);
+    if (seeds.length === 0) return;
+    const numbered = seeds.map((s, i) => `${i + 1}. ${s.slice(0, 240)}`).join('\n');
+    const result = await routedInvokeLLM({
+      messages: [
+        { role: 'system', content: 'Eres un generador de títulos. Devuelve UN solo título conciso en español, de 3 a 5 palabras, sin comillas, sin puntuación final, sin etiquetas. Solo el título.' },
+        { role: 'user', content: `Mensajes del usuario:\n${numbered}\n\nTítulo:` },
+      ],
+      temperature: 0.3,
+      max_tokens: 30,
+    });
+    if (!result.success) {
+      console.log(`[auto-title] LLM failed: ${result.error}`);
+      return;
+    }
+    let raw = '';
+    try {
+      const parsed = JSON.parse(result.output);
+      raw = String(parsed?.content ?? parsed?.message?.content ?? parsed?.text ?? '').trim();
+    } catch { raw = String(result.output ?? '').trim(); }
+    // Saneo: 1 línea, sin comillas, recortado.
+    let title = raw.split(/\r?\n/)[0].trim();
+    title = title.replace(/^["“'`]+|["”'`]+$/g, '').replace(/[.!?…]+$/g, '').trim();
+    if (title.length > 60) title = title.slice(0, 57).trim() + '…';
+    if (!title) { console.log('[auto-title] empty title after sanitization'); return; }
+    store.updateTitle(conversationId, title);
+    console.log(`[auto-title] '${conversationId}' → '${title}'`);
+    broadcast({ type: 'conversation_title_updated', conversationId, title });
+  } catch (e: any) {
+    console.log(`[auto-title] threw: ${e?.message ?? e}`);
+  }
 }
 
 export async function startWebServer(opts: StartWebServerOptions = {}): Promise<{ url: string }> {
@@ -153,6 +208,54 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     res.json({ ok: true, currentProvider: currentProvider() });
   });
 
+  // ─── Bloque 8.2 — endpoints de conversaciones ──────────────────────────────
+
+  app.get('/api/conversations', (_req, res) => {
+    res.json({ conversations: store.listConversations() });
+  });
+
+  app.post('/api/conversations', (req, res) => {
+    const title = typeof req.body?.title === 'string' && req.body.title.trim()
+      ? req.body.title.trim().slice(0, 60)
+      : 'Conversación nueva';
+    const conv = store.createConversation(title);
+    res.json({ conversation: conv });
+  });
+
+  app.get('/api/conversations/:id/messages', (req, res) => {
+    const id = String(req.params.id || '').trim();
+    if (!id) { res.status(400).json({ error: 'id required' }); return; }
+    const rows = store.listByConversation(id, 500);
+    res.json({
+      conversationId: id,
+      messages: rows.map(r => ({
+        id: r.id,
+        role: r.role,
+        content: r.content,
+        thinking: r.thinking_json ? JSON.parse(r.thinking_json) : [],
+        ts: r.ts,
+      })),
+    });
+  });
+
+  app.patch('/api/conversations/:id', (req, res) => {
+    const id = String(req.params.id || '').trim();
+    const title = typeof req.body?.title === 'string' ? req.body.title.trim().slice(0, 60) : '';
+    if (!id || !title) { res.status(400).json({ error: 'id and title required' }); return; }
+    const ok = store.updateTitle(id, title);
+    if (!ok) { res.status(404).json({ error: 'not found' }); return; }
+    res.json({ ok: true });
+  });
+
+  app.delete('/api/conversations/:id', (req, res) => {
+    const id = String(req.params.id || '').trim();
+    if (!id) { res.status(400).json({ error: 'id required' }); return; }
+    const ok = store.deleteConversation(id);
+    if (!ok) { res.status(404).json({ error: 'not found' }); return; }
+    res.json({ ok: true });
+  });
+
+  // Back-compat: GET /api/history?session=X — el gateway sigue usándolo.
   app.get('/api/history', (req, res) => {
     const sessionId = String(req.query.session || '').trim();
     if (!sessionId) {
@@ -184,23 +287,22 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server, path: '/ws' });
 
-  // Bloque 3: broadcast skill lifecycle events to every connected UI client.
+  // ─── Broadcast helpers ────────────────────────────────────────────────────
   const allClients = new Set<import('ws').WebSocket>();
-  setSkillEventListener((event) => {
-    const payload = JSON.stringify({ type: 'skill_event', event });
+  const broadcastAll = (payload: any) => {
+    const s = JSON.stringify(payload);
     for (const c of allClients) {
-      try { c.send(payload); } catch { /* ignore individual client errors */ }
+      try { c.send(s); } catch { /* ignore */ }
     }
-  });
+  };
+
+  // Bloque 3: broadcast skill lifecycle events to every connected UI client.
+  setSkillEventListener((event) => broadcastAll({ type: 'skill_event', event }));
 
   // Bloque 5: broadcast document lifecycle events.
   setDocumentEventListener((event) => {
-    const payload = JSON.stringify({ type: 'document_event', event });
-    // [DIAG temporal — confirmar broadcast]
     console.log(`[auto-offer] server broadcasting document_event to ${allClients.size} client(s); event.type=${event.type}`);
-    for (const c of allClients) {
-      try { c.send(payload); } catch { /* ignore */ }
-    }
+    broadcastAll({ type: 'document_event', event });
   });
 
   // Serial queue: only one in-flight request per server. The orchestrator
@@ -231,7 +333,8 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
 
       if (msg.type !== 'send') return;
       const text = String(msg.text ?? '').trim();
-      const sessionId = String(msg.sessionId ?? 'default');
+      // Bloque 8.2 — preferir conversationId, fallback a sessionId (gateway).
+      const conversationId = String(msg.conversationId ?? msg.sessionId ?? 'default');
       if (!text) return;
 
       if (busy) {
@@ -240,7 +343,8 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
       }
       busy = true;
 
-      store.add(sessionId, 'user', text, null);
+      store.ensureConversation(conversationId, 'Conversación nueva');
+      store.addInConversation(conversationId, 'user', text, null);
       ws.send(JSON.stringify({ type: 'thinking_start' }));
 
       // Console capture: monkey-patch console.{log,error,warn,info} so every
@@ -268,9 +372,6 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
       let finalResponse = '';
       try {
         if (text.startsWith('/')) {
-          // Slash commands NEVER reach the orchestrator from the web (FAIL 2 fix).
-          // Any unrecognised slash gets a clear error in the agent bubble and a
-          // log line in the thinking pane — but the LLM is never invoked.
           const handled = await handleSlashCommand(text, { residentLoop, ask });
           if (handled) {
             finalResponse = '(comando ejecutado — ver el panel de razonamiento)';
@@ -285,25 +386,35 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
           else if (result?.output) finalResponse = String(result.output);
           else finalResponse = JSON.stringify(result, null, 2);
         }
-        store.add(sessionId, 'agent', finalResponse, captured);
+        store.addInConversation(conversationId, 'agent', finalResponse, captured);
         try {
           ws.send(JSON.stringify({
             type: 'final',
             response: finalResponse,
             mode: (ShinobiOrchestrator as any).mode ?? 'kernel',
             model: ShinobiOrchestrator.getModel(),
+            conversationId,
           }));
         } catch {}
+
+        // Restaurar console ANTES del auto-offer hook y del auto-title async.
+        // Si no, los console.log de esos hooks se envían como `thinking` events
+        // al cliente — que entonces crea un nuevo bubble agente "pending" fantasma.
+        console.log = origLog;
+        console.error = origErr;
+        console.warn = origWarn;
+        console.info = origInfo;
+
+        // Bloque 8.2 — auto-title fire-and-forget tras el 3er mensaje del usuario.
+        // No bloquea: el WS final ya fue enviado.
+        maybeGenerateAutoTitle(store, conversationId, broadcastAll).catch(() => { /* swallowed */ });
 
         // Bloque 5.3 — auto-offer hook. Punto único de convergencia: aquí
         // confluyen slash flow + LLM flow + cualquier futuro path. La
         // respuesta YA fue enviada al UI; ahora chequeamos si su contenido
         // tiene estructura y disparamos document_offer (toast).
-        // [DIAG temporal — trazar cada gate para verificación.]
         const _respLen = finalResponse.length;
         const _heuristic = shouldOfferDocument(finalResponse);
-        // alreadyGenerated: scan captured console lines for la traza que
-        // el orchestrator emite cuando el LLM llama generate_document.
         const _alreadyGen = captured.some(line => /\[🔨\]\s+Tool called:\s+generate_document/.test(line));
         console.log(`[auto-offer] post-task hook fired, content length=${_respLen}, alreadyGenerated=${_alreadyGen}`);
         console.log(`[auto-offer] shouldOfferDocument result: ${_heuristic}`);
@@ -318,7 +429,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
         }
       } catch (e: any) {
         const errMsg = e?.message ?? String(e);
-        store.add(sessionId, 'system', `[error] ${errMsg}`, captured);
+        store.addInConversation(conversationId, 'system', `[error] ${errMsg}`, captured);
         try { ws.send(JSON.stringify({ type: 'error', message: errMsg })); } catch {}
       } finally {
         console.log = origLog;
