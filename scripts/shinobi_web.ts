@@ -14,6 +14,7 @@ import { config as dotenvConfig } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 
+import * as path from 'path';
 import { loadConfig } from '../src/runtime/first_run_wizard.js';
 import { acquireLock, formatLockedError } from '../src/runtime/process_lock.js';
 import { KernelClient } from '../src/bridge/kernel_client.js';
@@ -21,6 +22,9 @@ import { SkillLoader } from '../src/skills/skill_loader.js';
 import { skillManager } from '../src/skills/skill_manager.js';
 import { curatedMemory } from '../src/memory/curated_memory.js';
 import { startWebServer } from '../src/web/server.js';
+import { ChatStore } from '../src/web/chat_store.js';
+import { startGateway, parseAllowedUserIds } from '../src/gateway/index.js';
+import { lanWebChatInfo } from '../src/gateway/webchat_channel.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -96,8 +100,50 @@ async function main() {
   }
 
   const port = Number(process.env.SHINOBI_WEB_PORT || 3333);
-  await startWebServer({ port });
-  console.log(`[shinobi-web] UI ready — abre http://localhost:${port} en tu navegador.`);
+  const dbPath = path.join(process.cwd(), 'web_chat.db');
+  await startWebServer({ port, dbPath });
+
+  // ─── Boot log (decision G) — clarity inmediata de dónde está accesible ─
+  console.log('');
+  console.log(`[shinobi-web] Web UI local: http://localhost:${port}`);
+
+  // Bloque 6 — Gateway externo (auto-activado si SHINOBI_GATEWAY_TOKEN está).
+  const gatewayToken = process.env.SHINOBI_GATEWAY_TOKEN;
+  if (gatewayToken) {
+    const gPort = Number(process.env.SHINOBI_GATEWAY_PORT || 3334);
+    const gHost = process.env.SHINOBI_GATEWAY_HOST || '0.0.0.0';
+    const tgToken = process.env.SHINOBI_TELEGRAM_BOT_TOKEN;
+    const tgAllowedIds = parseAllowedUserIds(process.env.SHINOBI_TELEGRAM_ALLOWED_USER_IDS);
+    try {
+      // Gateway reuses the same chat_store.db file. WAL mode permits the
+      // multiple connections (one per ChatStore instance).
+      const gatewayStore = new ChatStore(dbPath);
+      const gw = await startGateway({
+        port: gPort,
+        host: gHost,
+        token: gatewayToken,
+        chatStore: gatewayStore,
+        webLocalPort: port,
+        telegram: tgToken && tgAllowedIds.length > 0 ? {
+          botToken: tgToken,
+          allowedUserIds: tgAllowedIds,
+        } : undefined,
+      });
+      console.log(`[gateway] HTTP REST: http://${gHost === '0.0.0.0' ? 'localhost' : gHost}:${gPort} (token-gated)`);
+      console.log(`[gateway] ${lanWebChatInfo(port)}`);
+      if (gw.telegram) {
+        const tgName = gw.telegram.username ? '@' + gw.telegram.username : '(unknown)';
+        console.log(`[gateway] Telegram bot: ${tgName} (allowlist: ${tgAllowedIds.length} user${tgAllowedIds.length === 1 ? '' : 's'})`);
+      } else if (tgToken && tgAllowedIds.length === 0) {
+        console.log(`[gateway] Telegram bot: NOT started — SHINOBI_TELEGRAM_ALLOWED_USER_IDS is empty.`);
+      }
+    } catch (e: any) {
+      console.log(`[gateway] startup failed: ${e?.message ?? e}`);
+    }
+  } else {
+    console.log(`[gateway] disabled — set SHINOBI_GATEWAY_TOKEN to enable external HTTP + Telegram channels.`);
+  }
+  console.log('');
 }
 
 main().catch((err) => {
