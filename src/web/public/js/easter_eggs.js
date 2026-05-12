@@ -152,11 +152,15 @@
   function setupHaikuDetection() {
     const composer = document.getElementById('composer');
     if (!composer) return;
-    composer.addEventListener('input', () => {
+    function evalHaiku() {
       const lines = composer.value.split('\n');
-      const isHaiku = lines.length === 3 && lines.every(l => l.trim().length > 0);
+      const nonEmpty = lines.filter(l => l.trim().length > 0);
+      // 3 líneas no-vacías = haiku. Permisivo con salto trailing o blanco inicial.
+      const isHaiku = nonEmpty.length === 3 && lines.length <= 4;
       composer.classList.toggle('haiku-mode', isHaiku);
-    });
+    }
+    composer.addEventListener('input', evalHaiku);
+    composer.addEventListener('keyup', evalHaiku);  // por si algún input event no dispara
   }
 
   // ════════════════════════════════════════════════════════════════════
@@ -191,9 +195,20 @@
   // ════════════════════════════════════════════════════════════════════
   function setupCheatSheet() {
     document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === '/') {
+      // Ctrl/Cmd + / (clásico)
+      if ((e.ctrlKey || e.metaKey) && (e.key === '/' || e.key === '?')) {
         e.preventDefault();
         toggleCheatSheet();
+        return;
+      }
+      // ? solo (sin modificadores) cuando no estamos en input/textarea
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        const t = e.target;
+        const inText = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+        if (!inText) {
+          e.preventDefault();
+          toggleCheatSheet();
+        }
       }
     });
     // Hilo minúsculo al final del hint del input — el único indicio visible.
@@ -201,8 +216,8 @@
     if (hint && !document.getElementById('cheat-trigger')) {
       const dot = document.createElement('span');
       dot.id = 'cheat-trigger';
-      dot.textContent = '  ·  ?';
-      dot.title = 'Atajos (Ctrl+/)';
+      dot.textContent = ' · ?';
+      dot.title = 'Atajos (Ctrl+/ o ?)';
       dot.addEventListener('click', toggleCheatSheet);
       hint.appendChild(dot);
     }
@@ -271,7 +286,13 @@
   }
 
   // Expose para que app.js consulte el kanji activo del hanko (sensei mode).
+  // También sirve como sanity check de "easter_eggs.js cargó": abre DevTools
+  // Console y escribe `ShinobiEggs.loaded` — debe devolver true.
   window.ShinobiEggs = {
+    loaded: true,
+    loadedAt: new Date().toISOString(),
     currentHankoKanji() { return senseiActive ? '師' : '忍'; },
+    openCheatSheet() { toggleCheatSheet(); },
+    triggerSensei() { enterSenseiMode(); },
   };
 })();
