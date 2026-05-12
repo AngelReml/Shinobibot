@@ -1,27 +1,20 @@
-DIAGNÓSTICO desde DevTools Console del usuario:
+La UI del Bloque 8.2 funciona correctamente en producción. Layout, mensajes, sidebar, historial, markdown — todo bien.
 
-:3333/api/conversations:1  Failed to load resource: 404 (Not Found)
-conversations.js:36 [convs] refresh failed SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+El único problema restante: los 3 elementos que usan mask-image no se ven:
+1. .brand-enso (logo arriba izquierda del sidebar)
+2. .enso-watermark (marca de agua al fondo del chat)
+3. Botón enviar y botón + del composer
 
-PROBLEMA CRÍTICO: Los endpoints REST nuevos del Bloque 8.2 (GET /api/conversations, POST /api/conversations, GET /api/conversations/:id/messages, PATCH /api/conversations/:id) NO están registrados en server.ts en runtime, aunque el código los define.
+El data URI inline en enso-inline.css tampoco resolvió. 
 
-El servidor está devolviendo el HTML del index.html para esas rutas (de ahí el SyntaxError parseando "<!DOCTYPE" como JSON).
+SOLUCIÓN DEFINITIVA — abandonar mask-image completamente para los iconos:
 
-INVESTIGA:
-1. Lee src/web/server.ts ACTUAL y verifica que los handlers app.get('/api/conversations'), app.post(...) están definidos
-2. Verifica que se registran ANTES del catch-all express.static() o del routing genérico
-3. Si están definidos pero no funcionan, ¿se reinició el servidor tras los cambios? La sesión de shinobi_web.cmd actual puede tener código viejo cargado en memoria
+1. .brand-enso en el sidebar: reemplazar por <img src="/assets/enso-logo.png"> con CSS filter para adaptar al tema. Con filter: brightness(0) saturate(100%) invert(var(--enso-invert)) donde --enso-invert es 0% en Bushido (claro) y 100% en los temas oscuros.
 
-ADEMÁS:
-- El bug del logo enso (rectángulo rojo sin mask-image) probablemente también es de carga: index.html no encuentra el CSS o el path al PNG
-- El bug del botón enviar es porque app.js falla al cargar las conversaciones inicialmente → JS muere → no se bindea ningún listener
+2. .enso-watermark al fondo del chat: reemplazar por <img> con position absolute, opacity 0.06, width 60%, pointer-events none, centered.
 
-ORDEN DE FIX:
-1. Verifica que server.ts tiene los endpoints REST registrados correctamente
-2. Mata cualquier proceso node activo (shinobi_web.cmd previo en memoria)
-3. Arranca shinobi_web.cmd fresco
-4. Verifica que GET /api/conversations devuelve JSON [] en lugar de HTML
-5. Verifica que /api/conversations/:id/messages funciona
-6. Después aborda los bugs visuales (logo enso + marca de agua) que probablemente se resuelven cuando el JS no muere al cargar
+3. Botón enviar: SVG inline en el HTML directamente (no CSS, no mask). Flecha → simple.
 
-Muéstrame qué encuentras en server.ts antes de tocar nada.
+4. Botón + del composer: SVG inline en HTML. Signo + simple o arco de enso.
+
+Aplica estos 4 fixes en index.html, layout.css y chat.css. Sin mask-image en ningún sitio. Después commit y push.

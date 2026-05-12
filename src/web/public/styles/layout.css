@@ -310,28 +310,20 @@ html, body {
 
 /* ─── Brand glyphs (ensō PNG con mask) ──────────────────────────────────── */
 
-.brand-enso {
+/* Bloque 8.2 fix definitivo — el ensō se sirve como <img> con CSS filter,
+   abandonando mask-image por completo. brightness(0) aplana el PNG a
+   negro puro preservando alpha; invert(--enso-invert) cambia a blanco
+   en temas oscuros y deja negro en Bushido. */
+.brand-enso-img {
   display: inline-block;
-  background-color: var(--accent);
-  /* Longhand mask — mismo patrón que theme-preview.html. El shorthand
-     `mask: url(...) center/contain no-repeat` define implícitamente
-     mask-clip/mask-origin con defaults que rompen el render en algunos
-     Chromium; longhand explícito evita el ambigüedad. */
-  -webkit-mask-image: url('/assets/enso-logo.png');
-          mask-image: url('/assets/enso-logo.png');
-  -webkit-mask-size: contain;
-          mask-size: contain;
-  -webkit-mask-position: center;
-          mask-position: center;
-  -webkit-mask-repeat: no-repeat;
-          mask-repeat: no-repeat;
-  width: 24px;
-  height: 24px;
-  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  filter: brightness(0) saturate(100%) invert(var(--enso-invert, 100%));
+  transition: filter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
 }
-.brand-enso.small { width: 22px; height: 22px; }
-.brand-enso.tiny  { width: 16px; height: 16px; }
+.brand-enso-img.small { width: 24px; height: 24px; }
 
 /* ─── Icon button (genérico) ────────────────────────────────────────────── */
 
