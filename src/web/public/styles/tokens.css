@@ -1,0 +1,69 @@
+/* src/web/public/styles/tokens.css
+ *
+ * Bloque 8.1 — Design System: 4 paletas del Dojo digital.
+ *
+ * IMPORTANTE: las paletas viven exclusivamente bajo selectores [data-theme="..."].
+ * NO se declaran en :root — así, mientras `<html>` no tenga data-theme, los
+ * tokens no aplican. Esto preserva la UI actual (Bloque 1, index.html con su
+ * propio :root inline) sin colisión hasta que el Bloque 8.2 haga el switchover.
+ *
+ * theme.js mete data-theme="sumi" en <html> por defecto al boot de las páginas
+ * que opten in (theme-preview.html en 8.1; index.html en 8.2).
+ */
+
+/* ─── SUMI — tinta sobre papel washi (default) ──────────────────────────────── */
+[data-theme="sumi"] {
+  --bg: #0a0a0c;
+  --bg-elev: #14141a;
+  --bg-overlay: #1c1c24;
+  --text-primary: #e8e3d8;
+  --text-secondary: #a39e94;
+  --text-muted: #6b6760;
+  --accent: #c84134;
+  --accent-hover: #d85040;
+  --border: #2a2a32;
+  --border-active: #3d3d48;
+}
+
+/* ─── KINTSUGI — negro profundo con vetas doradas ───────────────────────────── */
+[data-theme="kintsugi"] {
+  --bg: #0a0807;
+  --bg-elev: #14110e;
+  --bg-overlay: #1c1814;
+  --text-primary: #f4ebd6;
+  --text-secondary: #a89c80;
+  --text-muted: #6b6357;
+  --accent: #d4af37;
+  --accent-hover: #e8c149;
+  --border: #2a2520;
+  --border-active: #d4af37;
+}
+
+/* ─── AURORA — azul medianoche con menta y violeta ──────────────────────────── */
+[data-theme="aurora"] {
+  --bg: #0d1b2a;
+  --bg-elev: #152939;
+  --bg-overlay: #1d3548;
+  --text-primary: #e0e6ed;
+  --text-secondary: #98a5b3;
+  --text-muted: #6b7785;
+  --accent: #6ee7b7;
+  --accent-hover: #84efc5;
+  --accent-secondary: #a78bfa;
+  --border: #243a4d;
+  --border-active: #6ee7b7;
+}
+
+/* ─── BUSHIDO — pergamino enfriado con tinta seca (única paleta clara) ───── */
+[data-theme="bushido"] {
+  --bg: #f2ece4;
+  --bg-elev: #ebe4d8;
+  --bg-overlay: #e0d8c8;
+  --text-primary: #2c2c2c;
+  --text-secondary: #5a5a5a;
+  --text-muted: #8a8a8a;
+  --accent: #8b2c20;
+  --accent-hover: #a03830;
+  --border: #c8bfa8;
+  --border-active: #2c2c2c;
+}
