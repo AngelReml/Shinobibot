@@ -27,7 +27,7 @@ import { handleSlashCommand } from '../coordinator/slash_commands.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { KernelClient } from '../bridge/kernel_client.js';
 import { setSkillEventListener } from '../skills/skill_manager.js';
-import { setDocumentEventListener } from '../documents/factory.js';
+import { setDocumentEventListener, shouldOfferDocument, offerDocument } from '../documents/factory.js';
 import {
   ensureApprovalModeInitialized,
   setApprovalAsker,
@@ -156,6 +156,8 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   // Bloque 5: broadcast document lifecycle events.
   setDocumentEventListener((event) => {
     const payload = JSON.stringify({ type: 'document_event', event });
+    // [DIAG temporal — confirmar broadcast]
+    console.log(`[auto-offer] server broadcasting document_event to ${allClients.size} client(s); event.type=${event.type}`);
     for (const c of allClients) {
       try { c.send(payload); } catch { /* ignore */ }
     }
@@ -252,6 +254,28 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
             model: ShinobiOrchestrator.getModel(),
           }));
         } catch {}
+
+        // Bloque 5.3 — auto-offer hook. Punto único de convergencia: aquí
+        // confluyen slash flow + LLM flow + cualquier futuro path. La
+        // respuesta YA fue enviada al UI; ahora chequeamos si su contenido
+        // tiene estructura y disparamos document_offer (toast).
+        // [DIAG temporal — trazar cada gate para verificación.]
+        const _respLen = finalResponse.length;
+        const _heuristic = shouldOfferDocument(finalResponse);
+        // alreadyGenerated: scan captured console lines for la traza que
+        // el orchestrator emite cuando el LLM llama generate_document.
+        const _alreadyGen = captured.some(line => /\[🔨\]\s+Tool called:\s+generate_document/.test(line));
+        console.log(`[auto-offer] post-task hook fired, content length=${_respLen}, alreadyGenerated=${_alreadyGen}`);
+        console.log(`[auto-offer] shouldOfferDocument result: ${_heuristic}`);
+        if (_heuristic && !_alreadyGen) {
+          console.log('[auto-offer] broadcasting document_offer event');
+          offerDocument('Esta respuesta tiene formato. Usa /doc auto "<descripción>" para generar Word/PDF/Excel/Markdown.');
+        } else {
+          const reasons: string[] = [];
+          if (!_heuristic) reasons.push('heuristic=false');
+          if (_alreadyGen) reasons.push('generate_document already called');
+          console.log(`[auto-offer] SKIPPED — ${reasons.join('; ') || '(unknown)'}`);
+        }
       } catch (e: any) {
         const errMsg = e?.message ?? String(e);
         store.add(sessionId, 'system', `[error] ${errMsg}`, captured);
