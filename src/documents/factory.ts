@@ -150,6 +150,8 @@ export async function generateDocument(req: DocumentRequest): Promise<DocumentRe
 }
 
 export function offerDocument(hint: string): void {
+  // [DIAG temporal — confirmar emit y listener registrado]
+  console.log(`[auto-offer] offerDocument invoked; listener registered=${listener !== null}`);
   emit({ type: 'document_offer', hint });
 }
 

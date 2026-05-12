@@ -6,7 +6,6 @@ import { Memory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
 import { MemoryStore } from '../memory/memory_store.js';
 import { skillManager } from '../skills/skill_manager.js';
-import { shouldOfferDocument, offerDocument } from '../documents/factory.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -61,15 +60,9 @@ export class ShinobiOrchestrator {
       success = result?.verdict === 'VALID_AGENT';
       if (result?.verdict === 'ERROR' && result?.error) error = String(result.error);
 
-      // Bloque 5 — auto-offer hook: if the LLM produced a long structured
-      // response and the user didn't already trigger a document, suggest it.
-      if (success && result?.response && shouldOfferDocument(String(result.response))) {
-        const alreadyGenerated = toolSequence.includes('generate_document');
-        if (!alreadyGenerated) {
-          offerDocument('Esta respuesta tiene formato. Usa /doc auto "<descripción>" para generar Word/PDF/Excel/Markdown.');
-        }
-      }
-
+      // Bloque 5.3 — el hook de auto-offer se MOVIÓ a server.ts (punto único
+      // de convergencia tras `ws.send(final)`). Aquí solo retornamos el
+      // resultado para que server.ts lo procese.
       return result;
     } finally {
       // Fire-and-forget post-task observation. SkillManager may schedule a

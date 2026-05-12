@@ -564,6 +564,7 @@
         return;
       }
       if (msg.type === 'document_event' && msg.event) {
+        console.log('[auto-offer] UI received document_event:', msg.event.type, msg.event); // DIAG temporal
         showDocumentToast(msg.event);
         return;
       }
