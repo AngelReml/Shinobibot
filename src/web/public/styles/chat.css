@@ -117,6 +117,239 @@
   60%  { opacity: 1; transform: scale(0.94) rotate(3deg); }
   100% { opacity: 0.92; transform: scale(1) rotate(0); }
 }
+/* Hover sobre el hanko → rotación lenta 360°. Pequeño fidget. */
+.hanko {
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+}
+.hanko-wrap:hover .hanko {
+  opacity: 1;
+  transform: rotate(360deg);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   EASTER EGGS — mecánicas ocultas
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ─── /zen mode ──────────────────────────────────────────────────────── */
+body.zen .sidebar,
+body.zen .right-panel {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+body.zen .dojo { grid-template-columns: 0 1fr 0 !important; }
+body.zen .center-header {
+  opacity: 0.08;
+  transition: opacity 0.5s ease;
+}
+body.zen .center-header:hover { opacity: 1; }
+body.zen .input-hint { opacity: 0.25; }
+
+/* ─── Konami → modo sensei ──────────────────────────────────────────── */
+body.sensei {
+  --accent: #d4af37;
+  --accent-soft: #d4af37;
+}
+#sensei-rain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 950;
+  overflow: hidden;
+}
+.sensei-kanji {
+  position: absolute;
+  top: -10vh;
+  font-family: 'Cormorant Garamond', 'EB Garamond', serif;
+  color: #d4af37;
+  text-shadow: 0 0 14px rgba(212, 175, 55, 0.35);
+  animation: kanji-fall linear forwards;
+  user-select: none;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+@keyframes kanji-fall {
+  0%   { transform: translateY(0)     rotate(-6deg); }
+  100% { transform: translateY(115vh) rotate(20deg); opacity: 0; }
+}
+
+/* ─── Inactividad → dojo-quiet ──────────────────────────────────────── */
+body.dojo-quiet::before {
+  content: '';
+  position: fixed;
+  left: -10%;
+  top: 50vh;
+  width: 0;
+  height: 1.5px;
+  background: linear-gradient(90deg, transparent, var(--accent) 25%, var(--accent) 75%, transparent);
+  pointer-events: none;
+  z-index: 50;
+  animation: horizon-stroke 8s ease-out forwards;
+}
+@keyframes horizon-stroke {
+  0%   { width: 0;     opacity: 0;   }
+  35%  { width: 60%;   opacity: 0.7; }
+  70%  { width: 120%;  opacity: 0.7; }
+  100% { width: 120%;  opacity: 0;   left: 100%; }
+}
+body.dojo-quiet .enso-watermark {
+  animation-duration: 14s !important;
+  opacity: 0.09 !important;
+}
+
+/* ─── Haiku detection en el composer ────────────────────────────────── */
+#composer.haiku-mode {
+  font-family: 'Cormorant Garamond', 'EB Garamond', serif;
+  font-style: italic;
+  font-size: 1.22rem;
+  text-align: center;
+  letter-spacing: 0.015em;
+  line-height: 1.5;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Cheat sheet (Ctrl+/) ──────────────────────────────────────────── */
+#cheat-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.42);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  backdrop-filter: blur(3px);
+}
+#cheat-modal.open { opacity: 1; }
+.cheat-paper {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 32px 42px 26px;
+  max-width: 500px;
+  width: 90%;
+  transform: translateY(20px);
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#cheat-modal.open .cheat-paper { transform: translateY(0); }
+.cheat-title {
+  font-family: 'Cormorant Garamond', 'EB Garamond', serif;
+  font-size: 1.45rem;
+  font-style: italic;
+  color: var(--accent);
+  margin-bottom: 22px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.02em;
+}
+.cheat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.cheat-table td {
+  padding: 7px 10px;
+  vertical-align: middle;
+}
+.cheat-table td:first-child {
+  text-align: right;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.84rem;
+}
+.cheat-table td:last-child { color: var(--text-primary); }
+.cheat-table kbd {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  padding: 2px 7px;
+  font-size: 0.82em;
+  margin: 0 2px;
+  color: var(--text-primary);
+}
+.cheat-table code {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent);
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.cheat-table .cheat-spacer {
+  text-align: center;
+  padding-top: 20px;
+  color: var(--text-muted);
+  font-style: italic;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 0.95rem;
+}
+.cheat-close-hint {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 22px;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.04em;
+}
+
+/* "?" minúsculo en el hint del input → único hilo visible */
+#cheat-trigger {
+  cursor: pointer;
+  color: var(--accent);
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
+  user-select: none;
+}
+#cheat-trigger:hover { opacity: 1; }
+
+/* ─── Egg toast — inscripción centrada ──────────────────────────────── */
+#egg-toast-stack {
+  position: fixed;
+  top: 28%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+.egg-toast {
+  background: var(--bg);
+  border: 1px solid var(--border-active);
+  border-left: 3px solid var(--accent);
+  padding: 22px 30px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 280px;
+  max-width: 420px;
+  transform: translateY(-18px);
+  opacity: 0;
+  transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
+}
+.egg-toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+.egg-kanji {
+  font-family: 'Cormorant Garamond', 'EB Garamond', serif;
+  font-size: 2.6rem;
+  color: var(--accent);
+  line-height: 1;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+.egg-text {
+  font-family: 'Cormorant Garamond', 'EB Garamond', serif;
+  font-style: italic;
+  font-size: 0.98rem;
+  color: var(--text-primary);
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
 
 /* ─── Empty state (frase + cursor parpadeante) ──────────────────────────── */
 

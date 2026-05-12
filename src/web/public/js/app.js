@@ -222,15 +222,18 @@
     scrollToBottom();
   }
 
-  // Sello 忍 al final de cada mensaje del agente. Animado en live, estático en history.
+  // Sello al final de cada mensaje del agente. 忍 por defecto; 師 si modo sensei.
   function appendHanko(msgEl, opts) {
     opts = opts || {};
     if (msgEl.querySelector('.hanko-wrap')) return;
+    const kanji = window.ShinobiEggs && window.ShinobiEggs.currentHankoKanji
+      ? window.ShinobiEggs.currentHankoKanji()
+      : '忍';
     const wrap = document.createElement('div');
     wrap.className = 'hanko-wrap';
     wrap.innerHTML = `<svg class="hanko ${opts.animated ? 'animated' : 'static'}" viewBox="0 0 32 32" aria-hidden="true">`
       + `<rect x="2" y="2" width="28" height="28" fill="var(--accent)" stroke="var(--accent)" stroke-width="1"/>`
-      + `<text x="16" y="22" font-family="serif" font-size="19" font-weight="700" fill="var(--bg)" text-anchor="middle">忍</text>`
+      + `<text x="16" y="22" font-family="serif" font-size="19" font-weight="700" fill="var(--bg)" text-anchor="middle">${kanji}</text>`
       + `</svg>`;
     if (opts.animated) {
       wrap.querySelector('.hanko').style.setProperty('--hanko-delay', `${opts.delayMs || 0}ms`);
