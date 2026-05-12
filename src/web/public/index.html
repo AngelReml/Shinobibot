@@ -612,6 +612,33 @@
     }
     t.textContent = label;
 
+    // Bloque 5.7 — el rect log de Bloque 5.6 confirmó que el toast SÍ se
+    // pinta visible (no offscreen) pero algún proceso lo elimina del DOM
+    // milisegundos después. MutationObserver para capturar QUIÉN lo
+    // remueve y CUÁNDO. Se setup ANTES de appendChild para no perder
+    // ninguna mutación entre el insert y el observe.
+    const mountedAt = performance.now();
+    let removalDetected = false;
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const removed of m.removedNodes) {
+          if (removed === t) {
+            removalDetected = true;
+            const since = performance.now() - mountedAt;
+            console.error('[auto-offer] 🚨 TOAST REMOVED from DOM after ' + since.toFixed(1) + 'ms');
+            console.error('[auto-offer] removed from parent:', m.target);
+            console.error('[auto-offer] addedNodes in same batch:', m.addedNodes.length,
+              m.addedNodes.length ? Array.from(m.addedNodes).map(n => (n.nodeName + (n.className ? '.' + n.className : ''))) : '');
+            console.error('[auto-offer] document.body.children count:', document.body.children.length);
+            console.trace('[auto-offer] MutationObserver removal callback');
+            observer.disconnect();
+            return;
+          }
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
     document.body.appendChild(t);
 
     // Force inline visibility — anula cualquier override CSS heredado.
@@ -635,7 +662,12 @@
       });
     });
 
-    setTimeout(() => { t.classList.add('fade-out'); setTimeout(() => t.remove(), 600); }, 12000);
+    setTimeout(() => {
+      if (removalDetected) return; // ya removido por un tercero
+      observer.disconnect();        // limpia el observer antes del fade
+      t.classList.add('fade-out');
+      setTimeout(() => t.remove(), 600);
+    }, 12000);
   }
 
   function showSkillToast(event) {
