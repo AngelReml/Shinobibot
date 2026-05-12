@@ -208,6 +208,10 @@ async function main() {
     {
       const t0 = Date.now();
       try {
+        // Bloque 8.3: la antesala bloquea hasta que el usuario interactúa.
+        // En tests saltamos via sessionStorage.shinobiEntered=true.
+        await page.goto(`http://127.0.0.1:${PORT}/onboarding.html`, { waitUntil: 'domcontentloaded' });
+        await page.evaluate(() => sessionStorage.setItem('shinobiEntered', 'true'));
         await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: 'networkidle', timeout: 10000 });
         await page.waitForSelector('.dojo', { timeout: 5000 });
         const dims = await page.evaluate(() => {
@@ -221,10 +225,10 @@ async function main() {
             theme: document.documentElement.getAttribute('data-theme'),
           };
         });
-        const pass = dims.sidebar > 200 && dims.sidebar < 320 && dims.center > 600 && dims.theme === 'sumi';
-        record('C. Layout 3-col + tema sumi', pass, JSON.stringify(dims), t0);
+        const pass = dims.sidebar > 200 && dims.sidebar < 320 && dims.center > 600 && dims.theme === 'hiru';
+        record('C. Layout 3-col + tema hiru', pass, JSON.stringify(dims), t0);
       } catch (e: any) {
-        record('C. Layout 3-col + tema sumi', false, `threw: ${e.message}`, t0);
+        record('C. Layout 3-col + tema hiru', false, `threw: ${e.message}`, t0);
       }
     }
 
@@ -328,7 +332,7 @@ async function main() {
     {
       const t0 = Date.now();
       try {
-        await page.evaluate(() => (window as any).ShinobiTheme.setTheme('aurora'));
+        await page.evaluate(() => (window as any).ShinobiTheme.setTheme('yoru'));
         await killTransitions(page);
         const data = await page.evaluate(() => {
           const agentMsg = document.querySelector('.chat-feed .msg.agent');
@@ -336,11 +340,11 @@ async function main() {
           const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
           return { beforeBg, accent };
         });
-        // Aurora --accent = #6ee7b7 = rgb(110, 231, 183)
-        const isMint = /rgb\(\s*110,\s*231,\s*183\s*\)/.test(data.beforeBg);
-        record('G. Theme change recolorea filete agente', isMint, `::before=${data.beforeBg}, accent-css=${data.accent}`, t0);
-        // Volver a sumi para el siguiente test
-        await page.evaluate(() => (window as any).ShinobiTheme.setTheme('sumi'));
+        // Yoru --accent = #c84134 = rgb(200, 65, 52)
+        const isRed = /rgb\(\s*200,\s*65,\s*52\s*\)/.test(data.beforeBg);
+        record('G. Theme change recolorea filete agente', isRed, `::before=${data.beforeBg}, accent-css=${data.accent}`, t0);
+        // Volver a hiru para el siguiente test
+        await page.evaluate(() => (window as any).ShinobiTheme.setTheme('hiru'));
       } catch (e: any) {
         record('G. Theme change recolorea filete agente', false, `threw: ${e.message}`, t0);
       }

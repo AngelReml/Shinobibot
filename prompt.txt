@@ -1,20 +1,9 @@
-La UI del Bloque 8.2 funciona correctamente en producción. Layout, mensajes, sidebar, historial, markdown — todo bien.
+Descarta la antesala SVG compleja del jardín. Reemplázala por esto:
 
-El único problema restante: los 3 elementos que usan mask-image no se ven:
-1. .brand-enso (logo arriba izquierda del sidebar)
-2. .enso-watermark (marca de agua al fondo del chat)
-3. Botón enviar y botón + del composer
+Pantalla negra fullscreen. El archivo /assets/shinobi-mark.png aparece centrado a 320px de ancho, en blanco (CSS filter: brightness(0) invert(1)), con fade in de 1.2s. Permanece 1.5s. Fade out de 0.8s. Después el chat emerge con fade in de 0.6s.
 
-El data URI inline en enso-inline.css tampoco resolvió. 
+Sin sonidos. Sin jardín. Sin SVG complejo. Solo el logo, el negro, y el silencio.
 
-SOLUCIÓN DEFINITIVA — abandonar mask-image completamente para los iconos:
+El efecto del cursor-pincel que ya existe: muévelo al área del input del chat como easter egg cuando el usuario pasa el ratón por encima del input vacío.
 
-1. .brand-enso en el sidebar: reemplazar por <img src="/assets/enso-logo.png"> con CSS filter para adaptar al tema. Con filter: brightness(0) saturate(100%) invert(var(--enso-invert)) donde --enso-invert es 0% en Bushido (claro) y 100% en los temas oscuros.
-
-2. .enso-watermark al fondo del chat: reemplazar por <img> con position absolute, opacity 0.06, width 60%, pointer-events none, centered.
-
-3. Botón enviar: SVG inline en el HTML directamente (no CSS, no mask). Flecha → simple.
-
-4. Botón + del composer: SVG inline en HTML. Signo + simple o arco de enso.
-
-Aplica estos 4 fixes en index.html, layout.css y chat.css. Sin mask-image en ningún sitio. Después commit y push.
+Después commit y push.
