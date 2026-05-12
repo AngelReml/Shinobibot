@@ -563,23 +563,42 @@
         showSkillToast(msg.event);
         return;
       }
-      if (msg.type === 'document_event' && msg.event) {
-        console.log('[auto-offer] UI received document_event:', msg.event.type, msg.event); // DIAG temporal
-        showDocumentToast(msg.event);
+      // Bloque 5.4 — UI defensiva: el server.ts envía `{type:'document_event', event:{type,hint|doc}}`
+      // pero aceptamos varios shapes por si algún proxy/cache/test framework lo
+      // reescribe (msg.payload, msg.data, o flat {type:'document_offer', hint}).
+      if (msg.type === 'document_event' || msg.type === 'document_offer' || msg.type === 'document_generated') {
+        const evt =
+          (msg.event && typeof msg.event === 'object') ? msg.event :
+          (msg.payload && typeof msg.payload === 'object') ? msg.payload :
+          (msg.data && typeof msg.data === 'object') ? msg.data :
+          // Flat fallback: el server podría haber colapsado el wrapper.
+          ((msg.type === 'document_offer' || msg.type === 'document_generated') ? msg : null);
+        console.log('[auto-offer] UI received', msg.type, '— resolved event:', evt, '— raw msg:', msg);
+        if (evt && evt.type) {
+          showDocumentToast(evt);
+        } else {
+          console.warn('[auto-offer] UI could NOT resolve event shape; expected msg.event / msg.payload / msg.data or flat. raw=', msg);
+        }
         return;
       }
     });
   }
 
   function showDocumentToast(event) {
+    // Defensa explícita: si nos llega undefined/null, lo flagueamos visiblemente
+    // en consola y abortamos sin renderizar un toast vacío.
+    if (!event || typeof event !== 'object') {
+      console.warn('[auto-offer] showDocumentToast called with invalid event:', event);
+      return;
+    }
     const t = document.createElement('div');
     t.className = 'skill-toast';
     if (event.type === 'document_generated' && event.doc) {
       const d = event.doc;
-      const sizeKb = Math.round(d.bytes / 1024);
+      const sizeKb = Math.round((d.bytes || 0) / 1024);
       t.innerHTML =
-        '📄 Documento ' + escapeHtml(d.type) + ' generado: <strong>' + escapeHtml(d.title) + '</strong>' +
-        ' (' + sizeKb + ' KB)<br><span style="color:var(--text-dim); font-size:11px;">' + escapeHtml(d.path) + '</span>';
+        '📄 Documento ' + escapeHtml(d.type || '?') + ' generado: <strong>' + escapeHtml(d.title || '(sin título)') + '</strong>' +
+        ' (' + sizeKb + ' KB)<br><span style="color:var(--text-dim); font-size:11px;">' + escapeHtml(d.path || '') + '</span>';
     } else if (event.type === 'document_offer') {
       t.textContent = '💡 ' + (event.hint || 'Esta respuesta tiene formato. Usa /doc auto "<descripción>".');
     } else {
