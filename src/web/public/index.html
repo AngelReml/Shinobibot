@@ -585,18 +585,21 @@
   }
 
   function showDocumentToast(event) {
-    // Bloque 5.5 — re-escrito siguiendo EXACTAMENTE el patrón de
-    // showSkillToast (Bloque 3, confirmado funcional): textContent puro,
-    // mismo className `.skill-toast`, mismo document.body.appendChild,
-    // mismo setTimeout. Sin innerHTML (evita cualquier sutileza de parsing).
+    // Bloque 5.6 — el toast entra al DOM (count=1 confirmado) pero queda
+    // invisible. Endurezco con: (1) forced inline visibility tras el
+    // append; (2) requestAnimationFrame para asegurar reflow antes de
+    // pintar; (3) getBoundingClientRect log para saber dónde quedó en
+    // pantalla; (4) clase extra `.document-toast` para devtools.
     if (!event || typeof event !== 'object') {
       console.warn('[auto-offer] showDocumentToast called with invalid event:', event);
       return;
     }
-    console.log('[auto-offer] toast step 1: createElement');
     const t = document.createElement('div');
-    console.log('[auto-offer] toast step 2: set className=skill-toast');
-    t.className = 'skill-toast';
+    // Doble clase: `.skill-toast` para heredar el estilo (Bloque 3, confirmado
+    // funcional), `.document-toast` para identificarlo en devtools sin
+    // confundirlo con un toast de skill.
+    t.className = 'skill-toast document-toast';
+
     let label = '';
     if (event.type === 'document_generated' && event.doc) {
       const d = event.doc;
@@ -607,12 +610,31 @@
     } else {
       label = JSON.stringify(event);
     }
-    console.log('[auto-offer] toast step 3: textContent ←', label.slice(0, 120));
     t.textContent = label;
-    console.log('[auto-offer] toast step 4: append to body; body present?', !!document.body);
+
     document.body.appendChild(t);
-    const count = document.querySelectorAll('.skill-toast').length;
-    console.log('[auto-offer] toast step 5: appended OK; .skill-toast count in DOM =', count);
+
+    // Force inline visibility — anula cualquier override CSS heredado.
+    t.style.opacity = '1';
+    t.style.visibility = 'visible';
+    t.style.display = 'block';
+    t.style.zIndex = '1000';
+
+    // requestAnimationFrame asegura que el reflow ocurra antes del próximo
+    // paint. Si el navegador estaba en medio de un layout pass cuando
+    // appendChild, esto fuerza un repaint con el toast visible.
+    requestAnimationFrame(() => {
+      t.classList.add('show');
+      const r = t.getBoundingClientRect();
+      console.log('[auto-offer] toast appended; rect=', {
+        x: r.x, y: r.y, w: r.width, h: r.height,
+        viewport: { w: window.innerWidth, h: window.innerHeight },
+        offscreen: r.x + r.width < 0 || r.y + r.height < 0 || r.x > window.innerWidth || r.y > window.innerHeight,
+        styles: { opacity: t.style.opacity, visibility: t.style.visibility, zIndex: t.style.zIndex },
+        textPreview: label.slice(0, 80),
+      });
+    });
+
     setTimeout(() => { t.classList.add('fade-out'); setTimeout(() => t.remove(), 600); }, 12000);
   }
 
