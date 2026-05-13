@@ -1,18 +1,19 @@
 #!/usr/bin/env node
 /**
- * Shinobi Web — entry point for the Bloque 1 UI.
+ * Shinobi Web — entry point para el chat (Bloque 1).
  *
- * Mirrors the bootstrap of scripts/shinobi.ts (config, env vars, kernel check,
- * approved-skills reload) but launches the Express+WebSocket server in
- * src/web/server.ts instead of an interactive readline REPL.
- *
- * The CLI is preserved unchanged at scripts/shinobi.ts. CLI and Web are
- * mutually exclusive per session — see docs/sessions/bloque1_ui_web.md.
+ * Bloque 9: pkg-aware. Cuando se ejecuta como .exe empaquetado (process.pkg
+ * definido), extrae public/ y chrome-win/ desde el snapshot a APPDATA en la
+ * primera ejecución, ajusta PLAYWRIGHT_BROWSERS_PATH, y abre el navegador
+ * automáticamente. En desarrollo (tsx) se comporta exactamente igual que
+ * antes.
  */
 
 import { config as dotenvConfig } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import * as fs from 'fs';
+import { exec } from 'child_process';
 
 import * as path from 'path';
 import { loadConfig } from '../src/runtime/first_run_wizard.js';
@@ -28,7 +29,95 @@ import { lanWebChatInfo } from '../src/gateway/webchat_channel.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-dotenvConfig({ path: resolve(__dirname, '../.env') });
+
+// pkg detection — process.pkg está definido cuando corremos como .exe empaquetado
+const IS_PKG = typeof (process as any).pkg !== 'undefined';
+
+// En dev, cargamos .env desde la raíz del proyecto. En pkg no hay .env;
+// las env vars relevantes vienen de config.json (Bloque 7) o del shell.
+if (!IS_PKG) {
+  dotenvConfig({ path: resolve(__dirname, '../.env') });
+}
+
+// ─── Helpers para extracción en pkg mode ────────────────────────────────────
+
+function appDataShinobi(): string {
+  return path.join(process.env.APPDATA || process.env.HOME || '', 'Shinobi');
+}
+
+function copySnapshotTree(src: string, dest: string): void {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, entry.name);
+    const d = path.join(dest, entry.name);
+    if (entry.isDirectory()) copySnapshotTree(s, d);
+    else fs.writeFileSync(d, fs.readFileSync(s));
+  }
+}
+
+/**
+ * En pkg mode, extrae public/ del snapshot a %APPDATA%/Shinobi/runtime/public.
+ * Idempotente vía .version. Devuelve la ruta o null en dev.
+ *
+ * Chromium NO se embebe en el .exe (pesaría 400+ MB). Se distribuye como
+ * carpeta hermana del .exe vía el Inno Setup installer — el .exe la busca
+ * en `path.dirname(execPath)/playwright-browsers/` y exporta
+ * PLAYWRIGHT_BROWSERS_PATH automáticamente.
+ */
+function ensureRuntimeExtracted(version: string): string | null {
+  if (!IS_PKG) return null;
+  const target = path.join(appDataShinobi(), 'runtime');
+  const versionFile = path.join(target, '.version');
+
+  let current = '';
+  try { current = fs.readFileSync(versionFile, 'utf8').trim(); } catch { /* no existe */ }
+  if (current === version && fs.existsSync(path.join(target, 'public'))) {
+    return target;
+  }
+
+  console.log(`[Shinobi] Primera ejecución — extrayendo recursos a ${target}…`);
+  const t0 = Date.now();
+  fs.rmSync(target, { recursive: true, force: true });
+  fs.mkdirSync(target, { recursive: true });
+
+  const snapshotPublic = path.join(__dirname, 'public');
+  if (fs.existsSync(snapshotPublic)) {
+    copySnapshotTree(snapshotPublic, path.join(target, 'public'));
+  } else {
+    console.log('[Shinobi] WARN: public/ no encontrado en el snapshot.');
+  }
+
+  fs.writeFileSync(versionFile, version);
+  const dur = ((Date.now() - t0) / 1000).toFixed(1);
+  console.log(`[Shinobi] Recursos extraídos en ${dur}s.`);
+  return target;
+}
+
+/**
+ * Busca la carpeta playwright-browsers hermana del .exe. La pone el Inno
+ * Setup installer. Si la encuentra, setea PLAYWRIGHT_BROWSERS_PATH para que
+ * playwright la use. Sin ella, los skills de navegador no funcionarán.
+ */
+function configurePlaywrightBrowsers(): void {
+  if (!IS_PKG) return;
+  const execDir = path.dirname(process.execPath);
+  const candidate = path.join(execDir, 'playwright-browsers');
+  if (fs.existsSync(candidate)) {
+    process.env.PLAYWRIGHT_BROWSERS_PATH = candidate;
+    console.log(`[Shinobi] Playwright browsers: ${candidate}`);
+  } else {
+    console.log(`[Shinobi] playwright-browsers/ no encontrado junto al .exe. Skills de navegador deshabilitados.`);
+  }
+}
+
+function openBrowser(url: string): void {
+  // Windows: `start "" "url"` — comillas vacías son el title del cmd.
+  exec(`start "" "${url}"`, (err) => {
+    if (err) console.log(`[Shinobi] No se pudo abrir el navegador automáticamente: ${err.message}`);
+  });
+}
+
+// ─── Boot ───────────────────────────────────────────────────────────────────
 
 async function checkKernel(): Promise<boolean> {
   const online = await KernelClient.isOnline();
@@ -47,10 +136,18 @@ async function main() {
     process.exit(2);
   }
 
-  // Bloque 7 — si no hay config, ARRANCAMOS igualmente. El server detectará
-  // la ausencia y servirá la pantalla de onboarding en `/`. Al completar,
-  // reloadConfig() actualiza el process.env en vivo. CLI sigue exigiendo
-  // config explícita.
+  // Bloque 9 — extracción de assets si somos .exe empaquetado
+  // Versión hardcodeada para no depender de require('./package.json') en pkg.
+  const APP_VERSION = '2.0.0';
+  const runtimeDir = ensureRuntimeExtracted(APP_VERSION);
+  let publicPath: string | undefined;
+  if (runtimeDir) {
+    publicPath = path.join(runtimeDir, 'public');
+  }
+  configurePlaywrightBrowsers();
+
+  // Bloque 7 — config del usuario en APPDATA/Shinobi/config.json. Si no
+  // existe, arrancamos igualmente con la pantalla de onboarding.
   const cfg = loadConfig();
   if (cfg) {
     process.env.OPENGRAVITY_URL = cfg.opengravity_url;
@@ -69,7 +166,7 @@ async function main() {
     console.log('');
   }
 
-  console.log('--- SHINOBIBOT WEB UI (Bloque 1) ---');
+  console.log('--- SHINOBIBOT WEB ---');
   await checkKernel();
 
   // Reload approved skills on boot, same as the CLI.
@@ -84,7 +181,6 @@ async function main() {
     console.log('[Shinobi] Error cargando skills aprobadas:', e?.message ?? e);
   }
 
-  // Bloque 3 — Auto-load approved markdown skills.
   try {
     const md = skillManager().loadApproved();
     if (md.count > 0) console.log(`[Shinobi] Cargadas ${md.count} skill(s) markdown aprobadas previamente.`);
@@ -96,7 +192,6 @@ async function main() {
     console.log('[Shinobi] Error cargando skills markdown:', e?.message ?? e);
   }
 
-  // Bloque 4 — Curated memory snapshot (USER.md + MEMORY.md).
   try {
     const r = curatedMemory().loadAtBoot();
     console.log(`[Shinobi] Curated memory: ${r.userEntries} user entr(ies) (${r.userPct}%) | ${r.memoryEntries} env entr(ies) (${r.memoryPct}%).`);
@@ -106,12 +201,25 @@ async function main() {
   }
 
   const port = Number(process.env.SHINOBI_WEB_PORT || 3333);
-  const dbPath = path.join(process.cwd(), 'web_chat.db');
-  await startWebServer({ port, dbPath });
+  // En pkg, la DB vive en APPDATA. En dev, junto al cwd como antes.
+  const dbPath = IS_PKG
+    ? path.join(appDataShinobi(), 'web_chat.db')
+    : path.join(process.cwd(), 'web_chat.db');
+  await startWebServer({ port, dbPath, publicPath });
 
-  // ─── Boot log (decision G) — clarity inmediata de dónde está accesible ─
   console.log('');
-  console.log(`[shinobi-web] Web UI local: http://localhost:${port}`);
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log(`  🟢 Shinobi corriendo en http://localhost:${port}`);
+  console.log(`     Cierra esta ventana o pulsa Ctrl+C para detenerlo.`);
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('');
+
+  // Abrir navegador automáticamente — solo en pkg mode (el usuario hizo
+  // doble-clic en el .exe; en dev usamos shinobi_web.cmd que abre el browser
+  // por su lado).
+  if (IS_PKG) {
+    setTimeout(() => openBrowser(`http://localhost:${port}`), 800);
+  }
 
   // Bloque 6 — Gateway externo (auto-activado si SHINOBI_GATEWAY_TOKEN está).
   const gatewayToken = process.env.SHINOBI_GATEWAY_TOKEN;
@@ -121,8 +229,6 @@ async function main() {
     const tgToken = process.env.SHINOBI_TELEGRAM_BOT_TOKEN;
     const tgAllowedIds = parseAllowedUserIds(process.env.SHINOBI_TELEGRAM_ALLOWED_USER_IDS);
     try {
-      // Gateway reuses the same chat_store.db file. WAL mode permits the
-      // multiple connections (one per ChatStore instance).
       const gatewayStore = new ChatStore(dbPath);
       const gw = await startGateway({
         port: gPort,
@@ -146,7 +252,7 @@ async function main() {
     } catch (e: any) {
       console.log(`[gateway] startup failed: ${e?.message ?? e}`);
     }
-  } else {
+  } else if (!IS_PKG) {
     console.log(`[gateway] disabled — set SHINOBI_GATEWAY_TOKEN to enable external HTTP + Telegram channels.`);
   }
   console.log('');

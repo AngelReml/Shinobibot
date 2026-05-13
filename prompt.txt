@@ -1,9 +1,20 @@
-Descarta la antesala SVG compleja del jardín. Reemplázala por esto:
+BLOQUE 9 — Instalador .exe para Windows
 
-Pantalla negra fullscreen. El archivo /assets/shinobi-mark.png aparece centrado a 320px de ancho, en blanco (CSS filter: brightness(0) invert(1)), con fade in de 1.2s. Permanece 1.5s. Fade out de 0.8s. Después el chat emerge con fade in de 0.6s.
+Shinobi es una app Node.js/TypeScript que corre en local. El objetivo es un instalador .exe que cualquier usuario pueda descargar, ejecutar, y tener Shinobi funcionando sin instalar Node, npm, ni nada.
 
-Sin sonidos. Sin jardín. Sin SVG complejo. Solo el logo, el negro, y el silencio.
+STACK ELEGIDO: pkg (vercel/pkg) — empaqueta Node.js + código + assets en un único ejecutable.
 
-El efecto del cursor-pincel que ya existe: muévelo al área del input del chat como easter egg cuando el usuario pasa el ratón por encima del input vacío.
+ANTES DE CODEAR lee:
+- package.json (dependencias, scripts, entry points)
+- shinobi_web.cmd (cómo arranca la app)
+- src/web/public/ (assets que deben ir dentro del exe)
+- Cualquier archivo .env o config que necesite existir en runtime
 
-Después commit y push.
+Después dame plan de 5 puntos respondiendo:
+1. Entry point correcto para pkg
+2. Cómo se incluyen los assets estáticos (HTML/CSS/JS/PNG) dentro del exe
+3. Cómo se gestiona la config del usuario (API key, provider) — no puede vivir dentro del exe, debe ser editable
+4. Cómo arranca el servidor web y abre el navegador automáticamente al ejecutar el .exe
+5. Qué hace el instalador: ¿solo el .exe, o también crea acceso directo en escritorio/menú inicio?
+
+No empieces hasta que confirme el plan.

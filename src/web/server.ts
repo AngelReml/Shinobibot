@@ -58,6 +58,10 @@ function stringifyArgs(args: any[]): string {
 export interface StartWebServerOptions {
   port?: number;
   dbPath?: string;
+  /** Ruta donde viven los assets web. Si no se pasa, se asume
+   *  path.join(__dirname, 'public'). Necesario para builds pkg.exe que
+   *  extraen los assets a APPDATA (Bloque 9). */
+  publicPath?: string;
 }
 
 /**
@@ -113,6 +117,7 @@ async function maybeGenerateAutoTitle(
 export async function startWebServer(opts: StartWebServerOptions = {}): Promise<{ url: string }> {
   const port = opts.port ?? 3333;
   const dbPath = opts.dbPath ?? path.join(process.cwd(), 'web_chat.db');
+  const publicPath = opts.publicPath ?? path.join(__dirname, 'public');
   const store = new ChatStore(dbPath);
   const residentLoop = new ResidentLoop();
 
@@ -133,13 +138,13 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
       (cfg.opengravity_api_key && cfg.opengravity_url) // o config legacy OpenGravity
     );
     if (!hasUsableConfig) {
-      res.sendFile(path.join(__dirname, 'public', 'onboarding.html'));
+      res.sendFile(path.join(publicPath, 'onboarding.html'));
       return;
     }
     next();
   });
 
-  app.use(express.static(path.join(__dirname, 'public')));
+  app.use(express.static(publicPath));
 
   // ─── Bloque 7 — endpoints de onboarding ───────────────────────────────────
   app.get('/api/onboarding/status', (_req, res) => {
