@@ -25,6 +25,7 @@ export default defineConfig({
       'src/skills/__tests__/skill_signing.test.ts',
       'src/skills/__tests__/skill_auditor.test.ts',
       'src/skills/__tests__/anthropic_skill_installer.test.ts',
+      'src/skills/__tests__/skill_registry.test.ts',
       'src/tools/__tests__/docker_backend.test.ts',
       'src/tools/__tests__/tool_pack_pure.test.ts',
       'src/tools/__tests__/voice_tools.test.ts',
