@@ -1,54 +1,45 @@
-import { OpenGravityClient } from '../cloud/opengravity_client.js';
+/**
+ * EmbeddingProvider — fachada estática para el backend de embeddings.
+ *
+ * Sprint 1.1 (memoria vectorial real): el viejo provider que delegaba en
+ * el LLM (no-determinístico, no semántico) o en un char-code bucket
+ * (anti-semántico) se reemplaza por un factory de backends reales con
+ * cache singleton. Mantiene la API estática `embed()` y
+ * `cosineSimilarity()` para no romper a MemoryStore ni a SkillManager.
+ */
 
-const EMBEDDING_DIM = 1536;
-const FALLBACK_DIM = 384;
+import { getEmbeddingBackend, currentEmbeddingBackendName } from './embedding_providers/factory.js';
 
 export class EmbeddingProvider {
   public static async embed(text: string): Promise<number[]> {
-    const result = await OpenGravityClient.invokeLLM({
-      messages: [
-        { role: 'system', content: 'You produce JSON-only embeddings.' },
-        { role: 'user', content: `Produce a deterministic ${FALLBACK_DIM}-dimension semantic vector for the following text. Reply ONLY with a JSON array of ${FALLBACK_DIM} float numbers between -1 and 1, no prose.\n\nText: ${text.substring(0, 2000)}` }
-      ],
-      temperature: 0.0
-    } as any);
-
-    if (result.success && result.output) {
-      try {
-        const message = JSON.parse(result.output);
-        const content = message.content || '';
-        const match = content.match(/\[[\s\S]*\]/);
-        if (match) {
-          const arr = JSON.parse(match[0]);
-          if (Array.isArray(arr) && arr.length > 0) {
-            return this.padOrTruncate(arr.map((x: any) => Number(x) || 0), FALLBACK_DIM);
-          }
-        }
-      } catch {}
-    }
-    return this.fallbackEmbedding(text, FALLBACK_DIM);
+    const backend = await getEmbeddingBackend();
+    return backend.embed(text);
   }
 
-  private static fallbackEmbedding(text: string, dim: number): number[] {
-    const vec = new Array(dim).fill(0);
-    const lower = text.toLowerCase();
-    for (let i = 0; i < lower.length; i++) {
-      const code = lower.charCodeAt(i);
-      vec[code % dim] += 1;
-    }
-    const norm = Math.sqrt(vec.reduce((s, v) => s + v * v, 0)) || 1;
-    return vec.map(v => v / norm);
+  public static async embedBatch(texts: string[]): Promise<number[][]> {
+    const backend = await getEmbeddingBackend();
+    return backend.embedBatch(texts);
   }
 
-  private static padOrTruncate(vec: number[], dim: number): number[] {
-    if (vec.length === dim) return vec;
-    if (vec.length > dim) return vec.slice(0, dim);
-    return [...vec, ...new Array(dim - vec.length).fill(0)];
+  public static async dim(): Promise<number> {
+    const backend = await getEmbeddingBackend();
+    return backend.dim;
   }
 
+  public static async providerName(): Promise<string> {
+    return currentEmbeddingBackendName();
+  }
+
+  /**
+   * Producto punto sobre vectores. Si están L2-normalizados (lo que
+   * hacen todos los backends del factory) esto equivale al cosine
+   * similarity y es ~2x más rápido que recalcular las normas.
+   */
   public static cosineSimilarity(a: number[], b: number[]): number {
-    if (a.length !== b.length) return 0;
-    let dot = 0, na = 0, nb = 0;
+    if (!a || !b || a.length !== b.length) return 0;
+    let dot = 0;
+    let na = 0;
+    let nb = 0;
     for (let i = 0; i < a.length; i++) {
       dot += a[i] * b[i];
       na += a[i] * a[i];

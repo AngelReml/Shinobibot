@@ -86,6 +86,7 @@ export class MemoryStore {
     const queryEmbedding = await EmbeddingProvider.embed(query.query);
     const limit = query.limit || 10;
     const minScore = query.min_score ?? 0.0;
+    const lowerQuery = query.query.toLowerCase();
 
     let sql = 'SELECT * FROM memories';
     const conditions: string[] = [];
@@ -112,10 +113,14 @@ export class MemoryStore {
 
       let score = 0;
       let matchType: 'semantic' | 'keyword' | 'tag' = 'keyword';
-      if (entry.embedding) {
+      // Solo usamos el vector si tiene la misma dim que el query — un
+      // cambio de provider (local 384 → openai 1536) invalida los
+      // embeddings viejos pero el recall debe seguir respondiendo via
+      // keyword match hasta que se haga re-embed manual.
+      if (entry.embedding && entry.embedding.length === queryEmbedding.length) {
         score = EmbeddingProvider.cosineSimilarity(queryEmbedding, entry.embedding);
         matchType = 'semantic';
-      } else if (entry.content.toLowerCase().includes(query.query.toLowerCase())) {
+      } else if (entry.content.toLowerCase().includes(lowerQuery)) {
         score = 0.5;
         matchType = 'keyword';
       }
@@ -134,6 +139,35 @@ export class MemoryStore {
     const top = results.slice(0, limit);
     this.recordRecall(top, query.query);
     return top;
+  }
+
+  /**
+   * Re-embedea TODAS las memorias usando el backend de embeddings actual.
+   * Útil tras cambiar `SHINOBI_EMBED_PROVIDER` o cuando los embeddings
+   * viejos son hash-based y queremos upgradear a semánticos. Procesa en
+   * batches de `batchSize` para amortizar latencia (Transformers.js y
+   * OpenAI son mucho más rápidos en batch).
+   *
+   * Devuelve cuántas filas fueron re-embedeadas. NO toca el resto del
+   * row (importance, access_count, etc.).
+   */
+  public async reembedAll(batchSize: number = 32): Promise<{ updated: number; total: number; backend: string }> {
+    const rows = this.db.prepare('SELECT id, content FROM memories').all() as Array<{ id: string; content: string }>;
+    if (rows.length === 0) {
+      return { updated: 0, total: 0, backend: await EmbeddingProvider.providerName() };
+    }
+    const update = this.db.prepare('UPDATE memories SET embedding = ? WHERE id = ?');
+    let updated = 0;
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const chunk = rows.slice(i, i + batchSize);
+      const vectors = await EmbeddingProvider.embedBatch(chunk.map(r => r.content));
+      const tx = this.db.transaction((pairs: Array<[string, string]>) => {
+        for (const [emb, id] of pairs) update.run(emb, id);
+      });
+      tx(chunk.map((r, k) => [JSON.stringify(vectors[k]), r.id] as [string, string]));
+      updated += chunk.length;
+    }
+    return { updated, total: rows.length, backend: await EmbeddingProvider.providerName() };
   }
 
   private recordRecall(results: RecallResult[], queryText: string): void {
