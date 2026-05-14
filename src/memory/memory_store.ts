@@ -164,15 +164,12 @@ export class MemoryStore {
   public async buildContextSection(query: string, maxChars: number = 2000): Promise<string> {
     const results = await this.recall({ query, limit: 5, min_score: 0.3 });
     if (results.length === 0) return '';
-    let section = '## Relevant memories from past interactions\n\n';
-    let used = section.length;
-    for (const r of results) {
-      const line = `- [${r.entry.category}] ${r.entry.content} (score: ${r.score.toFixed(2)})\n`;
-      if (used + line.length > maxChars) break;
-      section += line;
-      used += line.length;
-    }
-    return section;
+    // Memory citations mode (Tier A #8): cada memoria recordada incluye su
+    // id, score, categoría y match type. El usuario puede inspeccionar o
+    // borrar la memoria directamente; el LLM sabe exactamente de dónde
+    // viene cada dato que cita.
+    const { contextSection } = await import('./memory_citations.js');
+    return contextSection(results, maxChars);
   }
 
   public stats(): { total: number; recent_recalls: number; categories: string[] } {
