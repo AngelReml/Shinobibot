@@ -7,6 +7,7 @@ import { MemoryStore } from '../memory/memory_store.js';
 import { skillManager } from '../skills/skill_manager.js';
 import { compactMessages } from '../context/compactor.js';
 import { LoopDetector, loopDetectorConfigFromEnv } from './loop_detector.js';
+import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -210,6 +211,11 @@ export class ShinobiOrchestrator {
               `${functionName} con ${argsSummary}.`;
             console.log(`  [⛔] ${attemptCheck.verdict} on ${functionName} (hash=${(attemptCheck.hash ?? '').slice(0, 12)})`);
             await this.memory.addMessage({ role: 'assistant', content: message });
+            logLoopAbort({
+              tool: functionName,
+              verdict: (attemptCheck.verdict as 'LOOP_DETECTED' | 'LOOP_NO_PROGRESS') ?? 'LOOP_DETECTED',
+              args: functionArgs,
+            });
             return {
               verdict: attemptCheck.verdict ?? 'LOOP_DETECTED',
               mode: this.mode,
@@ -224,19 +230,35 @@ export class ShinobiOrchestrator {
 
           if (!tool) {
             toolResultStr = JSON.stringify({ error: `Tool ${functionName} not found` });
+            logToolCall({
+              tool: functionName,
+              args: functionArgs,
+              success: false,
+              durationMs: 0,
+              error: 'tool_not_found',
+            });
           } else {
             console.log(`       Args: ${JSON.stringify(functionArgs).substring(0, 100)}...`);
 
             // Note: In a CLI interface, here is where we would prompt the user if tool.requiresConfirmation() is true.
             // For now, we auto-execute.
 
+            const t0 = Date.now();
             const result = await tool.execute(functionArgs);
+            const durationMs = Date.now() - t0;
             toolResultStr = JSON.stringify(result);
             if (result.success) {
               console.log(`       ✅ Success`);
             } else {
               console.log(`       ❌ Failed: ${result.error}`);
             }
+            logToolCall({
+              tool: functionName,
+              args: functionArgs,
+              success: !!result.success,
+              durationMs,
+              error: result.success ? undefined : (result.error || 'unknown'),
+            });
 
             // Capa 2 (output) — tras ejecutar. Detecta no-progress aunque los
             // args sean distintos en cada intento.
@@ -249,6 +271,11 @@ export class ShinobiOrchestrator {
                 `cambiar de enfoque.`;
               console.log(`  [⛔] ${resultCheck.verdict} on ${functionName}`);
               await this.memory.addMessage({ role: 'assistant', content: message });
+              logLoopAbort({
+                tool: functionName,
+                verdict: (resultCheck.verdict as 'LOOP_DETECTED' | 'LOOP_NO_PROGRESS') ?? 'LOOP_NO_PROGRESS',
+                args: functionArgs,
+              });
               return {
                 verdict: resultCheck.verdict ?? 'LOOP_NO_PROGRESS',
                 mode: this.mode,
