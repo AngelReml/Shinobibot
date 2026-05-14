@@ -41,6 +41,7 @@
   "keywords": [],
   "author": "AngelReml",
   "dependencies": {
+    "@huggingface/transformers": "^4.2.0",
     "@nut-tree-fork/nut-js": "^4.2.6",
     "axios": "^1.6.0",
     "better-sqlite3": "^12.9.0",
