@@ -6,6 +6,7 @@ import { ContextBuilder } from '../db/context_builder.js';
 import { MemoryStore } from '../memory/memory_store.js';
 import { skillManager } from '../skills/skill_manager.js';
 import { compactMessages } from '../context/compactor.js';
+import { tokenBudget } from '../context/token_budget.js';
 import { LoopDetector, loopDetectorConfigFromEnv } from './loop_detector.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import dotenv from 'dotenv';
@@ -154,6 +155,16 @@ export class ShinobiOrchestrator {
           );
           currentMessages = compaction.messages;
         }
+
+        // Token budget snapshot: actualizamos la sesión 'default' con el
+        // tamaño final del payload que enviamos. El WebChat / TUI lo
+        // consumen para mostrar "X.Xk / Yk tokens" en cabecera.
+        try {
+          const snap = tokenBudget().recordTurn('default', currentMessages);
+          if (snap.ratio >= 0.85) {
+            console.log(`[Shinobi] Token budget ${Math.round(snap.ratio * 100)}% (${snap.usedTokens}/${snap.budgetTokens})`);
+          }
+        } catch { /* tracker es opcional */ }
 
         const llmPayload = {
           messages: currentMessages,
