@@ -21,6 +21,19 @@ import './skill_request_generation.js';
 import './screen_observe.js';
 import './screen_act.js';
 
+// Windows-elite tool pack (Tier S #5): expone capacidades nativas que
+// agentes cross-platform (Hermes, OpenClaw) no pueden cubrir bien.
+import './clipboard_read.js';
+import './clipboard_write.js';
+import './process_list.js';
+import './system_info.js';
+import './disk_usage.js';
+import './env_list.js';
+import './network_info.js';
+import './registry_read.js';
+import './task_scheduler_create.js';
+import './windows_notification.js';
+
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 
 export { getAllTools, getTool, toOpenAITools };
