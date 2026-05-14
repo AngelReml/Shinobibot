@@ -18,6 +18,7 @@ export default defineConfig({
       'src/persistence/__tests__/missions_recurrent.test.ts',
       'src/plugins/__tests__/**/*.test.ts',
       'src/providers/__tests__/**/*.test.ts',
+      'src/reader/__tests__/deep_descent.test.ts',
       'src/runtime/__tests__/mission_scheduler.test.ts',
       'src/sandbox/__tests__/**/*.test.ts',
       'src/skills/__tests__/skill_signing.test.ts',
