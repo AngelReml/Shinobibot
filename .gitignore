@@ -71,3 +71,6 @@ outputs/
 !src/web/public/assets/*.png
 !src/web/public/assets/**/*.png
 
+# === Benchmark results (auto-generado por `npm run bench`) ===
+bench-results.json
+
