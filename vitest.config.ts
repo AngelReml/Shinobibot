@@ -17,6 +17,7 @@ export default defineConfig({
       'src/providers/__tests__/**/*.test.ts',
       'src/runtime/__tests__/mission_scheduler.test.ts',
       'src/skills/__tests__/skill_signing.test.ts',
+      'src/tools/__tests__/docker_backend.test.ts',
       'src/tools/__tests__/tool_pack_pure.test.ts',
       'src/tools/__tests__/voice_tools.test.ts',
       'src/web/__tests__/pwa.test.ts',
