@@ -34,6 +34,7 @@ import { setSkillEventListener } from '../skills/skill_manager.js';
 import { setDocumentEventListener, shouldOfferDocument, offerDocument } from '../documents/factory.js';
 import { loadConfig, saveConfig, reloadConfig, type ShinobiConfig } from '../runtime/first_run_wizard.js';
 import { getClient, currentProvider, invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
+import { tokenBudget } from '../context/token_budget.js';
 import {
   ensureApprovalModeInitialized,
   setApprovalAsker,
@@ -287,6 +288,19 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
       mode: (ShinobiOrchestrator as any).mode ?? 'kernel',
       approval: getApprovalMode(),
     });
+  });
+
+  // Tier B #14 — Token budget visible. WebChat / TUI pueden mostrar el
+  // contador "Xk / Yk tokens" en cabecera. Hermes y OpenClaw ocultan
+  // esto; Shinobi lo expone como trust signal.
+  app.get('/api/token-budget', (req, res) => {
+    const sessionId = (req.query.sessionId as string) || 'default';
+    const snap = tokenBudget().get(sessionId);
+    if (!snap) {
+      res.json({ sessionId, usedTokens: 0, budgetTokens: Number(process.env.SHINOBI_CONTEXT_BUDGET) || 32_000, ratio: 0, turns: 0 });
+      return;
+    }
+    res.json(snap);
   });
 
   const server = http.createServer(app);
