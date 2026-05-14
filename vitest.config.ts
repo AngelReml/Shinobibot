@@ -14,6 +14,7 @@ export default defineConfig({
       'src/memory/__tests__/memory_citations.test.ts',
       'src/plugins/__tests__/**/*.test.ts',
       'src/providers/__tests__/**/*.test.ts',
+      'src/runtime/__tests__/mission_scheduler.test.ts',
       'src/skills/__tests__/skill_signing.test.ts',
       'src/tools/__tests__/tool_pack_pure.test.ts',
     ],
