@@ -12,6 +12,7 @@ export default defineConfig({
       'src/context/__tests__/**/*.test.ts',
       'src/coordinator/__tests__/**/*.test.ts',
       'src/memory/__tests__/memory_citations.test.ts',
+      'src/plugins/__tests__/**/*.test.ts',
       'src/providers/__tests__/**/*.test.ts',
       'src/skills/__tests__/skill_signing.test.ts',
       'src/tools/__tests__/tool_pack_pure.test.ts',
