@@ -12,6 +12,7 @@ export default defineConfig({
       'src/context/__tests__/**/*.test.ts',
       'src/coordinator/__tests__/**/*.test.ts',
       'src/memory/__tests__/memory_citations.test.ts',
+      'src/persistence/__tests__/missions_recurrent.test.ts',
       'src/plugins/__tests__/**/*.test.ts',
       'src/providers/__tests__/**/*.test.ts',
       'src/runtime/__tests__/mission_scheduler.test.ts',

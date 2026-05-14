@@ -5,12 +5,19 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as crypto from 'crypto';
+import { isDue, parseTrigger, type MissionTrigger } from '../runtime/mission_scheduler.js';
 
 export interface RecurrentMission {
   id: string;
   name: string;
   prompt: string;
   cron_seconds: number;
+  /**
+   * Trigger rico (interval/daily/weekly/cron) serializado como JSON. Si está
+   * presente, tiene prioridad sobre `cron_seconds`. Si no, se usa el
+   * comportamiento legacy (intervalo fijo en segundos).
+   */
+  trigger_json: string | null;
   enabled: boolean;
   last_run_at: string | null;
   last_status: 'success' | 'failure' | 'pending' | null;
@@ -59,15 +66,27 @@ export class MissionsStore {
       );
       CREATE INDEX IF NOT EXISTS idx_logs_mission ON mission_logs(mission_id, started_at DESC);
     `);
+    // Migration idempotente: añade trigger_json si la DB es vieja. PRAGMA
+    // table_info nos dice qué columnas existen ya.
+    const cols = (this.db.prepare(`PRAGMA table_info(missions_recurrent)`).all() as any[]).map(r => r.name);
+    if (!cols.includes('trigger_json')) {
+      this.db.exec(`ALTER TABLE missions_recurrent ADD COLUMN trigger_json TEXT`);
+    }
   }
 
-  public create(input: { name: string; prompt: string; cron_seconds: number }): RecurrentMission {
+  public create(input: { name: string; prompt: string; cron_seconds: number; trigger?: MissionTrigger }): RecurrentMission {
     const id = `mis_${crypto.randomBytes(6).toString('hex')}`;
     const now = new Date().toISOString();
+    // Validamos el trigger fail-fast (lanza si malformado) y serializamos.
+    let triggerJson: string | null = null;
+    if (input.trigger) {
+      const validated = parseTrigger(input.trigger);
+      triggerJson = JSON.stringify(serializeTrigger(validated));
+    }
     this.db.prepare(`
-      INSERT INTO missions_recurrent (id, name, prompt, cron_seconds, enabled, last_run_at, last_status, last_output, consecutive_failures, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 1, NULL, NULL, NULL, 0, ?, ?)
-    `).run(id, input.name, input.prompt, input.cron_seconds, now, now);
+      INSERT INTO missions_recurrent (id, name, prompt, cron_seconds, trigger_json, enabled, last_run_at, last_status, last_output, consecutive_failures, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 1, NULL, NULL, NULL, 0, ?, ?)
+    `).run(id, input.name, input.prompt, input.cron_seconds, triggerJson, now, now);
     return this.get(id)!;
   }
 
@@ -114,6 +133,16 @@ export class MissionsStore {
     const all = this.list(true);
     return all.filter(m => {
       if (m.consecutive_failures >= 3) return false; // circuit breaker
+      // Si la misión tiene trigger rico, lo evaluamos con el scheduler puro.
+      if (m.trigger_json) {
+        try {
+          const trigger = parseTrigger(JSON.parse(m.trigger_json));
+          return isDue(trigger, m.last_run_at, now);
+        } catch {
+          // Trigger corrupto → fallback al cron_seconds legacy.
+        }
+      }
+      // Legacy: intervalo en segundos.
       if (!m.last_run_at) return true;
       const last = new Date(m.last_run_at).getTime();
       return now.getTime() - last >= m.cron_seconds * 1000;
@@ -131,6 +160,7 @@ export class MissionsStore {
   private fromRow(r: any): RecurrentMission {
     return {
       id: r.id, name: r.name, prompt: r.prompt, cron_seconds: r.cron_seconds,
+      trigger_json: r.trigger_json ?? null,
       enabled: !!r.enabled, last_run_at: r.last_run_at, last_status: r.last_status,
       last_output: r.last_output, consecutive_failures: r.consecutive_failures,
       created_at: r.created_at, updated_at: r.updated_at
@@ -138,4 +168,23 @@ export class MissionsStore {
   }
 
   public close(): void { this.db.close(); }
+}
+
+/**
+ * Serializa un MissionTrigger validado a su forma JSON minimalista
+ * (lo que `parseTrigger` espera leer). Para cron, devolvemos la expr
+ * original como string (no la AST parseada) para que el ciclo
+ * write→read→parse sea cerrado.
+ */
+function serializeTrigger(trigger: MissionTrigger): any {
+  if (trigger.kind === 'cron') {
+    // Necesitamos preservar la expr original. Como parseTrigger acepta
+    // {kind:'cron', expr:'string'}, almacenamos la expr ya canónica.
+    // Reconstruimos un string canónico a partir del AST.
+    const f = (field: any): string => field.kind === 'any' ? '*' : field.values.join(',');
+    const expr = trigger.expr;
+    const canonical = `${f(expr.minute)} ${f(expr.hour)} ${f(expr.day)} ${f(expr.month)} ${f(expr.weekday)}`;
+    return { kind: 'cron', expr: canonical };
+  }
+  return trigger;
 }
