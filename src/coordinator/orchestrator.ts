@@ -5,6 +5,7 @@ import { Memory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
 import { MemoryStore } from '../memory/memory_store.js';
 import { skillManager } from '../skills/skill_manager.js';
+import { compactMessages } from '../context/compactor.js';
 import { createHash } from 'crypto';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
@@ -131,6 +132,22 @@ export class ShinobiOrchestrator {
         });
         const responseMessage = response.choices[0].message;
         */
+
+        // Context compactor: si el budget del proveedor se acerca, truncamos
+        // tool outputs antiguos y/o colapsamos turnos viejos para que el
+        // último user input y los últimos turnos sigan intactos. Sin esto,
+        // las sesiones >20 turnos rebotan por overflow en Anthropic/OpenAI.
+        const compaction = compactMessages(currentMessages, {
+          budgetTokens: Number(process.env.SHINOBI_CONTEXT_BUDGET) || 32_000,
+        });
+        if (compaction.compacted) {
+          console.log(
+            `[Shinobi] Context compacted: ${compaction.beforeTokens} → ` +
+            `${compaction.afterTokens} tokens (truncated=${compaction.truncatedCount}, ` +
+            `dropped=${compaction.droppedCount})`
+          );
+          currentMessages = compaction.messages;
+        }
 
         const llmPayload = {
           messages: currentMessages,
