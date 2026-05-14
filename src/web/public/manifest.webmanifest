@@ -1,0 +1,26 @@
+{
+  "name": "Shinobi",
+  "short_name": "Shinobi",
+  "description": "Agente autónomo Windows-native con loop detector v2, committee voting y skills firmadas.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0c0a08",
+  "theme_color": "#6b150c",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "/assets/shinobi-mark.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/shinobi-mark.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
