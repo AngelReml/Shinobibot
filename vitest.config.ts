@@ -20,6 +20,7 @@ export default defineConfig({
       'src/tools/__tests__/docker_backend.test.ts',
       'src/tools/__tests__/tool_pack_pure.test.ts',
       'src/tools/__tests__/voice_tools.test.ts',
+      'src/tui/__tests__/**/*.test.tsx',
       'src/web/__tests__/pwa.test.ts',
     ],
     exclude: ['node_modules', 'dist', 'scratch', 'test_*.ts'],

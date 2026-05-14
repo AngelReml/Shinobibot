@@ -34,6 +34,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
+    "tui": "tsx scripts/shinobi-tui.tsx",
     "build:exe": "tsx scripts/build_exe.ts"
   },
   "keywords": [],
@@ -55,11 +56,14 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^4.17.25",
-    "@types/node": "^20.0.0",
+    "@types/node": "^20.19.41",
+    "@types/react": "^19.2.14",
     "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^4.1.6",
     "@yao-pkg/pkg": "^6.19.0",
     "esbuild": "^0.28.0",
+    "ink": "^7.0.3",
+    "react": "^19.2.6",
     "ts-node": "^10.9.0",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0",
