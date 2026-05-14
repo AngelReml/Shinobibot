@@ -5,6 +5,7 @@ import { exec } from 'child_process';
 import { resolve as resolvePath, sep } from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { isDangerousCommand } from '../utils/permissions.js';
+import { isDockerAvailable, runInDocker } from './_docker_backend.js';
 
 // Patrones destructivos NO configurables por el LLM. Si el command crudo
 // contiene cualquiera de estos (case-insensitive), se rechaza antes de
@@ -103,6 +104,29 @@ const runCommandTool: Tool = {
     const sandboxError = checkSandbox(args.command, cwd);
     if (sandboxError) {
       return { success: false, output: '', error: sandboxError };
+    }
+
+    // Backend Docker opcional (Tier A #13). Si el operador pidió
+    // SHINOBI_RUN_BACKEND=docker, intentamos ejecutar dentro de container
+    // ephemeral. Si Docker no está disponible, log warning + fallback al
+    // host (mejor algo que nada — el operador puede ver el log y decidir).
+    if (process.env.SHINOBI_RUN_BACKEND === 'docker') {
+      const dock = await isDockerAvailable();
+      if (dock.available) {
+        const r = await runInDocker({ command: args.command, cwd, timeoutMs: timeout });
+        const output = [
+          `$ ${args.command} (in container)`,
+          r.stdout?.trim() || '',
+          r.stderr?.trim() ? `STDERR: ${r.stderr.trim()}` : '',
+          `Exit code: ${r.exitCode}`,
+        ].filter(Boolean).join('\n');
+        return {
+          success: r.success,
+          output,
+          error: r.success ? undefined : `Command failed in container (exit ${r.exitCode}): ${r.stderr?.trim() || 'unknown'}`,
+        };
+      }
+      console.warn(`[run_command] SHINOBI_RUN_BACKEND=docker pero docker no disponible (${dock.error}). Fallback al host.`);
     }
 
     return new Promise((resolve) => {
