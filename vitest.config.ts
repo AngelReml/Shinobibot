@@ -18,6 +18,7 @@ export default defineConfig({
       'src/plugins/__tests__/**/*.test.ts',
       'src/providers/__tests__/**/*.test.ts',
       'src/runtime/__tests__/mission_scheduler.test.ts',
+      'src/sandbox/__tests__/**/*.test.ts',
       'src/skills/__tests__/skill_signing.test.ts',
       'src/skills/__tests__/skill_auditor.test.ts',
       'src/skills/__tests__/anthropic_skill_installer.test.ts',
