@@ -304,6 +304,23 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     res.json(snap);
   });
 
+  // Sprint 2.4 — Admin dashboard + metrics + Prometheus.
+  app.get('/admin/dashboard', async (_req, res) => {
+    const { renderDashboardHtml } = await import('../observability/admin_dashboard.js');
+    const r = renderDashboardHtml();
+    res.type(r.contentType).send(r.body);
+  });
+  app.get('/admin/metrics/json', async (_req, res) => {
+    const { snapshotJsonResponse } = await import('../observability/admin_dashboard.js');
+    const r = snapshotJsonResponse();
+    res.type(r.contentType).send(r.body);
+  });
+  app.get('/admin/metrics/prom', async (_req, res) => {
+    const { prometheusResponse } = await import('../observability/admin_dashboard.js');
+    const r = prometheusResponse();
+    res.type(r.contentType).send(r.body);
+  });
+
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server, path: '/ws' });
 
