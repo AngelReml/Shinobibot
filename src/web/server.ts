@@ -35,6 +35,7 @@ import { setDocumentEventListener, shouldOfferDocument, offerDocument } from '..
 import { loadConfig, saveConfig, reloadConfig, type ShinobiConfig } from '../runtime/first_run_wizard.js';
 import { getClient, currentProvider, invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import { tokenBudget } from '../context/token_budget.js';
+import { toolEvents } from '../coordinator/tool_events.js';
 import {
   ensureApprovalModeInitialized,
   setApprovalAsker,
@@ -322,6 +323,13 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   setDocumentEventListener((event) => {
     console.log(`[auto-offer] server broadcasting document_event to ${allClients.size} client(s); event.type=${event.type}`);
     broadcastAll({ type: 'document_event', event });
+  });
+
+  // Tier B #15 — broadcast de tool execution events para que el WebChat
+  // muestre "🔨 run_command ejecutándose…" en tiempo real en lugar de
+  // esperar al final del loop.
+  toolEvents().on('tool_event', (event: any) => {
+    broadcastAll({ type: 'tool_event', event });
   });
 
   // Serial queue: only one in-flight request per server. The orchestrator

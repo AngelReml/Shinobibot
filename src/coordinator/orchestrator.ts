@@ -8,6 +8,7 @@ import { skillManager } from '../skills/skill_manager.js';
 import { compactMessages } from '../context/compactor.js';
 import { tokenBudget } from '../context/token_budget.js';
 import { LoopDetector, loopDetectorConfigFromEnv } from './loop_detector.js';
+import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
@@ -255,6 +256,7 @@ export class ShinobiOrchestrator {
             // For now, we auto-execute.
 
             const t0 = Date.now();
+            toolEvents().emitToolStarted({ tool: functionName, args: functionArgs });
             const result = await tool.execute(functionArgs);
             const durationMs = Date.now() - t0;
             toolResultStr = JSON.stringify(result);
@@ -263,6 +265,12 @@ export class ShinobiOrchestrator {
             } else {
               console.log(`       ❌ Failed: ${result.error}`);
             }
+            toolEvents().emitToolCompleted({
+              tool: functionName,
+              success: !!result.success,
+              durationMs,
+              error: result.success ? undefined : (result.error || 'unknown'),
+            });
             logToolCall({
               tool: functionName,
               args: functionArgs,
