@@ -18,6 +18,7 @@ export default defineConfig({
       'src/runtime/__tests__/mission_scheduler.test.ts',
       'src/skills/__tests__/skill_signing.test.ts',
       'src/tools/__tests__/tool_pack_pure.test.ts',
+      'src/tools/__tests__/voice_tools.test.ts',
     ],
     exclude: ['node_modules', 'dist', 'scratch', 'test_*.ts'],
     pool: 'forks',

@@ -33,6 +33,8 @@ import './network_info.js';
 import './registry_read.js';
 import './task_scheduler_create.js';
 import './windows_notification.js';
+import './voice_speak.js';
+import './audio_transcribe.js';
 
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 
