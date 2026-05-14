@@ -5,6 +5,7 @@ import { Memory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
 import { MemoryStore } from '../memory/memory_store.js';
 import { skillManager } from '../skills/skill_manager.js';
+import { createHash } from 'crypto';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -109,6 +110,11 @@ export class ShinobiOrchestrator {
     let iteration = 0;
     const maxIterations = 10;
 
+    // Loop detector: hash de (toolName + args) por sesión. Si la misma acción
+    // se intenta 2 veces seguidas sin progreso, abortamos para no entrar en
+    // bucles destructivos (ej. kill repetido del mismo proceso).
+    const toolCallCounts = new Map<string, number>();
+
     while (iteration < maxIterations) {
       iteration++;
       console.log(`[Shinobi] Let the LLM decide (Iter ${iteration})...`);
@@ -170,6 +176,32 @@ export class ShinobiOrchestrator {
           const functionArgs = JSON.parse(toolCall.function.arguments);
           toolSequence.push(functionName);  // Bloque 3 — observed by SkillManager
           console.log(`  [🔨] Tool called: ${functionName}`);
+
+          // Loop guard: SHA256(toolName + JSON.stringify(args)). El 2º intento
+          // idéntico aborta el loop con LOOP_DETECTED para no insistir en una
+          // acción que ya no progresa.
+          const callHash = createHash('sha256')
+            .update(functionName + JSON.stringify(functionArgs))
+            .digest('hex');
+          const prevCount = toolCallCounts.get(callHash) ?? 0;
+          if (prevCount >= 1) {
+            const argsSummary = JSON.stringify(functionArgs).substring(0, 120);
+            const message =
+              `He detectado que estoy repitiendo la misma acción sin progreso. ` +
+              `Necesito tu ayuda: la tool "${functionName}" ya falló o no avanzó ` +
+              `con estos mismos argumentos. Acción que estaba intentando: ` +
+              `${functionName} con ${argsSummary}.`;
+            console.log(`  [⛔] LOOP_DETECTED on ${functionName} (hash=${callHash.slice(0, 12)})`);
+            await this.memory.addMessage({ role: 'assistant', content: message });
+            return {
+              verdict: 'LOOP_DETECTED',
+              mode: this.mode,
+              response: message,
+              tool: functionName,
+              args: functionArgs,
+            };
+          }
+          toolCallCounts.set(callHash, prevCount + 1);
 
           const tool = getTool(functionName);
           let toolResultStr = '';

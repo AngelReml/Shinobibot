@@ -2,8 +2,77 @@
  * RunCommand Tool — Execute a shell command with safety checks
  */
 import { exec } from 'child_process';
+import { resolve as resolvePath, sep } from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { isDangerousCommand } from '../utils/permissions.js';
+
+// Patrones destructivos NO configurables por el LLM. Si el command crudo
+// contiene cualquiera de estos (case-insensitive), se rechaza antes de
+// ejecutar — esto incluye sustituir un mock por sed/awk.
+const DESTRUCTIVE_PATTERNS: string[] = [
+  'stop-process',
+  'kill',
+  'taskkill',
+  'wmic process',
+  'pkill',
+  'killall',
+  'rm -rf',
+  'rmdir /s',
+  'format',
+  'del /f',
+];
+
+// Comandos puramente de lectura/build que pueden operar fuera del workspace
+// raíz (ej. tsc compilando un proyecto adyacente, git status en otro repo).
+const READONLY_LEADERS = new Set(['git', 'node', 'npx', 'tsc']);
+
+function normalizeDir(p: string): string {
+  // resolvePath devuelve absoluto. Quitamos separador final para comparar
+  // prefijos sin falsos positivos (C:\work vs C:\work2).
+  const abs = resolvePath(p);
+  return abs.endsWith(sep) ? abs.slice(0, -1) : abs;
+}
+
+function isInside(child: string, parent: string): boolean {
+  const c = normalizeDir(child).toLowerCase();
+  const p = normalizeDir(parent).toLowerCase();
+  return c === p || c.startsWith(p + sep.toLowerCase());
+}
+
+function firstToken(command: string): string {
+  const trimmed = command.trim().replace(/^["']/, '');
+  const m = trimmed.match(/^[^\s"']+/);
+  return (m ? m[0] : '').toLowerCase();
+}
+
+/** Devuelve mensaje de error si el comando viola la blacklist, o null si pasa. */
+export function checkDestructive(command: string): string | null {
+  const lower = command.toLowerCase();
+  for (const pat of DESTRUCTIVE_PATTERNS) {
+    if (lower.includes(pat)) {
+      return 'Comando rechazado: esta acción podría dañar el sistema. Pide al usuario que lo haga manualmente si es necesario.';
+    }
+  }
+  return null;
+}
+
+/** Devuelve mensaje de error si el cwd cae fuera del sandbox, o null si pasa. */
+export function checkSandbox(command: string, cwd: string): string | null {
+  const workspaceRoot = process.env.WORKSPACE_ROOT
+    ? normalizeDir(process.env.WORKSPACE_ROOT)
+    : null;
+  const shinobiRoot = normalizeDir(process.cwd());
+  const target = normalizeDir(cwd);
+
+  if (workspaceRoot && isInside(target, workspaceRoot)) return null;
+  if (isInside(target, shinobiRoot)) return null;
+
+  // Excepción: comandos de solo lectura/build pueden operar en rutas de
+  // proyecto aunque queden fuera del workspace raíz.
+  if (READONLY_LEADERS.has(firstToken(command))) return null;
+
+  return 'Comando rechazado: solo puedo ejecutar comandos dentro del workspace de Shinobi.';
+}
 
 const runCommandTool: Tool = {
   name: 'run_command',
@@ -25,6 +94,16 @@ const runCommandTool: Tool = {
   async execute(args: { command: string; cwd?: string; timeout?: number }): Promise<ToolResult> {
     const timeout = args.timeout || 30_000;
     const cwd = args.cwd || process.cwd();
+
+    const destructiveError = checkDestructive(args.command);
+    if (destructiveError) {
+      return { success: false, output: '', error: destructiveError };
+    }
+
+    const sandboxError = checkSandbox(args.command, cwd);
+    if (sandboxError) {
+      return { success: false, output: '', error: sandboxError };
+    }
 
     return new Promise((resolve) => {
       exec(args.command, { cwd, timeout, encoding: 'utf-8', maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
