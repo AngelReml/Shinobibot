@@ -7,6 +7,25 @@ export interface NotificationPayload {
   context?: any;
 }
 
+/**
+ * Notifier — emite alertas operacionales (misiones fallidas, loops
+ * críticos, etc.) hacia un workflow externo de OpenGravity.
+ *
+ * **Silenciado por defecto** (Sprint 2.5, decisión del operador 2026-05-15):
+ * tras un incidente en el que el resident_loop disparaba un email por
+ * cada 3 fallos consecutivos de una misión recurrente y saturaba la
+ * bandeja del usuario, el notifier solo invoca el workflow externo
+ * cuando `SHINOBI_NOTIFY_ENABLED=1` está explícito.
+ *
+ * Si el notifier está silenciado, `send()`:
+ *   - Loguea a stdout con prefijo `[Notifier:muted]`.
+ *   - Devuelve `{ success: true, muted: true }` para no interrumpir
+ *     callers que verifican `success`.
+ *
+ * Compatibilidad:
+ *   - `setWorkflow(id)` sigue funcionando (back-compat con `/notify`).
+ *   - Para reactivar emails: `SHINOBI_NOTIFY_ENABLED=1` en `.env`.
+ */
 export class Notifier {
   private static workflowId: string | null = null; // configurable via /notify setup
 
@@ -18,7 +37,17 @@ export class Notifier {
     return this.workflowId;
   }
 
-  public static async send(payload: NotificationPayload): Promise<{ success: boolean; error?: string }> {
+  /** True si el operador activó explícitamente el envío externo. */
+  public static isEnabled(): boolean {
+    return process.env.SHINOBI_NOTIFY_ENABLED === '1';
+  }
+
+  public static async send(payload: NotificationPayload): Promise<{ success: boolean; error?: string; muted?: boolean }> {
+    // Silenciado por defecto: SOLO loguea, NO invoca workflow externo.
+    if (!this.isEnabled()) {
+      console.log(`[Notifier:muted] ${payload.level.toUpperCase()}: ${payload.title} — ${payload.body.substring(0, 200)}`);
+      return { success: true, muted: true };
+    }
     if (!this.workflowId) {
       console.log(`[Notifier] (no workflow set) ${payload.level.toUpperCase()}: ${payload.title} — ${payload.body.substring(0, 200)}`);
       return { success: true };
