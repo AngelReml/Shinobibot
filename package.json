@@ -35,6 +35,7 @@
     "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit",
     "tui": "tsx scripts/shinobi-tui.tsx",
+    "bench": "tsx scripts/benchmarks/run.ts",
     "build:exe": "tsx scripts/build_exe.ts"
   },
   "keywords": [],
