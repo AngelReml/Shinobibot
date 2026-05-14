@@ -6,7 +6,7 @@ import { ContextBuilder } from '../db/context_builder.js';
 import { MemoryStore } from '../memory/memory_store.js';
 import { skillManager } from '../skills/skill_manager.js';
 import { compactMessages } from '../context/compactor.js';
-import { createHash } from 'crypto';
+import { LoopDetector, loopDetectorConfigFromEnv } from './loop_detector.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -111,10 +111,15 @@ export class ShinobiOrchestrator {
     let iteration = 0;
     const maxIterations = 10;
 
-    // Loop detector: hash de (toolName + args) por sesión. Si la misma acción
-    // se intenta 2 veces seguidas sin progreso, abortamos para no entrar en
-    // bucles destructivos (ej. kill repetido del mismo proceso).
-    const toolCallCounts = new Map<string, number>();
+    // Loop detector v2: dos capas.
+    //   - Capa de args (v1): SHA256(toolName+args). Aborta con LOOP_DETECTED
+    //     en el 2º intento idéntico (default).
+    //   - Capa semántica (v2): fingerprint reducido del output. Aborta con
+    //     LOOP_NO_PROGRESS si la misma tool produce 3 outputs indistinguibles
+    //     (default) aunque los args sean distintos.
+    // Esto cubre el caso en que el LLM rota un parámetro irrelevante en cada
+    // intento pero el resultado observable no cambia.
+    const loopDetector = new LoopDetector(loopDetectorConfigFromEnv());
 
     while (iteration < maxIterations) {
       iteration++;
@@ -194,31 +199,25 @@ export class ShinobiOrchestrator {
           toolSequence.push(functionName);  // Bloque 3 — observed by SkillManager
           console.log(`  [🔨] Tool called: ${functionName}`);
 
-          // Loop guard: SHA256(toolName + JSON.stringify(args)). El 2º intento
-          // idéntico aborta el loop con LOOP_DETECTED para no insistir en una
-          // acción que ya no progresa.
-          const callHash = createHash('sha256')
-            .update(functionName + JSON.stringify(functionArgs))
-            .digest('hex');
-          const prevCount = toolCallCounts.get(callHash) ?? 0;
-          if (prevCount >= 1) {
+          // Capa 1 (args) — antes de ejecutar la tool.
+          const attemptCheck = loopDetector.recordCallAttempt(functionName, functionArgs);
+          if (attemptCheck.abort) {
             const argsSummary = JSON.stringify(functionArgs).substring(0, 120);
             const message =
               `He detectado que estoy repitiendo la misma acción sin progreso. ` +
               `Necesito tu ayuda: la tool "${functionName}" ya falló o no avanzó ` +
               `con estos mismos argumentos. Acción que estaba intentando: ` +
               `${functionName} con ${argsSummary}.`;
-            console.log(`  [⛔] LOOP_DETECTED on ${functionName} (hash=${callHash.slice(0, 12)})`);
+            console.log(`  [⛔] ${attemptCheck.verdict} on ${functionName} (hash=${(attemptCheck.hash ?? '').slice(0, 12)})`);
             await this.memory.addMessage({ role: 'assistant', content: message });
             return {
-              verdict: 'LOOP_DETECTED',
+              verdict: attemptCheck.verdict ?? 'LOOP_DETECTED',
               mode: this.mode,
               response: message,
               tool: functionName,
               args: functionArgs,
             };
           }
-          toolCallCounts.set(callHash, prevCount + 1);
 
           const tool = getTool(functionName);
           let toolResultStr = '';
@@ -237,6 +236,26 @@ export class ShinobiOrchestrator {
               console.log(`       ✅ Success`);
             } else {
               console.log(`       ❌ Failed: ${result.error}`);
+            }
+
+            // Capa 2 (output) — tras ejecutar. Detecta no-progress aunque los
+            // args sean distintos en cada intento.
+            const resultCheck = loopDetector.recordCallResult(functionName, toolResultStr);
+            if (resultCheck.abort) {
+              const message =
+                `He detectado que estoy repitiendo acciones sin que el resultado ` +
+                `cambie. La tool "${functionName}" sigue devolviendo el mismo ` +
+                `output observable tras varios intentos. Necesito tu ayuda para ` +
+                `cambiar de enfoque.`;
+              console.log(`  [⛔] ${resultCheck.verdict} on ${functionName}`);
+              await this.memory.addMessage({ role: 'assistant', content: message });
+              return {
+                verdict: resultCheck.verdict ?? 'LOOP_NO_PROGRESS',
+                mode: this.mode,
+                response: message,
+                tool: functionName,
+                args: functionArgs,
+              };
             }
           }
 
