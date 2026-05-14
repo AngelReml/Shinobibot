@@ -5,7 +5,6 @@ import { exec } from 'child_process';
 import { resolve as resolvePath, sep } from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { isDangerousCommand } from '../utils/permissions.js';
-import { isDockerAvailable, runInDocker } from './_docker_backend.js';
 
 // Patrones destructivos NO configurables por el LLM. Si el command crudo
 // contiene cualquiera de estos (case-insensitive), se rechaza antes de
@@ -106,16 +105,19 @@ const runCommandTool: Tool = {
       return { success: false, output: '', error: sandboxError };
     }
 
-    // Backend Docker opcional (Tier A #13). Si el operador pidió
-    // SHINOBI_RUN_BACKEND=docker, intentamos ejecutar dentro de container
-    // ephemeral. Si Docker no está disponible, log warning + fallback al
-    // host (mejor algo que nada — el operador puede ver el log y decidir).
-    if (process.env.SHINOBI_RUN_BACKEND === 'docker') {
-      const dock = await isDockerAvailable();
-      if (dock.available) {
-        const r = await runInDocker({ command: args.command, cwd, timeoutMs: timeout });
+    // Sprint 1.4 — Multi-backend de ejecución. Si SHINOBI_RUN_BACKEND
+    // apunta a algo distinto de 'local', delegamos al backend pedido
+    // (docker, ssh, modal, daytona, e2b, mock). La ruta `local` cae al
+    // exec directo de abajo para no añadir overhead a la mayoría de
+    // ejecuciones.
+    const wantBackend = (process.env.SHINOBI_RUN_BACKEND || 'local').toLowerCase();
+    if (wantBackend !== 'local') {
+      const { sandboxRegistry } = await import('../sandbox/registry.js');
+      const backend = sandboxRegistry().get(wantBackend as any);
+      if (backend) {
+        const r = await backend.run({ command: args.command, cwd, timeoutMs: timeout });
         const output = [
-          `$ ${args.command} (in container)`,
+          `$ ${args.command} (backend=${r.backend}, ${r.durationMs}ms)`,
           r.stdout?.trim() || '',
           r.stderr?.trim() ? `STDERR: ${r.stderr.trim()}` : '',
           `Exit code: ${r.exitCode}`,
@@ -123,10 +125,10 @@ const runCommandTool: Tool = {
         return {
           success: r.success,
           output,
-          error: r.success ? undefined : `Command failed in container (exit ${r.exitCode}): ${r.stderr?.trim() || 'unknown'}`,
+          error: r.success ? undefined : `Command failed on backend ${r.backend} (exit ${r.exitCode}): ${r.stderr?.trim() || 'unknown'}`,
         };
       }
-      console.warn(`[run_command] SHINOBI_RUN_BACKEND=docker pero docker no disponible (${dock.error}). Fallback al host.`);
+      console.warn(`[run_command] SHINOBI_RUN_BACKEND='${wantBackend}' no reconocido; fallback a local.`);
     }
 
     return new Promise((resolve) => {
