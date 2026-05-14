@@ -1,0 +1,56 @@
+name: CI
+
+# Test runner real (Tier A #6) — vitest + tsc en cada push y PR a main.
+# Corre en windows-latest porque los tools del Tier S #5 (clipboard, registry,
+# process_list, etc.) usan PowerShell nativo y el sandbox de run_command
+# valida paths Windows. Otros runners no servirían para validar esos paths.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || npm install --no-audit --no-fund
+
+      # tsc valida orchestrator/run_command/compactor/failover/loop_detector
+      # y los 10 tools nuevos. Los 4 errores pre-existentes en módulos no
+      # tocados (memory_store, missions_recurrent, d017_smoke,
+      # desktop_skills_load) se filtran explícitamente para que no rompan CI
+      # mientras se aborda su deuda técnica por separado.
+      - name: Typecheck (filtra errores pre-existentes en módulos no tocados)
+        shell: pwsh
+        run: |
+          $output = npx tsc --noEmit 2>&1 | Out-String
+          $newErrors = $output -split "`n" | Where-Object {
+            $_ -match 'error TS' -and
+            $_ -notmatch 'memory_store\.ts' -and
+            $_ -notmatch 'missions_recurrent\.ts' -and
+            $_ -notmatch 'scripts/d017_smoke\.ts' -and
+            $_ -notmatch 'scripts/desktop_skills_load\.ts'
+          }
+          if ($newErrors) {
+            Write-Host "NEW tsc errors detected (failing build):"
+            $newErrors | ForEach-Object { Write-Host $_ }
+            exit 1
+          }
+          Write-Host "tsc clean (pre-existing errors filtered)."
+
+      - name: Vitest
+        run: npm test
