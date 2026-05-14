@@ -8,6 +8,7 @@ export default defineConfig({
     // vitest — vitest los rechaza con "No test suite found". Se irán
     // portando uno a uno; este include conservador evita romper CI mientras.
     include: [
+      'src/audit/__tests__/audit_log.test.ts',
       'src/context/__tests__/**/*.test.ts',
       'src/coordinator/__tests__/**/*.test.ts',
       'src/providers/__tests__/**/*.test.ts',

@@ -29,6 +29,7 @@ import {
   reasonLabel,
   shouldFailover,
 } from './failover.js';
+import { logFailover } from '../audit/audit_log.js';
 import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
 import type { ProviderClient, ProviderName } from './types.js';
 
@@ -121,6 +122,7 @@ export async function invokeLLM(payload: LLMChatPayload): Promise<CloudResponse>
     } else {
       console.log(`[Shinobi] Provider switched: ${p} → ${next} (${reasonLabel(klass)})`);
     }
+    logFailover({ from: p, to: next, reason: reasonLabel(klass) });
   }
 
   return lastResult;
