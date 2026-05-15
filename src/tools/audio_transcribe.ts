@@ -1,21 +1,23 @@
 /**
- * Audio Transcribe — transcripción de archivos de audio via OpenAI
- * Whisper API. Requiere `OPENAI_API_KEY` en el environment.
+ * Audio Transcribe — transcripción de archivos de audio.
  *
- * Soporta: mp3, mp4, mpeg, mpga, m4a, wav, webm, ogg, flac (hasta 25MB).
+ * Estrategia (FASE V3): **whisper.cpp local primero, Whisper API como
+ * fallback**.
+ *   1. Si whisper.cpp está disponible (binario + modelo configurados vía
+ *      SHINOBI_WHISPERCPP_BIN / SHINOBI_WHISPERCPP_MODEL), transcribe
+ *      localmente — cero coste, cero internet.
+ *   2. Si no, cae a OpenAI Whisper API (requiere OPENAI_API_KEY).
+ *   3. Si ninguno está disponible → error claro listando ambas opciones.
  *
- * Política:
- *   - El archivo debe existir y tener extensión soportada.
- *   - Si no hay OPENAI_API_KEY → error claro (no intentamos un fallback
- *     a otro provider porque transcripción es lento+caro y queremos que
- *     el usuario sepa qué está pagando).
- *   - No descargamos modelo local (que pesaría 1-3GB) — eso queda fuera
- *     del scope del .exe portable.
+ * Forzar un backend concreto: `SHINOBI_STT_BACKEND=local` | `api`.
+ *
+ * Soporta: mp3, mp4, mpeg, mpga, m4a, wav, webm, ogg, flac (API hasta 25MB).
  */
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { existsSync, statSync, readFileSync } from 'fs';
 import { extname, resolve, basename } from 'path';
 import axios from 'axios';
+import { isWhisperCppAvailable, transcribeWithWhisperCpp } from '../stt/whisper_cpp_provider.js';
 
 const SUPPORTED_EXTENSIONS = new Set([
   '.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm', '.ogg', '.flac',
@@ -24,7 +26,7 @@ const MAX_SIZE_BYTES = 25 * 1024 * 1024; // 25MB límite Whisper API
 
 const tool: Tool = {
   name: 'audio_transcribe',
-  description: 'Transcribe an audio file to text using OpenAI Whisper. Supports mp3/mp4/m4a/wav/webm/ogg/flac (max 25MB). Requires OPENAI_API_KEY.',
+  description: 'Transcribe an audio file to text. Uses local whisper.cpp if configured (SHINOBI_WHISPERCPP_BIN/MODEL), else falls back to OpenAI Whisper API. Supports mp3/mp4/m4a/wav/webm/ogg/flac.',
   parameters: {
     type: 'object',
     properties: {
@@ -36,10 +38,6 @@ const tool: Tool = {
   },
 
   async execute(args: { path: string; language?: string; prompt?: string }): Promise<ToolResult> {
-    const key = process.env.OPENAI_API_KEY;
-    if (!key) {
-      return { success: false, output: '', error: 'OPENAI_API_KEY no está definida en el environment — Whisper no es accesible.' };
-    }
     const filePath = resolve(args.path);
     if (!existsSync(filePath)) {
       return { success: false, output: '', error: `Archivo no encontrado: ${filePath}` };
@@ -48,9 +46,38 @@ const tool: Tool = {
     if (!SUPPORTED_EXTENSIONS.has(ext)) {
       return { success: false, output: '', error: `Extensión no soportada: ${ext}. Permitidas: ${[...SUPPORTED_EXTENSIONS].join(', ')}` };
     }
+
+    const backend = (process.env.SHINOBI_STT_BACKEND || 'auto').toLowerCase();
+    const key = process.env.OPENAI_API_KEY;
+
+    // ── Backend 1: whisper.cpp local ──
+    // Se intenta primero salvo que el operador fuerce 'api'.
+    if (backend !== 'api') {
+      const local = await isWhisperCppAvailable();
+      if (local.available) {
+        const r = await transcribeWithWhisperCpp(filePath, { language: args.language });
+        if (r.ok && r.text) {
+          return { success: true, output: r.text };
+        }
+        // whisper.cpp falló: si el operador forzó 'local', error; si no, cae a API.
+        if (backend === 'local') {
+          return { success: false, output: '', error: `whisper.cpp local falló: ${r.error ?? 'sin texto'}` };
+        }
+      } else if (backend === 'local') {
+        return { success: false, output: '', error: `whisper.cpp local no disponible: ${local.error}. Configura SHINOBI_WHISPERCPP_BIN + SHINOBI_WHISPERCPP_MODEL.` };
+      }
+    }
+
+    // ── Backend 2: OpenAI Whisper API (fallback) ──
+    if (!key) {
+      return {
+        success: false, output: '',
+        error: 'STT no disponible: whisper.cpp local no configurado (SHINOBI_WHISPERCPP_BIN/MODEL) y OPENAI_API_KEY ausente.',
+      };
+    }
     const stat = statSync(filePath);
     if (stat.size > MAX_SIZE_BYTES) {
-      return { success: false, output: '', error: `Archivo demasiado grande (${(stat.size / 1024 / 1024).toFixed(1)}MB > 25MB).` };
+      return { success: false, output: '', error: `Archivo demasiado grande para Whisper API (${(stat.size / 1024 / 1024).toFixed(1)}MB > 25MB). Usa whisper.cpp local para archivos grandes.` };
     }
 
     try {
@@ -73,7 +100,7 @@ const tool: Tool = {
       );
       const text = (resp.data?.text ?? '').toString();
       if (!text) {
-        return { success: false, output: '', error: 'Whisper devolvió respuesta vacía.' };
+        return { success: false, output: '', error: 'Whisper API devolvió respuesta vacía.' };
       }
       return { success: true, output: text };
     } catch (e: any) {
