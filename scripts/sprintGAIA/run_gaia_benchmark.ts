@@ -169,6 +169,16 @@ async function main(): Promise<void> {
               match: false, status: 'INFRA_FAIL', elapsedMs, approxTokens: null,
               error: 'timeout',
             };
+          } else if (r.output.trim() === '') {
+            // Salida vacía → el agente no emitió nada: error de modelo
+            // (HTTP 500/429 aguas arriba) o crash. NO es un fallo de
+            // respuesta del agente — se marca INFRA_FAIL.
+            cell = {
+              taskId: task.task_id, level: String(task.Level), agent, run: runN,
+              expected: task['Final answer'], rawAnswer: '', rawOutput: '',
+              match: false, status: 'INFRA_FAIL', elapsedMs, approxTokens: null,
+              error: 'salida vacía (probable error de modelo/infra)',
+            };
           } else {
             const answer = extractFinalAnswer(r.output);
             const match = gaiaScorer(answer, task['Final answer']);
