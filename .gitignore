@@ -45,7 +45,11 @@ logs.txt
 *.png
 *.mp4
 *.gif
-docs/
+# docs/ ignorado salvo deploy/ y validation/ (plan externo V1-V6 sí se versiona).
+# Nota: hay que excluir el contenido (docs/*) no el dir, para poder re-incluir.
+docs/*
+!docs/deploy/
+!docs/validation/
 audits/
 knowledge/
 
