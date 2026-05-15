@@ -31,6 +31,7 @@ export default defineConfig({
       'src/a2a/__tests__/**/*.test.ts',
       'src/benchmark/__tests__/**/*.test.ts',
       'src/sandbox/__tests__/**/*.test.ts',
+      'src/sandbox/browser_sandbox/__tests__/**/*.test.ts',
       'src/skills/__tests__/skill_signing.test.ts',
       'src/skills/__tests__/skill_auditor.test.ts',
       'src/skills/__tests__/anthropic_skill_installer.test.ts',

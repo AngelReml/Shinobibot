@@ -1,0 +1,33 @@
+version: "3.9"
+
+# Sandbox Browser para Shinobi.
+#
+# Levanta el container con Chromium headed + noVNC. Los puertos hacen
+# bind sólo a 127.0.0.1 — el sandbox NO es accesible desde internet, hay
+# que ir vía túnel SSH si el operador corre Shinobi en VPS.
+#
+#   docker compose -f docker-compose.sandbox-browser.yml up -d
+#   open http://127.0.0.1:6080/vnc.html
+#
+# CDP del Chromium expuesto en 9222 para que Shinobi (Playwright/CDP
+# adapter) navegue programáticamente.
+
+services:
+  shinobi-sandbox-browser:
+    build:
+      context: .
+      dockerfile: Dockerfile.sandbox-browser
+    image: shinobi-sandbox-browser:latest
+    container_name: shinobi-sandbox-browser
+    restart: unless-stopped
+    shm_size: "2gb"  # chromium se queja sin esto
+    ports:
+      - "127.0.0.1:6080:6080"   # noVNC web UI
+      - "127.0.0.1:9222:9222"   # Chromium CDP
+    environment:
+      SCREEN_WIDTH: "1280"
+      SCREEN_HEIGHT: "800"
+      SCREEN_DEPTH: "24"
+      CHROMIUM_FLAGS: "--no-sandbox --disable-gpu --disable-dev-shm-usage"
+    # Sin volumes por defecto: cada arranque sesión limpia. El operador
+    # puede montar /home/shinobi/.config/chromium si quiere persistencia.
