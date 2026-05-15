@@ -69,7 +69,8 @@ async function main(): Promise<void> {
   const entryContent = readFileSync(entry, 'utf-8');
   check(entryContent.includes('Xvfb :99'), 'entrypoint arranca Xvfb');
   check(entryContent.includes('chromium'), 'entrypoint arranca chromium');
-  check(entryContent.includes('remote-debugging-port=9222'), 'CDP en 9222');
+  check(entryContent.includes('remote-debugging-port=9221'), 'CDP interno en 9221');
+  check(entryContent.includes('socat') && entryContent.includes('9222'), 'socat puentea 9222 → 9221');
   check(entryContent.includes('websockify'), 'entrypoint arranca novnc');
 
   // ── 2. Manager URLs ──
