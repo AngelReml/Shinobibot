@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Wrapper de whisper.cpp para Linux. Resuelve LD_LIBRARY_PATH a las
+# .so empaquetadas en bin/whisper-linux-x64/ y ejecuta whisper-cli.
+#
+# El binario real + libs (libwhisper.so, libggml*.so) viven en
+# bin/whisper-linux-x64/ — generados por scripts/contabo/setup-whisper.sh.
+# Ese directorio NO se versiona (binarios platform-specific).
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIBDIR="$HERE/whisper-linux-x64"
+if [[ ! -x "$LIBDIR/whisper-cli" ]]; then
+  echo "whisper-cli no encontrado en $LIBDIR — ejecuta scripts/contabo/setup-whisper.sh" >&2
+  exit 1
+fi
+export LD_LIBRARY_PATH="$LIBDIR:${LD_LIBRARY_PATH:-}"
+exec "$LIBDIR/whisper-cli" "$@"

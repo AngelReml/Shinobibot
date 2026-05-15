@@ -53,6 +53,16 @@ docs/*
 audits/
 knowledge/
 
+# === whisper.cpp (FASE V3) — binarios platform-specific + modelo ===
+# El modelo ggml-base.bin pesa ~147MB (supera el límite 100MB de GitHub).
+# Los binarios son platform-specific. Se regeneran con
+# scripts/contabo/setup-whisper.sh. El wrapper bin/whisper-linux SÍ se versiona.
+bin/whisper-linux-x64/
+bin/whisper-windows-x64/
+bin/whisper-windows.exe
+models/whisper/*.bin
+.run-jfk.wav
+
 # === Bloque 2 — browser engine screenshots (rotación 50, no checkear) ===
 screenshots/
 

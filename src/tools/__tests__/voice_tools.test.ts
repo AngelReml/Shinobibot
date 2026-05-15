@@ -9,6 +9,9 @@
  *     no soportada, tamaño excedido)
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { join } from 'path';
+import { tmpdir } from 'os';
 import { getTool } from '../tool_registry.js';
 import '../voice_speak.js';
 import '../audio_transcribe.js';
@@ -39,8 +42,9 @@ describe('voice_speak tool', () => {
 });
 
 describe('audio_transcribe tool', () => {
-  beforeEach(() => { delete process.env.OPENAI_API_KEY; });
-  afterEach(() => { delete process.env.OPENAI_API_KEY; });
+  const STT_ENV = ['OPENAI_API_KEY', 'SHINOBI_STT_BACKEND', 'SHINOBI_WHISPERCPP_BIN', 'SHINOBI_WHISPERCPP_MODEL'];
+  beforeEach(() => { for (const k of STT_ENV) delete process.env[k]; });
+  afterEach(() => { for (const k of STT_ENV) delete process.env[k]; });
 
   it('registrado con schema válido', () => {
     const t = getTool('audio_transcribe')!;
@@ -48,15 +52,7 @@ describe('audio_transcribe tool', () => {
     expect(t.parameters.required).toEqual(['path']);
   });
 
-  it('rechaza si OPENAI_API_KEY no está definida', async () => {
-    const t = getTool('audio_transcribe')!;
-    const r = await t.execute({ path: '/tmp/foo.mp3' });
-    expect(r.success).toBe(false);
-    expect(r.error).toContain('OPENAI_API_KEY');
-  });
-
-  it('rechaza archivo inexistente con key set', async () => {
-    process.env.OPENAI_API_KEY = 'sk-fake';
+  it('rechaza archivo inexistente (file check primero)', async () => {
     const t = getTool('audio_transcribe')!;
     const r = await t.execute({ path: 'C:\\nope\\nope\\nope.mp3' });
     expect(r.success).toBe(false);
@@ -64,12 +60,43 @@ describe('audio_transcribe tool', () => {
   });
 
   it('rechaza extensión no soportada', async () => {
-    process.env.OPENAI_API_KEY = 'sk-fake';
     const t = getTool('audio_transcribe')!;
     // Existe (package.json) pero extensión no permitida.
     const r = await t.execute({ path: 'package.json' });
     expect(r.success).toBe(false);
     expect(r.error).toContain('Extensión');
+  });
+
+  it('sin whisper.cpp ni OPENAI_API_KEY → error que menciona ambos backends', async () => {
+    // Archivo de audio válido pero ningún backend disponible.
+    const dir = mkdtempSync(join(tmpdir(), 'shinobi-stt-'));
+    const audio = join(dir, 'sample.wav');
+    writeFileSync(audio, 'fake-wav-bytes');
+    try {
+      const t = getTool('audio_transcribe')!;
+      const r = await t.execute({ path: audio });
+      expect(r.success).toBe(false);
+      expect(r.error).toMatch(/whisper\.cpp/i);
+      expect(r.error).toMatch(/OPENAI_API_KEY/);
+    } finally {
+      if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('SHINOBI_STT_BACKEND=local sin whisper.cpp → error claro de config', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'shinobi-stt-'));
+    const audio = join(dir, 'sample.wav');
+    writeFileSync(audio, 'fake-wav-bytes');
+    process.env.SHINOBI_STT_BACKEND = 'local';
+    process.env.SHINOBI_WHISPERCPP_BIN = '/no/existe/whisper-cli-fake';
+    try {
+      const t = getTool('audio_transcribe')!;
+      const r = await t.execute({ path: audio });
+      expect(r.success).toBe(false);
+      expect(r.error).toMatch(/SHINOBI_WHISPERCPP/);
+    } finally {
+      if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it('SUPPORTED_EXTENSIONS contiene los 9 formatos esperados', () => {

@@ -133,7 +133,7 @@ export async function transcribeWithWhisperCpp(audioPath: string, opts: WhisperC
     '-m', model!,
     '-f', resolve(audioPath),
     '--no-prints',
-    '--output-txt',
+    '--no-timestamps',
     '-t', String(opts.threads ?? DEFAULT_THREADS),
   ];
   if (opts.language && opts.language !== 'auto') {
