@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/AngelReml/Shinobibot/actions/workflows/ci.yml/badge.svg)](https://github.com/AngelReml/Shinobibot/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-913_passing-brightgreen)](./src)
-[![Benchmark](https://img.shields.io/badge/benchmark-M3_public-blue)](./BENCHMARK_M3.md)
+[![Benchmark](https://img.shields.io/badge/benchmark-M3_real-blue)](./BENCHMARK_M3_REAL.md)
 [![License](https://img.shields.io/badge/license-ISC-blue)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows_10%2F11-0078D6)](https://www.microsoft.com/windows/)
 
@@ -53,7 +53,7 @@ Tres cosas que **ningún otro agente del mercado tiene a la vez**:
 | Mission replay con detección de divergencias | ◐ trajectory_compressor | ◐ ACP loadSession | ❌ | ✅ dryRunReplay |
 | Multi-user con scoped dirs y permisos | ◐ multi-session sin tenant | ◐ pairing sin scoping | ❌ | ✅ owner/collab/guest |
 | A2A / agent protocol | ✅ ACP oficial | ✅ ACP IDE-bridge | ❌ | ✅ envelope+HMAC |
-| Benchmark suite reproducible | ✅ tblite/yc/SWE/term | ◐ qa-lab interno | ❌ | ✅ [BENCHMARK_M3](./BENCHMARK_M3.md) (20 tareas, vs rivales: simulado) |
+| Benchmark suite reproducible | ✅ tblite/yc/SWE/term | ◐ qa-lab interno | ❌ | ✅ [BENCHMARK_M3_REAL](./BENCHMARK_M3_REAL.md) (20 tareas, runtimes reales) |
 
 **Veredicto honesto:** la tabla anterior afirmaba "única Shinobi" en varias filas que **son paridad con Hermes/OpenClaw**. Tras re-auditoría (`competitive_audit_M3_revisado.md`), Shinobi tiene **9 capacidades genuinamente exclusivas**: loop detector capa 3 (LLM judge), committee evolutivo, audit log unificado JSONL, registry con rollback formal, auto-skill por patrones de tools, memory reflector con markdown auditable, observability `/admin`+Prometheus, token budget endpoint, tools PowerShell Windows-native. El resto es paridad o ligera ventaja, no exclusividad.
 
@@ -157,7 +157,7 @@ puede actuar como nodo de una malla de agentes.
 
 **Benchmark público (Sprint 3.2)**
 Suite de 20 tareas reales en 6 categorías. Cada check es ejecutable sin
-LLM (regex/match). Ver [BENCHMARK_M3.md](./BENCHMARK_M3.md).
+LLM (regex/match). Ver [BENCHMARK_M3_REAL.md](./BENCHMARK_M3_REAL.md) — medido contra Hermes y OpenClaw reales.
 
 **Cloud bridge**
 Offload de misiones pesadas al kernel OpenGravity cuando está disponible,
@@ -253,7 +253,7 @@ SHINOBI_API_KEY=
 | Repo analysis (kubernetes, react, langchain) | Sub-agentes paralelos |
 | 500 misiones concurrentes | 100% success rate |
 | Tests propios | 913 passing, CI en `windows-latest` |
-| Benchmark M3 (20 tareas) | Shinobi 100% / Hermes 75% / OpenClaw 55% — **perfil simulado** (perfiles, no runtimes reales). Sprint P3.3 pendiente: medir contra binarios `hermes` y `openclaw` reales en VM Linux para publicar números honestos. |
+| Benchmark M3 REAL (20 tareas) | Empate en éxito: Shinobi 19/20 · Hermes 19/20 · OpenClaw 19/20. Shinobi 2-4× más rápido (5.5s vs 10.4s vs 21.8s medio). Medido con runtimes reales, mismo modelo. Ver [BENCHMARK_M3_REAL.md](./BENCHMARK_M3_REAL.md). |
 
 ### Seguridad
 
@@ -311,7 +311,7 @@ Three things **no other agent on the market has at once**:
 | Mission replay from audit.jsonl | ❌ | ❌ | ❌ | ✅ |
 | Multi-user with scoped dirs and roles | ❌ | ❌ | ❌ | ✅ |
 | A2A protocol (envelope v1 + bearer/HMAC + agent_card) | ❌ | ❌ | ❌ | ✅ |
-| Public reproducible benchmark (20 tasks / 6 cat.) | ❌ | ❌ | ❌ | ✅ [BENCHMARK_M3](./BENCHMARK_M3.md) |
+| Public reproducible benchmark (20 tasks / 6 cat.) | ❌ | ❌ | ❌ | ✅ [BENCHMARK_M3_REAL](./BENCHMARK_M3_REAL.md) |
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for technical detail.
 
