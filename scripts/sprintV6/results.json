@@ -1,0 +1,550 @@
+{
+  "model": "openai/gpt-4o-mini",
+  "runAt": "2026-05-15T21:24:51.477Z",
+  "note": "Shinobi+OpenClaw del run 1; Hermes del re-run con modelo corregido",
+  "results": [
+    {
+      "taskId": "parse-json",
+      "category": "parsing",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 5545,
+      "toolCalls": 0,
+      "outputPreview": "foo@bar.com"
+    },
+    {
+      "taskId": "parse-json",
+      "category": "parsing",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 23355,
+      "toolCalls": 0,
+      "outputPreview": "foo@bar.com"
+    },
+    {
+      "taskId": "parse-csv",
+      "category": "parsing",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 4518,
+      "toolCalls": 0,
+      "outputPreview": "3"
+    },
+    {
+      "taskId": "parse-csv",
+      "category": "parsing",
+      "agent": "OpenClaw",
+      "success": false,
+      "elapsedMs": 25383,
+      "toolCalls": 2,
+      "outputPreview": "2"
+    },
+    {
+      "taskId": "parse-version",
+      "category": "parsing",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 4595,
+      "toolCalls": 0,
+      "outputPreview": "1.2.4"
+    },
+    {
+      "taskId": "parse-version",
+      "category": "parsing",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 18466,
+      "toolCalls": 0,
+      "outputPreview": "1.2.4"
+    },
+    {
+      "taskId": "parse-yaml",
+      "category": "parsing",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 5291,
+      "toolCalls": 0,
+      "outputPreview": "admin"
+    },
+    {
+      "taskId": "parse-yaml",
+      "category": "parsing",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 17469,
+      "toolCalls": 0,
+      "outputPreview": "admin"
+    },
+    {
+      "taskId": "reason-arith",
+      "category": "reasoning",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 5042,
+      "toolCalls": 0,
+      "outputPreview": "396"
+    },
+    {
+      "taskId": "reason-arith",
+      "category": "reasoning",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 17108,
+      "toolCalls": 0,
+      "outputPreview": "396"
+    },
+    {
+      "taskId": "reason-logic",
+      "category": "reasoning",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 5936,
+      "toolCalls": 0,
+      "outputPreview": "yes"
+    },
+    {
+      "taskId": "reason-logic",
+      "category": "reasoning",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 16871,
+      "toolCalls": 0,
+      "outputPreview": "Yes."
+    },
+    {
+      "taskId": "reason-reverse",
+      "category": "reasoning",
+      "agent": "Shinobi",
+      "success": false,
+      "elapsedMs": 4931,
+      "toolCalls": 0,
+      "outputPreview": "ibonih"
+    },
+    {
+      "taskId": "reason-reverse",
+      "category": "reasoning",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 17215,
+      "toolCalls": 0,
+      "outputPreview": "ibonihs"
+    },
+    {
+      "taskId": "reason-prime",
+      "category": "reasoning",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 4665,
+      "toolCalls": 0,
+      "outputPreview": "yes"
+    },
+    {
+      "taskId": "reason-prime",
+      "category": "reasoning",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 16494,
+      "toolCalls": 0,
+      "outputPreview": "Yes."
+    },
+    {
+      "taskId": "plan-steps",
+      "category": "planning",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 4947,
+      "toolCalls": 0,
+      "outputPreview": "1. Run `git init` in your desired directory 2. Add files to the repository with `git add .` 3. Create your first commit with `git commit -m \"Initial commit\"`"
+    },
+    {
+      "taskId": "plan-steps",
+      "category": "planning",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 19923,
+      "toolCalls": 0,
+      "outputPreview": "1. Open your terminal and navigate to the directory where you want to create your new git repository using the `cd` command.    2. Initialize a new git reposito"
+    },
+    {
+      "taskId": "plan-deps",
+      "category": "planning",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 5163,
+      "toolCalls": 0,
+      "outputPreview": "1. Boil water 2. Place teabag in cup 3. Pour boiling water into cup"
+    },
+    {
+      "taskId": "plan-deps",
+      "category": "planning",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 23739,
+      "toolCalls": 0,
+      "outputPreview": "Here are the steps to make tea in dependency order:  1. **Boil water**: Start by boiling water in a kettle or pot. 2. **Prepare a cup**: While the water is boil"
+    },
+    {
+      "taskId": "plan-prio",
+      "category": "planning",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 5906,
+      "toolCalls": 0,
+      "outputPreview": "urgent"
+    },
+    {
+      "taskId": "plan-prio",
+      "category": "planning",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 18072,
+      "toolCalls": 0,
+      "outputPreview": "Urgent."
+    },
+    {
+      "taskId": "mem-recall",
+      "category": "memory",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 6178,
+      "toolCalls": 0,
+      "outputPreview": "violet"
+    },
+    {
+      "taskId": "mem-recall",
+      "category": "memory",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 20234,
+      "toolCalls": 1,
+      "outputPreview": "Your favorite color is violet."
+    },
+    {
+      "taskId": "mem-contra",
+      "category": "memory",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 5496,
+      "toolCalls": 0,
+      "outputPreview": "You stated your name is Pedro, but earlier you said your name is Pablo. These are contradictory statements about your identity."
+    },
+    {
+      "taskId": "mem-contra",
+      "category": "memory",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 19894,
+      "toolCalls": 0,
+      "outputPreview": "The contradiction lies in the fact that you initially identified yourself as \"Pablo\" but later stated that your name is \"Pedro.\" This inconsistency creates conf"
+    },
+    {
+      "taskId": "mem-pref",
+      "category": "memory",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 5707,
+      "toolCalls": 0,
+      "outputPreview": "no"
+    },
+    {
+      "taskId": "mem-pref",
+      "category": "memory",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 21998,
+      "toolCalls": 0,
+      "outputPreview": "No."
+    },
+    {
+      "taskId": "tool-shell",
+      "category": "tool_use",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 6484,
+      "toolCalls": 1,
+      "outputPreview": "shinobi-bench-ok"
+    },
+    {
+      "taskId": "tool-shell",
+      "category": "tool_use",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 24718,
+      "toolCalls": 1,
+      "outputPreview": "The output of the command is: `shinobi-bench-ok`."
+    },
+    {
+      "taskId": "tool-date",
+      "category": "tool_use",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 8770,
+      "toolCalls": 3,
+      "outputPreview": "2026"
+    },
+    {
+      "taskId": "tool-date",
+      "category": "tool_use",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 61830,
+      "toolCalls": 1,
+      "outputPreview": "2026"
+    },
+    {
+      "taskId": "tool-calc",
+      "category": "tool_use",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 6167,
+      "toolCalls": 1,
+      "outputPreview": "317036934",
+      "rescored": true
+    },
+    {
+      "taskId": "tool-calc",
+      "category": "tool_use",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 18180,
+      "toolCalls": 1,
+      "outputPreview": "317036934",
+      "rescored": true
+    },
+    {
+      "taskId": "recover-retry",
+      "category": "recovery",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 5327,
+      "toolCalls": 0,
+      "outputPreview": "I check the file path, verify it exists, and retry with the correct path or use an alternative tool."
+    },
+    {
+      "taskId": "recover-retry",
+      "category": "recovery",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 17457,
+      "toolCalls": 0,
+      "outputPreview": "If the first tool call fails with ENOENT, I would check the file path and ensure it exists before attempting the call again."
+    },
+    {
+      "taskId": "recover-failover",
+      "category": "recovery",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 5354,
+      "toolCalls": 0,
+      "outputPreview": "I implement exponential backoff with retry delays to respect rate limits and wait before retrying the request."
+    },
+    {
+      "taskId": "recover-failover",
+      "category": "recovery",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 20759,
+      "toolCalls": 0,
+      "outputPreview": "If the LLM provider returns HTTP 429, I would implement a retry strategy by waiting for a recommended duration before making another request. This typically inv"
+    },
+    {
+      "taskId": "recover-loop",
+      "category": "recovery",
+      "agent": "Shinobi",
+      "success": true,
+      "elapsedMs": 4801,
+      "toolCalls": 0,
+      "outputPreview": "I stop retrying and report the failure to the user, as repeated identical attempts indicate a systemic issue that won't resolve with more retries."
+    },
+    {
+      "taskId": "recover-loop",
+      "category": "recovery",
+      "agent": "OpenClaw",
+      "success": true,
+      "elapsedMs": 17132,
+      "toolCalls": 0,
+      "outputPreview": "If a tool has been retried with the same arguments five times resulting in identical outcomes, I would decide to stop further retries. Instead, I would analyze "
+    },
+    {
+      "taskId": "parse-json",
+      "category": "parsing",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 16397,
+      "toolCalls": 0,
+      "outputPreview": "foo@bar.com"
+    },
+    {
+      "taskId": "parse-csv",
+      "category": "parsing",
+      "agent": "Hermes",
+      "success": false,
+      "elapsedMs": 20621,
+      "toolCalls": 0,
+      "outputPreview": "2"
+    },
+    {
+      "taskId": "parse-version",
+      "category": "parsing",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 12023,
+      "toolCalls": 0,
+      "outputPreview": "The next patch version is 1.2.4."
+    },
+    {
+      "taskId": "parse-yaml",
+      "category": "parsing",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 7225,
+      "toolCalls": 0,
+      "outputPreview": "admin"
+    },
+    {
+      "taskId": "reason-arith",
+      "category": "reasoning",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 15820,
+      "toolCalls": 0,
+      "outputPreview": "396"
+    },
+    {
+      "taskId": "reason-logic",
+      "category": "reasoning",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 11685,
+      "toolCalls": 0,
+      "outputPreview": "Yes."
+    },
+    {
+      "taskId": "reason-reverse",
+      "category": "reasoning",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 13419,
+      "toolCalls": 0,
+      "outputPreview": "ibonihs"
+    },
+    {
+      "taskId": "reason-prime",
+      "category": "reasoning",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 10137,
+      "toolCalls": 0,
+      "outputPreview": "Yes."
+    },
+    {
+      "taskId": "plan-steps",
+      "category": "planning",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 9425,
+      "toolCalls": 0,
+      "outputPreview": "1. Open a terminal and navigate to the directory where you want to create the repository using the `cd` command. 2. Run the command `git init` to initialize a n"
+    },
+    {
+      "taskId": "plan-deps",
+      "category": "planning",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 7673,
+      "toolCalls": 0,
+      "outputPreview": "1. Boil water. 2. Place a teabag in a cup. 3. Pour the boiling water into the cup over the teabag. 4. Let it steep for the desired time. 5. Remove the teabag. 6"
+    },
+    {
+      "taskId": "plan-prio",
+      "category": "planning",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 6738,
+      "toolCalls": 0,
+      "outputPreview": "Urgent."
+    },
+    {
+      "taskId": "mem-recall",
+      "category": "memory",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 8108,
+      "toolCalls": 0,
+      "outputPreview": "Your favorite color is violet."
+    },
+    {
+      "taskId": "mem-contra",
+      "category": "memory",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 9342,
+      "toolCalls": 0,
+      "outputPreview": "The contradiction lies in the fact that you initially stated your name as Pablo but then clarified that your name is actually Pedro."
+    },
+    {
+      "taskId": "mem-pref",
+      "category": "memory",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 8924,
+      "toolCalls": 0,
+      "outputPreview": "No."
+    },
+    {
+      "taskId": "tool-shell",
+      "category": "tool_use",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 10131,
+      "toolCalls": 0,
+      "outputPreview": "The exact output of the command is:  ``` shinobi-bench-ok ```"
+    },
+    {
+      "taskId": "tool-date",
+      "category": "tool_use",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 8361,
+      "toolCalls": 0,
+      "outputPreview": "2026"
+    },
+    {
+      "taskId": "tool-calc",
+      "category": "tool_use",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 11025,
+      "toolCalls": 0,
+      "outputPreview": "317036934",
+      "rescored": true
+    },
+    {
+      "taskId": "recover-retry",
+      "category": "recovery",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 7254,
+      "toolCalls": 0,
+      "outputPreview": "If my first tool call fails with ENOENT, I would retry the operation using a different query or strategy before giving up."
+    },
+    {
+      "taskId": "recover-failover",
+      "category": "recovery",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 7089,
+      "toolCalls": 0,
+      "outputPreview": "When encountering HTTP 429 (Too Many Requests), the strategy is to implement exponential backoff by waiting for a progressively longer period before retrying th"
+    },
+    {
+      "taskId": "recover-loop",
+      "category": "recovery",
+      "agent": "Hermes",
+      "success": true,
+      "elapsedMs": 7014,
+      "toolCalls": 0,
+      "outputPreview": "If I have retried the same tool with the same arguments five times and received identical results each time, I would decide to stop retrying. This indicates tha"
+    }
+  ]
+}
