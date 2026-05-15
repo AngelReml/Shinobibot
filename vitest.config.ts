@@ -23,6 +23,7 @@ export default defineConfig({
       'src/providers/__tests__/**/*.test.ts',
       'src/reader/__tests__/deep_descent.test.ts',
       'src/runtime/__tests__/mission_scheduler.test.ts',
+      'src/runtime/__tests__/remote_mode.test.ts',
       'src/sandbox/__tests__/**/*.test.ts',
       'src/skills/__tests__/skill_signing.test.ts',
       'src/skills/__tests__/skill_auditor.test.ts',
