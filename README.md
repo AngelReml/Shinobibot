@@ -1,7 +1,7 @@
 # Shinobi 忍
 
 [![CI](https://github.com/AngelReml/Shinobibot/actions/workflows/ci.yml/badge.svg)](https://github.com/AngelReml/Shinobibot/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-627_passing-brightgreen)](./src)
+[![Tests](https://img.shields.io/badge/tests-913_passing-brightgreen)](./src)
 [![Benchmark](https://img.shields.io/badge/benchmark-M3_public-blue)](./BENCHMARK_M3.md)
 [![License](https://img.shields.io/badge/license-ISC-blue)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows_10%2F11-0078D6)](https://www.microsoft.com/windows/)
@@ -57,7 +57,7 @@ Tres cosas que **ningún otro agente del mercado tiene a la vez**:
 
 **Veredicto honesto:** la tabla anterior afirmaba "única Shinobi" en varias filas que **son paridad con Hermes/OpenClaw**. Tras re-auditoría (`competitive_audit_M3_revisado.md`), Shinobi tiene **9 capacidades genuinamente exclusivas**: loop detector capa 3 (LLM judge), committee evolutivo, audit log unificado JSONL, registry con rollback formal, auto-skill por patrones de tools, memory reflector con markdown auditable, observability `/admin`+Prometheus, token budget endpoint, tools PowerShell Windows-native. El resto es paridad o ligera ventaja, no exclusividad.
 
-Detalle técnico: ver [ARCHITECTURE.md](./ARCHITECTURE.md) y [competitive_audit_M3_revisado.md](./competitive_audit_M3_revisado.md).
+Detalle técnico: ver [ARCHITECTURE.md](./ARCHITECTURE.md), [competitive_audit_M3_revisado.md](./competitive_audit_M3_revisado.md) y [competitive_audit_paridad.md](./competitive_audit_paridad.md) (post plan paridad — 11 sprints cerrando brechas vs Hermes/OpenClaw).
 
 ### Qué hace
 
@@ -187,7 +187,7 @@ O ejecuta el binario precompilado: `build/shinobi.exe`. O instala con
 ### Tests
 
 ```bash
-npm test            # vitest run (627 specs)
+npm test            # vitest run (913 specs)
 npm run test:watch  # modo watch
 npm run typecheck   # tsc --noEmit
 ```
@@ -252,8 +252,8 @@ SHINOBI_API_KEY=
 | DVWA security audit | SQLi/XSS/RCE con file:line |
 | Repo analysis (kubernetes, react, langchain) | Sub-agentes paralelos |
 | 500 misiones concurrentes | 100% success rate |
-| Tests propios | 627 passing, CI en `windows-latest` |
-| Benchmark M3 (20 tareas) | Shinobi 100% / Hermes 75% / OpenClaw 55% en perfil simulado |
+| Tests propios | 913 passing, CI en `windows-latest` |
+| Benchmark M3 (20 tareas) | Shinobi 100% / Hermes 75% / OpenClaw 55% — **perfil simulado** (perfiles, no runtimes reales). Sprint P3.3 pendiente: medir contra binarios `hermes` y `openclaw` reales en VM Linux para publicar números honestos. |
 
 ### Seguridad
 
@@ -378,7 +378,7 @@ Or run the prebuilt: `build/shinobi.exe`.
 ### Tests
 
 ```bash
-npm test            # vitest (627 specs)
+npm test            # vitest (913 specs)
 npm run typecheck   # tsc --noEmit
 ```
 
