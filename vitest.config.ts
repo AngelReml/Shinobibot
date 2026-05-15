@@ -30,6 +30,7 @@ export default defineConfig({
       'src/skills/__tests__/skill_registry.test.ts',
       'src/skills/__tests__/usage_pattern_detector.test.ts',
       'src/soul/__tests__/**/*.test.ts',
+      'src/stt/__tests__/**/*.test.ts',
       'src/tools/__tests__/docker_backend.test.ts',
       'src/tools/__tests__/tool_pack_pure.test.ts',
       'src/tools/__tests__/voice_tools.test.ts',
