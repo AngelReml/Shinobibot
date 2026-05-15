@@ -105,7 +105,9 @@ async function main(): Promise<void> {
     'la página cargada menciona DVWA');
   check(finalUrl.includes('github.com'), 'finalUrl es github.com');
   check(shot.length > 1000, `screenshot capturado (${shot.length} bytes)`);
-  check(/chrom/i.test(version), `browser remoto es Chromium (${version})`);
+  // browser.version() vía CDP devuelve el número de build (p.ej.
+  // "148.0.7778.96"), no la cadena "Chromium/...". Validamos formato.
+  check(/^\d+\.\d+/.test(version), `browser remoto reporta versión válida (${version})`);
 
   if (failed > 0) {
     console.log(`\nMISIÓN FALLIDA · ${failed} aserciones`);
