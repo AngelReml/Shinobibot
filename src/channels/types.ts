@@ -39,6 +39,7 @@ export type ChannelId =
   | 'matrix'
   | 'email'
   | 'teams'
+  | 'webhook'
   | 'loopback';
 
 /** Dirección concreta donde el adaptador debe enviar una respuesta. */
