@@ -77,8 +77,10 @@ export class Mem0Provider implements MemoryProvider {
     }
     const j = await res.json();
     this.cachedCount++;
-    // mem0 v1 devuelve {results: [{id}]} o similar; toleramos formato.
-    return j?.results?.[0]?.id ?? j?.id ?? 'mem0-unknown';
+    // mem0 v1 procesa en background: devuelve [{message,status:PENDING,event_id}].
+    // Toleramos también {results:[{id}]} y {id}.
+    const first = Array.isArray(j) ? j[0] : j;
+    return first?.event_id ?? first?.id ?? j?.results?.[0]?.id ?? 'mem0-pending';
   }
 
   async recall(query: string, k: number = 5): Promise<RecallHit[]> {

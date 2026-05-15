@@ -50,11 +50,12 @@ export class SupermemoryProvider implements MemoryProvider {
   }
 
   async store(msg: MemoryMessage): Promise<string> {
+    // API v3: POST /v3/documents con {content}. Procesa async (status:queued).
     const body = JSON.stringify({
       content: msg.content,
       metadata: { role: msg.role, ts: msg.ts, ...(msg.metadata ?? {}) },
     });
-    const res = await this.fetchImpl(`${this.baseUrl}/v1/memories`, {
+    const res = await this.fetchImpl(`${this.baseUrl}/v3/documents`, {
       method: 'POST', headers: this.headers(), body,
     });
     if (!res.ok) {
@@ -69,8 +70,9 @@ export class SupermemoryProvider implements MemoryProvider {
   async recall(query: string, k: number = 5): Promise<RecallHit[]> {
     const t0 = Date.now();
     try {
+      // API v3: POST /v3/search con {q}. Respuesta {results:[{chunks,documentId,score,title}]}.
       const body = JSON.stringify({ q: query, limit: k });
-      const res = await this.fetchImpl(`${this.baseUrl}/v1/search`, {
+      const res = await this.fetchImpl(`${this.baseUrl}/v3/search`, {
         method: 'POST', headers: this.headers(), body,
       });
       if (!res.ok) {
@@ -79,17 +81,23 @@ export class SupermemoryProvider implements MemoryProvider {
       }
       const j = await res.json();
       const arr = Array.isArray(j) ? j : j?.results ?? [];
-      return arr.map((r: any): RecallHit => ({
-        message: {
-          id: r.id,
-          role: (r.metadata?.role as any) ?? 'user',
-          content: r.content ?? '',
-          ts: r.metadata?.ts,
-          metadata: r.metadata,
-        },
-        score: r.score ?? 0,
-        matchType: 'vector',
-      }));
+      return arr.map((r: any): RecallHit => {
+        // El texto vive en chunks[]; concatenamos los relevantes.
+        const chunkText = Array.isArray(r.chunks)
+          ? r.chunks.map((c: any) => c.content ?? '').filter(Boolean).join(' ')
+          : '';
+        return {
+          message: {
+            id: r.documentId ?? r.id,
+            role: (r.metadata?.role as any) ?? 'user',
+            content: chunkText || r.content || '',
+            ts: r.metadata?.ts ?? r.createdAt,
+            metadata: r.metadata,
+          },
+          score: r.score ?? 0,
+          matchType: 'vector',
+        };
+      });
     } finally {
       this.recallSamples.push(Date.now() - t0);
       if (this.recallSamples.length > 50) this.recallSamples.shift();
@@ -97,7 +105,7 @@ export class SupermemoryProvider implements MemoryProvider {
   }
 
   async forget(id: string): Promise<boolean> {
-    const res = await this.fetchImpl(`${this.baseUrl}/v1/memories/${encodeURIComponent(id)}`, {
+    const res = await this.fetchImpl(`${this.baseUrl}/v3/documents/${encodeURIComponent(id)}`, {
       method: 'DELETE', headers: this.headers(),
     });
     if (!res.ok) this.errors_++;
