@@ -1,7 +1,8 @@
 # Shinobi 忍
 
 [![CI](https://github.com/AngelReml/Shinobibot/actions/workflows/ci.yml/badge.svg)](https://github.com/AngelReml/Shinobibot/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-180_passing-brightgreen)](./src)
+[![Tests](https://img.shields.io/badge/tests-627_passing-brightgreen)](./src)
+[![Benchmark](https://img.shields.io/badge/benchmark-M3_public-blue)](./BENCHMARK_M3.md)
 [![License](https://img.shields.io/badge/license-ISC-blue)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows_10%2F11-0078D6)](https://www.microsoft.com/windows/)
 
@@ -14,6 +15,14 @@ con guardrails diseñados para que el LLM no entre en bucles destructivos.
 ---
 
 ## 🇪🇸 Español
+
+### Mensajes clave
+
+> **🛡️ Compatible con el estándar Anthropic Skills (1.2M+ skills disponibles)** — único agente que audita criptográficamente cada skill antes de ejecutarla con committee multi-modelo y código fuente literal.
+>
+> **🏠/☁️ Modo dual**: local Windows para usuarios individuales + modo VPS aislado para uso 24/7 sin riesgo sobre la máquina del usuario.
+>
+> **🎯 Posicionamiento**: Hermes para personal/principiantes, OpenCloud para enterprise, **Shinobi cubre ambos extremos** con seguridad por defecto.
 
 ### ¿Por qué Shinobi (y no Hermes / OpenClaw / Claude Code)?
 
@@ -32,6 +41,18 @@ Tres cosas que **ningún otro agente del mercado tiene a la vez**:
 | Token budget visible (`/api/token-budget`) | ❌ | ❌ | ❌ | ✅ |
 | Plugin manifest fail-fast | ❌ | ✅ (100+ types) | ❌ | ✅ schema simple |
 | Modular por bloques (no monolítico) | ❌ (`run_agent.py` 15k LOC) | ❌ (plugin SDK enorme) | n/a | ✅ |
+| Enrutador semántico de modelos (ahorra ~95% tokens) | ✅ | ❌ | n/a | ✅ activable vía env |
+| Auto-skill generation por patrones de uso | ❌ | ❌ | ❌ | ✅ 3+ repeticiones → propone skill |
+| Auto-reflexión cada N mensajes (contradicciones+prefs) | ❌ | ❌ | ❌ | ✅ |
+| Modo VPS aislado (Docker compose + túnel SSH, no IP pública) | ✅ | ❌ | n/a | ✅ generador artefactos |
+| Soul/Alma configurable (sobrio/kawaii/samurai/custom) | ✅ | ❌ | n/a | ✅ env o `soul.md` |
+| STT local (whisper.cpp, sin internet) | ✅ | ❌ | n/a | ✅ |
+| Secret redactor en logs+audit + backup GitHub privado | ❌ | ❌ | ❌ | ✅ 13 patrones |
+| Self-debug heurístico (10 patrones de error+fix) | ❌ | ❌ | ❌ | ✅ |
+| Mission replay desde audit.jsonl (timeline+summary+dryRun) | ❌ | ❌ | ❌ | ✅ |
+| Multi-user con scoped dirs y permisos (owner/collab/guest) | ❌ | ❌ | ❌ | ✅ |
+| A2A protocol (envelope v1 + bearer/HMAC + agent_card) | ❌ | ❌ | ❌ | ✅ |
+| Benchmark público reproducible (20 tareas / 6 cat.) | ❌ | ❌ | ❌ | ✅ [BENCHMARK_M3](./BENCHMARK_M3.md) |
 
 Detalle técnico: ver [ARCHITECTURE.md](./ARCHITECTURE.md).
 
@@ -95,6 +116,46 @@ Triggers `interval` (cada N segs), `daily` (HH:MM), `weekly` (día + HH:MM),
 **n8n integration**
 Delega a workflows externos vía n8n bridge.
 
+**Modo VPS aislado (Sprint 3.5)**
+`shinobi --remote ssh://user@host` genera Dockerfile + compose + script
+de despliegue. El compose hace bind a `127.0.0.1:3333` y se accede
+desde local vía túnel SSH (`-L`). Cero IP pública abierta, cero
+capacidad de tocar la máquina del operador.
+
+**Soul/Alma (Sprint 3.6)**
+Tres personalidades built-in (sobrio, kawaii, samurai) + custom vía
+`soul.md`. Carga por prioridad: `SHINOBI_SOUL_BUILTIN` env >
+`SHINOBI_SOUL_PATH` env > `cwd/soul.md` > default sobrio.
+
+**STT local (Sprint 3.7)**
+whisper.cpp wrapper. Cero tokens, cero internet, latencia local.
+Config: `SHINOBI_WHISPERCPP_BIN` + `SHINOBI_WHISPERCPP_MODEL`.
+
+**Secret redactor + backup (Sprint 3.8)**
+13 patrones regex (Anthropic/OpenAI/GitHub/Google/AWS/Slack/Discord/
+Stripe/URL/Bearer/PEM/JWT/env-secret). Backup state a GitHub privado:
+omite `.env/.key/.pem`, redacta `audit.jsonl`, genera `BACKUP_MANIFEST.json`.
+
+**Self-debug (Sprint 3.1)**
+Cada fallo de tool genera report estructurado con hipótesis de causa
+raíz + fix suggestions a partir de 10 patrones heurísticos.
+
+**Mission replay (Sprint 3.1)**
+Reconstruye sesión desde `audit.jsonl`: timeline, summary, dryRunReplay
+con executor inyectable detectando divergencias.
+
+**Multi-user (Sprint 3.1)**
+Un único runtime sirve a varios usuarios con scoped dirs y permisos
+(owner/collaborator/guest). Listo para modo VPS de equipo.
+
+**A2A protocol (Sprint 3.1)**
+Envelope v1 estable + auth bearer/HMAC + agent_card discovery. Shinobi
+puede actuar como nodo de una malla de agentes.
+
+**Benchmark público (Sprint 3.2)**
+Suite de 20 tareas reales en 6 categorías. Cada check es ejecutable sin
+LLM (regex/match). Ver [BENCHMARK_M3.md](./BENCHMARK_M3.md).
+
 **Cloud bridge**
 Offload de misiones pesadas al kernel OpenGravity cuando está disponible,
 con failover transparente a OpenRouter → Groq → OpenAI → Anthropic.
@@ -123,7 +184,7 @@ O ejecuta el binario precompilado: `build/shinobi.exe`. O instala con
 ### Tests
 
 ```bash
-npm test            # vitest run (180 specs)
+npm test            # vitest run (627 specs)
 npm run test:watch  # modo watch
 npm run typecheck   # tsc --noEmit
 ```
@@ -188,7 +249,8 @@ SHINOBI_API_KEY=
 | DVWA security audit | SQLi/XSS/RCE con file:line |
 | Repo analysis (kubernetes, react, langchain) | Sub-agentes paralelos |
 | 500 misiones concurrentes | 100% success rate |
-| Tests propios | 180 passing, CI en `windows-latest` |
+| Tests propios | 627 passing, CI en `windows-latest` |
+| Benchmark M3 (20 tareas) | Shinobi 100% / Hermes 75% / OpenClaw 55% en perfil simulado |
 
 ### Seguridad
 
@@ -210,6 +272,14 @@ ISC
 
 ## English
 
+### Key messages
+
+> **🛡️ Anthropic Skills standard compatible (1.2M+ skills available)** — the only agent that cryptographically audits each skill before execution with multi-model committee + literal source review.
+>
+> **🏠/☁️ Dual mode**: local Windows for individual users + isolated VPS mode for 24/7 use without risking the operator's machine.
+>
+> **🎯 Positioning**: Hermes for personal/beginners, OpenCloud for enterprise, **Shinobi covers both extremes** with security by default.
+
 ### Why Shinobi (and not Hermes / OpenClaw / Claude Code)?
 
 Three things **no other agent on the market has at once**:
@@ -227,6 +297,18 @@ Three things **no other agent on the market has at once**:
 | Visible token budget endpoint | ❌ | ❌ | ❌ | ✅ |
 | Fail-fast plugin manifest | ❌ | ✅ (100+ types) | ❌ | ✅ simple schema |
 | Modular (not monolithic) | ❌ (`run_agent.py` 15k LOC) | ❌ (huge plugin SDK) | n/a | ✅ |
+| Semantic model router (~95% token savings) | ✅ | ❌ | n/a | ✅ env-toggle |
+| Auto-skill generation from usage patterns | ❌ | ❌ | ❌ | ✅ |
+| Reflection every N msgs (contradictions + prefs) | ❌ | ❌ | ❌ | ✅ |
+| Isolated VPS mode (Docker compose + SSH tunnel, no public IP) | ✅ | ❌ | n/a | ✅ artifacts generator |
+| Configurable Soul/Persona (sober/kawaii/samurai/custom) | ✅ | ❌ | n/a | ✅ |
+| Local STT (whisper.cpp, no internet) | ✅ | ❌ | n/a | ✅ |
+| Secret redactor in logs+audit + private-GitHub backup | ❌ | ❌ | ❌ | ✅ 13 patterns |
+| Heuristic self-debug (10 error→fix patterns) | ❌ | ❌ | ❌ | ✅ |
+| Mission replay from audit.jsonl | ❌ | ❌ | ❌ | ✅ |
+| Multi-user with scoped dirs and roles | ❌ | ❌ | ❌ | ✅ |
+| A2A protocol (envelope v1 + bearer/HMAC + agent_card) | ❌ | ❌ | ❌ | ✅ |
+| Public reproducible benchmark (20 tasks / 6 cat.) | ❌ | ❌ | ❌ | ✅ [BENCHMARK_M3](./BENCHMARK_M3.md) |
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for technical detail.
 
@@ -293,7 +375,7 @@ Or run the prebuilt: `build/shinobi.exe`.
 ### Tests
 
 ```bash
-npm test            # vitest (180 specs)
+npm test            # vitest (627 specs)
 npm run typecheck   # tsc --noEmit
 ```
 
