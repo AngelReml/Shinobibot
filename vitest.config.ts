@@ -9,6 +9,8 @@ export default defineConfig({
     // portando uno a uno; este include conservador evita romper CI mientras.
     include: [
       'src/audit/__tests__/audit_log.test.ts',
+      'src/backup/__tests__/**/*.test.ts',
+      'src/security/__tests__/**/*.test.ts',
       'src/channels/__tests__/**/*.test.ts',
       'src/committee/__tests__/committee_evolutive.test.ts',
       'src/context/__tests__/**/*.test.ts',
