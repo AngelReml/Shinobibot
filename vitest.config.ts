@@ -40,6 +40,7 @@ export default defineConfig({
       'src/skills/sources/__tests__/**/*.test.ts',
       'src/skills/auditor/__tests__/**/*.test.ts',
       'src/skills/__tests__/usage_pattern_detector.test.ts',
+      'src/sentinel/__tests__/**/*.test.ts',
       'src/soul/__tests__/**/*.test.ts',
       'src/stt/__tests__/**/*.test.ts',
       'src/tools/__tests__/docker_backend.test.ts',
