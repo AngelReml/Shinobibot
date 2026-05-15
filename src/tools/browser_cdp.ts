@@ -9,6 +9,21 @@ const CDP_URL = `http://localhost:${CDP_PORT}`;
 const LAUNCH_WAIT_TOTAL_MS = 10000;
 const LAUNCH_WAIT_INTERVAL_MS = 500;
 
+/**
+ * CDP remoto opcional. Si `SHINOBI_BROWSER_CDP_URL` está definida,
+ * Shinobi se conecta a ese endpoint en vez de lanzar un browser local
+ * — usado para el sandbox browser remoto (VPS + Docker + novnc). En ese
+ * modo NO se intenta auto-lanzar nada: el browser lo gestiona el
+ * sandbox.
+ *
+ * Ejemplo: SHINOBI_BROWSER_CDP_URL=http://localhost:9222 cuando hay un
+ * túnel SSH al CDP del sandbox del Contabo.
+ */
+function remoteCdpUrl(): string | null {
+  const raw = (process.env.SHINOBI_BROWSER_CDP_URL || '').trim();
+  return raw.length > 0 ? raw : null;
+}
+
 let pendingLaunch: Promise<void> | null = null;
 
 function getBrowserCandidates(): string[] {
@@ -139,6 +154,21 @@ async function ensureLaunched(): Promise<void> {
 
 export async function connectOrLaunchCDP(): Promise<Browser> {
   const { chromium } = await import('playwright');
+
+  // Modo CDP remoto: conecta al endpoint del sandbox, sin auto-launch.
+  const remote = remoteCdpUrl();
+  if (remote) {
+    try {
+      return await chromium.connectOverCDP(remote);
+    } catch (err: any) {
+      throw new Error(
+        `SHINOBI_BROWSER_CDP_URL=${remote} no alcanzable: ${err?.message ?? err}. ` +
+        `Verifica que el sandbox browser esté arriba y el túnel/red abierta.`
+      );
+    }
+  }
+
+  // Modo local: conecta a localhost:9222 y auto-lanza si hace falta.
   try {
     return await chromium.connectOverCDP(CDP_URL);
   } catch (err: any) {
