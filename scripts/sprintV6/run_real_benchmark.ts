@@ -69,8 +69,9 @@ function run(cmd: string, args: string[], opts: { cwd?: string; env?: NodeJS.Pro
 
 async function runHermes(prompt: string, env: NodeJS.ProcessEnv): Promise<{ output: string; toolCalls: string[]; ms: number }> {
   const t0 = Date.now();
+  // Hermes: modelo SIN prefijo openrouter/ (el provider va aparte en --provider).
   const r = await run('/opt/hermes-venv/bin/hermes',
-    ['-z', prompt, '-m', `openrouter/${MODEL}`, '--provider', 'openrouter', '--yolo'],
+    ['-z', prompt, '-m', MODEL, '--provider', 'openrouter', '--yolo'],
     { env, timeoutMs: 180000 });
   return { output: (r.stdout || r.stderr).trim(), toolCalls: [], ms: Date.now() - t0 };
 }
@@ -111,13 +112,22 @@ async function main(): Promise<void> {
   if (!orKey) { console.error('OPENROUTER_API_KEY ausente'); process.exit(1); }
   const baseEnv = { ...process.env, OPENROUTER_API_KEY: orKey, SHINOBI_PROVIDER: 'openrouter' };
 
-  const agents = [
+  const allAgents = [
     { name: 'Shinobi', fn: (p: string, i: number) => runShinobi(p, baseEnv) },
     { name: 'Hermes', fn: (p: string, i: number) => runHermes(p, baseEnv) },
     { name: 'OpenClaw', fn: (p: string, i: number) => runOpenClaw(p, baseEnv, `bench-${i}`) },
   ];
+  // BENCH_ONLY=Hermes → corre solo ese agente y fusiona con results.json previo.
+  const only = (process.env.BENCH_ONLY || '').trim();
+  const agents = only ? allAgents.filter((a) => a.name === only) : allAgents;
 
   const results: any[] = [];
+  if (only) {
+    try {
+      const prev = JSON.parse(require('fs').readFileSync(resolve(__dirname, 'results.json'), 'utf-8'));
+      for (const c of prev.results) if (c.agent !== only) results.push(c);
+    } catch { /* sin previo */ }
+  }
   let idx = 0;
   for (const task of TASKS) {
     for (const agent of agents) {
