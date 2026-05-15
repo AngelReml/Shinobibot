@@ -18,11 +18,11 @@ con guardrails diseñados para que el LLM no entre en bucles destructivos.
 
 ### Mensajes clave
 
-> **🛡️ Compatible con el estándar Anthropic Skills (1.2M+ skills disponibles)** — único agente que audita criptográficamente cada skill antes de ejecutarla con committee multi-modelo y código fuente literal.
+> **🛡️ Compatible con el estándar Anthropic Skills (1.2M+ skills disponibles)** — audita cada skill con committee multi-modelo + signing SHA256 antes de cargarla. (Hermes tiene escáner pre-install propio con ~70 patrones; el diferenciador real de Shinobi es el voting multi-modelo, no la auditoría en sí.)
 >
-> **🏠/☁️ Modo dual**: local Windows para usuarios individuales + modo VPS aislado para uso 24/7 sin riesgo sobre la máquina del usuario.
+> **🏠/☁️ Modo dual**: local Windows para usuarios individuales + modo VPS aislado para uso 24/7 sin riesgo sobre la máquina del usuario. (Paridad con Hermes; el plus de Shinobi es ser Windows-native.)
 >
-> **🎯 Posicionamiento**: Hermes para personal/principiantes, OpenCloud para enterprise, **Shinobi cubre ambos extremos** con seguridad por defecto.
+> **🎯 Posicionamiento**: Hermes para personal/principiantes Linux-first, OpenClaw para enterprise multi-canal, **Shinobi para Windows con auditabilidad y reproducibilidad superiores** (audit log unificado JSONL, registry con rollback formal, committee multi-modelo, memory reflector auditable).
 
 ### ¿Por qué Shinobi (y no Hermes / OpenClaw / Claude Code)?
 
@@ -40,21 +40,24 @@ Tres cosas que **ningún otro agente del mercado tiene a la vez**:
 | Context compactor heurístico idempotente | LLM-based (costoso) | sí | ❌ | ✅ sin round-trip extra |
 | Token budget visible (`/api/token-budget`) | ❌ | ❌ | ❌ | ✅ |
 | Plugin manifest fail-fast | ❌ | ✅ (100+ types) | ❌ | ✅ schema simple |
-| Modular por bloques (no monolítico) | ❌ (`run_agent.py` 15k LOC) | ❌ (plugin SDK enorme) | n/a | ✅ |
-| Enrutador semántico de modelos (ahorra ~95% tokens) | ✅ | ❌ | n/a | ✅ activable vía env |
-| Auto-skill generation por patrones de uso | ❌ | ❌ | ❌ | ✅ 3+ repeticiones → propone skill |
-| Auto-reflexión cada N mensajes (contradicciones+prefs) | ❌ | ❌ | ❌ | ✅ |
-| Modo VPS aislado (Docker compose + túnel SSH, no IP pública) | ✅ | ❌ | n/a | ✅ generador artefactos |
-| Soul/Alma configurable (sobrio/kawaii/samurai/custom) | ✅ | ❌ | n/a | ✅ env o `soul.md` |
-| STT local (whisper.cpp, sin internet) | ✅ | ❌ | n/a | ✅ |
-| Secret redactor en logs+audit + backup GitHub privado | ❌ | ❌ | ❌ | ✅ 13 patrones |
-| Self-debug heurístico (10 patrones de error+fix) | ❌ | ❌ | ❌ | ✅ |
-| Mission replay desde audit.jsonl (timeline+summary+dryRun) | ❌ | ❌ | ❌ | ✅ |
-| Multi-user con scoped dirs y permisos (owner/collab/guest) | ❌ | ❌ | ❌ | ✅ |
-| A2A protocol (envelope v1 + bearer/HMAC + agent_card) | ❌ | ❌ | ❌ | ✅ |
-| Benchmark público reproducible (20 tareas / 6 cat.) | ❌ | ❌ | ❌ | ✅ [BENCHMARK_M3](./BENCHMARK_M3.md) |
+| Modular por bloques (no monolítico) | ◐ (`run_agent.py` 11k LOC + bien factorizado) | ✅ extensiones | n/a | ✅ |
+| Enrutador semántico de modelos por complejidad | ◐ image_routing only | ◐ reasoning-level | n/a | ✅ activable vía env |
+| Auto-skill generation por patrones de tools (3+ reps) | ◐ curator post-transcript | ❌ | ❌ | ✅ |
+| Auto-reflexión cada N mensajes con markdown auditable | ◐ Honcho dialectic | ❌ (Dreaming distinto) | ❌ | ✅ |
+| Modo VPS aislado (Docker compose + túnel SSH) | ✅ entrypoint+linger | ❌ | n/a | ✅ generador artefactos |
+| Soul/persona configurable | ✅ `docker/SOUL.md` | ❌ | n/a | ✅ 3 built-ins + custom |
+| STT local sin internet | ✅ faster-whisper | ✅ skill openai-whisper | n/a | ✅ whisper.cpp |
+| Secret redactor en logs | ✅ `agent/redact.py` | ◐ | ❌ | ✅ 13 patrones |
+| Backup state (GitHub privado) | ✅ `hermes_cli/backup.py` | ❌ | ❌ | ✅ + audit redactado |
+| Self-debug heurístico patrón→fix estructurado | ◐ curator+insights | ❌ | ❌ | ✅ 10 patrones |
+| Mission replay con detección de divergencias | ◐ trajectory_compressor | ◐ ACP loadSession | ❌ | ✅ dryRunReplay |
+| Multi-user con scoped dirs y permisos | ◐ multi-session sin tenant | ◐ pairing sin scoping | ❌ | ✅ owner/collab/guest |
+| A2A / agent protocol | ✅ ACP oficial | ✅ ACP IDE-bridge | ❌ | ✅ envelope+HMAC |
+| Benchmark suite reproducible | ✅ tblite/yc/SWE/term | ◐ qa-lab interno | ❌ | ✅ [BENCHMARK_M3](./BENCHMARK_M3.md) (20 tareas, vs rivales: simulado) |
 
-Detalle técnico: ver [ARCHITECTURE.md](./ARCHITECTURE.md).
+**Veredicto honesto:** la tabla anterior afirmaba "única Shinobi" en varias filas que **son paridad con Hermes/OpenClaw**. Tras re-auditoría (`competitive_audit_M3_revisado.md`), Shinobi tiene **9 capacidades genuinamente exclusivas**: loop detector capa 3 (LLM judge), committee evolutivo, audit log unificado JSONL, registry con rollback formal, auto-skill por patrones de tools, memory reflector con markdown auditable, observability `/admin`+Prometheus, token budget endpoint, tools PowerShell Windows-native. El resto es paridad o ligera ventaja, no exclusividad.
+
+Detalle técnico: ver [ARCHITECTURE.md](./ARCHITECTURE.md) y [competitive_audit_M3_revisado.md](./competitive_audit_M3_revisado.md).
 
 ### Qué hace
 
@@ -274,11 +277,11 @@ ISC
 
 ### Key messages
 
-> **🛡️ Anthropic Skills standard compatible (1.2M+ skills available)** — the only agent that cryptographically audits each skill before execution with multi-model committee + literal source review.
+> **🛡️ Anthropic Skills standard compatible (1.2M+ skills available)** — audits each skill with multi-model committee + SHA256 signing before loading. (Hermes has its own pre-install scanner with ~70 patterns; Shinobi's real differentiator is the multi-model voting, not the audit itself.)
 >
-> **🏠/☁️ Dual mode**: local Windows for individual users + isolated VPS mode for 24/7 use without risking the operator's machine.
+> **🏠/☁️ Dual mode**: local Windows for individuals + isolated VPS mode for 24/7 use without risking the operator's machine. (Parity with Hermes; Shinobi's plus is being Windows-native.)
 >
-> **🎯 Positioning**: Hermes for personal/beginners, OpenCloud for enterprise, **Shinobi covers both extremes** with security by default.
+> **🎯 Positioning**: Hermes for personal/beginners Linux-first, OpenClaw for enterprise multi-channel, **Shinobi for Windows with superior auditability and reproducibility** (unified JSONL audit log, registry with formal rollback, multi-model committee, auditable memory reflector).
 
 ### Why Shinobi (and not Hermes / OpenClaw / Claude Code)?
 
