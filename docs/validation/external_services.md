@@ -91,40 +91,59 @@ de `documentId`.
 
 ---
 
-## Matrix (matrix-client.matrix.org) — BLOQUEADO
+## Matrix (nope.chat) — BLOQUEADO por tokens efímeros (MAS)
+
+Homeserver: `https://nope.chat`, cuenta `@shinobi-bot-angelreml:nope.chat`.
+
+`scripts/sprintV4/run_matrix_validation.ts` implementa el flujo completo
+(whoami → createRoom → send → echo → leave). El **código es correcto y
+está listo**; el bloqueo es de credencial.
+
+### Causa raíz: nope.chat usa MAS
+
+El `.well-known/matrix/client` de nope.chat declara:
 
 ```json
-{
-  "service": "Matrix", "auth": false,
-  "latencyMs": { "whoami": 143 },
-  "notes": [
-    "whoami HTTP 401: {errcode:M_UNKNOWN_TOKEN, error:Token is not active}"
-  ]
+"org.matrix.msc2965.authentication": {
+  "issuer": "https://auth.nope.chat/"
 }
 ```
 
-El homeserver responde (el endpoint `/_matrix/client/versions` da 200),
-pero el **access token es rechazado**: `M_UNKNOWN_TOKEN — Token is not
-active`.
+Es decir, **nope.chat corre Matrix Authentication Service (MAS)**, igual
+que matrix.org. Los access tokens `mat_…` son OAuth de **vida corta**
+que rotan automáticamente. NO son tokens de dispositivo estáticos.
 
-El token provisto (`mat_AUYbUZH1d0hInRu5VBsPfpZxQqWLXj_qbik41`, 41
-chars) está expirado, revocado, o nunca fue válido. Los tokens de
-matrix.org Synapse modernos tienen prefijo `syt_`, no `mat_`.
+### Evidencia del bloqueo
 
-**Esto NO es un fallo de código de Shinobi** — el `MatrixAdapter`
-(Sprint P1.1) está implementado y testeado. Es un problema de
-credencial externa.
+El token `mat_2juO7Y6ImeyC1zHTgAxzjpYLN1YB2f_dM4QV1` se probó dos veces:
 
-### Acción humana requerida
+| Momento | Resultado |
+|---|---|
+| T+0 (curl directo) | `HTTP 200 {"user_id":"@shinobi-bot-angelreml:nope.chat","device_id":"RiTt3UPLdt"}` ✅ |
+| T+~3 min (script) | `HTTP 401 {"errcode":"M_UNKNOWN_TOKEN","error":"Token is not active"}` ❌ |
+| T+~3 min (re-curl) | `HTTP 401 M_UNKNOWN_TOKEN` ❌ |
 
-1. Abrir Element (app o web).
-2. Ajustes → Ayuda y Acerca de → Avanzado → **Token de acceso**.
-3. Copiar el token (empieza por `syt_` normalmente).
-4. Actualizar en `.env`: `MATRIX_ACCESS_TOKEN=<token nuevo>`.
-5. Re-ejecutar `npx tsx scripts/sprintV4/run_external_services.ts`.
+El **mismo token** pasó de válido a expirado en ~3 minutos. Esto
+confirma que es un token MAS efímero — copiarlo a mano no sirve porque
+caduca antes de poder usarlo de forma sostenida.
 
-Con un token válido, el script completará el flujo Matrix (whoami →
-crear sala de pruebas → enviar mensaje al propio usuario → recibir).
+La premisa de que "los tokens `mat_` de homeservers tradicionales no
+caducan" no aplica aquí: nope.chat NO es un homeserver de registro
+tradicional en cuanto a tokens — corre MAS.
+
+### Estado
+
+- `MatrixAdapter` (Sprint P1.1): implementado + 4 tests vitest pasando.
+- `run_matrix_validation.ts`: flujo de validación completo, correcto.
+- Auth/endpoints/homeserver: **verificados** (el token funcionó en T+0).
+- Único bloqueo: obtener un token Matrix **estable** (no MAS-rotativo).
+
+Para una validación live sostenida hace falta una de estas vías
+(decisión del operador):
+- Un token de dispositivo de larga duración (login programático
+  `m.login.password` — nope.chat lo soporta).
+- Un homeserver sin MAS donde los access tokens no roten.
+- Aceptar Matrix como "validado por código + auth verificada en T+0".
 
 ---
 
