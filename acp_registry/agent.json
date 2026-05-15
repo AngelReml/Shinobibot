@@ -1,0 +1,44 @@
+{
+  "protocol": "acp/1",
+  "agent": {
+    "agentId": "shinobi",
+    "displayName": "Shinobi — Autonomous Windows agent",
+    "version": "0.3.2",
+    "homepage": "https://github.com/AngelReml/Shinobibot",
+    "license": "ISC",
+    "auth": "bearer",
+    "endpoint": "http://localhost:3333/acp",
+    "intents": ["ping", "capability_invoke", "memory_query", "mission_handoff", "health"],
+    "capabilities": [
+      {
+        "name": "windows_native_tools",
+        "description": "10 tools PowerShell-native: clipboard, process_list, system_info, disk_usage, env_list (con redact), network_info, registry_read (allowlist), task_scheduler_create, windows_notification."
+      },
+      {
+        "name": "loop_detector_v3",
+        "description": "Loop detector con 3 capas: args hash, output fingerprint, y LLM-judge de progreso vs objetivo declarado."
+      },
+      {
+        "name": "committee_voting",
+        "description": "Multi-model consensus con 7 roles dinámicos + pesos por historial + mediator heurístico."
+      },
+      {
+        "name": "skill_registry_rollback",
+        "description": "Skill registry con SHA256 signing, audit pre-install multi-modelo, deps graph y rollback formal."
+      },
+      {
+        "name": "audit_log_unified",
+        "description": "audit.jsonl unificado con tool_call + loop_abort + failover en un único stream grep-able."
+      },
+      {
+        "name": "mission_replay",
+        "description": "dryRunReplay de audit.jsonl con detección de divergencias contra ejecución original."
+      },
+      {
+        "name": "multi_user",
+        "description": "Scoped dirs y roles owner/collaborator/guest sobre el mismo runtime."
+      }
+    ]
+  },
+  "jsonRpcMethods": ["initialize", "session/new", "session/prompt", "session/cancel", "session/load"]
+}
