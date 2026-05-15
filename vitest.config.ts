@@ -17,6 +17,7 @@ export default defineConfig({
       'src/coordinator/__tests__/**/*.test.ts',
       'src/memory/__tests__/memory_citations.test.ts',
       'src/memory/__tests__/providers.test.ts',
+      'src/memory/dreaming/__tests__/**/*.test.ts',
       'src/observability/__tests__/**/*.test.ts',
       'src/memory/embedding_providers/__tests__/**/*.test.ts',
       'src/persistence/__tests__/missions_recurrent.test.ts',
