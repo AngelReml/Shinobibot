@@ -1,0 +1,56 @@
+# Sandbox Browser para Shinobi — paridad arquitectónica con OpenClaw.
+#
+# Levanta Chromium headed + noVNC + Xvfb dentro de un container para que
+# el agente pueda navegar webs reales SIN tocar el navegador del operador.
+# El operador puede VER lo que hace el agente abriendo
+# http://127.0.0.1:6080/vnc.html en su browser.
+#
+# Build:
+#   docker build -f Dockerfile.sandbox-browser -t shinobi-sandbox-browser:latest .
+#
+# Run (usar el compose, no docker run directo):
+#   docker compose -f docker-compose.sandbox-browser.yml up -d
+#
+# Se expone:
+#   - puerto 6080  → noVNC web UI (bind 127.0.0.1 sólo localhost)
+#   - puerto 9222  → Chromium CDP (bind 127.0.0.1 sólo localhost)
+
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    DISPLAY=:99 \
+    SCREEN_WIDTH=1280 \
+    SCREEN_HEIGHT=800 \
+    SCREEN_DEPTH=24 \
+    CHROMIUM_FLAGS="--no-sandbox --disable-gpu --disable-dev-shm-usage"
+
+# Paquetes mínimos. NO instalamos chrome-google (privativo) para mantener
+# imagen redistribuible.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        chromium \
+        xvfb \
+        x11vnc \
+        novnc \
+        websockify \
+        fluxbox \
+        ca-certificates \
+        wget \
+        dumb-init \
+    && rm -rf /var/lib/apt/lists/*
+
+# Usuario no-root para que el proceso de browser no corra como root.
+RUN useradd -m -s /bin/bash shinobi && \
+    mkdir -p /home/shinobi/.config/chromium && \
+    chown -R shinobi:shinobi /home/shinobi
+
+WORKDIR /home/shinobi
+USER shinobi
+
+# Script de arranque: Xvfb + fluxbox + chromium + x11vnc + websockify-novnc.
+COPY --chown=shinobi:shinobi scripts/sandbox/browser_entrypoint.sh /home/shinobi/entrypoint.sh
+RUN chmod +x /home/shinobi/entrypoint.sh
+
+EXPOSE 6080 9222
+
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["/home/shinobi/entrypoint.sh"]
