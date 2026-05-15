@@ -624,6 +624,35 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
     return true;
   }
 
+  // /sentinel <watch|ask|deep|list|forward|digest> — vigilancia tecnológica (V4.5)
+  if (trimmed.startsWith('/sentinel')) {
+    const argv = trimmed.slice('/sentinel'.length).trim();
+    const { handleSentinel } = await import('../sentinel/sentinel_command.js');
+    const { memoryProviderRegistry } = await import('../memory/provider_registry.js');
+    const { invokeLLM } = await import('../providers/provider_router.js');
+
+    const provider = await memoryProviderRegistry().getProvider();
+    const proposalLLM = async (prompt: string): Promise<string> => {
+      const r = await invokeLLM({ messages: [{ role: 'user', content: prompt }] });
+      if (!r.success) throw new Error(r.error || 'LLM falló');
+      return r.output;
+    };
+    const councilLLM = async (system: string, user: string): Promise<string> => {
+      const r = await invokeLLM({
+        messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+      });
+      if (!r.success) throw new Error(r.error || 'LLM falló');
+      return r.output;
+    };
+
+    try {
+      await handleSentinel(argv, { provider, proposalLLM, councilLLM });
+    } catch (e: any) {
+      console.error(`[sentinel] error: ${e?.message ?? e}`);
+    }
+    return true;
+  }
+
   // Not a recognised slash command.
   return false;
 }

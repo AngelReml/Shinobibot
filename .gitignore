@@ -53,6 +53,10 @@ docs/*
 audits/
 knowledge/
 
+# === Sentinel (FASE V4.5) — datos de runtime ===
+# config/sentinel/sources.yaml SÍ se versiona (template). data/sentinel es runtime.
+data/sentinel/
+
 # === whisper.cpp (FASE V3) — binarios platform-specific + modelo ===
 # El modelo ggml-base.bin pesa ~147MB (supera el límite 100MB de GitHub).
 # Los binarios son platform-specific. Se regeneran con

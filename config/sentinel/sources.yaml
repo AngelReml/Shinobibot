@@ -1,0 +1,34 @@
+# Sentinel — fuentes de vigilancia tecnológica.
+#
+# Vacío al inicio. Añade tus fuentes públicas aquí (no paywall, no
+# privadas, no login).
+#
+# Schema de cada fuente:
+#   - type: youtube_channel | github_repo | rss
+#     id:   channel_id de YouTube  |  "owner/repo" de GitHub  |  URL del feed RSS
+#     name: nombre legible
+#     interval: 1d | 3d | 1w           # cada cuánto chequear
+#     whisper_threshold_minutes: 5     # si un video dura más, usa Whisper local
+#
+# Ejemplos (comentados — descoméntalos y edítalos):
+#
+# sources:
+#   - type: github_repo
+#     id: ggml-org/whisper.cpp
+#     name: whisper.cpp releases
+#     interval: 1w
+#     whisper_threshold_minutes: 5
+#
+#   - type: youtube_channel
+#     id: UCxxxxxxxxxxxxxxxxxxxxxx
+#     name: Canal de IA de ejemplo
+#     interval: 1w
+#     whisper_threshold_minutes: 5
+#
+#   - type: rss
+#     id: https://example.com/blog/feed.xml
+#     name: Blog de ejemplo
+#     interval: 3d
+#     whisper_threshold_minutes: 5
+
+sources: []
