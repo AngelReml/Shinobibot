@@ -109,6 +109,14 @@ export function signBody(body: string, secret: string): string {
   return createHmac('sha256', secret).update(body).digest('hex');
 }
 
+/** Comparación de strings en tiempo constante (evita timing oracle sobre el secreto). */
+export function safeStrEqual(a: string, b: string): boolean {
+  const ba = Buffer.from(a ?? '', 'utf-8');
+  const bb = Buffer.from(b ?? '', 'utf-8');
+  if (ba.length !== bb.length) return false;
+  return timingSafeEqual(ba, bb);
+}
+
 export function verifyHmac(body: string, signature: string, secret: string): boolean {
   if (!signature || !secret) return false;
   const expected = signBody(body, secret);
@@ -162,7 +170,7 @@ export class A2ADispatcher {
 
     const authMode = this.opts.auth ?? 'none';
     if (authMode === 'bearer') {
-      if (!auth?.bearer || auth.bearer !== this.opts.sharedSecret) {
+      if (!auth?.bearer || !safeStrEqual(auth.bearer, this.opts.sharedSecret ?? '')) {
         return this.errOut(env.traceId, 'unauthorized', t0, env);
       }
     } else if (authMode === 'hmac') {

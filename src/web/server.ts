@@ -494,9 +494,16 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     });
   });
 
+  // Bind a loopback por defecto: el servidor no tiene autenticación y expone
+  // el orquestrador (shell + file I/O). Exponerlo a la LAN debe ser una
+  // decisión explícita del operador vía SHINOBI_WEB_HOST=0.0.0.0.
+  const host = process.env.SHINOBI_WEB_HOST || '127.0.0.1';
   return new Promise((resolve) => {
-    server.listen(port, () => {
-      console.log(`[shinobi-web] Listening on http://localhost:${port}`);
+    server.listen(port, host, () => {
+      console.log(`[shinobi-web] Listening on http://${host}:${port}`);
+      if (host === '0.0.0.0') {
+        console.warn('[shinobi-web] AVISO: SHINOBI_WEB_HOST=0.0.0.0 — el servidor (sin auth) queda accesible desde la red.');
+      }
       resolve({ url: `http://localhost:${port}` });
     });
   });

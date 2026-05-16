@@ -43,8 +43,17 @@ import {
 const USER_CHAR_LIMIT_DEFAULT = 1375;
 const MEMORY_CHAR_LIMIT_DEFAULT = 2200;
 
-const USER_LIMIT = parseInt(process.env.SHINOBI_USER_CHAR_LIMIT || String(USER_CHAR_LIMIT_DEFAULT), 10);
-const MEM_LIMIT = parseInt(process.env.SHINOBI_MEMORY_CHAR_LIMIT || String(MEMORY_CHAR_LIMIT_DEFAULT), 10);
+function envCharLimit(name: string, def: number): number {
+  const raw = process.env[name];
+  if (!raw) return def;
+  const n = parseInt(raw, 10);
+  // Un valor malformado (NaN) desactivaría los límites en silencio
+  // (`total > NaN` siempre es false) — caemos al default.
+  return Number.isFinite(n) && n > 0 ? n : def;
+}
+
+const USER_LIMIT = envCharLimit('SHINOBI_USER_CHAR_LIMIT', USER_CHAR_LIMIT_DEFAULT);
+const MEM_LIMIT = envCharLimit('SHINOBI_MEMORY_CHAR_LIMIT', MEMORY_CHAR_LIMIT_DEFAULT);
 
 const USER_TEMPLATE = `# Nombre y ubicación
 (escribe aquí tu nombre, idioma preferido, zona horaria)
@@ -57,8 +66,7 @@ const USER_TEMPLATE = `# Nombre y ubicación
 §
 
 # Proyectos activos
-- Shinobi: C:\\Users\\angel\\Desktop\\shinobibot
-(añade rutas de tus proyectos clave)
+(añade rutas de tus proyectos clave — ej. "MiApp: C:\\Users\\<tu-usuario>\\Desktop\\miapp")
 
 §
 

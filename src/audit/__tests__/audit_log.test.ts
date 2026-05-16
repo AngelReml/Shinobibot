@@ -143,9 +143,13 @@ describe('audit_log no lanza si algo va mal', () => {
     // El contrato real: el audit es best-effort, jamás bloquea el flujo del
     // agente. La función puede devolver true (algunos OS aceptan el path) o
     // false (otros rechazan); lo importante es que NO LANCE.
-    process.env.SHINOBI_AUDIT_LOG_PATH = '<invalid>|*?.jsonl';
+    const reservedPath = '<invalid>|*?.jsonl';
+    process.env.SHINOBI_AUDIT_LOG_PATH = reservedPath;
     expect(() =>
       logToolCall({ tool: 'x', args: {}, success: true, durationMs: 1 }),
     ).not.toThrow();
+    // En Linux esos caracteres son válidos y el archivo se crea de verdad;
+    // lo limpiamos para no dejar basura en el árbol del repo.
+    try { unlinkSync(reservedPath); } catch {}
   });
 });
