@@ -14,16 +14,30 @@
  *      Captura el caso "el LLM rota un parámetro irrelevante en cada
  *      intento pero el resultado observable es el mismo".
  *
- *   3) Capa de modo de fallo (v3 — incidente 2026-05-16):
+ *   3) Capa de modo de fallo (v3 — incidente 2026-05-16, revisada):
  *      Clasifica cada fallo en un "modo de fallo de ENTORNO" estable
- *      (browser caído, API key inválida, fichero inexistente, red). El
- *      K-ésimo fallo consecutivo del MISMO modo (default K=3) aborta con
- *      `LOOP_SAME_FAILURE` — aunque sean tools distintas con args distintos.
- *      Captura el caso que la capa 2 NO ve: el agente prueba 12 keywords con
- *      clean_extract, cada output menciona la keyword (fingerprints distintos)
- *      pero la CAUSA de fondo es la misma ("No browser on port 9222"). Cuando
- *      el bloqueo es del entorno, cambiar de táctica no progresa: hay que
- *      parar y pedir intervención humana.
+ *      (browser caído, API key inválida, fichero inexistente, red) y aborta
+ *      con `LOOP_SAME_FAILURE` — aunque sean tools distintas con args
+ *      distintos. Captura el caso que la capa 2 NO ve: el agente prueba 12
+ *      keywords con clean_extract, cada output menciona la keyword
+ *      (fingerprints distintos) pero la CAUSA de fondo es la misma ("No
+ *      browser on port 9222"). Cuando el bloqueo es del entorno, cambiar de
+ *      táctica no progresa: hay que parar y pedir intervención humana.
+ *
+ *      IMPORTANTE — el primer diseño (fallos CONSECUTIVOS) falló en prueba
+ *      real: Shinobi intercaló otras tools (taskkill, sleeps, screen_observe)
+ *      entre los fallos de browser, reseteando el contador, y llegó a la
+ *      iteración 10 sin abortar (fallos en iter 4, 5, 8 — no consecutivos).
+ *      La capa 3 NO cuenta consecutivos. Usa DOS señales que ignoran lo que
+ *      pase entre medias:
+ *        a) Contador ACUMULATIVO por modo: total de veces que el modo X
+ *           ocurre en TODA la misión. Nunca se resetea. Si llega a
+ *           `maxSameFailureMode` (default 3) → abort. Es el backstop duro.
+ *        b) Ventana DESLIZANTE: ≥ `failureWindowThreshold` (default 3) fallos
+ *           del mismo modo dentro de las últimas `failureWindowSize`
+ *           (default 6) llamadas → abort. Caza el "clustering" cuando el
+ *           umbral acumulativo se ha subido mucho a propósito.
+ *      Aborta la que dispare primero.
  *
  * Diferencia clave vs Hermes (no tiene loop detector) y OpenClaw (sin
  * detector explícito): aquí hay TRES señales independientes — incluso si
@@ -109,10 +123,21 @@ export interface LoopDetectorConfig {
    */
   maxSameOutput?: number;
   /**
-   * Fallos consecutivos del mismo modo de fallo de entorno (browser caído,
-   * API key inválida, etc.) que disparan abort (default 3). Capa 3.
+   * Capa 3 — contador ACUMULATIVO: nº total de fallos del mismo modo de
+   * entorno en toda la misión que disparan abort (default 3). NO se resetea
+   * con éxitos ni con otras tools intercaladas.
    */
   maxSameFailureMode?: number;
+  /**
+   * Capa 3 — tamaño de la ventana deslizante (nº de llamadas a `recordOutcome`
+   * recientes que se inspeccionan, default 6).
+   */
+  failureWindowSize?: number;
+  /**
+   * Capa 3 — fallos del mismo modo dentro de la ventana deslizante que
+   * disparan abort (default 3).
+   */
+  failureWindowThreshold?: number;
   /** Longitud máxima del fingerprint reducido (default 200 chars). */
   fingerprintLength?: number;
 }
@@ -128,6 +153,8 @@ const DEFAULTS: Required<LoopDetectorConfig> = {
   maxRepeatArgs: 2,
   maxSameOutput: 3,
   maxSameFailureMode: 3,
+  failureWindowSize: 6,
+  failureWindowThreshold: 3,
   fingerprintLength: 200,
 };
 
@@ -177,10 +204,14 @@ export class LoopDetector {
   private readonly argsCounts = new Map<string, number>();
   /** Map<toolName + ':' + fingerprint, count>. */
   private readonly outputCounts = new Map<string, number>();
-  /** Capa 3: modo de fallo de entorno de la racha actual (null = sin racha). */
-  private currentFailureMode: FailureMode | null = null;
-  /** Capa 3: nº de fallos consecutivos del modo `currentFailureMode`. */
-  private currentFailureRun = 0;
+  /** Capa 3: contador acumulativo por modo de fallo (NUNCA se resetea). */
+  private readonly failureModeTotals = new Map<FailureMode, number>();
+  /**
+   * Capa 3: ventana deslizante de los últimos resultados. Cada entrada es el
+   * modo de fallo de entorno de esa llamada, o `null` (éxito / fallo no de
+   * entorno). Se mantiene acotada a `failureWindowSize`.
+   */
+  private readonly outcomeWindow: (FailureMode | null)[] = [];
 
   constructor(cfg: LoopDetectorConfig = {}) {
     this.cfg = { ...DEFAULTS, ...cfg };
@@ -231,44 +262,58 @@ export class LoopDetector {
   }
 
   /**
-   * Capa 3 (modo de fallo). Llamar después de ejecutar la tool, con su
-   * éxito/error. Detecta K fallos consecutivos que comparten el mismo modo de
-   * fallo de ENTORNO (browser caído, API key inválida, fichero inexistente,
-   * red) — aunque sean tools distintas con args distintos. En ese caso el
-   * agente no puede progresar cambiando de táctica: debe parar y pedir
-   * intervención humana en lugar de, p.ej., cerrar ventanas con Alt+F4.
+   * Capa 3 (modo de fallo). Llamar después de ejecutar CADA tool, con su
+   * éxito/error. Detecta bloqueo de ENTORNO repetido (browser caído, API key
+   * inválida, fichero inexistente, red) — aunque sean tools distintas con args
+   * distintos Y aunque haya éxitos u otras tools intercalados entre los fallos.
    *
-   * La racha se rompe (contador a 0) ante un éxito, o ante un fallo que no se
-   * clasifica como de entorno (probable bug del agente). Un fallo de un modo
-   * de entorno distinto reinicia la racha a ese modo nuevo.
+   * NO cuenta fallos consecutivos (ese diseño falló en prueba real: el agente
+   * intercala taskkill/sleeps/screen_observe entre fallos de browser). Usa dos
+   * señales independientes, aborta la primera que dispare:
+   *   a) Contador ACUMULATIVO por modo — total en toda la misión, nunca se
+   *      resetea. ≥ `maxSameFailureMode` → abort.
+   *   b) Ventana DESLIZANTE — ≥ `failureWindowThreshold` fallos del mismo modo
+   *      en las últimas `failureWindowSize` llamadas → abort.
+   *
+   * Éxitos y fallos no-de-entorno ocupan un hueco en la ventana pero NO
+   * incrementan ningún contador (no rompen la detección, solo desplazan).
    */
   recordOutcome(toolName: string, success: boolean, error?: unknown): LoopCheckResult {
-    if (success) {
-      this.currentFailureMode = null;
-      this.currentFailureRun = 0;
-      return { abort: false };
+    const mode: FailureMode | null = success ? null : classifyFailureMode(error);
+
+    // Toda llamada ocupa un hueco en la ventana deslizante (éxito o fallo).
+    this.outcomeWindow.push(mode);
+    if (this.outcomeWindow.length > this.cfg.failureWindowSize) {
+      this.outcomeWindow.shift();
     }
-    const mode = classifyFailureMode(error);
-    if (!mode) {
-      // Fallo no clasificable como entorno — no cuenta para la capa 3 y
-      // rompe cualquier racha previa (la situación cambió).
-      this.currentFailureMode = null;
-      this.currentFailureRun = 0;
-      return { abort: false };
-    }
-    if (mode === this.currentFailureMode) {
-      this.currentFailureRun += 1;
-    } else {
-      this.currentFailureMode = mode;
-      this.currentFailureRun = 1;
-    }
-    if (this.currentFailureRun >= this.cfg.maxSameFailureMode) {
+
+    // Éxito o fallo no clasificable como entorno: no incrementa contadores.
+    // (Un bug del agente SÍ se arregla cambiando de táctica — no es capa 3.)
+    if (!mode) return { abort: false };
+
+    // a) Contador acumulativo — backstop duro, ignora todo lo intercalado.
+    const total = (this.failureModeTotals.get(mode) ?? 0) + 1;
+    this.failureModeTotals.set(mode, total);
+    if (total >= this.cfg.maxSameFailureMode) {
       return {
         abort: true,
         verdict: 'LOOP_SAME_FAILURE',
         reason: `env_failure:${mode}`,
+        hash: `cumulative:${total}`,
       };
     }
+
+    // b) Ventana deslizante — clustering reciente del mismo modo.
+    const inWindow = this.outcomeWindow.reduce((n, m) => (m === mode ? n + 1 : n), 0);
+    if (inWindow >= this.cfg.failureWindowThreshold) {
+      return {
+        abort: true,
+        verdict: 'LOOP_SAME_FAILURE',
+        reason: `env_failure:${mode}`,
+        hash: `window:${inWindow}/${this.outcomeWindow.length}`,
+      };
+    }
+
     return { abort: false };
   }
 }
@@ -281,9 +326,13 @@ export function loopDetectorConfigFromEnv(): LoopDetectorConfig {
   const args = Number(process.env.SHINOBI_LOOP_MAX_REPEAT_ARGS);
   const output = Number(process.env.SHINOBI_LOOP_MAX_SAME_OUTPUT);
   const failMode = Number(process.env.SHINOBI_LOOP_MAX_SAME_FAILURE);
+  const winSize = Number(process.env.SHINOBI_LOOP_FAILURE_WINDOW_SIZE);
+  const winThreshold = Number(process.env.SHINOBI_LOOP_FAILURE_WINDOW_THRESHOLD);
   return {
     maxRepeatArgs: Number.isFinite(args) && args > 0 ? args : undefined,
     maxSameOutput: Number.isFinite(output) && output > 0 ? output : undefined,
     maxSameFailureMode: Number.isFinite(failMode) && failMode > 0 ? failMode : undefined,
+    failureWindowSize: Number.isFinite(winSize) && winSize > 0 ? winSize : undefined,
+    failureWindowThreshold: Number.isFinite(winThreshold) && winThreshold > 0 ? winThreshold : undefined,
   };
 }
