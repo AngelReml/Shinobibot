@@ -13,6 +13,7 @@ import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import { isDestructive, requestApproval } from '../security/approval.js';
 import { diagnoseError } from '../selfdebug/self_debug.js';
+import { recordToolPattern } from '../skills/pattern_wiring.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -227,6 +228,9 @@ export class ShinobiOrchestrator {
         // If the LLM just responds with text, we are done
         if (!responseMessage.tool_calls || responseMessage.tool_calls.length === 0) {
           await this.memory.addMessage({ role: 'assistant', content: responseMessage.content || '' });
+          // P2 — usage_pattern_detector: registra la secuencia de tools de
+          // esta misión exitosa; si un patrón se repite 3×, propone una skill.
+          try { recordToolPattern(toolSequence); } catch { /* best-effort */ }
           return {
             verdict: 'VALID_AGENT',
             mode: this.mode,
