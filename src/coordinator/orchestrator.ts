@@ -14,6 +14,7 @@ import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import { isDestructive, requestApproval } from '../security/approval.js';
 import { diagnoseError } from '../selfdebug/self_debug.js';
 import { recordToolPattern } from '../skills/pattern_wiring.js';
+import { IterationBudget } from './iteration_budget.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -115,8 +116,11 @@ export class ShinobiOrchestrator {
       : allTools;
     const openAITools = toOpenAITools(availableTools);
 
+    // P2 — iteration_budget: el cap de turnos del loop ahora es un
+    // IterationBudget (consumible, con snapshot), configurable por env, en
+    // vez de un `maxIterations = 10` hardcodeado.
+    const budget = new IterationBudget(Number(process.env.SHINOBI_MAX_ITERATIONS) || 10);
     let iteration = 0;
-    const maxIterations = 10;
 
     // P2 — model_router: clasifica la complejidad del input y, si está
     // activado (SHINOBI_MODEL_ROUTER=1), enruta a un modelo/provider acorde.
@@ -147,9 +151,9 @@ export class ShinobiOrchestrator {
     // intento pero el resultado observable no cambia.
     const loopDetector = new LoopDetector(loopDetectorConfigFromEnv());
 
-    while (iteration < maxIterations) {
+    while (budget.consume()) {
       iteration++;
-      console.log(`[Shinobi] Let the LLM decide (Iter ${iteration})...`);
+      console.log(`[Shinobi] Let the LLM decide (Iter ${iteration}/${budget.snapshot().total})...`);
 
       try {
         // [B2-DEPRECATED]
