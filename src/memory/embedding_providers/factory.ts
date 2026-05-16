@@ -11,6 +11,7 @@
  * (en el caso local, cargar el modelo ONNX cuesta segundos).
  */
 
+import { createRequire } from 'module';
 import { HashEmbeddingProvider } from './hash_provider.js';
 import { LocalEmbeddingProvider } from './local_provider.js';
 import { OpenAIEmbeddingProvider } from './openai_provider.js';
@@ -30,13 +31,13 @@ function pickProviderName(): EmbeddingProviderName {
   if (explicit === 'local' || explicit === 'openai' || explicit === 'hash') {
     return explicit;
   }
-  // Autodetect: el módulo está instalado en package.json → asumimos local.
-  // Si el usuario quiere openai, lo declara explícito.
+  if (process.env.SHINOBI_FORCE_HASH_EMBED === '1') return 'hash';
+  // Autodetect: si `@huggingface/transformers` se resuelve en disco usamos
+  // `local`. Si no (ej. build .exe sin el módulo bundle), caemos a `openai`
+  // cuando hay key, o al `hash` determinístico como último recurso.
   try {
-    // require.resolve sin ejecutar el módulo — solo verifica que existe en disk.
-    // (No usamos createRequire por consistencia con el resto del repo.)
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    if (process.env.SHINOBI_FORCE_HASH_EMBED === '1') return 'hash';
+    const require = createRequire(import.meta.url);
+    require.resolve('@huggingface/transformers');
     return 'local';
   } catch {
     if (process.env.OPENAI_API_KEY) return 'openai';

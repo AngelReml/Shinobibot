@@ -323,11 +323,7 @@ export class Committee {
     const winningRisk = (Object.entries(tally).sort((a, b) => b[1] - a[1])[0][0]) as 'low' | 'medium' | 'high';
     const winningCount = tally[winningRisk];
     const total = validSyntheses.length;
-    const confidence: 'high' | 'medium' | 'low' =
-      winningCount === total ? 'high' :
-      winningCount >= Math.ceil(total / 2) + (total % 2 === 0 ? 0 : 0) ? 'medium' :
-      'low';
-    // Above: high = unanimous; medium = majority; low = plurality only.
+    // high = unánime; medium = mayoría real (>50%); low = solo pluralidad.
     const sharperConfidence: 'high' | 'medium' | 'low' =
       winningCount === total ? 'high' :
       winningCount > total / 2 ? 'medium' :

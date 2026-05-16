@@ -54,12 +54,14 @@ export function classifyProviderError(error: string | undefined): ErrorClass {
     return 'rate_limit';
   }
 
-  // 3) Errores de red / transitorios.
+  // 3) Errores de red / transitorios. El código 5xx solo se considera
+  //    transitorio si aparece en contexto HTTP/estado — un `5\d{2}` suelto
+  //    (un puerto, un contador) no debe disparar una rotación de provider.
   if (
     /econnrefused|enotfound|etimedout|socket\s+hang\s+up/.test(e) ||
     /connection\s+(error|reset|closed)/.test(e) ||
     /timeout/.test(e) ||
-    /\b5\d{2}\b/.test(error) ||
+    (/\b5\d{2}\b/.test(e) && /(http|status|server\s*error|internal\s+server|response)/.test(e)) ||
     /service\s+unavailable|bad\s+gateway|gateway\s+timeout/.test(e)
   ) {
     return 'transient';

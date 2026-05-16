@@ -51,10 +51,22 @@ export class OpenAIEmbeddingProvider implements EmbeddingBackend {
       if (!Array.isArray(data) || data.length !== chunk.length) {
         throw new Error(`OpenAI embeddings: respuesta inesperada (len=${data?.length}, esperado ${chunk.length})`);
       }
+      // La API no garantiza que `data[]` venga en el orden del input — cada
+      // row trae su `index`. Colocamos por index para no escribir embeddings
+      // en las memorias equivocadas.
+      const ordered: number[][] = new Array(chunk.length);
       for (const row of data) {
         const vec = row?.embedding;
         if (!Array.isArray(vec)) throw new Error('OpenAI embeddings: vector ausente en row');
-        results.push(l2Normalize(vec));
+        const idx = typeof row.index === 'number' ? row.index : -1;
+        if (idx < 0 || idx >= chunk.length) {
+          throw new Error(`OpenAI embeddings: index fuera de rango (${idx})`);
+        }
+        ordered[idx] = l2Normalize(vec);
+      }
+      for (let j = 0; j < chunk.length; j++) {
+        if (!ordered[j]) throw new Error(`OpenAI embeddings: falta vector para index ${j}`);
+        results.push(ordered[j]);
       }
     }
     return results;

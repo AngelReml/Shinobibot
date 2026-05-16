@@ -35,6 +35,7 @@ import {
   type ParsedSkill,
   type SkillFrontmatter,
 } from './skill_md_parser.js';
+import { signSkill, verifySkill } from './skill_signing.js';
 import { invokeLLMViaOpenRouter } from '../cloud/openrouter_fallback.js';
 import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
 
@@ -311,8 +312,11 @@ class SkillManagerImpl {
     if (!fs.existsSync(src)) return { ok: false, message: `pending skill not found: ${id}` };
     const parsed = parseSkillMd(fs.readFileSync(src, 'utf-8'));
     parsed.frontmatter.status = 'approved';
+    // Firma SHA256 + provenance al aprobar: loadApproved() la verifica y
+    // rechaza cualquier skill manipulada fuera de este flujo.
+    const signed = signSkill(parsed, { author: 'user' });
     const dst = path.join(this.approvedDir, `${id}.skill.md`);
-    fs.writeFileSync(dst, serializeSkillMd(parsed), 'utf-8');
+    fs.writeFileSync(dst, serializeSkillMd(signed), 'utf-8');
     fs.unlinkSync(src);
     this.loadApproved();
     const name = String(parsed.frontmatter.name || id);
@@ -357,6 +361,19 @@ class SkillManagerImpl {
       try {
         const filepath = path.join(this.approvedDir, f);
         const parsed = parseSkillMd(fs.readFileSync(filepath, 'utf-8'));
+        // Verificación de firma: una skill con hash que no cuadra fue
+        // manipulada fuera del flujo de aprobación → NO se carga (su body
+        // se inyecta en el system prompt del LLM). Las skills legacy sin
+        // firma se cargan, pero se anota el aviso para visibilidad.
+        const vr = verifySkill(parsed);
+        if (!vr.valid && vr.reason === 'hash_mismatch') {
+          errors.push(`${f}: firma inválida (hash_mismatch) — skill manipulada, no se carga`);
+          console.warn(`[skill-manager] ${f}: hash_mismatch — skill omitida por seguridad`);
+          continue;
+        }
+        if (!vr.valid && vr.reason === 'missing_signature') {
+          console.warn(`[skill-manager] ${f}: skill sin firma (legacy) — cargada con aviso`);
+        }
         out.push({
           id: f.replace(/\.skill\.md$/, ''),
           frontmatter: parsed.frontmatter,

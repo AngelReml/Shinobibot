@@ -20,7 +20,7 @@ npm test                 # vitest run — full suite
 npm run test:watch       # vitest watch mode
 npm run test:coverage    # vitest run --coverage
 npm run typecheck        # tsc --noEmit
-npm run dev              # ts-node-dev, hot reload
+npm run dev              # tsx watch scripts/shinobi.ts (hot reload)
 npm run tui              # Ink-based terminal UI (scripts/shinobi-tui.tsx)
 npm run bench            # benchmark suite (scripts/benchmarks/run.ts)
 npm run build:exe        # pkg build → Windows .exe (scripts/build_exe.ts)
@@ -35,11 +35,14 @@ npx vitest run -t "LOOP_DETECTED"      # filter by test name
 
 The real CLI/web entry points are `scripts/shinobi.ts` and
 `scripts/shinobi_web.ts`, run via `tsx` (see `shinobi.cmd` / `shinobi_web.cmd`).
-`package.json`'s `start`/`dev` point at `src/index.ts`, which is stale.
+`package.json`'s `start`/`dev` run `scripts/shinobi.ts` via `tsx`.
 
 ## Test layout — important
 
-- Active tests live in `src/**/__tests__/*.test.ts` and run under vitest.
+- `vitest.config.ts` uses an explicit **allowlist** of spec files in its
+  `include` array — NOT a blanket `**/*.test.ts` glob. A new
+  `src/**/__tests__/*.test.ts` file will NOT run until you add it to that
+  `include` list.
 - The `test_*.ts` files at the repo **root** are legacy specs in
   `main().catch(...)` style, not vitest. `vitest.config.ts` and
   `tsconfig.build.json` exclude them. They are being ported block by block —

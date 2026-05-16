@@ -37,6 +37,10 @@ describe('classifyProviderError', () => {
     expect(classifyProviderError(undefined)).toBe('unknown');
     expect(classifyProviderError('')).toBe('unknown');
   });
+  it('un número 5xx suelto sin contexto HTTP no se clasifica como transient', () => {
+    expect(classifyProviderError('processed 512 records before failing')).toBe('unknown');
+    expect(classifyProviderError('queue length 503')).toBe('unknown');
+  });
 });
 
 describe('shouldFailover', () => {
