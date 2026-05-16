@@ -148,7 +148,14 @@ const screenActTool: Tool = {
     KillSwitch.start();
     KillSwitch.reset();
 
-    const nut: any = await import('@nut-tree-fork/nut-js');
+    // Carga de nut-js protegida: si el binding nativo no está instalado, se
+    // devuelve un ToolResult limpio en vez de reventar con un stack crudo.
+    let nut: any;
+    try {
+      nut = await import('@nut-tree-fork/nut-js');
+    } catch (e: any) {
+      return { success: false, output: '', error: `screen_act no disponible: no se pudo cargar @nut-tree-fork/nut-js (${e?.message ?? e}).` };
+    }
     const { mouse, keyboard, screen, Button, Point, Key } = nut;
     keyboard.config.autoDelayMs = 20;
 
