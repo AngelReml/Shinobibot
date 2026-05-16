@@ -25,6 +25,7 @@
 import { appendFileSync, existsSync, mkdirSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { createHash } from 'crypto';
+import { redactSecrets } from '../security/secret_redactor.js';
 
 export type AuditEventKind = 'tool_call' | 'loop_abort' | 'failover';
 
@@ -100,7 +101,11 @@ export function writeAuditEvent(event: AuditEvent): boolean {
   try {
     const dir = dirname(path);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-    appendFileSync(path, JSON.stringify(event) + '\n', 'utf-8');
+    // Redacta secretos antes de persistir: el `argsPreview` de un tool_call
+    // puede contener una API key / token. Sin esto, audit.jsonl filtraría
+    // credenciales (hallazgo de la auditoría 2026-05-16).
+    const line = redactSecrets(JSON.stringify(event)).text;
+    appendFileSync(path, line + '\n', 'utf-8');
     return true;
   } catch {
     return false;
