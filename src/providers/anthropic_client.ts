@@ -65,8 +65,9 @@ export const anthropicClient: ProviderClient = {
   label: () => 'Anthropic (Claude)',
 
   async invokeLLM(payload: LLMChatPayload): Promise<CloudResponse> {
-    const key = process.env.SHINOBI_PROVIDER_KEY;
-    if (!key) return { success: false, output: '', error: 'Anthropic: SHINOBI_PROVIDER_KEY no está definida.' };
+    // Key específica primero, fallback a la genérica (failover cross-provider).
+    const key = process.env.ANTHROPIC_API_KEY || process.env.SHINOBI_PROVIDER_KEY;
+    if (!key) return { success: false, output: '', error: 'Anthropic: define ANTHROPIC_API_KEY (o SHINOBI_PROVIDER_KEY).' };
     const model = payload.model || process.env.SHINOBI_MODEL_DEFAULT || DEFAULT_MODEL;
     const { system, rest } = splitSystemAndMessages(payload.messages);
 

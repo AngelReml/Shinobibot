@@ -17,8 +17,11 @@ export const groqClient: ProviderClient = {
   label: () => 'Groq (Llama)',
 
   async invokeLLM(payload: LLMChatPayload): Promise<CloudResponse> {
-    const key = process.env.SHINOBI_PROVIDER_KEY;
-    if (!key) return { success: false, output: '', error: 'Groq: SHINOBI_PROVIDER_KEY no está definida.' };
+    // Key específica del provider primero, fallback a la genérica. Sin esto
+    // el failover cross-provider rotaba a Groq con la key de otro provider
+    // y daba 401 (hallazgo de la auditoría 2026-05-16).
+    const key = process.env.GROQ_API_KEY || process.env.SHINOBI_PROVIDER_KEY;
+    if (!key) return { success: false, output: '', error: 'Groq: define GROQ_API_KEY (o SHINOBI_PROVIDER_KEY).' };
     const model = payload.model || process.env.SHINOBI_MODEL_DEFAULT || DEFAULT_MODEL;
     try {
       const resp = await axios.post(`${BASE_URL}/chat/completions`, {
