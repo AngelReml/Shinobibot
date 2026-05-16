@@ -20,6 +20,7 @@
 //   server → client : { type:'conversation_title_updated', conversationId, title }
 
 import express from 'express';
+import { buildA2ADispatcher, shinobiAgentCard } from '../a2a/a2a_wiring.js';
 import { WebSocketServer } from 'ws';
 import http from 'http';
 import path from 'path';
@@ -320,6 +321,20 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     const { prometheusResponse } = await import('../observability/admin_dashboard.js');
     const r = prometheusResponse();
     res.type(r.contentType).send(r.body);
+  });
+
+  // P2 — A2A: discovery + dispatch para que otro agente invoque a Shinobi.
+  const a2aDispatcher = buildA2ADispatcher();
+  app.get('/.well-known/agent-card.json', (req, res) => {
+    res.json(shinobiAgentCard(`http://${req.headers.host}/a2a`));
+  });
+  app.post('/a2a', async (req, res) => {
+    const resp = await a2aDispatcher.dispatch(req.body, {
+      bearer: (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || undefined,
+      signature: typeof req.headers['x-a2a-signature'] === 'string' ? req.headers['x-a2a-signature'] : undefined,
+      rawBody: JSON.stringify(req.body),
+    });
+    res.status(resp.ok ? 200 : 400).json(resp);
   });
 
   const server = http.createServer(app);
