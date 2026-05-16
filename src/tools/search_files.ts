@@ -1,9 +1,15 @@
 /**
  * SearchFiles Tool — Search text content across files (like grep)
  */
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
+
+const DEFAULT_INCLUDE = ['*.ts', '*.js', '*.json', '*.py', '*.md', '*.txt', '*.css', '*.html'];
+// Patrón de fichero válido: extensiones / wildcards simples. Bloquea cualquier
+// metacarácter de shell (`&`, `|`, `;`, espacios ya separados) — cierra el
+// vector de command injection vía `include` (hallazgo de la auditoría).
+const SAFE_INCLUDE = /^[\w*.\-]+$/;
 
 const searchFilesTool: Tool = {
   name: 'search_files',
@@ -20,18 +26,30 @@ const searchFilesTool: Tool = {
 
   async execute(args: { query: string; path?: string; include?: string }): Promise<ToolResult> {
     const searchDir = path.resolve(args.path || '.');
-    const query = args.query.replace(/"/g, '\\"');
-
-    // Use findstr on Windows (always available)
-    let cmd: string;
-    if (args.include) {
-      cmd = `findstr /S /N /I /C:"${query}" ${args.include}`;
-    } else {
-      cmd = `findstr /S /N /I /C:"${query}" *.ts *.js *.json *.py *.md *.txt *.css *.html`;
+    const query = String(args.query ?? '');
+    if (!query) {
+      return { success: false, output: '', error: 'search_files requires a non-empty query.' };
     }
 
+    // Patrones de fichero validados uno a uno. execFile NO pasa por el shell,
+    // así que la query y los patrones van como argv directos: sin escape de
+    // comillas, sin riesgo de inyección.
+    let patterns: string[];
+    if (args.include) {
+      patterns = args.include.split(/\s+/).filter(Boolean);
+      const bad = patterns.find(p => !SAFE_INCLUDE.test(p));
+      if (bad) {
+        return { success: false, output: '', error: `Invalid include pattern: "${bad}". Use e.g. "*.ts".` };
+      }
+    } else {
+      patterns = DEFAULT_INCLUDE;
+    }
+
+    // findstr /C:<literal> — la query va pegada al flag como un único argv.
+    const findstrArgs = ['/S', '/N', '/I', `/C:${query}`, ...patterns];
+
     return new Promise((resolve) => {
-      exec(cmd, { cwd: searchDir, timeout: 15_000, encoding: 'utf-8', maxBuffer: 512 * 1024 }, (error, stdout) => {
+      execFile('findstr', findstrArgs, { cwd: searchDir, timeout: 15_000, encoding: 'utf-8', maxBuffer: 512 * 1024, windowsHide: true }, (_error, stdout) => {
         const lines = (stdout || '').trim().split('\n').filter(Boolean);
 
         if (lines.length === 0) {

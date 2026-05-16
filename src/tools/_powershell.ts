@@ -1,11 +1,17 @@
 /**
  * Helper común para los tools Windows-elite. Ejecuta un script PowerShell
- * con `powershell.exe -NoProfile -NonInteractive -Command` y captura
- * stdout/stderr. Maneja escape básico de strings para evitar inyección
- * cuando se construye el comando desde args del LLM.
+ * con `powershell.exe -NoProfile -NonInteractive -EncodedCommand` y captura
+ * stdout/stderr.
+ *
+ * El script se transporta como base64 UTF-16LE vía `-EncodedCommand`, en vez
+ * de interpolarlo en `-Command "..."`. Esto elimina por completo el vector
+ * de command injection (bug C3 de la auditoría 2026-05-16): no hay quoting
+ * de cmd.exe que escapar, así que un valor del LLM con comillas dobles ya no
+ * puede romper la línea de comandos. `psEscapeString`/`psLit` siguen siendo
+ * necesarios para embeber valores DENTRO del script de forma segura.
  */
 
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 
 export interface PsRunResult {
   success: boolean;
@@ -22,15 +28,21 @@ const DEFAULT_TIMEOUT_MS = 30_000;
  */
 export function runPowerShell(script: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<PsRunResult> {
   return new Promise((resolve) => {
-    exec(
-      `powershell.exe -NoProfile -NonInteractive -Command "${script.replace(/"/g, '\\"')}"`,
-      { timeout: timeoutMs, encoding: 'utf-8', maxBuffer: 4 * 1024 * 1024 },
-      (error, stdout, stderr) => {
+    // base64(UTF-16LE) — el formato que PowerShell espera en -EncodedCommand.
+    const encoded = Buffer.from(script, 'utf16le').toString('base64');
+    // execFile NO pasa por cmd.exe: los argumentos van directos al proceso,
+    // sin parseo de shell intermedio. Junto con -EncodedCommand, cierra el
+    // vector de inyección.
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-EncodedCommand', encoded],
+      { timeout: timeoutMs, encoding: 'utf-8', maxBuffer: 4 * 1024 * 1024, windowsHide: true },
+      (error: any, stdout, stderr) => {
         resolve({
           success: !error,
           stdout: stdout ?? '',
           stderr: stderr ?? '',
-          exitCode: (error?.code as number) ?? 0,
+          exitCode: typeof error?.code === 'number' ? error.code : (error ? 1 : 0),
         });
       }
     );
