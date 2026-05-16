@@ -178,6 +178,21 @@ export async function compactWithLLM(
   const newMessages = [...systemMsgs, synthetic, ...last];
   const afterTokens = estimateTokens(newMessages);
 
+  // Si el resumen NO reduce de verdad (caso típico en conversaciones
+  // cortas: el resumen markdown del LLM es más largo que los 2-4 mensajes
+  // originales), no se compacta — devolver lo original es lo correcto.
+  if (afterTokens >= beforeTokens) {
+    return {
+      messages,
+      compacted: false,
+      beforeTokens,
+      afterTokens: beforeTokens,
+      truncatedCount: 0,
+      droppedCount: 0,
+      method: 'skipped',
+    };
+  }
+
   return {
     messages: newMessages,
     compacted: true,

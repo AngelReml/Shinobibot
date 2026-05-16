@@ -6,7 +6,8 @@ import { Memory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
 import { MemoryStore } from '../memory/memory_store.js';
 import { skillManager } from '../skills/skill_manager.js';
-import { compactMessages } from '../context/compactor.js';
+import { compactMessages, type CompactionResult } from '../context/compactor.js';
+import { shouldUseLLM, compactWithLLM } from '../context/llm_compactor.js';
 import { tokenBudget } from '../context/token_budget.js';
 import { LoopDetector, loopDetectorConfigFromEnv, failureModeAdvice } from './loop_detector.js';
 import { toolEvents } from './tool_events.js';
@@ -206,9 +207,31 @@ export class ShinobiOrchestrator {
         // tool outputs antiguos y/o colapsamos turnos viejos para que el
         // último user input y los últimos turnos sigan intactos. Sin esto,
         // las sesiones >20 turnos rebotan por overflow en Anthropic/OpenAI.
-        const compaction = compactMessages(currentMessages, {
-          budgetTokens: Number(process.env.SHINOBI_CONTEXT_BUDGET) || 32_000,
-        });
+        const budgetTokens = Number(process.env.SHINOBI_CONTEXT_BUDGET) || 32_000;
+        // P2 — llm_compactor: si SHINOBI_COMPACTOR_MODE=llm|auto y procede,
+        // se usa compactación semántica vía LLM; si no (o si falla), se cae
+        // al compactor heurístico de siempre. Default heuristic = sin cambio.
+        let compaction: CompactionResult = { messages: currentMessages, compacted: false, beforeTokens: 0, afterTokens: 0, truncatedCount: 0, droppedCount: 0 };
+        const llmDecision = shouldUseLLM(currentMessages, { budgetTokens });
+        if (llmDecision.useLLM) {
+          const llmResult = await compactWithLLM(currentMessages, {
+            budgetTokens,
+            llmFn: async (prompt: string) => {
+              const r = await routedInvokeLLM({ messages: [{ role: 'user', content: prompt }], temperature: 0 } as any);
+              if (!r.success) throw new Error(r.error || 'llm compaction call failed');
+              try { return String(JSON.parse(r.output)?.content ?? r.output); } catch { return String(r.output ?? ''); }
+            },
+          });
+          if (llmResult.compacted) {
+            compaction = llmResult;
+            console.log(`[Shinobi] Context compacted (LLM, mode=${llmDecision.mode}): ${llmResult.droppedCount} mensajes resumidos`);
+          } else {
+            // LLM no comprimió (skip / error) → fallback al heurístico.
+            compaction = compactMessages(currentMessages, { budgetTokens });
+          }
+        } else {
+          compaction = compactMessages(currentMessages, { budgetTokens });
+        }
         if (compaction.compacted) {
           console.log(
             `[Shinobi] Context compacted: ${compaction.beforeTokens} → ` +
