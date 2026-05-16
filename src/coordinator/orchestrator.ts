@@ -10,6 +10,7 @@ import { tokenBudget } from '../context/token_budget.js';
 import { LoopDetector, loopDetectorConfigFromEnv, failureModeAdvice } from './loop_detector.js';
 import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
+import { isDestructive, requestApproval } from '../security/approval.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -256,9 +257,28 @@ export class ShinobiOrchestrator {
           } else {
             console.log(`       Args: ${JSON.stringify(functionArgs).substring(0, 100)}...`);
 
-            // Note: In a CLI interface, here is where we would prompt the user if tool.requiresConfirmation() is true.
-            // For now, we auto-execute.
-
+            // D-017 — gate de aprobación. Consulta el modo (off/smart/on) antes
+            // de ejecutar. 'smart' (default) solo frena operaciones destructivas;
+            // 'on' toda escritura/exec; 'off' nada. Si se deniega, el rechazo se
+            // devuelve como resultado de la tool para que el LLM lo vea y se
+            // adapte — el loop NO se rompe.
+            const approvalVerdict = isDestructive(functionName, functionArgs);
+            const approved = await requestApproval({
+              toolName: functionName,
+              args: functionArgs,
+              destructive: approvalVerdict.destructive,
+              reason: approvalVerdict.reason,
+            });
+            if (!approved) {
+              const denyReason = approvalVerdict.reason || 'requiere confirmación del usuario';
+              toolResultStr = JSON.stringify({
+                success: false,
+                error: `Acción no aprobada: "${functionName}" (${denyReason}). No se ejecutó. ` +
+                  `El usuario puede ajustar el modo con /approval [on|smart|off].`,
+              });
+              console.log(`  [⛔] Aprobación denegada: ${functionName}`);
+              logToolCall({ tool: functionName, args: functionArgs, success: false, durationMs: 0, error: 'approval_denied' });
+            } else {
             const t0 = Date.now();
             toolEvents().emitToolStarted({ tool: functionName, args: functionArgs });
             const result = await tool.execute(functionArgs);
@@ -340,6 +360,7 @@ export class ShinobiOrchestrator {
                 args: functionArgs,
               };
             }
+            } // fin del bloque `if (approved)`
           }
 
           // Append tool response to messages
