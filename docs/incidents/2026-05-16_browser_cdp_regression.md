@@ -212,7 +212,36 @@ Get-CimInstance Win32_Process -Filter "Name='comet.exe'"   # CommandLine sin fla
 Get-NetTCPConnection -LocalPort 9222 -State Listen          # puerto cerrado
 ```
 
+## Resolución — Opción A implementada (2026-05-16)
+
+Se eligió e implementó la **Opción A**. Verificación previa: **no hay autostart
+del navegador Comet** que compita (HKCU/HKLM `Run` solo tienen el *updater* de
+Comet con `--wake`; sin tareas programadas; carpeta de Inicio vacía) → no hay
+condición de carrera, la Opción A es limpia.
+
+Implementación:
+- **`scripts/setup_comet_cdp.ps1`** — script reproducible e idempotente que
+  crea el acceso directo **«Comet (CDP 9222)»** con el comando canónico
+  (`comet.exe --remote-debugging-port=9222 --no-first-run --no-default-browser-check`)
+  en el **Escritorio** y en la **carpeta de Inicio** (Startup).
+- Ejecutado: ambos `.lnk` creados y verificados (Target + Arguments correctos).
+- `docs/01_ecosystem.md` actualizado: el paso 1 del flujo operativo ahora
+  referencia el acceso directo.
+
+Efecto:
+- En el próximo inicio de sesión, Comet arranca con CDP en `:9222`
+  automáticamente (acceso directo en Inicio).
+- Mientras tanto, abrir Comet por el acceso directo del Escritorio.
+
+**Acción pendiente del usuario (no automatizable sin riesgo):** la instancia de
+Comet abierta ahora (PID 3580) corre sin el flag; los accesos directos no la
+afectan. Para activar el CDP sin reiniciar: cerrar Comet por completo y
+reabrirlo con el acceso directo. Shinobi NO cierra Comet por su cuenta (se
+perderían las pestañas del usuario — eso era la Opción C, descartada).
+
+No se modificó código de conexión: el problema nunca estuvo ahí.
+
 ## Estado
 
-Diagnóstico cerrado. **Fix NO implementado** — pendiente de que Iván revise y
-se decida la opción (A / B / C) en una sesión posterior.
+**Resuelto** (Opción A). Pendiente solo de que el usuario reabra Comet con el
+acceso directo (o reinicie sesión) para que el CDP quede activo.

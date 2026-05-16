@@ -28,13 +28,18 @@
 
 - Ruta actual del binario (post-reinstalación per-machine): `C:\Program Files\Perplexity\Comet\Application\comet.exe`
 - Comando para arrancar con CDP: `"C:\Program Files\Perplexity\Comet\Application\comet.exe" --remote-debugging-port=9222 --no-first-run --no-default-browser-check`
+- Acceso directo **«Comet (CDP 9222)»** (en el Escritorio y en la carpeta de
+  Inicio) lanza Comet con ese comando. Lo genera `scripts/setup_comet_cdp.ps1`.
+  Abrir Comet SIEMPRE por ese acceso directo. Ver incidente
+  `docs/incidents/2026-05-16_browser_cdp_regression.md`.
 - CDP en puerto 9222
 - Shinobi se conecta vía `chromium.connectOverCDP('http://localhost:9222')`
 - Sesiones del usuario (LinkedIn, Fiverr, etc.) se reusan: Shinobi opera con la sesión activa
 
 ## Flujo operativo correcto (validado)
 
-1. Arrancar Comet con CDP en 9222 (manualmente, comando arriba)
+1. Arrancar Comet con el acceso directo «Comet (CDP 9222)» del Escritorio
+   (al iniciar sesión arranca solo desde la carpeta de Inicio)
 2. Loguear cuentas relevantes en Comet (LinkedIn, Fiverr, Upwork, YouTube, Google/NotebookLM...)
 3. Arrancar OpenGravity: `npx tsx START_kernel.ts` desde la carpeta de OpenGravity
 4. Verificar kernel: `curl http://localhost:9900/health` debe devolver `{"status":"ok",...}`
