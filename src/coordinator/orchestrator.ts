@@ -11,6 +11,7 @@ import { LoopDetector, loopDetectorConfigFromEnv, failureModeAdvice } from './lo
 import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import { isDestructive, requestApproval } from '../security/approval.js';
+import { diagnoseError } from '../selfdebug/self_debug.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -309,6 +310,26 @@ export class ShinobiOrchestrator {
               console.log(`       ✅ Success`);
             } else {
               console.log(`       ❌ Failed: ${result.error}`);
+              // P2 — self_debug: cada fallo de tool se autodiagnostica. El
+              // diagnóstico (hipótesis de causa raíz + fix sugerido) se
+              // adjunta al resultado para que el LLM lo vea y se adapte.
+              try {
+                const report = diagnoseError({
+                  tool: functionName,
+                  args: functionArgs,
+                  error: String(result.error ?? 'unknown'),
+                });
+                const top = report.rootCauseHypotheses[0];
+                const fix = report.fixSuggestions[0];
+                toolResultStr = JSON.stringify({
+                  ...result,
+                  self_debug: {
+                    hypothesis: top ? `(${Math.round(top.confidence * 100)}%) ${top.cause}` : undefined,
+                    suggested_fix: fix ? `${fix.action} — ${fix.detail}` : undefined,
+                  },
+                });
+                console.log(`       🩺 self-debug: ${top?.cause ?? '(sin hipótesis)'}`);
+              } catch { /* self_debug es best-effort, nunca rompe el loop */ }
             }
             toolEvents().emitToolCompleted({
               tool: functionName,
