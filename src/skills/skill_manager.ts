@@ -35,6 +35,7 @@ import {
   type ParsedSkill,
   type SkillFrontmatter,
 } from './skill_md_parser.js';
+import { verifySkill } from './skill_signing.js';
 import { invokeLLMViaOpenRouter } from '../cloud/openrouter_fallback.js';
 import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
 
@@ -357,6 +358,18 @@ class SkillManagerImpl {
       try {
         const filepath = path.join(this.approvedDir, f);
         const parsed = parseSkillMd(fs.readFileSync(filepath, 'utf-8'));
+        // C9 — verifica la firma SHA256 al cargar. `hash_mismatch` = el
+        // SKILL.md se editó fuera del flujo de aprobación → se rechaza por
+        // posible manipulación. Una skill sin firma (legacy) se carga con
+        // aviso, no se bloquea (no rompe instalaciones previas).
+        const verdict = verifySkill(parsed);
+        if (!verdict.valid && verdict.reason === 'hash_mismatch') {
+          errors.push(`${f}: firma inválida (hash_mismatch) — skill rechazada por posible manipulación del SKILL.md`);
+          continue;
+        }
+        if (!verdict.valid && verdict.reason === 'missing_signature') {
+          console.warn(`[skill_manager] ${f}: skill sin firma (legacy) — cargada sin verificación de integridad`);
+        }
         out.push({
           id: f.replace(/\.skill\.md$/, ''),
           frontmatter: parsed.frontmatter,
