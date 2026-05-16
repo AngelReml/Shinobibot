@@ -13,10 +13,19 @@
  * fetch() prueba en orden hasta encontrar; la primera devuelve.
  */
 
+import { createHash } from 'crypto';
 import {
   type RemoteSkillMeta, type SkillBundle, type SkillSource,
   SkillNotFoundError,
 } from './types.js';
+
+/** Se lanza cuando el body de un bundle no coincide con su hash declarado. */
+export class SkillHashMismatchError extends Error {
+  constructor(name: string, source: string, declared: string, actual: string) {
+    super(`hash mismatch para '${name}' en fuente '${source}': declarado ${declared.slice(0, 12)}… ≠ real ${actual.slice(0, 12)}…`);
+    this.name = 'SkillHashMismatchError';
+  }
+}
 
 export interface FederatedRegistryOptions {
   sources?: SkillSource[];
@@ -66,6 +75,16 @@ export class FederatedSkillRegistry {
       if (!s.isConfigured()) continue;
       try {
         const bundle = await s.fetch(name, version);
+        // C10 — verifica que el body coincide con el hash declarado por la
+        // fuente. Una fuente comprometida podría servir un body distinto al
+        // hash anunciado; se rechaza y se prueba la siguiente fuente.
+        if (bundle.declaredHash) {
+          const actual = createHash('sha256').update(bundle.body).digest('hex');
+          if (actual.toLowerCase() !== bundle.declaredHash.toLowerCase()) {
+            lastError = new SkillHashMismatchError(name, s.id, bundle.declaredHash, actual);
+            continue;
+          }
+        }
         return { ...bundle, source: s.id };
       } catch (e) {
         lastError = e;
@@ -76,6 +95,9 @@ export class FederatedSkillRegistry {
       }
     }
     if (lastError instanceof SkillNotFoundError) throw lastError;
+    // Si la última fuente falló por hash manipulado, propaga ESE error (no
+    // un genérico "not found") para que el caller sepa que fue rechazo C10.
+    if (lastError instanceof SkillHashMismatchError) throw lastError;
     throw new SkillNotFoundError(name, 'federated');
   }
 }
