@@ -1,6 +1,7 @@
 import { MissionsStore, type RecurrentMission } from '../persistence/missions_recurrent.js';
 import { Notifier } from '../notifications/notifier.js';
 import { ShinobiOrchestrator } from '../coordinator/orchestrator.js';
+import { runDreamingCycle, dreamingEnabled } from '../memory/dreaming/dreaming_wiring.js';
 
 /**
  * Corre `p` con un límite de tiempo. Si `p` no resuelve en `ms`, la promesa
@@ -88,6 +89,16 @@ export class ResidentLoop {
   }
 
   private async tick(): Promise<void> {
+    // P2 — DreamingEngine: una vez al día (opt-in con SHINOBI_DREAMING_ENABLED=1)
+    // consolida la memoria del día en un dream file markdown.
+    if (dreamingEnabled()) {
+      try {
+        const d = await runDreamingCycle();
+        if (d.reports > 0) console.log(`[ResidentLoop] dreaming: ${d.reports} dream file(s) generados`);
+      } catch (e: any) {
+        console.error('[ResidentLoop] dreaming error:', e?.message ?? e);
+      }
+    }
     const due = this.store.getDueMissions();
     if (due.length === 0) return;
     for (const m of due) {
