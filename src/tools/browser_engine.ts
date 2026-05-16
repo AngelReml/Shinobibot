@@ -527,17 +527,20 @@ export async function visionAnalyze(page: Page, question: string): Promise<Visio
   if (!result.success) {
     return { success: false, error: result.error, screenshot_path: shot.path, model };
   }
+  // Parseo defensivo: si el provider devuelve texto plano en vez del JSON
+  // del message, NO se reporta "parse failed" — el texto ES el análisis.
+  let content = '';
   try {
     const msg = JSON.parse(result.output);
-    const content = typeof msg.content === 'string'
+    content = typeof msg.content === 'string'
       ? msg.content
       : Array.isArray(msg.content)
         ? msg.content.map((p: any) => p.text || '').join('')
         : '';
-    return { success: true, analysis: content, screenshot_path: shot.path, model };
-  } catch (e: any) {
-    return { success: false, error: `vision response parse failed: ${e.message}`, screenshot_path: shot.path, model };
+  } catch {
+    content = typeof result.output === 'string' ? result.output : String(result.output ?? '');
   }
+  return { success: true, analysis: content, screenshot_path: shot.path, model };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
