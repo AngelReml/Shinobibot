@@ -16,8 +16,9 @@ export const openaiClient: ProviderClient = {
   label: () => 'OpenAI (GPT-4)',
 
   async invokeLLM(payload: LLMChatPayload): Promise<CloudResponse> {
-    const key = process.env.SHINOBI_PROVIDER_KEY;
-    if (!key) return { success: false, output: '', error: 'OpenAI: SHINOBI_PROVIDER_KEY no está definida.' };
+    // Key específica primero, fallback a la genérica (failover cross-provider).
+    const key = process.env.OPENAI_API_KEY || process.env.SHINOBI_PROVIDER_KEY;
+    if (!key) return { success: false, output: '', error: 'OpenAI: define OPENAI_API_KEY (o SHINOBI_PROVIDER_KEY).' };
     const model = payload.model || process.env.SHINOBI_MODEL_DEFAULT || DEFAULT_MODEL;
     try {
       const resp = await axios.post(`${BASE_URL}/chat/completions`, {

@@ -18,8 +18,9 @@ export const openrouterClient: ProviderClient = {
   label: () => 'OpenRouter (todos)',
 
   async invokeLLM(payload: LLMChatPayload): Promise<CloudResponse> {
-    const key = process.env.SHINOBI_PROVIDER_KEY || process.env.OPENROUTER_API_KEY;
-    if (!key) return { success: false, output: '', error: 'OpenRouter: SHINOBI_PROVIDER_KEY (ni OPENROUTER_API_KEY) está definida.' };
+    // Key específica primero, fallback a la genérica (failover cross-provider).
+    const key = process.env.OPENROUTER_API_KEY || process.env.SHINOBI_PROVIDER_KEY;
+    if (!key) return { success: false, output: '', error: 'OpenRouter: define OPENROUTER_API_KEY (o SHINOBI_PROVIDER_KEY).' };
     const model = payload.model || process.env.SHINOBI_MODEL_DEFAULT || DEFAULT_MODEL;
     try {
       const resp = await axios.post(`${BASE_URL}/chat/completions`, {
