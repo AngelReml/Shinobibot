@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 const requireFn = createRequire(typeof __filename !== 'undefined' ? __filename : import.meta.url);
 const Database = requireFn('better-sqlite3');
+import type BetterSqlite3 from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -28,7 +29,7 @@ export interface RecurrentMission {
 }
 
 export class MissionsStore {
-  private db: Database.Database;
+  private db: BetterSqlite3.Database;
 
   constructor(dbPath?: string) {
     const defaultDir = path.join(process.env.APPDATA || os.homedir(), 'Shinobi');
