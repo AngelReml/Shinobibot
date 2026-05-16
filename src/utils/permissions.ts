@@ -4,29 +4,53 @@ import * as path from 'path';
  * Validates if a file path is safe to access.
  * Prevents directory traversal attacks and restricts access to the workspace.
  */
+/**
+ * Rutas de sistema sensibles que se rechazan siempre, estén o no dentro del
+ * workspace. Exportada para que los smoke tests (d017) la ejerciten.
+ */
+export const ABSOLUTE_PROHIBITED_PATHS = [
+  '/etc/passwd', '/etc/shadow', '/etc/sudoers', '/root', '/var/log',
+  'C:\\Windows\\System32', 'C:\\Windows\\System', 'C:\\Windows\\SysWOW64',
+];
+
+/**
+ * True si `child` es el propio `parent` o está contenido dentro de él.
+ * Robusto frente al bypass por prefijo de hermano (workspace "C:\app" NO
+ * debe permitir "C:\app-evil\x"): se compara con `path.relative`, no con
+ * `startsWith`.
+ */
+function isInsideDir(parent: string, child: string): boolean {
+  const rel = path.relative(parent, child);
+  // rel === '' → es el propio directorio. rel que empieza por '..' o es
+  // absoluto → está fuera.
+  return rel === '' || (!rel.startsWith('..' + path.sep) && rel !== '..' && !path.isAbsolute(rel));
+}
+
 export function validatePath(requestedPath: string, mode: 'read' | 'write' = 'read') {
   // In a real production system, this should be tightly bound to the actual workspace root.
   // For Shinobibot, we use the current working directory as the workspace root.
-  const workspaceRoot = process.env.WORKSPACE_ROOT || process.cwd();
-  
+  const workspaceRoot = path.resolve(process.env.WORKSPACE_ROOT || process.cwd());
+
   const resolvedPath = path.resolve(requestedPath);
-  
-  // Basic directory traversal check
-  if (!resolvedPath.startsWith(workspaceRoot)) {
+
+  // Directory traversal check — usa path.relative para que un directorio
+  // hermano con prefijo común NO pase el filtro (bug C5 de la auditoría).
+  if (!isInsideDir(workspaceRoot, resolvedPath)) {
     return {
       allowed: false,
       reason: `Access denied: Path ${resolvedPath} is outside the workspace root (${workspaceRoot}).`
     };
   }
 
-  // Prevent accessing sensitive system files directly
-  const sensitivePaths = [
-    '/etc/passwd', '/etc/shadow', '/root', '/var/log',
-    'C:\\Windows\\System32', 'C:\\Windows\\System',
-  ];
-  
-  if (sensitivePaths.some(p => resolvedPath.toLowerCase().startsWith(p.toLowerCase()))) {
-      return { allowed: false, reason: `Access denied: Sensitive system path.` };
+  // Prevent accessing sensitive system files directly. Se comprueba con
+  // límite de segmento (no startsWith pelado) para no rechazar de más.
+  const lowered = resolvedPath.toLowerCase();
+  const hit = ABSOLUTE_PROHIBITED_PATHS.some(p => {
+    const lp = p.toLowerCase();
+    return lowered === lp || lowered.startsWith(lp + '\\') || lowered.startsWith(lp + '/');
+  });
+  if (hit) {
+    return { allowed: false, reason: `Access denied: Sensitive system path.` };
   }
 
   return { allowed: true };

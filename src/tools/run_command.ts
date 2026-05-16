@@ -6,25 +6,55 @@ import { resolve as resolvePath, sep } from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { isDangerousCommand } from '../utils/permissions.js';
 
-// Patrones destructivos NO configurables por el LLM. Si el command crudo
-// contiene cualquiera de estos (case-insensitive), se rechaza antes de
-// ejecutar — esto incluye sustituir un mock por sed/awk.
-const DESTRUCTIVE_PATTERNS: string[] = [
-  'stop-process',
-  'kill',
-  'taskkill',
-  'wmic process',
-  'pkill',
-  'killall',
-  'rm -rf',
-  'rmdir /s',
-  'format',
-  'del /f',
+// Patrones destructivos NO configurables por el LLM. Si el command (tras
+// normalizar) hace match con cualquiera de estos, se rechaza antes de
+// ejecutar. Regex con límites de palabra: cubre más casos que el `includes`
+// de substring anterior y a la vez evita falsos positivos (`npm run format`,
+// `skill`, `string.format()` ya no se bloquean por error).
+const DESTRUCTIVE_PATTERNS: RegExp[] = [
+  // Matar procesos
+  /\bstop-process\b/i,
+  /\btaskkill\b/i,
+  /\bpkill\b/i,
+  /\bkillall\b/i,
+  /\bkill\b\s+-?\d/i,                       // kill 1234 / kill -9 1234
+  /\bwmic\s+process\b/i,
+  /\bget-process\b[^\n|]*\|\s*stop-process/i,
+  // Borrado masivo / recursivo
+  /\brm\s+-[a-z]*[rf]/i,                    // rm -rf, rm -fr, rm -r -f
+  /\brmdir\s+\/s/i,
+  /\brd\s+\/s/i,
+  /\bdel\s+\/[sfq]/i,
+  /\bremove-item\b[^\n]*-(recurse|force)/i,
+  /\bclear-content\b/i,
+  /\b(get-childitem|gci|ls|dir)\b[^\n|]*\|\s*remove-item/i,
+  // Formateo / disco
+  /\bformat\s+[a-z]:/i,                      // format C:
+  /\bformat-volume\b/i,
+  /\bmkfs\b/i,
+  /\bdd\s+if=/i,
+  /\bdiskpart\b/i,
+  /\bcipher\s+\/w/i,
+  />\s*\/dev\/(sd[a-z]|nvme|disk)/i,
+  // Registro / sistema
+  /\breg\s+delete\b/i,
+  /\bshutdown\b/i,
+  /\breboot\b/i,
+  /\bchmod\s+-[a-z]*r/i,                     // chmod -R sobre árboles
+  // Fork bomb
+  /:\s*\(\s*\)\s*\{/,
+  // PowerShell base64 — no se puede inspeccionar el payload, se rechaza.
+  /\s-e(nc|ncodedcommand)?\b\s+[a-z0-9+/=]{16,}/i,
 ];
+
+const DESTRUCTIVE_MSG =
+  'Comando rechazado: esta acción podría dañar el sistema. Pide al usuario que lo haga manualmente si es necesario.';
 
 // Comandos puramente de lectura/build que pueden operar fuera del workspace
 // raíz (ej. tsc compilando un proyecto adyacente, git status en otro repo).
-const READONLY_LEADERS = new Set(['git', 'node', 'npx', 'tsc']);
+// `node`/`npx` se EXCLUYEN a propósito: ejecutan código arbitrario y burlarían
+// el sandbox de cwd (hallazgo HIGH de la auditoría 2026-05-16).
+const READONLY_LEADERS = new Set(['git', 'tsc']);
 
 function normalizeDir(p: string): string {
   // resolvePath devuelve absoluto. Quitamos separador final para comparar
@@ -47,12 +77,14 @@ function firstToken(command: string): string {
 
 /** Devuelve mensaje de error si el comando viola la blacklist, o null si pasa. */
 export function checkDestructive(command: string): string | null {
-  const lower = command.toLowerCase();
+  // Normaliza: quita comillas, backticks y el `^` de escape de cmd.exe para
+  // que evasiones triviales (ki"ll, t^askkill, k`i`ll) no esquiven la lista.
+  const norm = command.replace(/['"`^]/g, '');
   for (const pat of DESTRUCTIVE_PATTERNS) {
-    if (lower.includes(pat)) {
-      return 'Comando rechazado: esta acción podría dañar el sistema. Pide al usuario que lo haga manualmente si es necesario.';
-    }
+    if (pat.test(norm)) return DESTRUCTIVE_MSG;
   }
+  // Segunda capa: patrones destructivos de utils/permissions.
+  if (isDangerousCommand(norm)) return DESTRUCTIVE_MSG;
   return null;
 }
 
