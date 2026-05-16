@@ -6,13 +6,17 @@
  * paró — probó 12 keywords distintas, luego run_command, luego screen_observe,
  * y finalmente intentó cerrar las ventanas del usuario con screen_act + Alt+F4.
  *
- * Lo que debe pasar ahora:
- *   1. screen_act RECHAZA de plano cualquier hotkey destructiva (Alt+F4,
- *      Ctrl+W, Ctrl+Q, Win+L, Alt+Tab…) — no se puede cerrar la ventana del
- *      usuario ni con force_confirm.
- *   2. El loop detector capa 3 PARA tras 3 fallos consecutivos del mismo modo
- *      de fallo de entorno (browser caído), aunque sean tools/args distintos,
- *      y pide intervención humana en vez de cambiar de táctica.
+ * --- ACTUALIZACIÓN tras 2ª prueba real con Iván ---
+ * El primer fix (capa 3 = "N fallos CONSECUTIVOS del mismo modo") NO funcionó
+ * en ejecución real: Shinobi intercaló otras tools (taskkill, sleeps,
+ * screen_observe) entre los fallos de browser, reseteando el contador. Llegó a
+ * la iteración 10 sin abortar (fallos browser_unavailable en iter 4, 5, 8 — no
+ * consecutivos). El test de regresión inicial pasaba porque simulaba fallos
+ * CONSECUTIVOS; la realidad es INTERCALADA.
+ *
+ * Este test ahora reproduce el comportamiento REAL observado: fallos del mismo
+ * modo intercalados con otras tools. La capa 3 ya no cuenta consecutivos —
+ * usa un contador acumulativo + una ventana deslizante.
  *
  * Doc del incidente: docs/incidents/2026-05-16_screen_act_hotkey_escape.md
  */
@@ -22,7 +26,7 @@ import {
   isDestructiveAction,
   normalizeKeyToken,
 } from '../../utils/screen_safety.js';
-import { LoopDetector, classifyFailureMode } from '../loop_detector.js';
+import { LoopDetector, classifyFailureMode, type FailureMode } from '../loop_detector.js';
 
 describe('Incidente 2026-05-16 — blacklist de hotkeys destructivas en screen_act', () => {
   it('Alt+F4 está bloqueado — screen_act nunca cierra la ventana del usuario', () => {
@@ -83,73 +87,100 @@ describe('Incidente 2026-05-16 — blacklist de hotkeys destructivas en screen_a
   });
 
   it('isDestructiveAction ya NO marca Alt+F4/Ctrl+W (los gestiona la blacklist dura)', () => {
-    // Alt+F4 y Ctrl+W pasan de "confirmable" a "bloqueado de plano": ya no
-    // deben aparecer como destructive en la capa de confirmación.
     expect(isDestructiveAction({ action: 'hotkey', hotkey: ['alt', 'f4'] }).destructive).toBe(false);
     expect(isDestructiveAction({ action: 'hotkey', hotkey: ['control', 'w'] }).destructive).toBe(false);
-    // Delete sigue siendo confirmable.
     expect(isDestructiveAction({ action: 'press_key', keys: ['delete'] }).destructive).toBe(true);
   });
 });
 
-describe('Incidente 2026-05-16 — loop detector capa 3 (modo de fallo de entorno)', () => {
+// --- Capa 3 del loop detector: fallo de entorno repetido NO consecutivo ----
+
+describe('Incidente 2026-05-16 — loop detector capa 3 (fallos de entorno INTERCALADOS)', () => {
   const browserErr = (kw: string) =>
     `clean_extract failed for "${kw}": No browser on port 9222 (CDP unavailable)`;
 
-  it('para tras 3 clean_extract que fallan por el mismo modo (browser caído)', () => {
+  it('aborta tras 3 fallos del mismo modo aunque NO sean consecutivos', () => {
     const d = new LoopDetector();
-    expect(d.recordOutcome('clean_extract', false, browserErr('gatos')).abort).toBe(false);
-    expect(d.recordOutcome('clean_extract', false, browserErr('perros')).abort).toBe(false);
-    const r = d.recordOutcome('clean_extract', false, browserErr('aves'));
+    // Fallo de browser, luego un éxito de otra tool, luego otro fallo, etc.
+    expect(d.recordOutcome('clean_extract', false, browserErr('a')).abort).toBe(false);
+    expect(d.recordOutcome('screen_observe', true).abort).toBe(false);
+    expect(d.recordOutcome('clean_extract', false, browserErr('b')).abort).toBe(false);
+    expect(d.recordOutcome('run_command', true).abort).toBe(false);
+    const r = d.recordOutcome('clean_extract', false, browserErr('c'));
     expect(r.abort).toBe(true);
     expect(r.verdict).toBe('LOOP_SAME_FAILURE');
     expect(r.reason).toBe('env_failure:browser_unavailable');
   });
 
-  it('detecta el mismo modo de fallo aunque cambie la tool y los args', () => {
-    // El incidente: 12× clean_extract → run_command → screen_observe, todas
-    // fallando por el browser. Distintas tools, mismo modo de fallo.
+  it('los éxitos intercalados NO resetean el contador acumulativo', () => {
     const d = new LoopDetector();
-    expect(d.recordOutcome('clean_extract', false, browserErr('noticias')).abort).toBe(false);
-    expect(d.recordOutcome('run_command', false, 'chrome is not running, devtools port closed').abort).toBe(false);
+    d.recordOutcome('clean_extract', false, browserErr('a'));
+    for (let i = 0; i < 5; i++) d.recordOutcome('web_search', true); // 5 éxitos seguidos
+    d.recordOutcome('clean_extract', false, browserErr('b'));
+    for (let i = 0; i < 5; i++) d.recordOutcome('web_search', true);
+    // 3er fallo de browser: pese a 10 éxitos intercalados, aborta.
+    expect(d.recordOutcome('clean_extract', false, browserErr('c')).abort).toBe(true);
+  });
+
+  it('un fallo no-de-entorno intercalado (taskkill rechazado) NO resetea', () => {
+    const d = new LoopDetector();
+    d.recordOutcome('clean_extract', false, browserErr('a'));
+    d.recordOutcome('run_command', false, 'Blocked destructive command: taskkill rejected by blacklist');
+    d.recordOutcome('clean_extract', false, browserErr('b'));
+    d.recordOutcome('screen_act', false, 'Blocked destructive hotkey — Alt+F4 closes the active window');
+    expect(d.recordOutcome('clean_extract', false, browserErr('c')).abort).toBe(true);
+  });
+
+  it('detecta el mismo modo aunque cambie la tool y los args', () => {
+    const d = new LoopDetector();
+    d.recordOutcome('clean_extract', false, browserErr('noticias'));
+    d.recordOutcome('run_command', false, 'chrome is not running, devtools port closed');
     const r = d.recordOutcome('screen_observe', false, 'cannot connect: devtools port 9222 refused');
     expect(r.abort).toBe(true);
     expect(r.verdict).toBe('LOOP_SAME_FAILURE');
   });
 
-  it('un éxito intermedio rompe la racha (no hay falso positivo)', () => {
+  it('modos de fallo distintos tienen contadores independientes', () => {
     const d = new LoopDetector();
-    d.recordOutcome('clean_extract', false, browserErr('a'));
-    d.recordOutcome('clean_extract', false, browserErr('b'));
-    expect(d.recordOutcome('web_search', true).abort).toBe(false); // éxito → reset
-    expect(d.recordOutcome('clean_extract', false, browserErr('c')).abort).toBe(false);
-    expect(d.recordOutcome('clean_extract', false, browserErr('d')).abort).toBe(false);
-    expect(d.recordOutcome('clean_extract', false, browserErr('e')).abort).toBe(true);
+    d.recordOutcome('clean_extract', false, browserErr('a'));   // browser 1
+    d.recordOutcome('http_get', false, 'ECONNREFUSED');         // network 1
+    d.recordOutcome('clean_extract', false, browserErr('b'));   // browser 2
+    d.recordOutcome('http_get', false, 'ETIMEDOUT');            // network 2
+    // browser llega a 3 antes que network → aborta por browser.
+    const r = d.recordOutcome('clean_extract', false, browserErr('c'));
+    expect(r.abort).toBe(true);
+    expect(r.reason).toBe('env_failure:browser_unavailable');
   });
 
-  it('un fallo de modo distinto rompe la racha (cuenta como racha nueva)', () => {
-    const d = new LoopDetector();
-    d.recordOutcome('clean_extract', false, browserErr('a'));
-    d.recordOutcome('clean_extract', false, browserErr('b'));
-    // Fallo de red: modo distinto → reinicia la racha a 1.
-    expect(d.recordOutcome('http_get', false, 'ECONNREFUSED 10.0.0.1:443').abort).toBe(false);
-    expect(d.recordOutcome('http_get', false, 'ETIMEDOUT').abort).toBe(false);
-    expect(d.recordOutcome('http_get', false, 'getaddrinfo ENOTFOUND host').abort).toBe(true);
-  });
-
-  it('un fallo no clasificable (bug del agente) rompe la racha y no aborta', () => {
-    const d = new LoopDetector();
-    d.recordOutcome('clean_extract', false, browserErr('a'));
-    d.recordOutcome('clean_extract', false, browserErr('b'));
-    // Error no de entorno → reset; cambiar de táctica AQUÍ sí tiene sentido.
-    expect(d.recordOutcome('calc', false, 'invalid argument: expected a number').abort).toBe(false);
-    expect(d.recordOutcome('clean_extract', false, browserErr('c')).abort).toBe(false);
-  });
-
-  it('maxSameFailureMode es configurable', () => {
+  it('contador acumulativo configurable vía maxSameFailureMode', () => {
     const d = new LoopDetector({ maxSameFailureMode: 2 });
     expect(d.recordOutcome('clean_extract', false, browserErr('a')).abort).toBe(false);
     expect(d.recordOutcome('clean_extract', false, browserErr('b')).abort).toBe(true);
+  });
+
+  it('la ventana deslizante caza el clustering aunque el umbral acumulativo sea alto', () => {
+    // maxSameFailureMode alto a propósito: solo la ventana debe disparar.
+    const d = new LoopDetector({ maxSameFailureMode: 100, failureWindowSize: 6, failureWindowThreshold: 3 });
+    d.recordOutcome('clean_extract', false, browserErr('a'));
+    d.recordOutcome('screen_observe', true);
+    d.recordOutcome('clean_extract', false, browserErr('b'));
+    d.recordOutcome('screen_observe', true);
+    const r = d.recordOutcome('clean_extract', false, browserErr('c'));
+    expect(r.abort).toBe(true);
+    expect(r.verdict).toBe('LOOP_SAME_FAILURE');
+    expect(r.hash).toMatch(/^window:/);
+  });
+
+  it('la ventana NO dispara si los fallos quedan fuera de su tamaño (lo cubre el acumulativo)', () => {
+    const d = new LoopDetector({ maxSameFailureMode: 100, failureWindowSize: 3, failureWindowThreshold: 3 });
+    d.recordOutcome('clean_extract', false, browserErr('a'));
+    d.recordOutcome('screen_observe', true);
+    d.recordOutcome('screen_observe', true);
+    d.recordOutcome('screen_observe', true);
+    d.recordOutcome('clean_extract', false, browserErr('b'));
+    // Solo 1 fallo de browser en la ventana de 3 → la ventana NO aborta;
+    // el acumulativo tampoco (umbral 100). Demuestra que se necesitan ambos.
+    expect(d.recordOutcome('screen_observe', true).abort).toBe(false);
   });
 });
 
@@ -171,31 +202,90 @@ describe('classifyFailureMode', () => {
   });
   it('devuelve null para errores no de entorno (bug del agente)', () => {
     expect(classifyFailureMode('invalid argument: expected a number')).toBeNull();
+    expect(classifyFailureMode('Blocked destructive command: taskkill rejected by blacklist')).toBeNull();
+    expect(classifyFailureMode('Blocked destructive hotkey — Alt+F4 closes the active window')).toBeNull();
     expect(classifyFailureMode('')).toBeNull();
     expect(classifyFailureMode(null)).toBeNull();
     expect(classifyFailureMode(undefined)).toBeNull();
   });
 });
 
-describe('Incidente 2026-05-16 — escenario completo: misión de browser sin Comet', () => {
-  it('Shinobi para limpiamente y NO intenta cerrar ventanas ni cambiar de táctica', () => {
-    const d = new LoopDetector();
-    let aborted: ReturnType<LoopDetector['recordOutcome']> | null = null;
+// --- Fixture: log REAL de la sesión que falló, iteraciones 1-10 -------------
 
-    // Iván pide extraer info de 12 temas. Comet no está abierto.
-    const temas = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'];
-    for (const t of temas) {
-      const r = d.recordOutcome('clean_extract', false, `extract "${t}": No browser on port 9222`);
-      if (r.abort) { aborted = r; break; }
+interface IterOutcome {
+  iter: number;
+  tool: string;
+  success: boolean;
+  error?: string;
+  /** Modo de fallo esperado tras clasificar (solo documental / aserción). */
+  expectedMode: FailureMode | null;
+}
+
+/**
+ * Reconstrucción del log real observado por Iván (2026-05-16). Shinobi recibe
+ * una misión de navegación con Comet cerrado. Los fallos de `browser_unavailable`
+ * caen en las iteraciones 4, 5 y 8 — NO consecutivas, intercaladas con
+ * taskkill (rechazado), screen_observe y un intento de Alt+F4.
+ *
+ * Con el diseño "consecutivo" original Shinobi llegó a la iteración 10 sin
+ * abortar. Con el diseño nuevo (acumulativo) debe abortar en la iteración 8,
+ * que es el 3er `browser_unavailable`.
+ */
+const REAL_SESSION_ITERS: IterOutcome[] = [
+  { iter: 1,  tool: 'screen_observe', success: true,  expectedMode: null },
+  { iter: 2,  tool: 'run_command',    success: true,  expectedMode: null },
+  { iter: 3,  tool: 'web_search',     success: true,  expectedMode: null },
+  { iter: 4,  tool: 'clean_extract',  success: false, error: 'clean_extract "noticias": No browser on port 9222', expectedMode: 'browser_unavailable' },
+  { iter: 5,  tool: 'clean_extract',  success: false, error: 'clean_extract "deportes": No browser on port 9222', expectedMode: 'browser_unavailable' },
+  { iter: 6,  tool: 'run_command',    success: false, error: 'Blocked destructive command: taskkill /im chrome.exe rejected by blacklist', expectedMode: null },
+  { iter: 7,  tool: 'screen_observe', success: true,  expectedMode: null },
+  { iter: 8,  tool: 'clean_extract',  success: false, error: 'clean_extract "economia": No browser on port 9222', expectedMode: 'browser_unavailable' },
+  { iter: 9,  tool: 'screen_act',     success: false, error: 'Blocked destructive hotkey — Alt+F4 closes the active window', expectedMode: null },
+  { iter: 10, tool: 'clean_extract',  success: false, error: 'clean_extract "cultura": No browser on port 9222', expectedMode: 'browser_unavailable' },
+];
+
+describe('Incidente 2026-05-16 — escenario REAL: misión de browser sin Comet (iter 1-10)', () => {
+  it('el fixture refleja fallos de browser NO consecutivos (defeat del diseño viejo)', () => {
+    // El diseño original ("N fallos CONSECUTIVOS del mismo modo") nunca habría
+    // abortado: la racha consecutiva máxima de browser_unavailable es 2.
+    let run = 0;
+    let maxRun = 0;
+    for (const it of REAL_SESSION_ITERS) {
+      run = it.expectedMode === 'browser_unavailable' ? run + 1 : 0;
+      maxRun = Math.max(maxRun, run);
+    }
+    expect(maxRun).toBe(2);            // < 3 → el detector consecutivo NO dispara
+    const totalBrowser = REAL_SESSION_ITERS.filter(i => i.expectedMode === 'browser_unavailable').length;
+    expect(totalBrowser).toBe(4);      // pero hay 4 fallos de browser en la misión
+  });
+
+  it('Shinobi aborta en la iteración 8 (3er browser_unavailable), NO en la 10+', () => {
+    const d = new LoopDetector();      // config por defecto: acumulativo=3, ventana 3/6
+    let abortedAtIter: number | null = null;
+    let abortVerdict: string | undefined;
+    let abortReason: string | undefined;
+
+    for (const it of REAL_SESSION_ITERS) {
+      // Sanity: la clasificación del error coincide con lo esperado.
+      expect(classifyFailureMode(it.success ? undefined : it.error)).toBe(it.expectedMode);
+      const r = d.recordOutcome(it.tool, it.success, it.error);
+      if (r.abort && abortedAtIter === null) {
+        abortedAtIter = it.iter;
+        abortVerdict = r.verdict;
+        abortReason = r.reason;
+        break; // el orchestrator para aquí — no sigue ejecutando tools
+      }
     }
 
-    // Debe haber parado en el 3er intento — no en el 12º.
-    expect(aborted).not.toBeNull();
-    expect(aborted!.verdict).toBe('LOOP_SAME_FAILURE');
-    expect(aborted!.reason).toBe('env_failure:browser_unavailable');
+    expect(abortedAtIter).not.toBeNull();
+    expect(abortedAtIter).toBeLessThanOrEqual(8);
+    expect(abortedAtIter).toBe(8);
+    expect(abortVerdict).toBe('LOOP_SAME_FAILURE');
+    expect(abortReason).toBe('env_failure:browser_unavailable');
+  });
 
-    // Y si, pese a todo, intentara "arreglar" el browser cerrando ventanas,
-    // screen_act lo rechaza de plano.
+  it('tras abortar, Shinobi NO puede cerrar la ventana del usuario con Alt+F4', () => {
+    // Aunque el agente intentara "arreglar" el browser, screen_act lo rechaza.
     expect(checkDestructiveHotkey({ action: 'hotkey', hotkey: ['Alt', 'F4'] }).blocked).toBe(true);
   });
 });

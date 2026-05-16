@@ -308,9 +308,11 @@ export class ShinobiOrchestrator {
               };
             }
 
-            // Capa 3 (modo de fallo) — tras ejecutar. Detecta 3+ fallos
-            // consecutivos que comparten el mismo modo de fallo de ENTORNO
-            // (browser caído, API key inválida, fichero inexistente, red).
+            // Capa 3 (modo de fallo) — tras ejecutar. Detecta fallos
+            // repetidos que comparten el mismo modo de fallo de ENTORNO
+            // (browser caído, API key inválida, fichero inexistente, red),
+            // aunque NO sean consecutivos: cuenta acumulativo + ventana
+            // deslizante, ignorando éxitos y otras tools intercaladas.
             // Cuando el bloqueo es del entorno, cambiar de táctica no progresa
             // (incidente 2026-05-16: el agente probó 12 keywords y luego
             // intentó cerrar ventanas con Alt+F4). Hay que parar y pedir
@@ -319,11 +321,11 @@ export class ShinobiOrchestrator {
             if (failCheck.abort) {
               const mode = (failCheck.reason ?? '').replace(/^env_failure:/, '');
               const message =
-                `He detectado que varias herramientas seguidas fallan por el ` +
-                `mismo motivo de entorno y cambiar de táctica no avanza. ` +
+                `He detectado que varias herramientas fallan repetidamente por ` +
+                `el mismo motivo de entorno y cambiar de táctica no avanza. ` +
                 `Paro aquí en lugar de seguir intentándolo o de tocar el ` +
                 `entorno por mi cuenta. Necesito que ${failureModeAdvice(mode)}`;
-              console.log(`  [⛔] ${failCheck.verdict} on ${functionName} (mode=${mode})`);
+              console.log(`  [⛔] ${failCheck.verdict} on ${functionName} (mode=${mode}, trigger=${failCheck.hash ?? '?'})`);
               await this.memory.addMessage({ role: 'assistant', content: message });
               logLoopAbort({
                 tool: functionName,

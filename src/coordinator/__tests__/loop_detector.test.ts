@@ -95,7 +95,7 @@ describe('LoopDetector — capa semántica', () => {
 });
 
 describe('LoopDetector — capa 3 (modo de fallo de entorno)', () => {
-  it('3 fallos consecutivos del mismo modo abortan con LOOP_SAME_FAILURE', () => {
+  it('3 fallos del mismo modo abortan con LOOP_SAME_FAILURE (contador acumulativo)', () => {
     const d = new LoopDetector();
     expect(d.recordOutcome('t1', false, 'No browser on port 9222').abort).toBe(false);
     expect(d.recordOutcome('t2', false, 'devtools port closed').abort).toBe(false);
@@ -104,18 +104,34 @@ describe('LoopDetector — capa 3 (modo de fallo de entorno)', () => {
     expect(r.verdict).toBe('LOOP_SAME_FAILURE');
     expect(r.reason).toBe('env_failure:browser_unavailable');
   });
-  it('un éxito resetea la racha', () => {
+  it('los éxitos intercalados NO resetean el contador acumulativo', () => {
     const d = new LoopDetector();
     d.recordOutcome('t', false, 'No browser on port 9222');
+    d.recordOutcome('t', true);                       // éxito intercalado
     d.recordOutcome('t', false, 'No browser on port 9222');
-    expect(d.recordOutcome('t', true).abort).toBe(false);
-    expect(d.recordOutcome('t', false, 'No browser on port 9222').abort).toBe(false);
+    d.recordOutcome('t', true);                       // otro éxito intercalado
+    expect(d.recordOutcome('t', false, 'No browser on port 9222').abort).toBe(true);
   });
-  it('un fallo no clasificable no cuenta y rompe la racha', () => {
+  it('un fallo no clasificable intercalado NO resetea el contador', () => {
     const d = new LoopDetector();
     d.recordOutcome('t', false, 'No browser on port 9222');
+    d.recordOutcome('t', false, 'bad argument');      // no-de-entorno, no cuenta
     d.recordOutcome('t', false, 'No browser on port 9222');
+    expect(d.recordOutcome('t', false, 'No browser on port 9222').abort).toBe(true);
+  });
+  it('un fallo no clasificable solo, no aborta', () => {
+    const d = new LoopDetector();
     expect(d.recordOutcome('t', false, 'bad argument').abort).toBe(false);
+    expect(d.recordOutcome('t', true).abort).toBe(false);
+  });
+  it('la ventana deslizante aborta el clustering aunque el acumulativo sea alto', () => {
+    const d = new LoopDetector({ maxSameFailureMode: 99, failureWindowSize: 4, failureWindowThreshold: 3 });
+    d.recordOutcome('t', false, 'No browser on port 9222');
+    d.recordOutcome('t', true);
+    d.recordOutcome('t', false, 'No browser on port 9222');
+    const r = d.recordOutcome('t', false, 'No browser on port 9222');
+    expect(r.abort).toBe(true);
+    expect(r.hash).toMatch(/^window:/);
   });
 });
 
