@@ -7,24 +7,35 @@ import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { isDangerousCommand } from '../utils/permissions.js';
 
 // Patrones destructivos NO configurables por el LLM. Si el command crudo
-// contiene cualquiera de estos (case-insensitive), se rechaza antes de
-// ejecutar — esto incluye sustituir un mock por sed/awk.
-const DESTRUCTIVE_PATTERNS: string[] = [
-  'stop-process',
-  'kill',
-  'taskkill',
-  'wmic process',
-  'pkill',
-  'killall',
-  'rm -rf',
-  'rmdir /s',
-  'format',
-  'del /f',
+// matchea cualquiera de estos (case-insensitive), se rechaza antes de
+// ejecutar. Se usan regex ancladas en vez de substring `includes()` para
+// no dar falsos positivos (ej. `git format-patch` no debe matchear
+// `format`) ni dejar evasiones triviales por variantes de sintaxis.
+const DESTRUCTIVE_PATTERNS: RegExp[] = [
+  /\bstop-process\b/i,
+  /\b(taskkill|pkill|killall)\b/i,
+  /\bkill\s+-9\b/i,
+  /\bwmic\s+process\b/i,
+  /\brm\s+-[a-z]*r[a-z]*f|\brm\s+-[a-z]*f[a-z]*r/i, // rm -rf / -fr en cualquier orden
+  /\brmdir\s+\/s\b/i,
+  /\brd\s+\/s\b/i,
+  /\bdel\s+\/[a-z]*[sf]/i,                          // del /f, del /s, del /q...
+  /\bremove-item\b[^\n|;&]*\s-(recurse|r)\b/i,      // Remove-Item recursivo
+  /\bremove-item\b[^\n|;&]*\s-force\b/i,            // Remove-Item -Force
+  /\bclear-content\b/i,
+  /\bformat\s+[a-z]:/i,                             // format C:
+  /\bformat\b[^\n|;&]*\s\/(fs|q|x)\b/i,             // format /fs:.. /q /x
+  /\bcipher\s+\/w\b/i,                              // cipher /w (wipe)
+  /\bdiskpart\b/i,
 ];
 
 // Comandos puramente de lectura/build que pueden operar fuera del workspace
 // raíz (ej. tsc compilando un proyecto adyacente, git status en otro repo).
 const READONLY_LEADERS = new Set(['git', 'node', 'npx', 'tsc']);
+
+// `node`/`npx` con eval inline NO son de solo lectura: ejecutan código
+// arbitrario y no deben gozar de la excepción de sandbox de READONLY_LEADERS.
+const NODE_EVAL_FLAGS = /(^|\s)(-e|--eval|-p|--print)(\s|=|$)/i;
 
 function normalizeDir(p: string): string {
   // resolvePath devuelve absoluto. Quitamos separador final para comparar
@@ -47,9 +58,8 @@ function firstToken(command: string): string {
 
 /** Devuelve mensaje de error si el comando viola la blacklist, o null si pasa. */
 export function checkDestructive(command: string): string | null {
-  const lower = command.toLowerCase();
   for (const pat of DESTRUCTIVE_PATTERNS) {
-    if (lower.includes(pat)) {
+    if (pat.test(command)) {
       return 'Comando rechazado: esta acción podría dañar el sistema. Pide al usuario que lo haga manualmente si es necesario.';
     }
   }
@@ -68,8 +78,15 @@ export function checkSandbox(command: string, cwd: string): string | null {
   if (isInside(target, shinobiRoot)) return null;
 
   // Excepción: comandos de solo lectura/build pueden operar en rutas de
-  // proyecto aunque queden fuera del workspace raíz.
-  if (READONLY_LEADERS.has(firstToken(command))) return null;
+  // proyecto aunque queden fuera del workspace raíz. `node`/`npx` con eval
+  // inline (-e/--eval/-p/--print) NO cuentan: ejecutan código arbitrario.
+  const leader = firstToken(command);
+  if (READONLY_LEADERS.has(leader)) {
+    if ((leader === 'node' || leader === 'npx') && NODE_EVAL_FLAGS.test(command)) {
+      return 'Comando rechazado: `node`/`npx` con eval inline (-e/-p) no puede ejecutarse fuera del workspace de Shinobi.';
+    }
+    return null;
+  }
 
   return 'Comando rechazado: solo puedo ejecutar comandos dentro del workspace de Shinobi.';
 }

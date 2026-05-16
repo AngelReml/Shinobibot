@@ -22,6 +22,17 @@ const searchFilesTool: Tool = {
     const searchDir = path.resolve(args.path || '.');
     const query = args.query.replace(/"/g, '\\"');
 
+    // `include` se interpola sin comillas en la línea de findstr, así que
+    // solo se aceptan caracteres de glob de archivo. Cualquier metacaracter
+    // de shell (& | ; < > ( ) ` $ etc.) se rechaza para evitar inyección.
+    if (args.include !== undefined && !/^[A-Za-z0-9_.*?\-\\/ ]+$/.test(args.include)) {
+      return {
+        success: false,
+        output: '',
+        error: `Filtro 'include' inválido: solo se permiten patrones de archivo (ej. "*.ts" o "*.py").`,
+      };
+    }
+
     // Use findstr on Windows (always available)
     let cmd: string;
     if (args.include) {

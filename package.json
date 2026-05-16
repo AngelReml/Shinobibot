@@ -28,8 +28,8 @@
     "outputPath": "build"
   },
   "scripts": {
-    "start": "ts-node src/index.ts",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "tsx scripts/shinobi.ts",
+    "dev": "tsx watch scripts/shinobi.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

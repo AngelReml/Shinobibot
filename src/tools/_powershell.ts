@@ -1,8 +1,13 @@
 /**
  * Helper común para los tools Windows-elite. Ejecuta un script PowerShell
- * con `powershell.exe -NoProfile -NonInteractive -Command` y captura
- * stdout/stderr. Maneja escape básico de strings para evitar inyección
- * cuando se construye el comando desde args del LLM.
+ * con `powershell.exe -NoProfile -NonInteractive -EncodedCommand` y captura
+ * stdout/stderr.
+ *
+ * El script se pasa como base64 (UTF-16LE) vía `-EncodedCommand` en vez de
+ * `-Command "..."`. Esto elimina por completo el problema de quoting de
+ * cmd.exe: no hay comillas que escapar, así que ningún `"` en un valor
+ * dinámico puede romper el comando ni inyectar. Los callers siguen usando
+ * `psLit()` para que los valores sean literales seguros DENTRO de PowerShell.
  */
 
 import { exec } from 'child_process';
@@ -21,9 +26,10 @@ const DEFAULT_TIMEOUT_MS = 30_000;
  * escapar valores dinámicos con `psEscapeString`.
  */
 export function runPowerShell(script: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<PsRunResult> {
+  const encoded = Buffer.from(script, 'utf16le').toString('base64');
   return new Promise((resolve) => {
     exec(
-      `powershell.exe -NoProfile -NonInteractive -Command "${script.replace(/"/g, '\\"')}"`,
+      `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
       { timeout: timeoutMs, encoding: 'utf-8', maxBuffer: 4 * 1024 * 1024 },
       (error, stdout, stderr) => {
         resolve({

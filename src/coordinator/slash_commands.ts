@@ -102,8 +102,7 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
   if (trimmed.startsWith('/model')) {
     const parts = trimmed.split(' ');
     if (parts.length === 1) {
-      const tier = (ShinobiOrchestrator as any).getTier?.() ?? 'auto';
-      console.log(`Modelo activo: ${ShinobiOrchestrator.getModel()} | tier override: ${tier}`);
+      console.log(`Modelo activo: ${ShinobiOrchestrator.getModel()} | tier override: ${ShinobiOrchestrator.getTier()}`);
     } else if (parts[1] === 'auto') {
       ShinobiOrchestrator.setModel(undefined);
       console.log('Modelo: auto (router decide por tier)');
@@ -124,16 +123,15 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
   if (trimmed.startsWith('/tier')) {
     const parts = trimmed.split(/\s+/);
     if (parts.length === 1) {
-      const tier = (ShinobiOrchestrator as any).getTier?.() ?? 'auto';
-      console.log(`Tier activo: ${tier} | modelo override: ${ShinobiOrchestrator.getModel()}`);
+      console.log(`Tier activo: ${ShinobiOrchestrator.getTier()} | modelo override: ${ShinobiOrchestrator.getModel()}`);
     } else {
       const sub = parts[1].toLowerCase();
       if (sub === 'auto') {
-        (ShinobiOrchestrator as any).setTier?.(undefined);
+        ShinobiOrchestrator.setTier(undefined);
         console.log('Tier: auto (router clasifica por heurística)');
       } else if (sub === 'fast' || sub === 'balanced' || sub === 'reasoning') {
         const t = sub.toUpperCase() as 'FAST' | 'BALANCED' | 'REASONING';
-        (ShinobiOrchestrator as any).setTier?.(t);
+        ShinobiOrchestrator.setTier(t);
         console.log(`Tier forzado a: ${t}`);
         if (ShinobiOrchestrator.getModel() !== 'default') {
           console.log(`  ⚠ /model está fijado (${ShinobiOrchestrator.getModel()}) — el modelo gana sobre el tier hasta que hagas /model auto.`);

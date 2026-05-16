@@ -38,6 +38,9 @@ export function toOpenAITools(tools: Tool[]) {
 const _tools: Map<string, Tool> = new Map();
 
 export function registerTool(tool: Tool) {
+  if (_tools.has(tool.name)) {
+    console.warn(`[tool-registry] tool '${tool.name}' ya estaba registrada — se sobreescribe`);
+  }
   _tools.set(tool.name, tool);
 }
 
