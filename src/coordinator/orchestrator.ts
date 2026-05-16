@@ -170,7 +170,9 @@ export class ShinobiOrchestrator {
           if (snap.ratio >= 0.85) {
             console.log(`[Shinobi] Token budget ${Math.round(snap.ratio * 100)}% (${snap.usedTokens}/${snap.budgetTokens})`);
           }
-        } catch { /* tracker es opcional */ }
+        } catch (e: any) {
+          console.warn(`[Shinobi] token budget tracker error (ignorado): ${e?.message ?? e}`);
+        }
 
         const llmPayload = {
           messages: currentMessages,
@@ -189,7 +191,17 @@ export class ShinobiOrchestrator {
           throw new Error(`LLM Error: ${result.error}`);
         }
 
-        const responseMessage = JSON.parse(result.output);
+        // C1 — parseo defensivo. Si un provider devuelve texto plano en vez
+        // del JSON del message, NO se aborta la misión: se trata como una
+        // respuesta de texto normal del asistente.
+        let responseMessage: any;
+        try {
+          responseMessage = JSON.parse(result.output);
+        } catch {
+          responseMessage = {
+            content: typeof result.output === 'string' ? result.output : String(result.output ?? ''),
+          };
+        }
 
         // If the LLM just responds with text, we are done
         if (!responseMessage.tool_calls || responseMessage.tool_calls.length === 0) {
@@ -213,7 +225,16 @@ export class ShinobiOrchestrator {
         for (const toolCall of responseMessage.tool_calls) {
           if (toolCall.type !== 'function') continue;
           const functionName = toolCall.function.name;
-          const functionArgs = JSON.parse(toolCall.function.arguments);
+          // Parseo defensivo: si el LLM emite argumentos JSON malformados,
+          // se ejecuta la tool con {} (la propia tool devolverá su error de
+          // validación) en vez de abortar todo el turno.
+          let functionArgs: any;
+          try {
+            functionArgs = JSON.parse(toolCall.function.arguments);
+          } catch {
+            functionArgs = {};
+            console.log(`  [⚠] Argumentos JSON inválidos para ${functionName}; se ejecuta con {}.`);
+          }
           toolSequence.push(functionName);  // Bloque 3 — observed by SkillManager
           console.log(`  [🔨] Tool called: ${functionName}`);
 
