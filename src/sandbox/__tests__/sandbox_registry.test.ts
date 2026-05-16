@@ -112,22 +112,22 @@ describe('Remote backends — config detection', () => {
     process.env.SSH_KEY_PATH = '/key';
     expect(b.isConfigured()).toBe(true);
   });
-  it('ModalBackend: necesita ambos tokens', () => {
+  it('ModalBackend: stub honesto — isConfigured() false aunque haya tokens', () => {
     const b = new ModalBackend();
     expect(b.isConfigured()).toBe(false);
     process.env.MODAL_TOKEN_ID = 'x';
-    expect(b.isConfigured()).toBe(false);
     process.env.MODAL_TOKEN_SECRET = 'y';
-    expect(b.isConfigured()).toBe(true);
+    // Es un stub no funcional: NO debe presentarse como backend usable.
+    expect(b.isConfigured()).toBe(false);
   });
-  it('DaytonaBackend / E2BBackend: 1 env', () => {
+  it('DaytonaBackend stub (siempre false) / E2BBackend toggle por env', () => {
     const d = new DaytonaBackend();
     const e = new E2BBackend();
     expect(d.isConfigured()).toBe(false);
     expect(e.isConfigured()).toBe(false);
     process.env.DAYTONA_API_KEY = 'x';
     process.env.E2B_API_KEY = 'x';
-    expect(d.isConfigured()).toBe(true);
+    expect(d.isConfigured()).toBe(false); // stub no funcional
     expect(e.isConfigured()).toBe(true);
   });
 });
@@ -139,10 +139,10 @@ describe('Remote backends — run() sin config devuelve error claro', () => {
     expect(r.stderr).toMatch(/SSH_HOST|SSH_USER|SSH_KEY_PATH/);
     expect(r.exitCode).toBe(127);
   });
-  it('Modal sin envs devuelve mensaje pidiendo tokens', async () => {
+  it('Modal run() declara que es un stub no funcional', async () => {
     const r = await new ModalBackend().run({ command: 'x', cwd: '/x', timeoutMs: 5000 });
     expect(r.success).toBe(false);
-    expect(r.stderr).toMatch(/MODAL_TOKEN/);
+    expect(r.stderr).toMatch(/stub no funcional/i);
   });
   it('E2B sin env key devuelve mensaje pidiendo dashboard', async () => {
     const r = await new E2BBackend().run({ command: 'x', cwd: '/x', timeoutMs: 5000 });
