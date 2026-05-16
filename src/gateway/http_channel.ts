@@ -13,6 +13,7 @@
 import { Router } from 'express';
 import { ShinobiOrchestrator } from '../coordinator/orchestrator.js';
 import type { ChatStore } from '../web/chat_store.js';
+import { resolveUser } from '../multiuser/multiuser_wiring.js';
 
 export interface HttpChannelOptions {
   chatStore: ChatStore;
@@ -37,10 +38,16 @@ export function createHttpChannelRouter(opts: HttpChannelOptions): Router {
       res.status(400).json({ error: 'text is required' });
       return;
     }
+    // P2 — multiuser: resuelve el usuario de la petición (cabecera
+    // X-Shinobi-User) contra el UserRegistry, alta on-first-contact.
+    const userHeader = typeof req.headers['x-shinobi-user'] === 'string'
+      ? (req.headers['x-shinobi-user'] as string) : undefined;
+    const user = resolveUser(userHeader);
+
     try {
       opts.chatStore.add(sessionId, 'user', text, null);
       // Origin tag — el LLM lo lee como parte del input y sabe el contexto.
-      const taggedInput = `[ORIGIN: ${originLabel}] ${text}`;
+      const taggedInput = `[ORIGIN: ${originLabel} USER: ${user.userId} (${user.role})] ${text}`;
       const result: any = await ShinobiOrchestrator.process(taggedInput);
       const response = result?.response
         ? String(result.response)
