@@ -52,16 +52,20 @@ describe('shouldUseLLM', () => {
 });
 
 describe('compactWithLLM', () => {
+  // Mensajes intermedios verbosos: compactWithLLM ahora solo compacta si el
+  // resumen REDUCE de verdad (en conversaciones triviales el resumen sería
+  // más largo que los originales). Por eso las respuestas son largas.
+  const long = (n: number) => `respuesta ${n}: ` + 'detalle extenso de la ejecución con stdout capturado y verificado. '.repeat(12);
   const MSGS = [
     { role: 'system', content: 'sistema' },
     { role: 'user', content: 'pregunta 1' },
-    { role: 'assistant', content: 'respuesta 1' },
+    { role: 'assistant', content: long(1) },
     { role: 'user', content: 'pregunta 2' },
-    { role: 'assistant', content: 'respuesta 2' },
+    { role: 'assistant', content: long(2) },
     { role: 'user', content: 'pregunta 3' },
-    { role: 'assistant', content: 'respuesta 3' },
+    { role: 'assistant', content: long(3) },
     { role: 'user', content: 'pregunta 4' },
-    { role: 'assistant', content: 'respuesta 4' },
+    { role: 'assistant', content: long(4) },
     { role: 'user', content: 'pregunta 5' },
     { role: 'assistant', content: 'respuesta 5' },
   ];
@@ -94,9 +98,13 @@ describe('compactWithLLM', () => {
     expect(synthetic).toBeTruthy();
     expect(synthetic!.content).toContain('Decisión X');
 
-    // Últimos 2 turnos preservados (turnos 4 y 5).
+    // Últimos 2 turnos preservados (turnos 4 y 5) — intactos.
     const lastBlock = r.messages.slice(-4);
-    expect(lastBlock.map(m => m.content)).toEqual(['pregunta 4', 'respuesta 4', 'pregunta 5', 'respuesta 5']);
+    expect(lastBlock.map(m => m.role)).toEqual(['user', 'assistant', 'user', 'assistant']);
+    expect(lastBlock[0].content).toBe('pregunta 4');
+    expect(lastBlock[1].content).toBe(long(4));
+    expect(lastBlock[2].content).toBe('pregunta 5');
+    expect(lastBlock[3].content).toBe('respuesta 5');
 
     // El prompt incluyó los mensajes intermedios.
     expect(promptReceived).toContain('pregunta 1');
