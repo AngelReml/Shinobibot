@@ -130,7 +130,8 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   setApprovalAsker(async (_p: string): Promise<Approval> => 'no');
 
   const app = express();
-  app.use(express.json());
+  // Límite de body: sin esto un POST gigante a /api/* agota memoria (DoS).
+  app.use(express.json({ limit: '1mb' }));
 
   // ─── Bloque 7 — onboarding: si no hay config, sirve la pantalla de bienvenida en `/` ─
   app.get('/', (_req, res, next) => {
@@ -354,7 +355,22 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   // so concurrent requests would mix output streams.
   let busy = false;
 
-  wss.on('connection', (ws) => {
+  wss.on('connection', (ws, request) => {
+    // Anti-CSWSH: rechaza upgrades cuyo Origin no coincide con el host del
+    // server. Una página maliciosa que el usuario visite NO debe poder abrir
+    // un WebSocket contra su Shinobi local y pilotar el orchestrator. Un
+    // cliente no-browser no envía Origin (no puede montar el ataque). Para
+    // redes no confiables conviene además un token — ver nota de la auditoría.
+    const origin = request.headers.origin;
+    if (origin) {
+      let originHost = ' ';
+      try { originHost = new URL(origin).host; } catch { /* origin malformado */ }
+      if (originHost !== request.headers.host) {
+        console.warn(`[webchat] WS rechazado — Origin '${origin}' no coincide con host '${request.headers.host}'`);
+        try { ws.close(1008, 'origin not allowed'); } catch { /* ya cerrado */ }
+        return;
+      }
+    }
     allClients.add(ws);
     let pendingAsk: { resolve: (v: string) => void; requestId: string } | null = null;
 
