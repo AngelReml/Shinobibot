@@ -64,7 +64,7 @@ export function isDangerousCommand(command: string): boolean {
     /\brm\s+-rf\b/i,          // Recursive delete
     /\bdel\s+\/s\b/i,          // Recursive delete (Windows)
     /\bmkfs\b/i,               // Format filesystem
-    /\bformat\b/i,             // Format (Windows)
+    /\bformat\s+[a-z]:/i,      // Format a drive — `format C:` (no `npm run format`)
     /\bdd\s+if=/i,             // Direct disk copy
     /\bshutdown\b/i,           // Shutdown
     /\breboot\b/i,            // Reboot
