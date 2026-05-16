@@ -7,7 +7,7 @@ import { MemoryStore } from '../memory/memory_store.js';
 import { skillManager } from '../skills/skill_manager.js';
 import { compactMessages } from '../context/compactor.js';
 import { tokenBudget } from '../context/token_budget.js';
-import { LoopDetector, loopDetectorConfigFromEnv } from './loop_detector.js';
+import { LoopDetector, loopDetectorConfigFromEnv, failureModeAdvice } from './loop_detector.js';
 import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import dotenv from 'dotenv';
@@ -114,12 +114,16 @@ export class ShinobiOrchestrator {
     let iteration = 0;
     const maxIterations = 10;
 
-    // Loop detector v2: dos capas.
+    // Loop detector v3: tres capas.
     //   - Capa de args (v1): SHA256(toolName+args). Aborta con LOOP_DETECTED
     //     en el 2º intento idéntico (default).
     //   - Capa semántica (v2): fingerprint reducido del output. Aborta con
     //     LOOP_NO_PROGRESS si la misma tool produce 3 outputs indistinguibles
     //     (default) aunque los args sean distintos.
+    //   - Capa de modo de fallo (v3): clasifica cada fallo en un modo de
+    //     entorno (browser caído, API key inválida, fichero inexistente, red)
+    //     y aborta con LOOP_SAME_FAILURE tras 3 fallos consecutivos del mismo
+    //     modo — aunque sean tools distintas. Cubre el incidente 2026-05-16.
     // Esto cubre el caso en que el LLM rota un parámetro irrelevante en cada
     // intento pero el resultado observable no cambia.
     const loopDetector = new LoopDetector(loopDetectorConfigFromEnv());
@@ -297,6 +301,37 @@ export class ShinobiOrchestrator {
               });
               return {
                 verdict: resultCheck.verdict ?? 'LOOP_NO_PROGRESS',
+                mode: this.mode,
+                response: message,
+                tool: functionName,
+                args: functionArgs,
+              };
+            }
+
+            // Capa 3 (modo de fallo) — tras ejecutar. Detecta 3+ fallos
+            // consecutivos que comparten el mismo modo de fallo de ENTORNO
+            // (browser caído, API key inválida, fichero inexistente, red).
+            // Cuando el bloqueo es del entorno, cambiar de táctica no progresa
+            // (incidente 2026-05-16: el agente probó 12 keywords y luego
+            // intentó cerrar ventanas con Alt+F4). Hay que parar y pedir
+            // intervención humana — Shinobi NO intenta arreglar el entorno.
+            const failCheck = loopDetector.recordOutcome(functionName, !!result.success, result.error);
+            if (failCheck.abort) {
+              const mode = (failCheck.reason ?? '').replace(/^env_failure:/, '');
+              const message =
+                `He detectado que varias herramientas seguidas fallan por el ` +
+                `mismo motivo de entorno y cambiar de táctica no avanza. ` +
+                `Paro aquí en lugar de seguir intentándolo o de tocar el ` +
+                `entorno por mi cuenta. Necesito que ${failureModeAdvice(mode)}`;
+              console.log(`  [⛔] ${failCheck.verdict} on ${functionName} (mode=${mode})`);
+              await this.memory.addMessage({ role: 'assistant', content: message });
+              logLoopAbort({
+                tool: functionName,
+                verdict: (failCheck.verdict as 'LOOP_DETECTED' | 'LOOP_NO_PROGRESS' | 'LOOP_SAME_FAILURE') ?? 'LOOP_SAME_FAILURE',
+                args: functionArgs,
+              });
+              return {
+                verdict: failCheck.verdict ?? 'LOOP_SAME_FAILURE',
                 mode: this.mode,
                 response: message,
                 tool: functionName,

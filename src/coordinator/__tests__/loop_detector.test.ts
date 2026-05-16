@@ -94,26 +94,56 @@ describe('LoopDetector — capa semántica', () => {
   });
 });
 
+describe('LoopDetector — capa 3 (modo de fallo de entorno)', () => {
+  it('3 fallos consecutivos del mismo modo abortan con LOOP_SAME_FAILURE', () => {
+    const d = new LoopDetector();
+    expect(d.recordOutcome('t1', false, 'No browser on port 9222').abort).toBe(false);
+    expect(d.recordOutcome('t2', false, 'devtools port closed').abort).toBe(false);
+    const r = d.recordOutcome('t3', false, 'cdp connection refused');
+    expect(r.abort).toBe(true);
+    expect(r.verdict).toBe('LOOP_SAME_FAILURE');
+    expect(r.reason).toBe('env_failure:browser_unavailable');
+  });
+  it('un éxito resetea la racha', () => {
+    const d = new LoopDetector();
+    d.recordOutcome('t', false, 'No browser on port 9222');
+    d.recordOutcome('t', false, 'No browser on port 9222');
+    expect(d.recordOutcome('t', true).abort).toBe(false);
+    expect(d.recordOutcome('t', false, 'No browser on port 9222').abort).toBe(false);
+  });
+  it('un fallo no clasificable no cuenta y rompe la racha', () => {
+    const d = new LoopDetector();
+    d.recordOutcome('t', false, 'No browser on port 9222');
+    d.recordOutcome('t', false, 'No browser on port 9222');
+    expect(d.recordOutcome('t', false, 'bad argument').abort).toBe(false);
+  });
+});
+
 describe('loopDetectorConfigFromEnv', () => {
   beforeEach(() => {
     delete process.env.SHINOBI_LOOP_MAX_REPEAT_ARGS;
     delete process.env.SHINOBI_LOOP_MAX_SAME_OUTPUT;
+    delete process.env.SHINOBI_LOOP_MAX_SAME_FAILURE;
   });
   afterEach(() => {
     delete process.env.SHINOBI_LOOP_MAX_REPEAT_ARGS;
     delete process.env.SHINOBI_LOOP_MAX_SAME_OUTPUT;
+    delete process.env.SHINOBI_LOOP_MAX_SAME_FAILURE;
   });
   it('sin env → undefined', () => {
     const c = loopDetectorConfigFromEnv();
     expect(c.maxRepeatArgs).toBeUndefined();
     expect(c.maxSameOutput).toBeUndefined();
+    expect(c.maxSameFailureMode).toBeUndefined();
   });
   it('env override', () => {
     process.env.SHINOBI_LOOP_MAX_REPEAT_ARGS = '5';
     process.env.SHINOBI_LOOP_MAX_SAME_OUTPUT = '7';
+    process.env.SHINOBI_LOOP_MAX_SAME_FAILURE = '4';
     const c = loopDetectorConfigFromEnv();
     expect(c.maxRepeatArgs).toBe(5);
     expect(c.maxSameOutput).toBe(7);
+    expect(c.maxSameFailureMode).toBe(4);
   });
   it('env inválida → undefined', () => {
     process.env.SHINOBI_LOOP_MAX_REPEAT_ARGS = 'abc';
