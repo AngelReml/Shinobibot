@@ -119,9 +119,11 @@ function registerCleanup(): void {
     process.exit(1);
   });
   process.on('unhandledRejection', (reason) => {
-    console.error('[shinobi] unhandledRejection:', reason);
-    sync();
-    process.exit(1);
+    // Una promesa rechazada suelta NO debe tumbar un agente residente de
+    // larga duración: el estado del proceso sigue siendo válido. Se loguea
+    // de forma visible y se continúa. (uncaughtException sí sale: ahí el
+    // estado puede estar corrupto.)
+    console.error('[shinobi] unhandledRejection (no fatal, proceso continúa):', reason);
   });
 }
 

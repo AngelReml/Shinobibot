@@ -10,7 +10,7 @@
  *   - El nombre de la tarea (/TN) no admite caracteres que rompan la
  *     línea de comandos.
  */
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { checkDestructive } from './run_command.js';
 
@@ -21,9 +21,16 @@ function isValidTaskName(name: string): boolean {
   return /^[\w\s\-]{1,128}$/.test(name);
 }
 
-function execShell(cmd: string, timeoutMs = 15_000): Promise<{ ok: boolean; stdout: string; stderr: string; code: number }> {
+/**
+ * Ejecuta schtasks.exe vía execFile (sin cmd.exe). Cada elemento de `args`
+ * llega a schtasks como un argv independiente — un valor con comillas o
+ * metacaracteres de shell NO puede romper la línea de comandos ni inyectar
+ * comandos. Antes se construía un string y se pasaba a exec() con un escape
+ * `\"` inválido para cmd.exe (mismo defecto que el bug C3 de _powershell).
+ */
+function runSchtasks(args: string[], timeoutMs = 15_000): Promise<{ ok: boolean; stdout: string; stderr: string; code: number }> {
   return new Promise((resolve) => {
-    exec(cmd, { timeout: timeoutMs, encoding: 'utf-8', maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
+    execFile('schtasks.exe', args, { timeout: timeoutMs, encoding: 'utf-8', maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
       resolve({
         ok: !err,
         stdout: stdout ?? '',
@@ -71,24 +78,23 @@ const tool: Tool = {
     if (destructive) {
       return { success: false, output: '', error: destructive };
     }
-    // Argumentos para schtasks. Quoting con comillas dobles, y el command/taskName
-    // pueden contener barras invertidas — son válidas para schtasks.
-    const parts: string[] = [
-      'schtasks.exe',
+    // Argumentos para schtasks como argv independientes (sin shell). taskName
+    // ya está validado contra [\w\s\-]; command va como un único argv —
+    // comillas y metacaracteres dentro de él son datos, no se interpretan.
+    const sargs: string[] = [
       '/CREATE',
-      `/TN "${args.taskName.replace(/"/g, '')}"`,
-      `/TR "${args.command.replace(/"/g, '\\"')}"`,
-      `/SC ${scheduleUpper}`,
+      '/TN', args.taskName,
+      '/TR', args.command,
+      '/SC', scheduleUpper,
       '/F', // force, sobrescribe si ya existe (idempotente).
     ];
     if (args.modifier && /^\d+$/.test(args.modifier)) {
-      parts.push(`/MO ${args.modifier}`);
+      sargs.push('/MO', args.modifier);
     }
     if (args.startTime && /^\d{2}:\d{2}$/.test(args.startTime)) {
-      parts.push(`/ST ${args.startTime}`);
+      sargs.push('/ST', args.startTime);
     }
-    const cmd = parts.join(' ');
-    const r = await execShell(cmd);
+    const r = await runSchtasks(sargs);
     if (!r.ok) {
       return { success: false, output: r.stdout, error: r.stderr.trim() || `schtasks exit ${r.code}` };
     }
