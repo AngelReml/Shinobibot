@@ -67,6 +67,17 @@ function parseField(raw: string, min: number, max: number, label: string): CronF
   return { kind: 'list', values: [...new Set(values)].sort((a, b) => a - b) };
 }
 
+/**
+ * cron permite 0 y 7 para domingo. Canonicalizamos 7→0 para que el CronField
+ * de weekday sea consistente — `Date.getDay()` solo devuelve 0..6, así que
+ * un `7` almacenado no canónico confundiría a cualquier consumidor.
+ */
+function normalizeWeekday(f: CronField): CronField {
+  if (f.kind !== 'list') return f;
+  const values = [...new Set(f.values.map(v => (v === 7 ? 0 : v)))].sort((a, b) => a - b);
+  return { kind: 'list', values };
+}
+
 export function parseCronExpr(expr: string): CronExpr {
   const parts = expr.trim().split(/\s+/);
   if (parts.length !== 5) {
@@ -77,7 +88,7 @@ export function parseCronExpr(expr: string): CronExpr {
     hour: parseField(parts[1], 0, 23, 'hour'),
     day: parseField(parts[2], 1, 31, 'day'),
     month: parseField(parts[3], 1, 12, 'month'),
-    weekday: parseField(parts[4], 0, 7, 'weekday'),
+    weekday: normalizeWeekday(parseField(parts[4], 0, 7, 'weekday')),
   };
 }
 
@@ -91,13 +102,13 @@ function cronMatches(expr: CronExpr, d: Date): boolean {
   const hour = d.getHours();
   const day = d.getDate();
   const month = d.getMonth() + 1;
-  let weekday = d.getDay(); // 0..6
+  const weekday = d.getDay(); // 0..6 (domingo = 0)
   if (!fieldAllows(expr.minute, minute)) return false;
   if (!fieldAllows(expr.hour, hour)) return false;
   if (!fieldAllows(expr.day, day)) return false;
   if (!fieldAllows(expr.month, month)) return false;
-  // Compat: 7 también significa domingo.
-  if (!(fieldAllows(expr.weekday, weekday) || (weekday === 0 && fieldAllows(expr.weekday, 7)))) return false;
+  // weekday ya está normalizado a 0..6 en parseCronExpr (7→0).
+  if (!fieldAllows(expr.weekday, weekday)) return false;
   return true;
 }
 
