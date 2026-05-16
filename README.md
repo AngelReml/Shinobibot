@@ -1,7 +1,7 @@
 # Shinobi 忍
 
 [![CI](https://github.com/AngelReml/Shinobibot/actions/workflows/ci.yml/badge.svg)](https://github.com/AngelReml/Shinobibot/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-913_passing-brightgreen)](./src)
+[![Tests](https://img.shields.io/badge/tests-953_passing-brightgreen)](./src)
 [![Benchmark](https://img.shields.io/badge/benchmark-M3_real-blue)](./BENCHMARK_M3_REAL.md)
 [![License](https://img.shields.io/badge/license-ISC-blue)](./LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows_10%2F11-0078D6)](https://www.microsoft.com/windows/)
@@ -30,7 +30,7 @@ Tres cosas que **ningún otro agente del mercado tiene a la vez**:
 
 | | Hermes Agent | OpenClaw | Claude Code | **Shinobi** |
 |---|---|---|---|---|
-| Loop detector con detección semántica | ❌ | ❌ | ❌ | ✅ v2 (args + output fingerprint) |
+| Loop detector con detección semántica | ❌ | ❌ | ❌ | ✅ v3 (args + output + modo de fallo) |
 | Multi-model consensus voting | ❌ | ❌ | ❌ | ✅ Committee (arch+sec+ux) |
 | Skills firmadas SHA256 + provenance | ❌ (auto-archive sin confirm) | n/a | n/a | ✅ con verificación al cargar |
 | Tools Windows-elite nativos | cross-platform genéricos | cross-platform genéricos | cross-platform | ✅ 10 PowerShell-based |
@@ -55,7 +55,7 @@ Tres cosas que **ningún otro agente del mercado tiene a la vez**:
 | A2A / agent protocol | ✅ ACP oficial | ✅ ACP IDE-bridge | ❌ | ✅ envelope+HMAC |
 | Benchmark suite reproducible | ✅ tblite/yc/SWE/term | ◐ qa-lab interno | ❌ | ✅ [BENCHMARK_M3_REAL](./BENCHMARK_M3_REAL.md) (20 tareas, runtimes reales) |
 
-**Veredicto honesto:** la tabla anterior afirmaba "única Shinobi" en varias filas que **son paridad con Hermes/OpenClaw**. Tras re-auditoría (`competitive_audit_M3_revisado.md`), Shinobi tiene **9 capacidades genuinamente exclusivas**: loop detector capa 3 (LLM judge), committee evolutivo, audit log unificado JSONL, registry con rollback formal, auto-skill por patrones de tools, memory reflector con markdown auditable, observability `/admin`+Prometheus, token budget endpoint, tools PowerShell Windows-native. El resto es paridad o ligera ventaja, no exclusividad.
+**Veredicto honesto:** la tabla anterior afirmaba "única Shinobi" en varias filas que **son paridad con Hermes/OpenClaw**. Tras re-auditoría (`competitive_audit_M3_revisado.md`), Shinobi tiene **9 capacidades genuinamente exclusivas**: loop detector v3 (capa de modo de fallo heurística), committee evolutivo, audit log unificado JSONL, registry con rollback formal, auto-skill por patrones de tools, memory reflector con markdown auditable, observability `/admin`+Prometheus, token budget endpoint, tools PowerShell Windows-native. El resto es paridad o ligera ventaja, no exclusividad.
 
 Detalle técnico: ver [ARCHITECTURE.md](./ARCHITECTURE.md), [competitive_audit_M3_revisado.md](./competitive_audit_M3_revisado.md) y [competitive_audit_paridad.md](./competitive_audit_paridad.md) (post plan paridad — 11 sprints cerrando brechas vs Hermes/OpenClaw).
 
@@ -99,12 +99,15 @@ Consenso multi-modelo para decisiones críticas. Veredictos determinísticos
 por mayoría con temperature=0. El code reviewer detecta SQLi, XSS, RCE con
 citas file:line. Verificado contra DVWA.
 
-**Loop detector v2**
-Dos capas independientes para que el agente no se quede atascado:
+**Loop detector v3**
+Tres capas independientes para que el agente no se quede atascado:
 - **Capa de args** (SHA256): aborta al 2º intento idéntico (`LOOP_DETECTED`).
 - **Capa semántica** (fingerprint reducido del output con timestamps/paths
   normalizados): aborta tras 3 outputs indistinguibles aunque los args sean
   distintos (`LOOP_NO_PROGRESS`).
+- **Capa de modo de fallo** (heurística): clasifica fallos de entorno
+  (browser caído, API key inválida, fichero inexistente, red) y aborta con
+  `LOOP_SAME_FAILURE` tras 3 del mismo modo, aunque no sean consecutivos.
 
 **Tool pack Windows-elite (10 tools nativos)**
 `clipboard_read/write`, `process_list`, `system_info`, `disk_usage`,
@@ -187,7 +190,7 @@ O ejecuta el binario precompilado: `build/shinobi.exe`. O instala con
 ### Tests
 
 ```bash
-npm test            # vitest run (913 specs)
+npm test            # vitest run (953 specs)
 npm run test:watch  # modo watch
 npm run typecheck   # tsc --noEmit
 ```
@@ -252,7 +255,7 @@ SHINOBI_API_KEY=
 | DVWA security audit | SQLi/XSS/RCE con file:line |
 | Repo analysis (kubernetes, react, langchain) | Sub-agentes paralelos |
 | 500 misiones concurrentes | 100% success rate |
-| Tests propios | 913 passing, CI en `windows-latest` |
+| Tests propios | 953 passing, CI en `windows-latest` |
 | Benchmark M3 REAL (20 tareas) | Empate en éxito: Shinobi 19/20 · Hermes 19/20 · OpenClaw 19/20. Shinobi 2-4× más rápido (5.5s vs 10.4s vs 21.8s medio). Medido con runtimes reales, mismo modelo. Ver [BENCHMARK_M3_REAL.md](./BENCHMARK_M3_REAL.md). |
 
 ### Seguridad
@@ -289,7 +292,7 @@ Three things **no other agent on the market has at once**:
 
 | | Hermes Agent | OpenClaw | Claude Code | **Shinobi** |
 |---|---|---|---|---|
-| Semantic loop detector | ❌ | ❌ | ❌ | ✅ v2 (args + output fingerprint) |
+| Semantic loop detector | ❌ | ❌ | ❌ | ✅ v3 (args + output + failure-mode) |
 | Multi-model consensus voting | ❌ | ❌ | ❌ | ✅ Committee |
 | SHA256-signed skills with provenance | ❌ | n/a | n/a | ✅ verified on load |
 | Windows-native tool pack | cross-platform generic | cross-platform generic | cross-platform | ✅ 10 PowerShell-based |
@@ -341,10 +344,13 @@ outside the approval flow is detected as `hash_mismatch`.
 **Committee** — multi-model consensus for critical decisions. Verified
 against DVWA (detects SQLi/XSS/RCE with file:line).
 
-**Loop detector v2** — two independent layers:
+**Loop detector v3** — three independent layers:
 - args (SHA256): aborts on 2nd identical attempt (`LOOP_DETECTED`)
 - semantic (reduced output fingerprint): aborts on 3 indistinguishable
   outputs even with different args (`LOOP_NO_PROGRESS`)
+- failure-mode (heuristic): classifies environment failures (browser down,
+  invalid API key, missing file, network) and aborts with `LOOP_SAME_FAILURE`
+  after 3 of the same mode, even when not consecutive
 
 **Windows-elite tool pack** (10 native tools via PowerShell): clipboard,
 process_list, system_info, disk_usage, env_list (with auto-redaction of
@@ -378,7 +384,7 @@ Or run the prebuilt: `build/shinobi.exe`.
 ### Tests
 
 ```bash
-npm test            # vitest (913 specs)
+npm test            # vitest (953 specs)
 npm run typecheck   # tsc --noEmit
 ```
 
