@@ -30,8 +30,19 @@ import {
   shouldFailover,
 } from './failover.js';
 import { logFailover } from '../audit/audit_log.js';
+import { FailoverCooldown } from '../coordinator/failover_cooldown.js';
 import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
 import type { ProviderClient, ProviderName } from './types.js';
+
+// Cooldown por provider: cuando uno acumula rate-limit/transient/auth
+// repetidos se pone en cooldown con backoff exponencial. No sustituye a la
+// rotación de `failover.ts` — decide CUÁNDO se puede reintentar un provider.
+const cooldown = new FailoverCooldown();
+
+/** Snapshot del estado de cooldown — consumido por `/admin/metrics`. */
+export function failoverCooldownMetrics() {
+  return cooldown.metrics();
+}
 
 const CLIENTS: Record<Exclude<ProviderName, 'opengravity'>, ProviderClient> = {
   groq: groqClient,
@@ -87,13 +98,24 @@ async function invokeSingleProvider(
 
 export async function invokeLLM(payload: LLMChatPayload): Promise<CloudResponse> {
   const provider = currentProvider();
-  const chain = buildFailoverChain(provider, process.env.SHINOBI_FAILOVER_CHAIN);
+  const fullChain = buildFailoverChain(provider, process.env.SHINOBI_FAILOVER_CHAIN);
+
+  // Reordena la cadena: los providers en cooldown van al final (siguen
+  // disponibles como último recurso si los demás fallan — el cooldown es
+  // una preferencia, no una prohibición absoluta).
+  const ready = fullChain.filter(p => cooldown.isAvailable(p));
+  const cooled = fullChain.filter(p => !cooldown.isAvailable(p));
+  if (cooled.length > 0) {
+    console.log(`[Shinobi] Providers en cooldown, despriorizados: ${cooled.join(', ')}`);
+  }
+  const chain = [...ready, ...cooled];
 
   let lastResult: CloudResponse = { success: false, output: '', error: 'No providers tried.' };
   for (let i = 0; i < chain.length; i++) {
     const p = chain[i];
     const result = await invokeSingleProvider(p, payload);
     if (result.success) {
+      cooldown.markSuccess(p);
       if (i > 0) {
         console.log(`[Shinobi] Provider OK after failover: ${chain[0]} → ${p}`);
       }
@@ -103,6 +125,14 @@ export async function invokeLLM(payload: LLMChatPayload): Promise<CloudResponse>
     lastResult = result;
     const klass = classifyProviderError(result.error);
     const isLast = i === chain.length - 1;
+
+    // Registra el fallo en el cooldown si es un error que merece backoff.
+    if (klass === 'rate_limit' || klass === 'transient' || klass === 'auth') {
+      const cd = cooldown.markFailure(p, klass);
+      if (cd.cooldownOpened) {
+        console.log(`[Shinobi] Provider ${p} en cooldown ${cd.cooldownSec}s tras racha de fallos.`);
+      }
+    }
 
     if (!shouldFailover(klass)) {
       // fatal_payload — devolvemos inmediatamente, rotar no ayudaría.

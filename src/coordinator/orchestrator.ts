@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import { getAllTools, getTool, toOpenAITools } from '../tools/index.js';
 import { Memory } from '../db/memory.js';
@@ -8,6 +7,10 @@ import { skillManager } from '../skills/skill_manager.js';
 import { compactMessages } from '../context/compactor.js';
 import { tokenBudget } from '../context/token_budget.js';
 import { LoopDetector, loopDetectorConfigFromEnv, failureModeAdvice } from './loop_detector.js';
+import { route, isRouterEnabled, pickModelForTier } from './model_router.js';
+import type { ComplexityTier } from './query_complexity.js';
+import { ProgressTracker, progressDetectionEnabled } from './progress_judge.js';
+import { IterationBudget } from './iteration_budget.js';
 import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import dotenv from 'dotenv';
@@ -25,13 +28,53 @@ export class ShinobiOrchestrator {
   private static memory = new Memory();
   private static contextBuilder = new ContextBuilder();
   private static memoryStore: MemoryStore | null = null;
-  private static openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   private static activeModel: string | undefined = undefined;
+  /** Override manual de tier (slash command `/tier`). undefined = auto. */
+  private static forcedTier: 'FAST' | 'BALANCED' | 'REASONING' | undefined = undefined;
+
+  /** Mapea el tier de UI (FAST/BALANCED/REASONING) al tier de complejidad. */
+  private static readonly TIER_TO_COMPLEXITY: Record<'FAST' | 'BALANCED' | 'REASONING', ComplexityTier> = {
+    FAST: 'simple',
+    BALANCED: 'medium',
+    REASONING: 'complex',
+  };
 
   static getMemory(): MemoryStore { if (!this.memoryStore) this.memoryStore = new MemoryStore(); return this.memoryStore; }
 
   static setModel(model: string | undefined) { this.activeModel = model; }
   static getModel(): string { return this.activeModel || 'default'; }
+
+  static setTier(tier: 'FAST' | 'BALANCED' | 'REASONING' | undefined) {
+    this.forcedTier = tier;
+    console.log(`[Shinobi] Tier override: ${tier ?? 'auto'}`);
+  }
+  static getTier(): string { return this.forcedTier ?? 'auto'; }
+
+  /**
+   * Decide qué modelo usar para esta query. Prioridad:
+   *   1. `/model X` manual → gana siempre.
+   *   2. `/tier X` manual → modelo del tier mapeado.
+   *   3. Router automático (si `SHINOBI_MODEL_ROUTER=1`) → clasifica por
+   *      complejidad heurística de la query.
+   *   4. Passthrough → `undefined` (el provider usa su modelo por defecto).
+   */
+  private static resolveModelForTurn(input: string): { model: string | undefined; rationale: string } {
+    if (this.activeModel) {
+      return { model: this.activeModel, rationale: `model override → ${this.activeModel}` };
+    }
+    if (this.forcedTier) {
+      const choice = pickModelForTier(this.TIER_TO_COMPLEXITY[this.forcedTier]);
+      return { model: choice.model, rationale: `tier ${this.forcedTier} → ${choice.provider}/${choice.model}` };
+    }
+    if (isRouterEnabled()) {
+      const decision = route({ input });
+      return {
+        model: decision.choice.model,
+        rationale: `router tier=${decision.tier} → ${decision.choice.provider}/${decision.choice.model} (~$${decision.estimatedCostUsd.toFixed(4)})`,
+      };
+    }
+    return { model: undefined, rationale: 'passthrough (router OFF — set SHINOBI_MODEL_ROUTER=1)' };
+  }
 
   static setMode(mode: ExecutionMode) {
     this.mode = mode;
@@ -111,8 +154,24 @@ export class ShinobiOrchestrator {
       : allTools;
     const openAITools = toOpenAITools(availableTools);
 
-    let iteration = 0;
-    const maxIterations = 10;
+    // Presupuesto de iteraciones compartible: reemplaza el contador suelto
+    // `maxIterations`. `consume()` devuelve false cuando se agota → el loop
+    // termina con verdict MAX_ITERATIONS. Configurable vía env.
+    const budget = new IterationBudget(Number(process.env.SHINOBI_MAX_ITERATIONS) || 10);
+
+    // Model router: decide el modelo de esta query (manual /model, manual
+    // /tier, o router automático por complejidad). Se clasifica una vez —
+    // la query no cambia entre iteraciones.
+    const modelDecision = ShinobiOrchestrator.resolveModelForTurn(input);
+    console.log(`[Shinobi] Model routing: ${modelDecision.rationale}`);
+
+    // Progress judge (loop detector capa 4, default OFF). Cuando
+    // SHINOBI_PROGRESS_DETECTION=1, un modelo juez independiente puntúa el
+    // avance hacia el objetivo tras cada turno y aborta si se estanca.
+    const progressTracker = progressDetectionEnabled() ? new ProgressTracker() : null;
+    if (progressTracker) {
+      console.log(`[Shinobi] Progress detection ON (judge=${progressTracker.judgeId()})`);
+    }
 
     // Loop detector v3: tres capas.
     //   - Capa de args (v1): SHA256(toolName+args). Aborta con LOOP_DETECTED
@@ -128,23 +187,14 @@ export class ShinobiOrchestrator {
     // intento pero el resultado observable no cambia.
     const loopDetector = new LoopDetector(loopDetectorConfigFromEnv());
 
-    while (iteration < maxIterations) {
-      iteration++;
+    while (budget.consume()) {
+      const iteration = budget.snapshot().used;
       console.log(`[Shinobi] Let the LLM decide (Iter ${iteration})...`);
 
-      try {
-        // [B2-DEPRECATED]
-        /*
-        const response = await this.openai.chat.completions.create({
-          model: 'gpt-4o',
-          messages: currentMessages,
-          tools: openAITools.length > 0 ? openAITools : undefined,
-          tool_choice: 'auto',
-          temperature: 0.2,
-        });
-        const responseMessage = response.choices[0].message;
-        */
+      // Outputs observables de este turno — los consume el progress judge.
+      const turnToolOutputs: string[] = [];
 
+      try {
         // Context compactor: si el budget del proveedor se acerca, truncamos
         // tool outputs antiguos y/o colapsamos turnos viejos para que el
         // último user input y los últimos turnos sigan intactos. Sin esto,
@@ -173,7 +223,7 @@ export class ShinobiOrchestrator {
 
         const llmPayload = {
           messages: currentMessages,
-          model: this.activeModel,
+          model: modelDecision.model,
           tools: openAITools.length > 0 ? openAITools : undefined,
           tool_choice: openAITools.length > 0 ? 'auto' : 'none',
           temperature: 0.2,
@@ -342,6 +392,8 @@ export class ShinobiOrchestrator {
             }
           }
 
+          turnToolOutputs.push(`${functionName}: ${toolResultStr}`);
+
           // Append tool response to messages
           const toolMessage = {
             role: 'tool' as const,
@@ -357,6 +409,36 @@ export class ShinobiOrchestrator {
             name: functionName,
             content: toolResultStr
           });
+        }
+
+        // Capa 4 (progress judge) — tras completar el turno. Un modelo juez
+        // independiente puntúa el avance hacia el objetivo; si la ventana
+        // móvil de scores no progresa, abortamos para no gastar iteraciones
+        // dando vueltas sin acercarse al final.
+        if (progressTracker) {
+          const turnOutput = [responseMessage.content || '', ...turnToolOutputs].join('\n').trim();
+          let pc;
+          try {
+            pc = await progressTracker.recordIteration(input, turnOutput);
+          } catch (e: any) {
+            // El juez es best-effort: si falla, no matamos la misión.
+            console.log(`[Shinobi] Progress judge error (ignorado): ${e?.message ?? e}`);
+            pc = null;
+          }
+          if (pc && pc.abort) {
+            const message =
+              `He detectado que no estoy avanzando hacia el objetivo tras varios ` +
+              `turnos: el progreso evaluado se ha estancado. Paro y te pido ` +
+              `ayuda para replantear el enfoque. (${pc.reason})`;
+            console.log(`  [⛔] ${pc.verdict} (score=${pc.latestScore.toFixed(2)})`);
+            await this.memory.addMessage({ role: 'assistant', content: message });
+            logLoopAbort({ tool: '(progress_judge)', verdict: 'LOOP_NO_PROGRESS', args: {} });
+            return {
+              verdict: pc.verdict ?? 'NO_SEMANTIC_PROGRESS',
+              mode: this.mode,
+              response: message,
+            };
+          }
         }
 
         // Loop continues, feeding tool results back to LLM...

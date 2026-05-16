@@ -12,6 +12,7 @@
 
 import { metrics } from './metrics.js';
 import { alertRouter } from './alerts.js';
+import { failoverCooldownMetrics } from '../providers/provider_router.js';
 
 const DASHBOARD_HTML = `<!DOCTYPE html>
 <html lang="es">
@@ -95,6 +96,7 @@ export function snapshotJsonResponse(): { contentType: string; body: string } {
     ts: new Date().toISOString(),
     metrics: reg.snapshotJson(),
     alerts: router.list().map(r => ({ id: r.id, kind: r.kind, target: r.target })),
+    failover_cooldown: failoverCooldownMetrics(),
   };
   return { contentType: 'application/json', body: JSON.stringify(payload, null, 2) };
 }
