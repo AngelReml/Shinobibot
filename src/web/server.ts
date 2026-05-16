@@ -21,6 +21,7 @@
 
 import express from 'express';
 import { buildA2ADispatcher, shinobiAgentCard } from '../a2a/a2a_wiring.js';
+import { startChannels } from '../channels/channels_wiring.js';
 import { WebSocketServer } from 'ws';
 import http from 'http';
 import path from 'path';
@@ -524,6 +525,15 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
       }
     });
   });
+
+  // P2 — arranca el subsistema de canales (Loopback siempre; Webhook si
+  // SHINOBI_WEBHOOK_ENABLED=1). Los mensajes entrantes van al orchestrator.
+  try {
+    const ch = await startChannels();
+    console.log(`[shinobi-web] Canales: arrancados=[${ch.started.join(', ')}], skipped=[${ch.skipped.join(', ')}]`);
+  } catch (e: any) {
+    console.error('[shinobi-web] startChannels error:', e?.message ?? e);
+  }
 
   return new Promise((resolve) => {
     server.listen(port, () => {
