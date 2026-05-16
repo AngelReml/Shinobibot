@@ -13,9 +13,15 @@ export async function runCommittee(reportPath: string): Promise<{ ok: boolean; o
   }
   const reportJson = fs.readFileSync(abs, 'utf-8');
   console.log(`[committee] target: ${abs}`);
-  console.log('[committee] dispatching 3 members in parallel (architect, security_auditor, design_critic)…');
 
-  const committee = new Committee({ llm: makeLLMClient() });
+  // Committee evolutivo: roles elegidos dinámicamente del catálogo de 7
+  // según la relevancia a la tarea + peso por historial de votos.
+  const committee = new Committee({
+    llm: makeLLMClient(),
+    evolutive: true,
+    taskDescription: reportJson.slice(0, 4000),
+  });
+  console.log(`[committee] roles seleccionados (evolutivo): ${committee.activeRoles().join(', ')}`);
   const result = await committee.review(reportJson);
 
   // Persist
@@ -53,6 +59,10 @@ export async function runCommittee(reportPath: string): Promise<{ ok: boolean; o
     return { ok: false, outputPath };
   }
   console.log(`overall_risk: ${result.synthesis.overall_risk}`);
+  if (result.synthesis.mediator) {
+    const m = result.synthesis.mediator;
+    console.log(`mediator: ${m.finalRisk} (confianza ${m.confidence}) — ${m.rationale}`);
+  }
   console.log('');
   console.log('CONSENSUS');
   if (result.synthesis.consensus.length === 0) console.log('  (none)');

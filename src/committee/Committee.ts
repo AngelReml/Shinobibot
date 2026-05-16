@@ -5,6 +5,9 @@
 
 import { tryParseJSON } from '../reader/schemas.js';
 import type { LLMClient } from '../reader/SubAgent.js';
+import { selectRoles } from './role_selector.js';
+import { mediateHeuristic, votesFromMembers, type MediatorResult } from './mediator.js';
+import { VoteHistory } from './vote_history.js';
 
 export interface MemberReport {
   role: string;
@@ -38,6 +41,10 @@ export interface CommitteeSynthesis {
   verdict_confidence?: 'high' | 'medium' | 'low';
   /** F1 — per-run risks captured by the voting wrapper. */
   voting_runs?: { run: number; overall_risk: 'low' | 'medium' | 'high' }[];
+  /** Committee evolutivo — veredicto del mediador (resuelve disensos por peso). */
+  mediator?: MediatorResult;
+  /** Committee evolutivo — roles seleccionados dinámicamente y su peso. */
+  selected_roles?: { roleId: string; relevance: number; weight: number }[];
 }
 
 export interface CommitteeRole {
@@ -243,6 +250,18 @@ export interface CommitteeOptions {
   votingRuns?: number;
   /** F1 — when set, every member call uses this temperature (default undefined → provider default). */
   temperature?: number;
+  /**
+   * Committee evolutivo (Sprint 2.2): selección dinámica de roles del
+   * catálogo de 7 por relevancia a la tarea + peso por historial, y
+   * mediador heurístico que resuelve disensos. Requiere `taskDescription`.
+   */
+  evolutive?: boolean;
+  /** Descripción de la tarea — usada por selectRoles cuando `evolutive`. */
+  taskDescription?: string;
+  /** Nº de roles a seleccionar dinámicamente (default 3). */
+  roleCount?: number;
+  /** Historial de votos compartido (default: uno nuevo desde disco). */
+  voteHistory?: VoteHistory;
 }
 
 export interface CommitteeResult {
@@ -256,14 +275,35 @@ export class Committee {
   private synthModel: string;
   private votingRuns: number;
   private temperature?: number;
+  private readonly evolutive: boolean;
+  private readonly voteHistory: VoteHistory;
+  private readonly selectedMeta: { roleId: string; relevance: number; weight: number }[];
 
   constructor(opts: CommitteeOptions) {
     this.llm = opts.llm;
-    this.roles = opts.roles ?? DEFAULT_ROLES;
     this.synthModel = opts.synthModel ?? 'claude-sonnet-4-6';
     this.votingRuns = Math.max(1, opts.votingRuns ?? 1);
     this.temperature = opts.temperature;
+    this.evolutive = !!opts.evolutive;
+    this.voteHistory = opts.voteHistory ?? new VoteHistory();
+    if (this.evolutive) {
+      // Committee evolutivo: selección dinámica de roles del catálogo de 7
+      // por relevancia a la tarea + peso por historial, en vez del
+      // DEFAULT_ROLES fijo de 3.
+      const selected = selectRoles(opts.taskDescription ?? '', {
+        count: opts.roleCount ?? 3,
+        history: this.voteHistory,
+      });
+      this.roles = selected;
+      this.selectedMeta = selected.map(s => ({ roleId: s.id, relevance: s.relevance, weight: s.weight }));
+    } else {
+      this.roles = opts.roles ?? DEFAULT_ROLES;
+      this.selectedMeta = [];
+    }
   }
+
+  /** Roles activos (para que el caller logue cuáles se eligieron). */
+  activeRoles(): string[] { return this.roles.map(r => r.role); }
 
   /** Single committee pass (3 members + 1 synthesis). Used by voting wrapper. */
   private async runOnce(reportJson: string): Promise<CommitteeResult> {
@@ -300,7 +340,46 @@ export class Committee {
     return { members, synthesis: { error: `synth validation failed twice: ${v.error}` } };
   }
 
+  /**
+   * Punto de entrada. En modo evolutivo, tras la síntesis aplica el
+   * mediador heurístico (resuelve disensos por peso) y registra el
+   * historial de votos.
+   */
   async review(reportJson: string): Promise<CommitteeResult> {
+    return this.applyMediator(await this.reviewRaw(reportJson));
+  }
+
+  /**
+   * Committee evolutivo — el mediador heurístico resuelve el veredicto de
+   * riesgo por voto ponderado (peso del rol según su historial de acierto),
+   * y se registra cada voto para que futuros pesos evolucionen.
+   */
+  private applyMediator(result: CommitteeResult): CommitteeResult {
+    if (!this.evolutive || 'error' in result.synthesis) return result;
+    const weightMap = new Map<string, number>();
+    for (const r of this.roles) {
+      const id = (r as { id?: string }).id ?? r.role;
+      weightMap.set(r.role, this.voteHistory.statsFor(id).weight);
+    }
+    const votes = votesFromMembers(result.members, weightMap);
+    const mediator = mediateHeuristic(votes);
+    result.synthesis.mediator = mediator;
+    result.synthesis.overall_risk = mediator.finalRisk;
+    if (this.selectedMeta.length) result.synthesis.selected_roles = this.selectedMeta;
+    const reviewId = `rev_${Date.now().toString(36)}`;
+    for (const v of votes) {
+      this.voteHistory.appendRecord({
+        reviewId,
+        roleId: v.roleId,
+        roleRisk: v.risk,
+        finalRisk: mediator.finalRisk,
+        aligned: v.risk === mediator.finalRisk,
+      });
+    }
+    return result;
+  }
+
+  private async reviewRaw(reportJson: string): Promise<CommitteeResult> {
     if (this.votingRuns <= 1) return this.runOnce(reportJson);
 
     // F1 — majority voting: run committee N times, vote the verdict.
@@ -323,11 +402,7 @@ export class Committee {
     const winningRisk = (Object.entries(tally).sort((a, b) => b[1] - a[1])[0][0]) as 'low' | 'medium' | 'high';
     const winningCount = tally[winningRisk];
     const total = validSyntheses.length;
-    const confidence: 'high' | 'medium' | 'low' =
-      winningCount === total ? 'high' :
-      winningCount >= Math.ceil(total / 2) + (total % 2 === 0 ? 0 : 0) ? 'medium' :
-      'low';
-    // Above: high = unanimous; medium = majority; low = plurality only.
+    // high = unánime; medium = mayoría estricta; low = solo pluralidad.
     const sharperConfidence: 'high' | 'medium' | 'low' =
       winningCount === total ? 'high' :
       winningCount > total / 2 ? 'medium' :
