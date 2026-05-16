@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 const requireFn = createRequire(typeof __filename !== 'undefined' ? __filename : import.meta.url);
 const Database = requireFn('better-sqlite3');
+import type BetterSqlite3 from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
@@ -8,7 +9,7 @@ import { MemoryEntry, RecallQuery, RecallResult, MemoryStoreOptions } from './ty
 import { EmbeddingProvider } from './embedding_provider.js';
 
 export class MemoryStore {
-  private db: Database.Database;
+  private db: BetterSqlite3.Database;
   private dbPath: string;
   private shortTermWindow: number;
 

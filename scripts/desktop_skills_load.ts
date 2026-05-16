@@ -30,7 +30,7 @@ for (const dir of Object.keys(expectedTools).sort()) {
     if (!tool.parameters || typeof tool.parameters !== 'object') throw new Error('parameters missing');
     console.log(`  ✓ ${dir} -> ${tool.name}`);
     ok++;
-  } catch (e) {
+  } catch (e: any) {
     console.error(`  ✗ ${dir}: ${e?.message ?? e}`);
     failed++;
   }
