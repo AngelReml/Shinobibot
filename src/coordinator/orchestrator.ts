@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
-import { invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
+import { invokeLLM as routedInvokeLLM, currentProvider } from '../providers/provider_router.js';
+import { route } from './model_router.js';
 import { getAllTools, getTool, toOpenAITools } from '../tools/index.js';
 import { Memory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
@@ -116,6 +117,21 @@ export class ShinobiOrchestrator {
     let iteration = 0;
     const maxIterations = 10;
 
+    // P2 — model_router: clasifica la complejidad del input y, si está
+    // activado (SHINOBI_MODEL_ROUTER=1), enruta a un modelo/provider acorde.
+    // Default OFF = passthrough. Se decide una vez por misión.
+    const routeDecision = route({
+      input,
+      currentModel: { provider: currentProvider(), model: this.activeModel ?? '' },
+    });
+    if (routeDecision.enabled) {
+      console.log(
+        `[Shinobi] model_router: tier=${routeDecision.tier} → ` +
+        `${routeDecision.choice.provider}/${routeDecision.choice.model} ` +
+        `(~$${routeDecision.estimatedCostUsd.toFixed(5)})`,
+      );
+    }
+
     // Loop detector v3: tres capas.
     //   - Capa de args (v1): SHA256(toolName+args). Aborta con LOOP_DETECTED
     //     en el 2º intento idéntico (default).
@@ -183,11 +199,15 @@ export class ShinobiOrchestrator {
           temperature: 0.2,
         };
         // Bloque 7 — provider_router decide qué client llama según
-        // SHINOBI_PROVIDER. Para 'opengravity' (default legacy) preserva el
-        // fallback a OpenRouter del Bloque 1.1. Para groq/openai/anthropic/
-        // openrouter va directo al provider elegido (sin fallback — el user
-        // eligió, respetamos).
-        const result = await routedInvokeLLM(llmPayload);
+        // SHINOBI_PROVIDER. Si el model_router está activo, fija el modelo y
+        // el provider de esta llamada según el tier de complejidad.
+        if (routeDecision.enabled) {
+          llmPayload.model = routeDecision.choice.model;
+        }
+        const result = await routedInvokeLLM(
+          llmPayload,
+          routeDecision.enabled ? { provider: routeDecision.choice.provider as any } : undefined,
+        );
         if (!result.success) {
           throw new Error(`LLM Error: ${result.error}`);
         }

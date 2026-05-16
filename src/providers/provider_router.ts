@@ -85,8 +85,14 @@ async function invokeSingleProvider(
   return await client.invokeLLM(payload);
 }
 
-export async function invokeLLM(payload: LLMChatPayload): Promise<CloudResponse> {
-  const provider = currentProvider();
+export async function invokeLLM(
+  payload: LLMChatPayload,
+  opts?: { provider?: ProviderName },
+): Promise<CloudResponse> {
+  // `opts.provider` permite que el model_router fije el provider de ESTA
+  // llamada (la cadena de failover arranca desde él). Sin override se usa
+  // SHINOBI_PROVIDER como hasta ahora.
+  const provider = opts?.provider ?? currentProvider();
   const chain = buildFailoverChain(provider, process.env.SHINOBI_FAILOVER_CHAIN);
 
   let lastResult: CloudResponse = { success: false, output: '', error: 'No providers tried.' };
