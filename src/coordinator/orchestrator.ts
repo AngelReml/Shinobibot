@@ -15,6 +15,7 @@ import { isDestructive, requestApproval } from '../security/approval.js';
 import { diagnoseError } from '../selfdebug/self_debug.js';
 import { recordToolPattern } from '../skills/pattern_wiring.js';
 import { IterationBudget } from './iteration_budget.js';
+import { ProgressTracker, progressDetectionEnabled } from './progress_judge.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -121,6 +122,10 @@ export class ShinobiOrchestrator {
     // vez de un `maxIterations = 10` hardcodeado.
     const budget = new IterationBudget(Number(process.env.SHINOBI_MAX_ITERATIONS) || 10);
     let iteration = 0;
+
+    // P2 — progress_judge: capa 3 semántica del loop detector (opt-in con
+    // SHINOBI_PROGRESS_DETECTION=1). Default OFF = sin coste de tokens.
+    const progressTracker = progressDetectionEnabled() ? new ProgressTracker() : null;
 
     // P2 — model_router: clasifica la complejidad del input y, si está
     // activado (SHINOBI_MODEL_ROUTER=1), enruta a un modelo/provider acorde.
@@ -249,6 +254,10 @@ export class ShinobiOrchestrator {
           content: responseMessage.content || '',
           tool_calls: responseMessage.tool_calls as any,
         });
+
+        // P2 — progress_judge: acumula el output de esta iteración para que
+        // el juez de progreso semántico (capa 3, opt-in) lo evalúe.
+        let iterationOutput = String(responseMessage.content || '');
 
         // Execute all requested tool calls
         for (const toolCall of responseMessage.tool_calls) {
@@ -448,6 +457,22 @@ export class ShinobiOrchestrator {
             name: functionName,
             content: toolResultStr
           });
+          iterationOutput += '\n' + toolResultStr;
+        }
+
+        // P2 — progress_judge (capa 3 semántica del loop detector, opt-in
+        // con SHINOBI_PROGRESS_DETECTION=1). Un juez LLM independiente puntúa
+        // el avance hacia el objetivo; si la ventana no progresa, aborta.
+        if (progressTracker) {
+          const pr = await progressTracker.recordIteration(input, iterationOutput);
+          if (pr.abort) {
+            const message =
+              `He detectado que no estoy avanzando hacia el objetivo (juez de ` +
+              `progreso: ${pr.reason}). Paro y pido tu ayuda para cambiar de enfoque.`;
+            console.log(`  [⛔] ${pr.verdict} (judge=${progressTracker.judgeId()}, score=${pr.latestScore.toFixed(2)})`);
+            await this.memory.addMessage({ role: 'assistant', content: message });
+            return { verdict: pr.verdict ?? 'NO_SEMANTIC_PROGRESS', mode: this.mode, response: message };
+          }
         }
 
         // Loop continues, feeding tool results back to LLM...
