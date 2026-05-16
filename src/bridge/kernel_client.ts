@@ -101,9 +101,16 @@ export class KernelClient {
       req.on('error', (e) => {
         resolve({ success: false, error: e.message });
       });
+
+      // Sin este handler, la opción `timeout` no aborta la request y la
+      // promesa nunca se resuelve -> waitForMission se cuelga (bug P3).
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({ success: false, error: 'Request timeout' });
+      });
     });
   }
-  
+
   /**
    * Wait for mission to complete
    */
