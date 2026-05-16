@@ -92,3 +92,6 @@ outputs/
 # === Benchmark results (auto-generado por `npm run bench`) ===
 bench-results.json
 
+
+# Scratch / dev sandbox — no versionar
+scratch/
