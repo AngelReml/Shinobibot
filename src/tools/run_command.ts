@@ -160,7 +160,16 @@ const runCommandTool: Tool = {
           error: r.success ? undefined : `Command failed on backend ${r.backend} (exit ${r.exitCode}): ${r.stderr?.trim() || 'unknown'}`,
         };
       }
-      console.warn(`[run_command] SHINOBI_RUN_BACKEND='${wantBackend}' no reconocido; fallback a local.`);
+      // Backend pedido explícitamente pero desconocido: NO se cae a `local`
+      // en silencio — eso rompería la promesa de aislamiento (el usuario
+      // creería ejecutar aislado y correría en su host). Se devuelve error.
+      return {
+        success: false,
+        output: '',
+        error: `SHINOBI_RUN_BACKEND='${wantBackend}' no es un backend reconocido. ` +
+          `Backends válidos: local, docker, ssh, modal, daytona, e2b, mock. ` +
+          `No se ejecuta en 'local' por seguridad (rompería el aislamiento esperado).`,
+      };
     }
 
     return new Promise((resolve) => {
