@@ -1,5 +1,5 @@
 /**
- * Loop Detector — dos capas:
+ * Loop Detector — tres capas:
  *
  *   1) Capa de args (v1, ya commiteada en el orchestrator):
  *      SHA256(toolName + JSON.stringify(args)). El N-ésimo intento idéntico
@@ -14,9 +14,20 @@
  *      Captura el caso "el LLM rota un parámetro irrelevante en cada
  *      intento pero el resultado observable es el mismo".
  *
+ *   3) Capa de modo de fallo (v3 — incidente 2026-05-16):
+ *      Clasifica cada fallo en un "modo de fallo de ENTORNO" estable
+ *      (browser caído, API key inválida, fichero inexistente, red). El
+ *      K-ésimo fallo consecutivo del MISMO modo (default K=3) aborta con
+ *      `LOOP_SAME_FAILURE` — aunque sean tools distintas con args distintos.
+ *      Captura el caso que la capa 2 NO ve: el agente prueba 12 keywords con
+ *      clean_extract, cada output menciona la keyword (fingerprints distintos)
+ *      pero la CAUSA de fondo es la misma ("No browser on port 9222"). Cuando
+ *      el bloqueo es del entorno, cambiar de táctica no progresa: hay que
+ *      parar y pedir intervención humana.
+ *
  * Diferencia clave vs Hermes (no tiene loop detector) y OpenClaw (sin
- * detector explícito): aquí hay DOS señales independientes — incluso si
- * el agente intenta esquivar la primera, la segunda lo caza.
+ * detector explícito): aquí hay TRES señales independientes — incluso si
+ * el agente intenta esquivar una, las otras lo cazan.
  *
  * Diseño:
  *   - El detector mantiene estado por sesión (un LoopDetector por
@@ -26,12 +37,68 @@
  *   - `recordCallResult` se llama DESPUÉS de ejecutar la tool. Si la capa
  *     semántica detecta no-progress, devuelve `{ abort: true,
  *     verdict: 'LOOP_NO_PROGRESS' }`.
- *   - Ambos métodos devuelven `{ abort: false }` cuando no hay problema.
+ *   - `recordOutcome` se llama DESPUÉS de ejecutar la tool, con su éxito/error.
+ *     Si la capa de modo de fallo detecta bloqueo de entorno repetido,
+ *     devuelve `{ abort: true, verdict: 'LOOP_SAME_FAILURE' }`.
+ *   - Todos los métodos devuelven `{ abort: false }` cuando no hay problema.
  */
 
 import { createHash } from 'crypto';
 
-export type LoopVerdict = 'LOOP_DETECTED' | 'LOOP_NO_PROGRESS';
+export type LoopVerdict = 'LOOP_DETECTED' | 'LOOP_NO_PROGRESS' | 'LOOP_SAME_FAILURE';
+
+/** Modos de fallo de entorno que `classifyFailureMode` reconoce. */
+export type FailureMode =
+  | 'browser_unavailable'
+  | 'auth_invalid'
+  | 'file_not_found'
+  | 'network_unreachable';
+
+/**
+ * Clasifica un mensaje de error en un "modo de fallo de ENTORNO" estable, o
+ * `null` si el error no parece de entorno (probable bug del agente, que SÍ se
+ * puede arreglar cambiando de táctica — no debe contar para la capa 3).
+ *
+ * Exportada para que los tests la ejerciten.
+ */
+export function classifyFailureMode(error: unknown): FailureMode | null {
+  if (error == null) return null;
+  const e = String(error).toLowerCase();
+  if (!e.trim()) return null;
+  // Browser / CDP caído — el caso del incidente Iván (clean_extract sin Comet).
+  if (/no browser|port\s*9222|\bcdp\b|devtools|chrome[^.]*not[^.]*(found|running|available)|comet[^.]*(not|no)[^.]*(open|running)|browserless|puppeteer.*(connect|launch)/.test(e)) {
+    return 'browser_unavailable';
+  }
+  // API key / autenticación.
+  if (/api[\s_-]?key|unauthorized|authentication failed|invalid.*(credential|token|key)|\b401\b|\b403\b|missing.*api/.test(e)) {
+    return 'auth_invalid';
+  }
+  // Fichero / ruta inexistente.
+  if (/\benoent\b|no such file|file not found|cannot find the (file|path)|path does not exist|does not exist/.test(e)) {
+    return 'file_not_found';
+  }
+  // Red inalcanzable.
+  if (/\beconnrefused\b|\betimedout\b|\benotfound\b|\beai_again\b|network error|getaddrinfo|socket hang up|dns/.test(e)) {
+    return 'network_unreachable';
+  }
+  return null;
+}
+
+/** Texto orientativo para el usuario según el modo de fallo de entorno. */
+export function failureModeAdvice(mode: string): string {
+  switch (mode) {
+    case 'browser_unavailable':
+      return 'el navegador no está disponible (Comet/Chrome sin puerto de depuración CDP). Abre Comet y reintenta.';
+    case 'auth_invalid':
+      return 'una credencial / API key es inválida o falta. Revisa la configuración y reintenta.';
+    case 'file_not_found':
+      return 'un fichero o ruta necesarios no existen. Verifica la ruta y reintenta.';
+    case 'network_unreachable':
+      return 'la red no es alcanzable. Comprueba la conexión y reintenta.';
+    default:
+      return 'el entorno está bloqueado. Resuelve la causa y reintenta.';
+  }
+}
 
 export interface LoopDetectorConfig {
   /** Repeticiones del mismo hash de args que disparan abort (default 2). */
@@ -41,6 +108,11 @@ export interface LoopDetectorConfig {
    * que disparan abort (default 3).
    */
   maxSameOutput?: number;
+  /**
+   * Fallos consecutivos del mismo modo de fallo de entorno (browser caído,
+   * API key inválida, etc.) que disparan abort (default 3). Capa 3.
+   */
+  maxSameFailureMode?: number;
   /** Longitud máxima del fingerprint reducido (default 200 chars). */
   fingerprintLength?: number;
 }
@@ -55,6 +127,7 @@ export interface LoopCheckResult {
 const DEFAULTS: Required<LoopDetectorConfig> = {
   maxRepeatArgs: 2,
   maxSameOutput: 3,
+  maxSameFailureMode: 3,
   fingerprintLength: 200,
 };
 
@@ -104,6 +177,10 @@ export class LoopDetector {
   private readonly argsCounts = new Map<string, number>();
   /** Map<toolName + ':' + fingerprint, count>. */
   private readonly outputCounts = new Map<string, number>();
+  /** Capa 3: modo de fallo de entorno de la racha actual (null = sin racha). */
+  private currentFailureMode: FailureMode | null = null;
+  /** Capa 3: nº de fallos consecutivos del modo `currentFailureMode`. */
+  private currentFailureRun = 0;
 
   constructor(cfg: LoopDetectorConfig = {}) {
     this.cfg = { ...DEFAULTS, ...cfg };
@@ -152,6 +229,48 @@ export class LoopDetector {
     }
     return { abort: false, hash: key };
   }
+
+  /**
+   * Capa 3 (modo de fallo). Llamar después de ejecutar la tool, con su
+   * éxito/error. Detecta K fallos consecutivos que comparten el mismo modo de
+   * fallo de ENTORNO (browser caído, API key inválida, fichero inexistente,
+   * red) — aunque sean tools distintas con args distintos. En ese caso el
+   * agente no puede progresar cambiando de táctica: debe parar y pedir
+   * intervención humana en lugar de, p.ej., cerrar ventanas con Alt+F4.
+   *
+   * La racha se rompe (contador a 0) ante un éxito, o ante un fallo que no se
+   * clasifica como de entorno (probable bug del agente). Un fallo de un modo
+   * de entorno distinto reinicia la racha a ese modo nuevo.
+   */
+  recordOutcome(toolName: string, success: boolean, error?: unknown): LoopCheckResult {
+    if (success) {
+      this.currentFailureMode = null;
+      this.currentFailureRun = 0;
+      return { abort: false };
+    }
+    const mode = classifyFailureMode(error);
+    if (!mode) {
+      // Fallo no clasificable como entorno — no cuenta para la capa 3 y
+      // rompe cualquier racha previa (la situación cambió).
+      this.currentFailureMode = null;
+      this.currentFailureRun = 0;
+      return { abort: false };
+    }
+    if (mode === this.currentFailureMode) {
+      this.currentFailureRun += 1;
+    } else {
+      this.currentFailureMode = mode;
+      this.currentFailureRun = 1;
+    }
+    if (this.currentFailureRun >= this.cfg.maxSameFailureMode) {
+      return {
+        abort: true,
+        verdict: 'LOOP_SAME_FAILURE',
+        reason: `env_failure:${mode}`,
+      };
+    }
+    return { abort: false };
+  }
 }
 
 /**
@@ -161,8 +280,10 @@ export class LoopDetector {
 export function loopDetectorConfigFromEnv(): LoopDetectorConfig {
   const args = Number(process.env.SHINOBI_LOOP_MAX_REPEAT_ARGS);
   const output = Number(process.env.SHINOBI_LOOP_MAX_SAME_OUTPUT);
+  const failMode = Number(process.env.SHINOBI_LOOP_MAX_SAME_FAILURE);
   return {
     maxRepeatArgs: Number.isFinite(args) && args > 0 ? args : undefined,
     maxSameOutput: Number.isFinite(output) && output > 0 ? output : undefined,
+    maxSameFailureMode: Number.isFinite(failMode) && failMode > 0 ? failMode : undefined,
   };
 }

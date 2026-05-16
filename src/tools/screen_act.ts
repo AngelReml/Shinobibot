@@ -4,8 +4,12 @@
  * Restrictions (mandatory):
  *  - Refuse to act when the foreground window title points at /Windows, /System32, taskbar, system tray, UAC.
  *  - Refuse clicks inside the bottom 40px taskbar band.
- *  - Destructive intents (Alt+F4 with possible unsaved doc, Delete, Shift+Delete, Ctrl+W,
- *    typing "rm -rf"/"format"/"del /s") trigger an interactive CLI confirmation
+ *  - HARD-refuse destructive hotkeys (Alt+F4, Ctrl+W, Ctrl+Q, Win+L, Alt+Tab…)
+ *    that close windows, lock the machine, or switch context. Cannot be
+ *    bypassed by `force_confirm` — see checkDestructiveHotkey + incident
+ *    docs/incidents/2026-05-16_screen_act_hotkey_escape.md.
+ *  - Confirmable destructive intents (Delete, Shift+Delete, typing
+ *    "rm -rf"/"format"/"del /s") trigger an interactive CLI confirmation
  *    unless `force_confirm: true` is set by the caller (used in non-interactive mode).
  *  - ESC held >= 1 second aborts immediately (KillSwitch).
  */
@@ -15,6 +19,7 @@ import { KillSwitch } from '../utils/kill_switch.js';
 import {
   checkClickPosition,
   checkWindowTitle,
+  checkDestructiveHotkey,
   isDestructiveAction,
 } from '../utils/screen_safety.js';
 
@@ -160,6 +165,15 @@ const screenActTool: Tool = {
     const titleCheck = checkWindowTitle(activeTitle);
     if (!titleCheck.allowed) {
       return { success: false, output: '', error: `${titleCheck.reason} (active="${activeTitle}")` };
+    }
+
+    // HARD blacklist: destructive hotkeys (close window, lock, context switch).
+    // Refused outright — force_confirm CANNOT bypass this. A stuck agent must
+    // never close the user's windows to "recover". See incident
+    // docs/incidents/2026-05-16_screen_act_hotkey_escape.md.
+    const hotkeyCheck = checkDestructiveHotkey(args);
+    if (hotkeyCheck.blocked) {
+      return { success: false, output: '', error: hotkeyCheck.reason ?? 'Blocked destructive hotkey.' };
     }
 
     // Coordinate forbidden-zone check

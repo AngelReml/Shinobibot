@@ -4,7 +4,7 @@
  *
  * Eventos cubiertos:
  *   - tool_call:  tool ejecutada con éxito o no, args hash + preview, latencia
- *   - loop_abort: detector v2 (LOOP_DETECTED / LOOP_NO_PROGRESS)
+ *   - loop_abort: detector v3 (LOOP_DETECTED / LOOP_NO_PROGRESS / LOOP_SAME_FAILURE)
  *   - failover:   rotación cross-provider (X → Y, razón)
  *
  * Diseño:
@@ -44,7 +44,7 @@ export interface LoopAbortEvent {
   kind: 'loop_abort';
   ts: string;
   tool: string;
-  verdict: 'LOOP_DETECTED' | 'LOOP_NO_PROGRESS';
+  verdict: 'LOOP_DETECTED' | 'LOOP_NO_PROGRESS' | 'LOOP_SAME_FAILURE';
   argsHash: string;
   sessionId?: string;
 }
@@ -130,7 +130,7 @@ export function logToolCall(args: {
 
 export function logLoopAbort(args: {
   tool: string;
-  verdict: 'LOOP_DETECTED' | 'LOOP_NO_PROGRESS';
+  verdict: 'LOOP_DETECTED' | 'LOOP_NO_PROGRESS' | 'LOOP_SAME_FAILURE';
   args: unknown;
   sessionId?: string;
 }): boolean {
