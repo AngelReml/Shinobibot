@@ -262,6 +262,11 @@ esa instancia y **descarta el flag**. Procedimiento fiable:
 El acceso directo de la carpeta de Inicio no sufre esto: al arrancar la sesión
 no hay ningún `comet.exe` previo, así que siempre lanza con el flag.
 
+Si Comet ya está abierto sin el flag, **`scripts/relaunch_comet_cdp.ps1`** hace
+el ciclo fiable de un tirón: cierra todos los `comet.exe`, espera a que se
+libere el lock del perfil y relanza Comet con CDP. Sin parámetros no toca nada
+si el puerto 9222 ya está activo (`-Force` para relanzar igualmente).
+
 ## Estado
 
 **Resuelto y verificado** (Opción A). CDP activo en `:9222`, Shinobi puede
