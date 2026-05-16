@@ -241,8 +241,23 @@ export function restoreBackup(opts: RestoreOptions): RestoreResult {
   let restored = 0, skipped = 0;
   for (const f of manifest.files) {
     const src = join(opts.stagingDir, f.relPath);
-    const dst = join(opts.destDir, f.relPath);
     if (!existsSync(src)) { skipped++; continue; }
+
+    // Los archivos marcados `redacted` en el manifest contienen
+    // `<REDACTED:...>` en lugar de los valores reales (p.ej. audit.jsonl).
+    // Restaurarlos SOBRE el archivo real destruiría datos de forma
+    // irreversible — se restauran a un sidecar `<path>.from-backup` para que
+    // el contenido del backup esté disponible sin clobberar el original.
+    if (f.redacted) {
+      const sidecar = join(opts.destDir, f.relPath + '.from-backup');
+      mkdirSync(dirname(sidecar), { recursive: true });
+      copyFileSync(src, sidecar);
+      console.warn(`[backup] ${f.relPath} estaba redactado — restaurado a ${f.relPath}.from-backup (no se sobrescribe el original)`);
+      restored++;
+      continue;
+    }
+
+    const dst = join(opts.destDir, f.relPath);
     if (existsSync(dst) && !opts.overwrite) { skipped++; continue; }
     mkdirSync(dirname(dst), { recursive: true });
     copyFileSync(src, dst);

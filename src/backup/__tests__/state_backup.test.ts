@@ -112,7 +112,11 @@ describe('restoreBackup', () => {
     const r = restoreBackup({ stagingDir, destDir: dest });
     expect(r.filesRestored).toBeGreaterThan(0);
     expect(existsSync(join(dest, 'USER.md'))).toBe(true);
-    expect(existsSync(join(dest, 'audit/audit.jsonl'))).toBe(true);
+    // Fix P1: el audit.jsonl iba REDACTADO en el backup; restaurarlo sobre
+    // el archivo real destruiría datos. Ahora se restaura a un sidecar
+    // .from-backup y NO se sobrescribe el original.
+    expect(existsSync(join(dest, 'audit/audit.jsonl.from-backup'))).toBe(true);
+    expect(existsSync(join(dest, 'audit/audit.jsonl'))).toBe(false);
   });
 
   it('lanza si manifest no existe', () => {

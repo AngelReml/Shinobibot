@@ -2,7 +2,7 @@
  * MemoryProviderRegistry — selección + init de proveedores de memoria.
  *
  * El operador elige vía env `SHINOBI_MEMORY_PROVIDER`:
- *   - 'local'        (default): SQLite + embeddings ya existente vía `memory_store`
+ *   - 'local'       (default): persistente a JSON local (`LocalJsonProvider`)
  *   - 'in_memory'   : volátil RAM (tests + sesiones sin persistencia)
  *   - 'mem0'        : mem0.ai (requiere MEM0_API_KEY)
  *   - 'supermemory' : supermemory.ai (requiere SUPERMEMORY_API_KEY)
@@ -16,6 +16,7 @@
 
 import type { MemoryProvider } from './providers/types.js';
 import { InMemoryProvider } from './providers/in_memory.js';
+import { LocalJsonProvider } from './providers/local_json.js';
 import { Mem0Provider } from './providers/mem0_provider.js';
 import { SupermemoryProvider } from './providers/supermemory_provider.js';
 
@@ -59,10 +60,11 @@ export class MemoryProviderRegistry {
       case 'supermemory': return new SupermemoryProvider();
       case 'local':
       default:
+        // Si el caller inyectó un factory custom, se respeta. Si no, se usa
+        // LocalJsonProvider: persistente a disco (bug C6 — antes degradaba
+        // en silencio a InMemoryProvider volátil).
         if (this.localFactory) return this.localFactory();
-        // Fallback seguro: in_memory para no crashear si el caller no
-        // wiró el factory local.
-        return new InMemoryProvider();
+        return new LocalJsonProvider();
     }
   }
 

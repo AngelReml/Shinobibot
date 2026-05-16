@@ -173,11 +173,14 @@ describe('SupermemoryProvider', () => {
 
 // ── Registry ──
 describe('MemoryProviderRegistry', () => {
-  it('default → local con fallback in_memory si no hay factory', async () => {
+  it('default → local usa LocalJsonProvider persistente si no hay factory', async () => {
+    // Fix C6: antes degradaba en silencio a in_memory (volátil). Ahora el
+    // default 'local' es LocalJsonProvider, persistente a disco.
     const r = new MemoryProviderRegistry();
     expect(r.activeId).toBe('local');
     const p = await r.getProvider();
-    expect(p.id).toBe('in_memory'); // fallback
+    expect(p.id).toBe('local');
+    expect(p.label.toLowerCase()).toContain('persist');
   });
 
   it('env SHINOBI_MEMORY_PROVIDER=in_memory', async () => {
