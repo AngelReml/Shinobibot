@@ -16,6 +16,7 @@ import { diagnoseError } from '../selfdebug/self_debug.js';
 import { recordToolPattern } from '../skills/pattern_wiring.js';
 import { IterationBudget } from './iteration_budget.js';
 import { ProgressTracker, progressDetectionEnabled } from './progress_judge.js';
+import { MemoryReflector, reflectionEnabled } from '../context/memory_reflector.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -82,7 +83,35 @@ export class ShinobiOrchestrator {
       } catch (e: any) {
         console.log(`[Shinobi] observeRun failed: ${e?.message ?? e}`);
       }
+      // P2 — memory_reflector: cada N misiones (opt-in con
+      // SHINOBI_REFLECTION_ENABLED=1) analiza la historia y emite un reporte
+      // markdown auditable con contradicciones / preferencias del usuario.
+      try {
+        if (reflectionEnabled()) {
+          const reflector = ShinobiOrchestrator.memoryReflector();
+          reflector.noteMessage();
+          if (reflector.shouldReflect()) {
+            const history = await this.memory.getMessages();
+            const report = reflector.analyze(history as any);
+            console.log(`[Shinobi] memory_reflector: ${report.contradictions.length} contradicciones, ` +
+              `${report.preferences.length} preferencias${report.filePath ? ` → ${report.filePath}` : ''}`);
+          }
+        }
+      } catch (e: any) {
+        console.log(`[Shinobi] memory_reflector failed: ${e?.message ?? e}`);
+      }
     }
+  }
+
+  private static _memoryReflector: MemoryReflector | null = null;
+  /** Singleton del reflector de memoria (persiste el contador entre misiones). */
+  static memoryReflector(): MemoryReflector {
+    if (!this._memoryReflector) {
+      this._memoryReflector = new MemoryReflector({
+        intervalMessages: Number(process.env.SHINOBI_REFLECTION_INTERVAL) || 10,
+      });
+    }
+    return this._memoryReflector;
   }
 
   private static async executeToolLoop(input: string, toolSequence: string[] = []): Promise<any> {
