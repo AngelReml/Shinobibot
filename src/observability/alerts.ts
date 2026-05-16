@@ -177,11 +177,27 @@ function renderTemplate(rule: AlertRule, ctx: { reason: string; ctx: any }): str
     .replace('{timestamp}', new Date().toISOString());
 }
 
+/**
+ * Valida que la URL de webhook sea http/https hacia un host de red real.
+ * Bloquea esquemas peligrosos (file:, etc.) — sin esto un `webhookUrl`
+ * malicioso en la config de alertas sería un vector SSRF.
+ */
+export function isSafeWebhookUrl(url: string): boolean {
+  let u: URL;
+  try { u = new URL(url); } catch { return false; }
+  return u.protocol === 'http:' || u.protocol === 'https:';
+}
+
 async function defaultWebhookSender(url: string, body: any): Promise<{ ok: boolean; status?: number; error?: string }> {
+  if (!isSafeWebhookUrl(url)) {
+    return { ok: false, error: `webhook URL no válida o esquema no permitido: "${url}" (solo http/https)` };
+  }
   try {
-    // Node 18+ tiene fetch global. Si no, esto rompe en build-time pero
-    // tsx no compila — solo el runtime puede fallar y lo capturamos.
-    const resp = await (globalThis as any).fetch(url, {
+    const fetchFn = (globalThis as any).fetch;
+    if (typeof fetchFn !== 'function') {
+      return { ok: false, error: 'fetch global no disponible en este runtime' };
+    }
+    const resp = await fetchFn(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
