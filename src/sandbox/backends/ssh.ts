@@ -50,7 +50,10 @@ export class SSHBackend implements RunBackend {
     const port = process.env.SSH_PORT || '22';
 
     const args = [
-      '-o', 'StrictHostKeyChecking=no',
+      // accept-new (TOFU): acepta la clave de un host nuevo, pero RECHAZA si
+      // la clave de un host ya conocido cambió — detecta MITM tras el primer
+      // connect. `=no` aceptaba cualquier clave siempre.
+      '-o', 'StrictHostKeyChecking=accept-new',
       '-o', `ConnectTimeout=10`,
       '-o', 'BatchMode=yes',
       '-i', keyPath,

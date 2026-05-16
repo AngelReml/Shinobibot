@@ -3,6 +3,11 @@
  */
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { OpenGravityClient } from '../cloud/opengravity_client.js';
+import { withTimeout } from '../runtime/resident_loop.js';
+
+// Sin timeout, una misión swarm colgada bloqueaba el orchestrator
+// indefinidamente. Configurable; default 5 min.
+const CLOUD_MISSION_TIMEOUT_MS = Number(process.env.SHINOBI_CLOUD_MISSION_TIMEOUT_MS) || 300000;
 
 const cloudMissionTool: Tool = {
   name: 'start_cloud_mission',
@@ -31,7 +36,11 @@ const cloudMissionTool: Tool = {
       console.log(`[🚀] Launching mission on OpenGravity: ${args.mission_prompt.substring(0, 50)}...`);
       console.log(`[⏳] This might take a few minutes as the swarm executes...`);
       
-      const result = await OpenGravityClient.startSwarmMission(args.mission_prompt);
+      const result = await withTimeout(
+        OpenGravityClient.startSwarmMission(args.mission_prompt),
+        CLOUD_MISSION_TIMEOUT_MS,
+        'start_cloud_mission',
+      );
       
       if (result.success) {
            return {
