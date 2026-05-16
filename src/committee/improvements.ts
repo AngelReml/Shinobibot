@@ -327,22 +327,45 @@ Self-check before emitting: copy your "find" and ctrl-F it mentally in the file 
   }
   if (patched === original) return undefined;
 
+  // Diff vía `git diff --no-index` entre dos temporales. NUNCA se escribe
+  // sobre el archivo real del repo (bug P1: el código anterior escribía
+  // `patched` sobre el fichero y luego lo revertía — si el proceso moría a
+  // medias, el repo del usuario quedaba modificado sin haberlo pedido).
+  const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const tmpOrig = path.join(os.tmpdir(), `shinobi-orig-${stamp}`);
+  const tmpPatched = path.join(os.tmpdir(), `shinobi-patched-${stamp}`);
   try {
-    fs.writeFileSync(fileAbs, patched, 'utf-8');
-    const diffRes = spawnSync('git', ['diff', '--no-color', '--', p.file], { encoding: 'utf-8' });
-    fs.writeFileSync(fileAbs, original, 'utf-8'); // revert
+    fs.writeFileSync(tmpOrig, original, 'utf-8');
+    fs.writeFileSync(tmpPatched, patched, 'utf-8');
+    const diffRes = spawnSync('git', ['diff', '--no-color', '--no-index', tmpOrig, tmpPatched], { encoding: 'utf-8' });
+    // git diff --no-index sale con 1 cuando hay diferencias (esperado).
     if (diffRes.status !== 0 && diffRes.status !== 1) return undefined;
     let diff = (diffRes.stdout || '').trim();
     if (!diff || !diff.includes('@@')) return undefined;
-    // Strip the `index <oldhash>..<newhash>` line — the new blob will not
-    // exist in .git/objects after the revert, which makes `git apply --3way`
-    // fail with "does not match index". Without that line, git apply only
-    // checks context against the current file content, which is what we want.
-    diff = diff.split(/\n/).filter((l) => !/^index [0-9a-f]+\.\.[0-9a-f]+/.test(l)).join('\n');
+    // Reescribe las rutas de los temporales en las líneas de cabecera para
+    // que el diff referencie el archivo real del repo, y quita la línea
+    // `index` (el blob no existe en .git/objects). Solo se tocan las líneas
+    // ANTES del primer `@@` — el cuerpo del diff se deja intacto.
+    const repoRel = p.file.replace(/\\/g, '/');
+    let inHunks = false;
+    diff = diff
+      .split(/\n/)
+      .filter((l) => !/^index [0-9a-f]+\.\.[0-9a-f]+/.test(l))
+      .map((l) => {
+        if (l.startsWith('@@')) inHunks = true;
+        if (inHunks) return l;
+        if (l.startsWith('diff --git ')) return `diff --git a/${repoRel} b/${repoRel}`;
+        if (l.startsWith('--- ')) return `--- a/${repoRel}`;
+        if (l.startsWith('+++ ')) return `+++ b/${repoRel}`;
+        return l;
+      })
+      .join('\n');
     return { diff };
   } catch {
-    try { fs.writeFileSync(fileAbs, original, 'utf-8'); } catch { /* best effort */ }
     return undefined;
+  } finally {
+    try { fs.unlinkSync(tmpOrig); } catch { /* best effort */ }
+    try { fs.unlinkSync(tmpPatched); } catch { /* best effort */ }
   }
 }
 
