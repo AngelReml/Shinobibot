@@ -37,6 +37,23 @@ export class SkillLoader {
       if (!codeRes.data.success) return { success: false, message: 'failed to fetch code' };
 
       const code = codeRes.data.output;
+
+      // C8 — auditar el código ANTES de escribirlo a disco e importarlo.
+      // skill_loader hace `await import()` de código remoto = ejecución
+      // arbitraria en el proceso de Shinobi. El auditor estático rechaza
+      // patrones críticos (reverse shell, exfiltración de keys/tokens, kill
+      // de procesos, eval de input, new Function sobre args...).
+      const { scanText } = await import('./skill_auditor.js');
+      const auditFindings = scanText(typeof code === 'string' ? code : String(code), `${skillId}.mjs`);
+      const criticalFindings = auditFindings.filter(f => f.level === 'critical');
+      if (criticalFindings.length > 0) {
+        return {
+          success: false,
+          message: `Skill rechazada por la auditoría de seguridad: ${criticalFindings.length} hallazgo(s) crítico(s) — ` +
+            criticalFindings.map(f => `${f.rule} (${f.reason})`).join('; '),
+        };
+      }
+
       const approvedFile = path.join(APPROVED_DIR, `${skillId}.mjs`);
 
       // Rewrite the import to the absolute path of Shinobi's tool registry (as file URL for ESM)
@@ -87,12 +104,22 @@ export class SkillLoader {
 
   public static async reloadAllApproved(): Promise<{ loaded: number; errors: string[] }> {
     ensureDir();
+    const { scanText } = await import('./skill_auditor.js');
     const files = this.listApprovedFiles();
     let loaded = 0;
     const errors: string[] = [];
     for (const f of files) {
       try {
-        const fileUrl = 'file:///' + path.join(APPROVED_DIR, f).replace(/\\/g, '/');
+        const filePath = path.join(APPROVED_DIR, f);
+        // Re-auditar antes de re-importar: el .mjs aprobado pudo manipularse
+        // en disco después de la aprobación inicial.
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const critical = scanText(content, f).filter(x => x.level === 'critical');
+        if (critical.length > 0) {
+          errors.push(`${f}: rechazada — auditoría crítica (${critical.map(c => c.rule).join(', ')})`);
+          continue;
+        }
+        const fileUrl = 'file:///' + filePath.replace(/\\/g, '/');
         await import(fileUrl);
         loaded++;
       } catch (e: any) {
