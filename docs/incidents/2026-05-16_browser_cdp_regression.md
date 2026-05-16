@@ -233,15 +233,36 @@ Efecto:
   automáticamente (acceso directo en Inicio).
 - Mientras tanto, abrir Comet por el acceso directo del Escritorio.
 
-**Acción pendiente del usuario (no automatizable sin riesgo):** la instancia de
-Comet abierta ahora (PID 3580) corre sin el flag; los accesos directos no la
-afectan. Para activar el CDP sin reiniciar: cerrar Comet por completo y
-reabrirlo con el acceso directo. Shinobi NO cierra Comet por su cuenta (se
-perderían las pestañas del usuario — eso era la Opción C, descartada).
-
 No se modificó código de conexión: el problema nunca estuvo ahí.
+
+### Verificación end-to-end (2026-05-16)
+
+Con autorización del usuario se cerraron los 21 procesos `comet.exe` y se
+relanzó Comet por el acceso directo. Resultado:
+
+- Puerto 9222 abierto en **1 s**.
+- `http://localhost:9222/json/version` → `Chrome/148.0.7778.222` + `webSocketDebuggerUrl` válido.
+- Proceso principal (PID 15248) con la línea de comando correcta:
+  `comet.exe --remote-debugging-port=9222 --no-first-run --no-default-browser-check`.
+- Perfil por defecto (sin `--user-data-dir`) → sesiones del usuario intactas.
+
+También se descartó el restrictivo de Chromium 136+ (`--remote-debugging-port`
+ignorado en el perfil por defecto): Comet 148 lo acepta sin problema.
+
+### Gotcha operacional (importante)
+
+El acceso directo del Escritorio solo surte efecto si Comet está **cerrado por
+completo** al pulsarlo. Chromium es de instancia única: si queda un proceso
+`comet.exe` vivo (ventana o bandeja), el acceso directo le reenvía la orden a
+esa instancia y **descarta el flag**. Procedimiento fiable:
+1. Cerrar Comet (incluida la bandeja del sistema).
+2. Comprobar que no queda ningún `comet.exe`.
+3. Abrir por el acceso directo «Comet (CDP 9222)».
+
+El acceso directo de la carpeta de Inicio no sufre esto: al arrancar la sesión
+no hay ningún `comet.exe` previo, así que siempre lanza con el flag.
 
 ## Estado
 
-**Resuelto** (Opción A). Pendiente solo de que el usuario reabra Comet con el
-acceso directo (o reinicie sesión) para que el CDP quede activo.
+**Resuelto y verificado** (Opción A). CDP activo en `:9222`, Shinobi puede
+conectarse al navegador del usuario.
