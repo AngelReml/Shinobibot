@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { SYSTEM_PROMPT } from '../constants/prompts.js';
-import { Memory } from '../db/memory.js';
+import { Memory, sharedMemory } from '../db/memory.js';
 import { curatedMemory } from '../memory/curated_memory.js';
 
 /**
@@ -72,7 +72,10 @@ export class ContextBuilder {
   private memory: Memory;
 
   constructor() {
-    this.memory = new Memory();
+    // Instancia compartida: la cadena de escritura de Memory es por-instancia;
+    // usar el singleton evita el lost-update C7 entre ContextBuilder y el
+    // orchestrator, que escriben el mismo memory.json.
+    this.memory = sharedMemory();
   }
 
   async buildMessages(userInput: string): Promise<any[]> {

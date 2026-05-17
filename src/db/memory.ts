@@ -99,3 +99,24 @@ export class Memory {
     return this.writeChain;
   }
 }
+
+const _sharedMemory = new Map<string, Memory>();
+
+/**
+ * Instancia COMPARTIDA de Memory por path.
+ *
+ * `addMessage` serializa los read-modify-write con `writeChain`, pero esa
+ * cadena es por-instancia. Si dos partes del código hacen `new Memory()`
+ * sobre el mismo `memory.json`, sus cadenas no se coordinan y el
+ * lost-update del bug C7 reaparece ENTRE instancias. Todos los callers de
+ * producción deben usar este singleton para compartir la misma cadena.
+ */
+export function sharedMemory(filePath: string = './memory.json'): Memory {
+  const key = path.resolve(filePath);
+  let m = _sharedMemory.get(key);
+  if (!m) {
+    m = new Memory(filePath);
+    _sharedMemory.set(key, m);
+  }
+  return m;
+}

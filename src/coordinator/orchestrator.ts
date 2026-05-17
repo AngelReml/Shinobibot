@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import { invokeLLM as routedInvokeLLM, currentProvider } from '../providers/provider_router.js';
 import { route } from './model_router.js';
 import { getAllTools, getTool, toOpenAITools } from '../tools/index.js';
-import { Memory } from '../db/memory.js';
+import { sharedMemory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
 import { MemoryStore } from '../memory/memory_store.js';
 import { skillManager } from '../skills/skill_manager.js';
@@ -31,7 +31,7 @@ export type ExecutionMode = 'local' | 'kernel' | 'auto';
 
 export class ShinobiOrchestrator {
   private static mode: ExecutionMode = 'kernel';
-  private static memory = new Memory();
+  private static memory = sharedMemory();
   private static contextBuilder = new ContextBuilder();
   private static memoryStore: MemoryStore | null = null;
   private static openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

@@ -95,3 +95,7 @@ bench-results.json
 
 # Scratch / dev sandbox — no versionar
 scratch/
+
+# Cache del reader (deep_descent) — generado, no versionar
+.shinobi-reader-cache/
+**/.shinobi-reader-cache/
