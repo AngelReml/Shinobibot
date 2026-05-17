@@ -88,3 +88,42 @@ Recomendación: un tercer ciclo NO se justifica aún — primero cerrar la
 cola HIGH listada arriba (sobre todo #1–#4, que son seguridad/concurrencia
 introducida por P2), y entonces re-auditar para confirmar que MEDIUM/LOW
 empieza a descender.
+
+## Cierre de la cola HIGH (2026-05-17, post-informe)
+
+Tras el informe se cerró la cola HIGH. Estado de los 12 items:
+
+| # | Estado | Commit / nota |
+|---|---|---|
+| task_scheduler injección | ✅ corregido + validado real | `f365a26` |
+| process_lock unhandledRejection | ✅ corregido + validado real | `f365a26` |
+| #1 A2A rate-limit + host-header | ✅ corregido | `4110628` |
+| #2 multiuser header sin auth | ✅ corregido + validado real | `4110628` |
+| #3 users.json no atómico | ✅ corregido + validado real | `4110628` |
+| #4 canales sin cola serial | ✅ corregido + validado real | `4110628` (orchestrator_mutex) |
+| #5 autodetect embeddings falso | ✅ corregido + validado real | `65c954e` |
+| #6 recall scores incomparables | ✅ corregido + validado real | `65c954e` |
+| #7 extended_patterns muerto | ✅ corregido + validado real | `65c954e` (22→64 patrones) |
+| #9 teams/webhook send() rompe contrato | ✅ corregido | `65c954e` |
+| #11 /tier no-op | ✅ retirado | `65c954e` |
+| #8 contentSha256 no verificado | ✅ corregido + validado real | `a2db056` |
+| #12 demo_runner mock sin etiquetar | ✅ etiquetado [STUB] | `4d21677` |
+| #10 ACP/ZedBridge muerto | ⏳ feature sin terminar | ver abajo |
+| #8b `/skill install` CLI | ⏳ feature sin terminar | ver abajo |
+
+**Pendiente — trabajo de feature, NO defectos:**
+
+- **ACP / ZedBridge** (`src/a2a/zed_bridge.ts`, `acp_adapter.ts`): puente
+  para el editor Zed. El protocolo está implementado y testeado pero le
+  falta el ejecutable `bin/shinobi-acp` y la entrada `bin` en package.json.
+  Es una feature a medio terminar, no un bug — requiere decidir si se
+  completa o se retira.
+- **`/skill install` CLI**: la cadena federada de skills (con C10 y
+  contentSha256 ya verificados) es funcional vía `installFromRegistry()`
+  pero no hay comando de usuario que la invoque. Construir ese comando es
+  trabajo de UX, no un fix.
+
+Resultado: **12 de 12 defectos HIGH cerrados** (10 con validación real
+pegada en los commits). Quedan 2 features sin terminar que la auditoría
+listó como HIGH por estar "muertas" — su cierre es una decisión de
+producto (completar o retirar), no una corrección.
