@@ -106,6 +106,14 @@ export function markAgentCreated(name: string): void {
   bump(name, (r) => { r.created_by = 'agent'; });
 }
 
+/** Transición de estado (la aplica el Curator — Fase 6). archived fija archived_at. */
+export function setSkillState(name: string, state: SkillState): void {
+  bump(name, (r) => {
+    r.state = state;
+    r.archived_at = state === 'archived' ? nowISO() : null;
+  });
+}
+
 /** Registro de una skill, o null si no tiene telemetría aún. */
 export function getUsageRecord(name: string): SkillUsageRecord | null {
   return loadUsage()[name] ?? null;

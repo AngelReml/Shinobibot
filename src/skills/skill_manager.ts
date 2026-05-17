@@ -36,7 +36,7 @@ import {
   type SkillFrontmatter,
 } from './skill_md_parser.js';
 import { verifySkill } from './skill_signing.js';
-import { bumpUse, markAgentCreated } from '../learning/skill_telemetry.js';
+import { bumpUse, markAgentCreated, getUsageRecord } from '../learning/skill_telemetry.js';
 
 /** Kinds de skill nacidos del agente (elegibles para el Curator), vs 'manual'. */
 function isAgentBornKind(kind: string | undefined): boolean {
@@ -412,7 +412,12 @@ class SkillManagerImpl {
       const kws = skill.frontmatter.trigger_keywords;
       if (!Array.isArray(kws) || kws.length === 0) continue;
       const hit = kws.some(kw => typeof kw === 'string' && kw.length > 0 && inputLower.includes(kw.toLowerCase()));
-      if (hit) matched.push(skill);
+      if (hit) {
+        // Fase 6 — una skill que el Curator archivó no se inyecta (archived
+        // es un flag reversible: deja de usarse sin perder el contenido).
+        if (getUsageRecord(String(skill.frontmatter.name || ''))?.state === 'archived') continue;
+        matched.push(skill);
+      }
       if (matched.length >= maxSkills) break;
     }
     if (matched.length === 0) return null;
