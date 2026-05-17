@@ -130,6 +130,10 @@ export const DESTRUCTIVE_TOOLS = new Set<string>([
   'browser_click', 'browser_click_position', 'browser_scroll',
   'screen_act', 'cloud_mission', 'n8n_invoke',
   'skill_request_generation',
+  // task_scheduler_create crea tareas programadas persistentes (schtasks
+  // /CREATE /F) — declara requiresConfirmation() pero el gate real corre
+  // por esta lista, así que sin esta entrada se auto-ejecutaba sin pedir.
+  'task_scheduler_create',
 ]);
 
 export interface DestructiveVerdict {
@@ -157,6 +161,14 @@ export function isDestructive(toolName: string, args: any): DestructiveVerdict {
       if (p.regex.test(target)) return { destructive: true, reason: p.reason };
     }
     return { destructive: false };
+  }
+
+  // Resto de tools de la lista destructiva (screen_act, browser_click,
+  // cloud_mission, n8n_invoke, task_scheduler_create…): siempre requieren
+  // confirmación. Antes `isDestructive` no consultaba DESTRUCTIVE_TOOLS —
+  // la lista era código muerto y esas tools se auto-ejecutaban sin gate.
+  if (DESTRUCTIVE_TOOLS.has(toolName)) {
+    return { destructive: true, reason: `tool potencialmente destructiva: ${toolName}` };
   }
 
   return { destructive: false };
