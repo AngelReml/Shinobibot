@@ -124,10 +124,13 @@ export class ShinobiOrchestrator {
           if (toolSequence.includes('request_new_skill')) this._itersSinceSkill = 0;
           const reviewMemory = this._turnsSinceMemory >= memNudge;
           const reviewSkills = this._itersSinceSkill >= skillNudge;
-          if (reviewMemory) this._turnsSinceMemory = 0;
-          if (reviewSkills) this._itersSinceSkill = 0;
           if (reviewMemory || reviewSkills) {
             const history = await this.memory.getMessages();
+            // El reset va ADYACENTE al dispatch (sin await entre medias) —
+            // así no hay ventana en la que otra misión vea el contador ya a
+            // cero pero el review aún sin lanzar (perdería el nudge).
+            if (reviewMemory) this._turnsSinceMemory = 0;
+            if (reviewSkills) this._itersSinceSkill = 0;
             void runBackgroundReview({
               history: history as any,
               reviewMemory,

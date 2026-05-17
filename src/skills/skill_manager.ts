@@ -300,12 +300,17 @@ class SkillManagerImpl {
     parsed.frontmatter.status = 'pending';
     parsed.frontmatter.source = 'auto';
     for (const [k, v] of Object.entries(extraFrontmatter)) parsed.frontmatter[k] = v;
+    // La telemetría (skill_telemetry) y getContextSection keyean por
+    // `frontmatter.name`. Si el LLM omitió `name`, se fija aquí a `id` — así
+    // el SKILL.md en disco SIEMPRE lo lleva y todas las rutas (markAgentCreated,
+    // bumpUse, skip de archivadas) usan exactamente la misma clave.
+    if (!parsed.frontmatter.name) parsed.frontmatter.name = id;
 
     ensureDirs(this.skillsRoot, this.pendingDir, this.approvedDir);
     const filepath = path.join(this.pendingDir, `${id}.skill.md`);
     fs.writeFileSync(filepath, serializeSkillMd(parsed), 'utf-8');
 
-    const name = String(parsed.frontmatter.name || id);
+    const name = String(parsed.frontmatter.name);
     const description = String(parsed.frontmatter.description || '');
     // Fase 5 — provenance: una skill nacida del agente (review / failure /
     // pattern, NO 'manual') se marca created_by='agent' en la telemetría.
