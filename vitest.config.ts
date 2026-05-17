@@ -37,7 +37,6 @@ export default defineConfig({
       'src/skills/__tests__/skill_auditor.test.ts',
       'src/skills/__tests__/anthropic_skill_installer.test.ts',
       'src/skills/__tests__/skill_registry.test.ts',
-      'src/skills/sources/__tests__/**/*.test.ts',
       'src/skills/auditor/__tests__/**/*.test.ts',
       'src/skills/__tests__/usage_pattern_detector.test.ts',
       'src/sentinel/__tests__/**/*.test.ts',

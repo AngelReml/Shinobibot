@@ -27,7 +27,9 @@ export interface VersionManifest {
   component: string;
   latest_version: string;
   download_url: string;
-  sha256: string;
+  /** SHA256 del instalador. Opcional en el JSON externo; si falta,
+   *  install_update rehúsa ejecutar el .exe (no es verificable). */
+  sha256?: string;
   released_at: string;
   channel: string;
   notes_url?: string;
@@ -37,7 +39,8 @@ export interface UpdateOffer {
   current: string;
   latest: string;
   download_url: string;
-  sha256: string;
+  /** SHA256 esperado del instalador; opcional (ver VersionManifest.sha256). */
+  sha256?: string;
   released_at: string;
   channel: string;
   notes_url?: string;

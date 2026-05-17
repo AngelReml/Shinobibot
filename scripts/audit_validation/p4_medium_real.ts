@@ -33,20 +33,21 @@ async function testInstallUpdate() {
   const port = (server.address() as any).port;
   const url = `http://127.0.0.1:${port}/setup.exe`;
 
+  const baseOffer = { current: '1.0.0', latest: '9.9.9', download_url: url, released_at: '2026-05-17', channel: 'stable' };
   try {
     // A1 — manifest SIN sha256, dryRun=false: debe rehusar (no spawnea).
-    const noHash = await runUpdate({ current: '1.0.0', latest: '9.9.9', download_url: url }, { dryRun: false });
+    const noHash = await runUpdate({ ...baseOffer }, { dryRun: false });
     console.log(`  sin sha256 -> ${JSON.stringify(noHash)}`);
     check('un instalador sin sha256 NO se ejecuta', !noHash.ok && /sha256/i.test(noHash.reason ?? ''),
       `ok=${noHash.ok}, reason="${noHash.reason}"`);
 
     // A2 — manifest con sha256 correcto, dryRun=true: verifica y no ejecuta.
-    const okHash = await runUpdate({ current: '1.0.0', latest: '9.9.9', download_url: url, sha256: realHash }, { dryRun: true });
+    const okHash = await runUpdate({ ...baseOffer, sha256: realHash }, { dryRun: true });
     check('sha256 correcto pasa la verificación', okHash.ok && okHash.sha256_ok === true,
       `ok=${okHash.ok}, sha256_ok=${okHash.sha256_ok}`);
 
     // A3 — sha256 manipulado: rechazado.
-    const badHash = await runUpdate({ current: '1.0.0', latest: '9.9.9', download_url: url, sha256: 'deadbeef'.repeat(8) }, { dryRun: true });
+    const badHash = await runUpdate({ ...baseOffer, sha256: 'deadbeef'.repeat(8) }, { dryRun: true });
     check('sha256 manipulado se rechaza', !badHash.ok && /mismatch/i.test(badHash.reason ?? ''),
       `reason="${badHash.reason}"`);
   } finally {
