@@ -23,22 +23,37 @@ export function userRegistry(): UserRegistry {
 }
 
 /**
- * Resuelve el usuario de una petición. Si el userId es válido y no existe,
- * lo da de alta como `guest` (on-first-contact). Si falta o es inválido,
- * cae al owner. Registra actividad. Devuelve el UserRecord.
+ * Resuelve el usuario de una petición a partir de la cabecera `X-Shinobi-User`.
+ *
+ * SEGURIDAD: esa cabecera NO está autenticada — cualquier caller que ya pasó
+ * el token del gateway podría declararse otro usuario. Por eso solo se
+ * confía si el operador lo habilita con `SHINOBI_TRUST_USER_HEADER=1` (caso:
+ * gateway detrás de un proxy de identidad que fija la cabecera). Por defecto
+ * la cabecera se ignora y todo se atribuye al owner — sin aislamiento falso.
+ *
+ * Incluso con la cabecera habilitada, solo puede crear/seleccionar usuarios
+ * `guest`: un header que apunte a una cuenta `owner`/`collaborator` existente
+ * NO concede ese rol (cae al owner).
  */
 export function resolveUser(userId?: string, displayName?: string): UserRecord {
   const reg = userRegistry();
+  const owner = (): UserRecord => {
+    const o = reg.get(reg.ownerId() || 'owner') ?? reg.list()[0];
+    reg.touchActive(o.userId);
+    return o;
+  };
+  if (process.env.SHINOBI_TRUST_USER_HEADER !== '1') return owner();
+
   const id = (userId || '').trim().toLowerCase();
   if (id && isValidUserId(id)) {
     let rec = reg.get(id);
+    // Un header no puede escalar a una cuenta privilegiada existente.
+    if (rec && rec.role !== 'guest') return owner();
     if (!rec) rec = reg.create({ userId: id, displayName: displayName || id, role: 'guest' });
     reg.touchActive(id);
     return rec;
   }
-  const owner = reg.get(reg.ownerId() || 'owner') ?? reg.list()[0];
-  reg.touchActive(owner.userId);
-  return owner;
+  return owner();
 }
 
 /** Test helper: reinicia el singleton. */

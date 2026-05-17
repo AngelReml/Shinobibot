@@ -16,13 +16,21 @@ import { channelRegistry } from './channel_registry.js';
 import { LoopbackAdapter } from './adapters/loopback_adapter.js';
 import { WebhookAdapter } from './adapters/webhook_adapter.js';
 import { ShinobiOrchestrator } from '../coordinator/orchestrator.js';
+import { runExclusive } from '../coordinator/orchestrator_mutex.js';
 import type { IncomingMessage, OutgoingMessage, MessageHandler } from './types.js';
 
 let _started = false;
 
-/** Handler único: enruta cada mensaje entrante de cualquier canal al orchestrator. */
+/**
+ * Handler único: enruta cada mensaje entrante de cualquier canal al
+ * orchestrator. Las llamadas se serializan con `runExclusive` — el
+ * orchestrator tiene estado estático compartido y procesar dos mensajes de
+ * canal en paralelo (o uno concurrente con una petición WebChat) lo
+ * corrompe.
+ */
 async function orchestratorHandler(msg: IncomingMessage): Promise<OutgoingMessage | null> {
-  const result: any = await ShinobiOrchestrator.process(`[CHANNEL: ${msg.channelId}] ${msg.text}`);
+  const result: any = await runExclusive(() =>
+    ShinobiOrchestrator.process(`[CHANNEL: ${msg.channelId}] ${msg.text}`));
   const text = result?.response
     ? String(result.response)
     : result?.output ? String(result.output) : '(sin respuesta)';
