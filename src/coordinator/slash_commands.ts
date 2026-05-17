@@ -473,7 +473,7 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
     return true;
   }
 
-  // /read <path> [--budget=N]
+  // /read <path> [--budget=N] [--deep] [--query=...]
   if (trimmed.startsWith('/read')) {
     const argv = trimmed.slice('/read'.length).trim();
     const { runRead, parseReadArgs } = await import('../reader/cli.js');
@@ -481,7 +481,11 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
     if (parsed.error) {
       console.log(parsed.error);
     } else {
-      await runRead(parsed.path!, { budgetTokens: parsed.budgetTokens });
+      await runRead(parsed.path!, {
+        budgetTokens: parsed.budgetTokens,
+        deepDescent: parsed.deepDescent,
+        query: parsed.query,
+      });
     }
     return true;
   }
