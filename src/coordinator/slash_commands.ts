@@ -356,7 +356,18 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
       return true;
     }
 
-    console.log('Usage: /skill list | /skill approve <id> | /skill reject <id> | /skill list-approved | /skill reload | /skill propose [<contexto>] | /skill review');
+    // /skill install <nombre|fuente> [--allow-warnings]
+    if (sub === 'install') {
+      const { runSkillInstall } = await import('../skills/registry/install_command.js');
+      const rest = trimmed.slice('/skill install'.length).trim();
+      const allowWarnings = /(^|\s)--allow-warnings(\s|$)/.test(rest);
+      const arg = rest.replace(/(^|\s)--allow-warnings(\s|$)/, ' ').trim();
+      const outcome = await runSkillInstall(arg, { allowWarnings });
+      for (const l of outcome.lines) console.log(l);
+      return true;
+    }
+
+    console.log('Usage: /skill list | /skill install <nombre|fuente> | /skill approve <id> | /skill reject <id> | /skill list-approved | /skill reload | /skill propose [<contexto>] | /skill review');
     return true;
   }
 
