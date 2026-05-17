@@ -18,6 +18,7 @@ import { recordToolPattern } from '../skills/pattern_wiring.js';
 import { IterationBudget } from './iteration_budget.js';
 import { ProgressTracker, progressDetectionEnabled } from './progress_judge.js';
 import { MemoryReflector, reflectionEnabled } from '../context/memory_reflector.js';
+import { loadSoul, personaSystemMessage, builtinSoul } from '../soul/soul.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -141,6 +142,21 @@ export class ShinobiOrchestrator {
     if (modeHint) {
       currentMessages = [{ role: 'system', content: modeHint }, ...currentMessages];
     }
+
+    // Ghost feature cableada (soul/persona): si SHINOBI_PERSONA está definida,
+    // se inyecta el system message de esa persona. soul.ts existía con 10
+    // personas built-in pero ningún path lo invocaba. Opt-in: sin la env no
+    // hay inyección y el comportamiento no cambia.
+    try {
+      const personaName = process.env.SHINOBI_PERSONA;
+      if (personaName) {
+        const soul = builtinSoul(personaName) ?? loadSoul();
+        const personaMsg = personaSystemMessage(soul);
+        if (personaMsg) {
+          currentMessages = [{ role: 'system', content: personaMsg } as any, ...currentMessages];
+        }
+      }
+    } catch (e) { console.error('[soul] persona inject failed:', (e as Error).message); }
     const allTools = getAllTools();
     const availableTools = this.mode === 'local'
       ? allTools.filter(t => t.name !== 'start_kernel_mission')

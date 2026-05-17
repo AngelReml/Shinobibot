@@ -341,6 +341,28 @@ async function main() {
     console.log('[Shinobi] Curated memory error:', e?.message ?? e);
   }
 
+  // Ghost feature cableada (plugins): carga plugins externos al arranque.
+  // Opt-in estricto — cargar plugins ejecuta código de terceros (superficie
+  // de seguridad), así que requiere SHINOBI_PLUGINS_ENABLED=1 explícito.
+  if (process.env.SHINOBI_PLUGINS_ENABLED === '1') {
+    try {
+      const { loadAllPlugins } = await import('../src/plugins/plugin_loader.js');
+      const pr = await loadAllPlugins(resolve(process.cwd(), 'plugins'));
+      console.log(`[Shinobi] Plugins: ${pr.loaded.length} cargado(s), ${pr.errors.length} error(es).`);
+      pr.errors.forEach((e: any) => console.log('  -', typeof e === 'string' ? e : JSON.stringify(e)));
+    } catch (e: any) {
+      console.log('[Shinobi] Error cargando plugins:', e?.message ?? e);
+    }
+  }
+
+  // Ghost feature cableada (telemetry): emite session_start. emit() es
+  // opt-in — no envía nada salvo que el usuario lo haya aceptado en el
+  // first-run wizard (telemetry.ts:110 chequea opted_in).
+  try {
+    const { emit } = await import('../src/telemetry/telemetry.js');
+    void emit('session_start', {});
+  } catch { /* telemetría best-effort, nunca bloquea el arranque */ }
+
   console.log('');
 
   const prompt = () => {
