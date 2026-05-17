@@ -155,6 +155,18 @@ async function ensureLaunched(): Promise<void> {
 export async function connectOrLaunchCDP(): Promise<Browser> {
   const { chromium } = await import('playwright');
 
+  // Modo Sandbox Browser: navegador propio de Shinobi en un contenedor
+  // Docker. El usuario conserva su Comet/Chrome con sus sesiones — Shinobi
+  // no lo toca. Se arranca el sandbox y se conecta a SU CDP.
+  const { browserSandboxEnabled, ensureBrowserSandbox } = await import('../sandbox/browser_sandbox/wiring.js');
+  if (browserSandboxEnabled()) {
+    const sb = await ensureBrowserSandbox();
+    if (!sb.ok || !sb.cdpUrl) {
+      throw new Error(`Sandbox Browser no disponible: ${sb.error ?? 'error desconocido'}`);
+    }
+    return await chromium.connectOverCDP(sb.cdpUrl);
+  }
+
   // Modo CDP remoto: conecta al endpoint del sandbox, sin auto-launch.
   const remote = remoteCdpUrl();
   if (remote) {

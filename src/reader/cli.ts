@@ -10,6 +10,10 @@ export interface RunReadOptions {
   budgetTokens?: number;
   /** label used as missions/<timestamp>_<label>/ — default 'read' */
   label?: string;
+  /** Usar deep_descent: walk completo del árbol + scoring por relevancia. */
+  deepDescent?: boolean;
+  /** Query que dirige el scoring de deep_descent. */
+  query?: string;
 }
 
 export interface RunReadResult {
@@ -36,9 +40,13 @@ export async function runRead(repoPath: string, opts: RunReadOptions = {}): Prom
   console.log(`[read] target: ${repoAbs}`);
   console.log(`[read] budget: ${budget.maxSubagents} sub-agents, ${budget.tokensTotal} tokens cap`);
 
+  if (opts.deepDescent) console.log(`[read] deep-descent: ON${opts.query ? ` (query: "${opts.query}")` : ''}`);
+
   const reader = new RepoReader({
     llm: makeLLMClient(),
     budget,
+    deepDescent: opts.deepDescent,
+    query: opts.query,
     onProgress: (ev) => {
       if (ev.phase === 'partition') console.log(`[read] partitioning ${ev.detail}`);
       else if (ev.phase === 'spawn') console.log(`[read] spawning ${ev.detail}`);
@@ -119,22 +127,35 @@ export async function runRead(repoPath: string, opts: RunReadOptions = {}): Prom
   return { ok: true, missionDir, durationMs: dur };
 }
 
-// Parse `/read <path> [--budget=N]`
-export function parseReadArgs(argv: string): { path?: string; budgetTokens?: number; error?: string } {
-  // argv is the substring after "/read "
-  const tokens = argv.trim().split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return { error: 'Usage: /read <path> [--budget=N]' };
+// Parse `/read <path> [--budget=N] [--deep] [--query=...]`
+export function parseReadArgs(argv: string): {
+  path?: string; budgetTokens?: number; deepDescent?: boolean; query?: string; error?: string;
+} {
+  const USAGE = 'Usage: /read <path> [--budget=N] [--deep] [--query=...]';
+  let rest = argv.trim();
+  if (!rest) return { error: USAGE };
+  // --query= se lleva el resto de la línea (puede contener espacios).
+  let query: string | undefined;
+  const qm = rest.match(/--query=(.*)$/);
+  if (qm) { query = qm[1].trim() || undefined; rest = rest.slice(0, qm.index).trim(); }
+
+  const tokens = rest.split(/\s+/).filter(Boolean);
   let pathArg: string | undefined;
   let budgetTokens: number | undefined;
+  let deepDescent = false;
   for (const t of tokens) {
     if (t.startsWith('--budget=')) {
       const n = parseInt(t.slice('--budget='.length), 10);
       if (Number.isFinite(n) && n > 0) budgetTokens = n;
       else return { error: `invalid --budget value: ${t}` };
+    } else if (t === '--deep') {
+      deepDescent = true;
     } else if (!pathArg) {
       pathArg = t;
     }
   }
-  if (!pathArg) return { error: 'Usage: /read <path> [--budget=N]' };
-  return { path: pathArg, budgetTokens };
+  if (!pathArg) return { error: USAGE };
+  // Una query solo tiene efecto en modo deep → la implica.
+  const dd = deepDescent || !!query;
+  return { path: pathArg, budgetTokens, deepDescent: dd || undefined, query };
 }

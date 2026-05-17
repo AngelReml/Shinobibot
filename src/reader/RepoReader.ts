@@ -15,6 +15,7 @@ import {
   runSubAgent,
 } from './SubAgent.js';
 import type { SubReport, SubReportError } from './schemas.js';
+import { discoverAndScore } from './deep_descent.js';
 
 export interface Budget {
   maxSubagents: number;
@@ -151,12 +152,35 @@ function scoreFilename(name: string): number {
   return 0;
 }
 
+export interface PartitionOptions {
+  /** Si true, usa deep_descent (walk completo + scoring por relevancia)
+   *  para seleccionar los archivos de cada rama, en vez del DFS plano de
+   *  `gatherFiles` que se quedaba en las capas superficiales. */
+  deepDescent?: boolean;
+  /** Query/objetivo — dirige el scoring de relevancia de deep_descent. */
+  query?: string;
+}
+
+/**
+ * Selecciona los archivos de una rama. Con `deepDescent`, deep_descent
+ * recorre el subárbol ENTERO y devuelve los top-`cap` por relevancia —
+ * cobertura mucho mayor que el DFS con tope de `gatherFiles`, que llena
+ * el cupo con archivos superficiales y nunca llega a los profundos.
+ */
+function selectBranchFiles(dirAbs: string, cap: number, opts?: PartitionOptions): string[] {
+  if (opts?.deepDescent) {
+    const { candidates } = discoverAndScore(dirAbs, { query: opts.query ?? '', maxFiles: cap });
+    return candidates.slice(0, cap).map((c) => c.absPath);
+  }
+  return gatherFiles(dirAbs, cap);
+}
+
 export interface PartitionResult {
   rootMeta: SubTask;
   branches: SubTask[];
 }
 
-export function partition(repoAbs: string, budget: Budget = DEFAULT_BUDGET): PartitionResult {
+export function partition(repoAbs: string, budget: Budget = DEFAULT_BUDGET, opts?: PartitionOptions): PartitionResult {
   const top = listDirSafe(repoAbs);
   const dirs = top.filter((e) => e.isDir);
   const rootFiles = top.filter((e) => !e.isDir && isSourceFile(e.name));
@@ -184,7 +208,7 @@ export function partition(repoAbs: string, budget: Budget = DEFAULT_BUDGET): Par
   const branches: SubTask[] = heavy.map((d) => ({
     sub_path: path.relative(repoAbs, d.abs).replace(/\\/g, '/'),
     abs_path: d.abs,
-    files_to_read: gatherFiles(d.abs, filesCap),
+    files_to_read: selectBranchFiles(d.abs, filesCap, opts),
     token_budget: tokensPerSub,
   }));
 
@@ -192,7 +216,7 @@ export function partition(repoAbs: string, budget: Budget = DEFAULT_BUDGET): Par
     // Group small folders into one "misc" sub-agent
     const miscFiles: string[] = [];
     for (const d of tail) {
-      const more = gatherFiles(d.abs, Math.max(2, Math.floor(filesCap / tail.length)));
+      const more = selectBranchFiles(d.abs, Math.max(2, Math.floor(filesCap / tail.length)), opts);
       for (const f of more) {
         if (miscFiles.length >= filesCap) break;
         miscFiles.push(f);
@@ -262,6 +286,10 @@ export interface RepoReaderOptions {
   subagentModel?: string;     // default haiku
   synthModel?: string;        // default opus
   onProgress?: (ev: { phase: string; detail?: string }) => void;
+  /** Usar deep_descent (walk completo + scoring) para elegir archivos. */
+  deepDescent?: boolean;
+  /** Query/objetivo que dirige el scoring de deep_descent. */
+  query?: string;
 }
 
 export class RepoReader {
@@ -270,6 +298,8 @@ export class RepoReader {
   private subagentModel: string;
   private synthModel: string;
   private onProgress: NonNullable<RepoReaderOptions['onProgress']>;
+  private deepDescent: boolean;
+  private query: string;
 
   constructor(opts: RepoReaderOptions) {
     this.llm = opts.llm;
@@ -277,6 +307,8 @@ export class RepoReader {
     this.subagentModel = opts.subagentModel ?? 'z-ai/glm-4.7-flash';
     this.synthModel = opts.synthModel ?? 'claude-sonnet-4-6';
     this.onProgress = opts.onProgress ?? (() => {});
+    this.deepDescent = opts.deepDescent ?? false;
+    this.query = opts.query ?? '';
   }
 
   async read(repoAbs: string): Promise<ReadResult | ReadFailure> {
@@ -285,8 +317,11 @@ export class RepoReader {
       return { ok: false, error: `path does not exist: ${repoAbs}`, subreports: [] };
     }
 
-    this.onProgress({ phase: 'partition', detail: repoAbs });
-    const { rootMeta, branches } = partition(repoAbs, this.budget);
+    this.onProgress({ phase: 'partition', detail: repoAbs + (this.deepDescent ? ' (deep-descent)' : '') });
+    const { rootMeta, branches } = partition(repoAbs, this.budget, {
+      deepDescent: this.deepDescent,
+      query: this.query,
+    });
     const allTasks = [rootMeta, ...branches];
     this.onProgress({ phase: 'spawn', detail: `${allTasks.length} sub-agents` });
 
