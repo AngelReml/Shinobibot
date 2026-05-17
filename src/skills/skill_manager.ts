@@ -36,7 +36,12 @@ import {
   type SkillFrontmatter,
 } from './skill_md_parser.js';
 import { verifySkill } from './skill_signing.js';
-import { bumpUse } from '../learning/skill_telemetry.js';
+import { bumpUse, markAgentCreated } from '../learning/skill_telemetry.js';
+
+/** Kinds de skill nacidos del agente (elegibles para el Curator), vs 'manual'. */
+function isAgentBornKind(kind: string | undefined): boolean {
+  return kind === 'review' || kind === 'failure' || kind === 'pattern';
+}
 import { invokeLLMViaOpenRouter } from '../cloud/openrouter_fallback.js';
 import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
 
@@ -302,6 +307,13 @@ class SkillManagerImpl {
 
     const name = String(parsed.frontmatter.name || id);
     const description = String(parsed.frontmatter.description || '');
+    // Fase 5 — provenance: una skill nacida del agente (review / failure /
+    // pattern, NO 'manual') se marca created_by='agent' en la telemetría.
+    // Es el gate del Curator: solo toca skills 'agent', nunca las del
+    // usuario ni las instaladas. proposeSkill manual deja created_by='user'.
+    if (isAgentBornKind(extraFrontmatter.source_kind)) {
+      markAgentCreated(name);
+    }
     console.log(`[skill-manager] New skill proposed: ${name} (${id})`);
     emit({ type: 'skill_proposed', id, name, description, source_kind: extraFrontmatter.source_kind });
     return { ok: true, id, name };

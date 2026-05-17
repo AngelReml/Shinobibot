@@ -110,3 +110,17 @@ export function markAgentCreated(name: string): void {
 export function getUsageRecord(name: string): SkillUsageRecord | null {
   return loadUsage()[name] ?? null;
 }
+
+/**
+ * Lista de skills elegibles para el Curator (Fase 6): SOLO las nacidas del
+ * agente (`created_by==='agent'`) y no archivadas. Las skills del usuario
+ * (`created_by==='user'` — el default) y las instaladas/firmadas quedan
+ * fuera por construcción: nunca reciben `markAgentCreated`. Es el gate que
+ * impide que el motor de mantenimiento toque trabajo del usuario.
+ */
+export function listAgentCreatedSkillNames(): string[] {
+  const data = loadUsage();
+  return Object.entries(data)
+    .filter(([, r]) => r.created_by === 'agent' && r.state !== 'archived')
+    .map(([name]) => name);
+}
