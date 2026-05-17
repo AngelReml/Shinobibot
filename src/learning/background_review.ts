@@ -17,6 +17,7 @@ import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
 import { curatedMemory } from '../memory/curated_memory.js';
 import { skillManager } from '../skills/skill_manager.js';
 import { buildReviewPrompt } from './review_prompts.js';
+import { classifyMemoryEntry } from './memory_separation.js';
 
 export type ReviewInvoker = (payload: LLMChatPayload) => Promise<CloudResponse>;
 
@@ -128,8 +129,17 @@ export async function runBackgroundReview(opts: BackgroundReviewOptions): Promis
     let memorySaved = 0;
     if (opts.reviewMemory) {
       for (const entry of decision.memory) {
+        const content = entry.content.trim();
+        // Fase 3 — separación de stores: solo HECHOS DECLARATIVOS entran a
+        // memoria. Una entrada imperativa se descarta (iría a envenenar
+        // MEMORY.md, que se re-inyecta cada turno como directiva).
+        const cls = classifyMemoryEntry(content);
+        if (!cls.ok) {
+          console.log(`[review] entrada de memoria descartada — ${cls.reason}: "${content.slice(0, 80)}"`);
+          continue;
+        }
         try {
-          const r = curatedMemory().appendEnv(entry.content.trim());
+          const r = curatedMemory().appendEnv(content);
           if (r.ok) memorySaved++;
         } catch (e: any) { console.log(`[review] appendEnv falló: ${e?.message ?? e}`); }
       }

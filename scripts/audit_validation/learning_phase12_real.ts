@@ -32,7 +32,7 @@ function check(name: string, ok: boolean, detail: string) {
 }
 
 /** Construye un CloudResponse cuyo content es `text`. */
-const cloud = (text: string) => ({ success: true, output: JSON.stringify({ content: text }), error: undefined });
+const cloud = (text: string) => ({ success: true, output: JSON.stringify({ content: text }), error: '' });
 
 const HISTORY = [
   { role: 'user', content: 'no me des respuestas tan largas, ve al grano' },
