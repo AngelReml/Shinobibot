@@ -18,6 +18,7 @@ import { recordToolPattern } from '../skills/pattern_wiring.js';
 import { IterationBudget } from './iteration_budget.js';
 import { ProgressTracker, progressDetectionEnabled } from './progress_judge.js';
 import { MemoryReflector, reflectionEnabled } from '../context/memory_reflector.js';
+import { runBackgroundReview, backgroundReviewEnabled, reviewInProgress } from '../learning/background_review.js';
 import { loadSoul, personaSystemMessage, builtinSoul } from '../soul/soul.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
@@ -57,8 +58,16 @@ export class ShinobiOrchestrator {
     return null;
   }
 
+  // Fase 1 del bucle de aprendizaje — contadores de nudge. Estáticos: el
+  // proceso es de larga vida (REPL/web/gateway), así que persisten entre
+  // misiones sin rehidratación. _turnsSinceMemory ++ por misión de usuario;
+  // _itersSinceSkill ++ por iteración del tool-loop.
+  private static _turnsSinceMemory = 0;
+  private static _itersSinceSkill = 0;
+
   static async process(input: string): Promise<any> {
     console.log(`[Shinobi] Processing: ${input.slice(0, 50)}...`);
+    this._turnsSinceMemory++;
 
     // Add user input to memory
     await this.memory.addMessage({ role: 'user', content: input });
@@ -101,6 +110,33 @@ export class ShinobiOrchestrator {
         }
       } catch (e: any) {
         console.log(`[Shinobi] memory_reflector failed: ${e?.message ?? e}`);
+      }
+
+      // Fase 1 del bucle de aprendizaje — Background Review (Motor 1).
+      // Tras entregar la respuesta, si saltó un nudge, una revisión LLM
+      // decide qué guardar en memoria / capturar como skill. Opt-in con
+      // SHINOBI_REVIEW_ENABLED=1. Fire-and-forget: no bloquea la respuesta.
+      try {
+        if (backgroundReviewEnabled() && !reviewInProgress()) {
+          const memNudge = Number(process.env.SHINOBI_MEMORY_NUDGE_INTERVAL) || 10;
+          const skillNudge = Number(process.env.SHINOBI_SKILL_NUDGE_INTERVAL) || 15;
+          // Si el agente ya tocó skills en vivo, no se vuelve a nudgear.
+          if (toolSequence.includes('request_new_skill')) this._itersSinceSkill = 0;
+          const reviewMemory = this._turnsSinceMemory >= memNudge;
+          const reviewSkills = this._itersSinceSkill >= skillNudge;
+          if (reviewMemory) this._turnsSinceMemory = 0;
+          if (reviewSkills) this._itersSinceSkill = 0;
+          if (reviewMemory || reviewSkills) {
+            const history = await this.memory.getMessages();
+            void runBackgroundReview({
+              history: history as any,
+              reviewMemory,
+              reviewSkills,
+            }).catch((e) => console.log(`[Shinobi] background_review failed: ${e?.message ?? e}`));
+          }
+        }
+      } catch (e: any) {
+        console.log(`[Shinobi] background_review wiring failed: ${e?.message ?? e}`);
       }
     }
   }
@@ -204,6 +240,7 @@ export class ShinobiOrchestrator {
 
     while (budget.consume()) {
       iteration++;
+      this._itersSinceSkill++; // Fase 1 — nudge de skills por iteración.
       console.log(`[Shinobi] Let the LLM decide (Iter ${iteration}/${budget.snapshot().total})...`);
 
       try {
