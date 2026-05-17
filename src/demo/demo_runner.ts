@@ -185,6 +185,9 @@ export async function runDemo(opts: DemoOptions): Promise<DemoResult> {
   const transcriptPath = `${baseName}.transcript.txt`;
   const transcript = new TranscriptWriter(transcriptPath);
   transcript.line(`Shinobi demo — mode=${opts.fullSelfImprove ? 'full-self-improve' : 'task'} ${opts.task_id ?? ''}`.trim());
+  transcript.line('[AVISO] Respuestas CANNED (localStubResponse) — esto NO es ejecución real del agente.');
+  transcript.line('[AVISO] La demo valida el pipeline narración+verificación; la capacidad real del');
+  transcript.line('[AVISO] agente se mide con el harness GAIA / shinobi-bench, no con `shinobi demo`.');
 
   const obs = await startObs(opts, transcript);
   // For the rest of the function the previous "skipped" semantics are preserved.
@@ -206,7 +209,7 @@ export async function runDemo(opts: DemoOptions): Promise<DemoResult> {
         const response = localStubResponse(task);
         const v = verifierMod.verify(task, response);
         const verdict = v.pass ? 'PASS' : 'FAIL';
-        transcript.line(`  -> ${verdict}${v.reason ? ' (' + v.reason + ')' : ''}`);
+        transcript.line(`  -> ${verdict} [STUB]${v.reason ? ' (' + v.reason + ')' : ''}`);
         task_results.push({ id: task.id, verdict, reason: v.reason });
       }
       const passed = task_results.filter((r) => r.verdict === 'PASS').length;
@@ -219,7 +222,7 @@ export async function runDemo(opts: DemoOptions): Promise<DemoResult> {
       const response = localStubResponse(task);
       const v = verifierMod.verify(task, response);
       const verdict = v.pass ? 'PASS' : 'FAIL';
-      transcript.line(`Result: ${verdict} — ${v.reason}`);
+      transcript.line(`Result: ${verdict} [STUB — respuesta canned, no ejecución real] — ${v.reason}`);
       task_results.push({ id: task.id, verdict, reason: v.reason });
     }
   } catch (e: any) {
