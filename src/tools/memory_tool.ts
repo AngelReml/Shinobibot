@@ -1,0 +1,70 @@
+/**
+ * Fase 8 del bucle de aprendizaje — tool `memory`.
+ *
+ * Hasta ahora el agente solo podía guardar memoria de forma DIFERIDA, vía
+ * el background review post-turno. Este tool cierra ese hueco: deja que el
+ * agente EN VIVO guarde un hecho declarativo en el momento ("guarda esto",
+ * "recuérdalo") — la otra vía que el mapa de Hermes (§1.4) recomienda tener.
+ *
+ * Escribe a MEMORY.md vía `CuratedMemory.appendEnv()` (que escanea
+ * inyección). Pasa por el mismo guard `classifyMemoryEntry` (Fase 3): solo
+ * hechos declarativos, nunca directivas imperativas.
+ */
+
+import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
+import { curatedMemory } from '../memory/curated_memory.js';
+import { classifyMemoryEntry } from '../learning/memory_separation.js';
+
+const memoryTool: Tool = {
+  name: 'memory',
+  description:
+    'Save a durable fact to persistent memory (MEMORY.md), injected into ' +
+    'future turns. Do this PROACTIVELY, without waiting to be asked, when:\n' +
+    '- the user corrects you or says "remember this" / "don\'t do that again"\n' +
+    '- the user shares a preference, habit, or personal detail (name, role, ' +
+    'timezone, coding style)\n' +
+    '- you learn a stable fact about the environment or the user\'s setup.\n\n' +
+    'Write a DECLARATIVE FACT, not an instruction to yourself: ' +
+    '"User prefers concise responses" — correct. "Always be concise" — ' +
+    'rejected (an imperative re-reads as a directive and overrides the ' +
+    'user\'s actual request).\n' +
+    'Do NOT save task progress, PR numbers, commit SHAs, or anything that ' +
+    'will be stale in 7 days. For procedures use request_new_skill instead.',
+  parameters: {
+    type: 'object',
+    properties: {
+      content: {
+        type: 'string',
+        description: 'The declarative fact to remember. One short sentence.',
+      },
+    },
+    required: ['content'],
+  },
+
+  async execute(args: { content?: string }): Promise<ToolResult> {
+    const content = typeof args?.content === 'string' ? args.content.trim() : '';
+    if (!content) {
+      return { success: false, output: '', error: 'content is required' };
+    }
+    // Guard de la Fase 3 — solo hechos declarativos entran a memoria.
+    const cls = classifyMemoryEntry(content);
+    if (!cls.ok) {
+      return {
+        success: false, output: '',
+        error: `not saved — ${cls.reason}. Rephrase as a declarative fact.`,
+      };
+    }
+    try {
+      const r = curatedMemory().appendEnv(content);
+      if (r.ok) {
+        return { success: true, output: `Saved to memory: "${content.slice(0, 80)}"` };
+      }
+      return { success: false, output: '', error: r.message };
+    } catch (e: any) {
+      return { success: false, output: '', error: `memory write failed: ${e?.message ?? e}` };
+    }
+  },
+};
+
+registerTool(memoryTool);
+export default memoryTool;

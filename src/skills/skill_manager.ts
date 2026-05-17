@@ -251,8 +251,21 @@ class SkillManagerImpl {
   async proposeSkill(context: string, kind: string = 'manual'): Promise<{ ok: boolean; id?: string; name?: string; error?: string }> {
     const prompt =
       `Generate a SKILL.md for the following context:\n\n${context}\n\n` +
-      `Output ONLY the markdown, starting with --- frontmatter ` +
-      `(name, description, trigger_keywords as inline list) and a body with step-by-step instructions.`;
+      `AUTHORING STANDARDS (Fase 7 del bucle de aprendizaje):\n` +
+      `- This is a CLASS-LEVEL skill: name the CLASS of task, never a one-off.\n` +
+      `  The name must NOT be a PR number, error string, codename, library\n` +
+      `  name alone, or a "fix-X / debug-Y / audit-Z" artifact. Lowercase,\n` +
+      `  hyphen-separated, max 64 chars.\n` +
+      `- Prefer ONE broad umbrella skill with labelled subsections over\n` +
+      `  several narrow sibling skills — an agent matches skills by\n` +
+      `  description, so a wide skill beats five thin ones.\n` +
+      `- description: ONE sentence, <=60 chars, ends with a period, no\n` +
+      `  marketing words ("powerful", "comprehensive"), do not repeat the name.\n` +
+      `- Body section order: short intro (what it does and what it does NOT),\n` +
+      `  ## When to Use, ## Steps (numbered, exact commands), ## Pitfalls,\n` +
+      `  ## Verification.\n\n` +
+      `Output ONLY the markdown, starting with the --- frontmatter ` +
+      `(name, description, trigger_keywords as an inline list).`;
     return await this.runProposal(prompt, { source_kind: kind });
   }
 

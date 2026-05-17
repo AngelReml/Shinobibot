@@ -18,6 +18,7 @@ import './n8n_invoke.js';
 import './n8n_list_catalog.js';
 import './skill_list.js';
 import './skill_request_generation.js';
+import './memory_tool.js';
 import './screen_observe.js';
 import './screen_act.js';
 
