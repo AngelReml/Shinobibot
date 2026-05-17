@@ -2,6 +2,7 @@ import { MissionsStore, type RecurrentMission } from '../persistence/missions_re
 import { Notifier } from '../notifications/notifier.js';
 import { ShinobiOrchestrator } from '../coordinator/orchestrator.js';
 import { runDreamingCycle, dreamingEnabled } from '../memory/dreaming/dreaming_wiring.js';
+import { shouldRunCurator, runCuratorCycle } from '../learning/skill_curator.js';
 
 /**
  * Corre `p` con un límite de tiempo. Si `p` no resuelve en `ms`, la promesa
@@ -99,6 +100,17 @@ export class ResidentLoop {
         console.error('[ResidentLoop] dreaming error:', e?.message ?? e);
       }
     }
+    // Fase 6 del bucle de aprendizaje — Curator (Motor 2). Idle, opt-in con
+    // SHINOBI_CURATOR_ENABLED=1; intervalo ~7d, el first-run difiere.
+    try {
+      if (shouldRunCurator()) {
+        const c = await runCuratorCycle();
+        console.log(`[ResidentLoop] curator: ${c.note}`);
+      }
+    } catch (e: any) {
+      console.error('[ResidentLoop] curator error:', e?.message ?? e);
+    }
+
     const due = this.store.getDueMissions();
     if (due.length === 0) return;
     for (const m of due) {
