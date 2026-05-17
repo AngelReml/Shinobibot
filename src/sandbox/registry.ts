@@ -14,7 +14,7 @@
  * isolación cuando el operador quiere VPS aislado.
  */
 
-import type { BackendId, RunBackend, BackendStatus } from './types.js';
+import type { BackendId, RunBackend } from './types.js';
 import { LocalBackend } from './backends/local.js';
 import { DockerBackend } from './backends/docker.js';
 import { SSHBackend } from './backends/ssh.js';

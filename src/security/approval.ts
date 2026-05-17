@@ -128,7 +128,10 @@ const READ_ONLY_TOOLS = new Set<string>([
 export const DESTRUCTIVE_TOOLS = new Set<string>([
   'write_file', 'edit_file', 'run_command',
   'browser_click', 'browser_click_position', 'browser_scroll',
-  'screen_act', 'cloud_mission', 'n8n_invoke',
+  // 'start_cloud_mission' es el nombre REGISTRADO de la tool (cloud_mission.ts);
+  // con 'cloud_mission' (nombre del archivo) isDestructive no la encontraba y
+  // lanzaba ejecución remota de swarm sin gate. Mismo patrón que request_new_skill.
+  'screen_act', 'start_cloud_mission', 'n8n_invoke',
   // El nombre REGISTRADO de la tool es 'request_new_skill' (skill_request_generation.ts:5),
   // no el del archivo. isDestructive() recibe el nombre registrado: con la
   // entrada equivocada la tool se auto-ejecutaba sin gate pese a disparar
