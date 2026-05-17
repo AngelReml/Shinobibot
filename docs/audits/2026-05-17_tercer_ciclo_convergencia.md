@@ -90,3 +90,35 @@ sin cablear (`telemetry`, `soul`, `observability`, `plugins`, `replay`,
 `browser_sandbox`, `deep_descent`, ACP/Zed) decidir explícitamente
 cablear o eliminar. Eso vaciará la cola MEDIUM/LOW de golpe. En paralelo,
 cerrar los 2 bugs HIGH reales (`state_backup`, `task_scheduler`).
+
+## Cierre (2026-05-17, post-informe)
+
+**2 bugs HIGH reales — corregidos + validados real (commit `346dcce`):**
+
+- `state_backup` — corregida la ruta del audit log (`audit.jsonl` raíz). El
+  test creaba el fixture en la ruta equivocada → ahora reproduce la traza
+  real. El audit log ya entra en el backup, redactado.
+- `task_scheduler_create` sin gate — el bug real era más profundo:
+  `isDestructive()` NUNCA consultaba `DESTRUCTIVE_TOOLS` (la lista entera
+  era código muerto; screen_act/browser_click/cloud_mission/n8n_invoke
+  también se auto-ejecutaban sin gate). `isDestructive()` ahora honra la
+  lista. Validación real 5/5.
+
+**Ghost features — 5 de 7 cableadas + validadas real (commit `01a1165`):**
+
+| Módulo | Decisión | Cómo |
+|---|---|---|
+| `soul` | cablear | orchestrator inyecta persona si `SHINOBI_PERSONA` |
+| `observability` | cablear | `GET /admin/dashboard` montado |
+| `replay` | cablear | nuevo comando `/replay` |
+| `telemetry` | cablear (opt-in) | `emit('session_start')` al arranque; no envía sin consentimiento |
+| `plugins` | cablear (opt-in) | `loadAllPlugins()` al arranque, gated por `SHINOBI_PLUGINS_ENABLED=1` |
+| `deep_descent` | **pendiente** | requiere integrarse en `RepoReader` (cambia el `/read`) — decisión de producto |
+| `browser_sandbox` | **pendiente** | subsistema de sandbox de navegador — feature real, no un wire de arranque |
+
+`deep_descent` y `browser_sandbox` NO se cablearon: no son wires de
+arranque sino integraciones de feature que cambian comportamiento central
+(el reader / un subsistema de navegador). Cablearlas a prisa crearía la
+misma deuda de integración a medias que este informe diagnostica. Quedan,
+junto con ACP/Zed, como **decisiones de producto explícitas**: cablear
+(con su esfuerzo de integración real) o eliminar.
