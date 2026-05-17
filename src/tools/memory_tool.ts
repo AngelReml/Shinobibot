@@ -9,7 +9,20 @@
  * Escribe a MEMORY.md vía `CuratedMemory.appendEnv()` (que escanea
  * inyección). Pasa por el mismo guard `classifyMemoryEntry` (Fase 3): solo
  * hechos declarativos, nunca directivas imperativas.
+ *
+ * DECISIÓN DE SEGURIDAD (explícita, no un hueco): este tool NO pasa por el
+ * gate de aprobación (`DESTRUCTIVE_TOOLS`). Es coherente con el resto del
+ * bucle de aprendizaje — el background review (Fase 1) también escribe a
+ * MEMORY.md sin gate; es aprendizaje autónomo por diseño, y el `memory`
+ * tool es su versión en vivo. Gatearlo rompería el guardado proactivo
+ * ("guarda esto" exigiría además un y/n) y el modo web (asker deny-by-
+ * default). Defensa en profundidad en su lugar: (1) cap de tamaño — un
+ * hecho es una frase corta; (2) `classifyMemoryEntry` — rechaza imperativos;
+ * (3) `scanContent` dentro de `appendEnv` — rechaza inyección/exfiltración.
  */
+
+/** Cap de tamaño — un hecho de memoria es UNA frase corta, no un volcado. */
+const MAX_MEMORY_ENTRY_CHARS = 400;
 
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { curatedMemory } from '../memory/curated_memory.js';
@@ -45,6 +58,13 @@ const memoryTool: Tool = {
     const content = typeof args?.content === 'string' ? args.content.trim() : '';
     if (!content) {
       return { success: false, output: '', error: 'content is required' };
+    }
+    if (content.length > MAX_MEMORY_ENTRY_CHARS) {
+      return {
+        success: false, output: '',
+        error: `content too long (${content.length} chars) — a memory entry must ` +
+          `be ONE short fact (<=${MAX_MEMORY_ENTRY_CHARS} chars). Save only the durable fact.`,
+      };
     }
     // Guard de la Fase 3 — solo hechos declarativos entran a memoria.
     const cls = classifyMemoryEntry(content);
