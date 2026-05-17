@@ -116,9 +116,26 @@ cerrar los 2 bugs HIGH reales (`state_backup`, `task_scheduler`).
 | `deep_descent` | **pendiente** | requiere integrarse en `RepoReader` (cambia el `/read`) — decisión de producto |
 | `browser_sandbox` | **pendiente** | subsistema de sandbox de navegador — feature real, no un wire de arranque |
 
-`deep_descent` y `browser_sandbox` NO se cablearon: no son wires de
-arranque sino integraciones de feature que cambian comportamiento central
-(el reader / un subsistema de navegador). Cablearlas a prisa crearía la
-misma deuda de integración a medias que este informe diagnostica. Quedan,
-junto con ACP/Zed, como **decisiones de producto explícitas**: cablear
-(con su esfuerzo de integración real) o eliminar.
+`deep_descent` y `browser_sandbox` NO se cablearon en esa tanda: no son
+wires de arranque sino integraciones de feature que cambian comportamiento
+central (el reader / un subsistema de navegador). Quedaron, junto con
+ACP/Zed, como **decisiones de producto explícitas**.
+
+**Resolución de las 3 ghost features pendientes (2026-05-17):**
+
+- `deep_descent` — **cableada**. `RepoReader.partition()` acepta
+  `{deepDescent, query}`; expuesta vía `/read <path> --deep [--query=...]`.
+  Validación real (a) 14/14 (incluida con browser_sandbox).
+- `browser_sandbox` — **cableada**. `connectOrLaunchCDP()` arranca un
+  navegador propio en Docker con `SHINOBI_BROWSER_SANDBOX=1`; el usuario
+  conserva su navegador y sus sesiones. Validación real (a) del cableado;
+  el E2E del contenedor requiere un daemon Docker activo.
+- ACP/Zed — **eliminada**. `src/a2a/{acp_adapter,zed_bridge}.ts` + sus
+  tests + los runners de sprint borrados. Estaba 100% sin cablear, sin
+  `bin/shinobi-acp`, y ningún path de producción la importaba. El núcleo
+  A2A (`protocol.ts`, `a2a_wiring.ts`, envelope+HMAC) NO se tocó — sigue
+  vivo y cableado al web server.
+
+Con esto, **las 8 ghost features del 3er ciclo están resueltas** (5+2
+cableadas, 1 eliminada). La cola de "módulos sin cablear" que hacía subir
+MEDIUM/LOW queda vaciada.
