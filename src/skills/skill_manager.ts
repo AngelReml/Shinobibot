@@ -36,6 +36,7 @@ import {
   type SkillFrontmatter,
 } from './skill_md_parser.js';
 import { verifySkill } from './skill_signing.js';
+import { bumpUse } from '../learning/skill_telemetry.js';
 import { invokeLLMViaOpenRouter } from '../cloud/openrouter_fallback.js';
 import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
 
@@ -403,6 +404,10 @@ class SkillManagerImpl {
       if (matched.length >= maxSkills) break;
     }
     if (matched.length === 0) return null;
+
+    // Fase 4 — telemetría: una skill que se inyecta al prompt cuenta como
+    // uso. Es el ancla de staleness que consume el Curator (best-effort).
+    for (const s of matched) bumpUse(String(s.frontmatter.name || ''));
 
     const sections = matched.map(s => {
       const name = s.frontmatter.name || '?';
