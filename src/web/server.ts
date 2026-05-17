@@ -323,6 +323,14 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     const r = prometheusResponse();
     res.type(r.contentType).send(r.body);
   });
+  // Ghost feature cableada: el dashboard HTML de observabilidad existía
+  // (renderDashboardHtml) pero ningún entry point lo montaba — solo los
+  // endpoints JSON/prom estaban accesibles.
+  app.get('/admin/dashboard', async (_req, res) => {
+    const { renderDashboardHtml } = await import('../observability/admin_dashboard.js');
+    const r = renderDashboardHtml();
+    res.type(r.contentType).send(r.body);
+  });
 
   // P2 — A2A: discovery + dispatch para que otro agente invoque a Shinobi.
   const a2aDispatcher = buildA2ADispatcher();

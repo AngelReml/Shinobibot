@@ -130,6 +130,22 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
     return true;
   }
 
+  // /replay — resumen de las misiones registradas en el audit log.
+  // Ghost feature cableada: mission_replay existía sin punto de entrada.
+  if (trimmed === '/replay' || trimmed.startsWith('/replay ')) {
+    const { summarize, formatSummary } = await import('../replay/mission_replay.js');
+    const { resolve } = await import('node:path');
+    const auditLogPath = process.env.SHINOBI_AUDIT_LOG_PATH
+      ? resolve(process.env.SHINOBI_AUDIT_LOG_PATH)
+      : resolve(process.cwd(), 'audit.jsonl');
+    try {
+      console.log(formatSummary(summarize({ auditLogPath })));
+    } catch (e: any) {
+      console.log(`No se pudo leer el audit log (${auditLogPath}): ${e?.message ?? e}`);
+    }
+    return true;
+  }
+
   // /memory <recall|store|stats|forget|user|env|snapshot> ...
   if (trimmed.startsWith('/memory')) {
     const parts = trimmed.split(/\s+/);
