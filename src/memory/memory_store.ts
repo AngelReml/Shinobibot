@@ -113,6 +113,7 @@ export class MemoryStore {
       };
 
       let score = 0;
+      let matched = false;
       let matchType: 'semantic' | 'keyword' | 'tag' = 'keyword';
       // Solo usamos el vector si tiene la misma dim que el query — un
       // cambio de provider (local 384 → openai 1536) invalida los
@@ -127,15 +128,24 @@ export class MemoryStore {
         const cos = EmbeddingProvider.cosineSimilarity(queryEmbedding, entry.embedding);
         score = (cos + 1) / 2;
         matchType = 'semantic';
+        matched = true;
       } else if (entry.content.toLowerCase().includes(lowerQuery)) {
         score = 0.5;
         matchType = 'keyword';
+        matched = true;
       }
 
       if (query.tags && entry.tags.some(t => query.tags!.includes(t))) {
         score += 0.1;
         matchType = 'tag';
+        matched = true;
       }
+
+      // Una memoria que NO matcheó por nada (sin embedding compatible, sin
+      // keyword, sin tag) NO entra al ranking. Antes la fórmula combinada
+      // le daba `importance*0.2 + access*0.1` > 0 y, con min_score bajo,
+      // recall devolvía memorias irrelevantes que no matcheaban la query.
+      if (!matched) continue;
 
       score = score * 0.7 + entry.importance * 0.2 + Math.min(entry.access_count / 100, 1) * 0.1;
 

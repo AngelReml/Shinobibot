@@ -69,12 +69,24 @@ export async function runUpdate(offer: UpdateOffer, opts: InstallOptions = {}): 
     sha256_ok = got.toLowerCase() === offer.sha256.toLowerCase();
     if (!sha256_ok) return { ok: false, reason: `sha256 mismatch: expected ${offer.sha256}, got ${got}`, download_path: dest, manifest_version: offer.latest };
     if (opts.verbose) console.log(`[update] sha256 ok`);
-  } else if (opts.verbose) {
-    console.log('[update] no sha256 in manifest; skipping integrity check');
   }
 
   if (opts.dryRun) {
     return { ok: true, download_path: dest, manifest_version: offer.latest, sha256_ok };
+  }
+
+  // Seguridad: NUNCA se ejecuta un instalador sin verificar su hash. Si el
+  // manifest no trae `sha256`, el .exe descargado no es verificable — un
+  // `/v1/version` comprometido o un MITM sobre `download_url` podría servir
+  // un instalador arbitrario. Se descarga (queda en `download_path` para
+  // inspección) pero NO se lanza.
+  if (!offer.sha256) {
+    return {
+      ok: false,
+      reason: 'el manifest no trae sha256: el instalador no es verificable y no se ejecuta',
+      download_path: dest,
+      manifest_version: offer.latest,
+    };
   }
 
   if (process.platform !== 'win32') {

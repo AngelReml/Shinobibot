@@ -7,7 +7,7 @@
  */
 
 import { join } from 'path';
-import { Memory } from '../../db/memory.js';
+import { sharedMemory } from '../../db/memory.js';
 import { DreamingEngine } from './dreaming_engine.js';
 import type { MemoryMessage } from '../providers/types.js';
 
@@ -26,7 +26,7 @@ export async function runDreamingCycle(opts?: { dreamsDir?: string; force?: bool
   if (_lastDreamDate === today && !opts?.force) {
     return { date: today, reports: 0, files: [] };
   }
-  const chat = await new Memory().getMessages();
+  const chat = await sharedMemory().getMessages();
   const messages: MemoryMessage[] = chat.map((c) => ({
     role: c.role,
     content: c.content,
