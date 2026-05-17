@@ -115,9 +115,10 @@ export class TeamsAdapter implements ChannelAdapter {
   }
 
   async send(_target: ChannelTarget, _msg: OutgoingMessage): Promise<void> {
-    // Teams requiere context activity para enviar fuera de turn; las
-    // notificaciones proactivas necesitan conversationReference cacheada.
-    // Lo dejamos para una iteración futura.
-    throw new Error('Teams proactive send requires cached conversation reference (no implementado en este sprint)');
+    // Teams requiere conversationReference cacheada para enviar fuera de
+    // turn — el envío proactivo no está implementado. La respuesta normal
+    // viaja inline en el turn (el handler la devuelve como OutgoingMessage).
+    // NO se lanza: un adapter registrado no debe romper channelRegistry.send().
+    console.warn('[teams] send() proactivo no soportado (sin conversationReference cacheada) — mensaje no entregado.');
   }
 }

@@ -139,9 +139,9 @@ export class WebhookAdapter implements ChannelAdapter {
   }
 
   async send(_target: ChannelTarget, _msg: OutgoingMessage): Promise<void> {
-    // Webhook es request/response síncrono: la "respuesta" se devuelve
-    // dentro del onRequest. No hay envío proactivo posible sin URL del
-    // peer cacheada (eso lo cubre n8n bridge, no este adapter).
-    throw new Error('Webhook adapter es síncrono — usa el HTTP response del request original');
+    // Webhook es request/response síncrono: la respuesta se devuelve dentro
+    // del onRequest, no hay envío proactivo (eso lo cubre el n8n bridge).
+    // NO se lanza: un adapter registrado no debe romper channelRegistry.send().
+    console.warn('[webhook] send() proactivo no soportado (canal síncrono) — usa el HTTP response del request original.');
   }
 }

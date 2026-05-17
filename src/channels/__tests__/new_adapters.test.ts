@@ -151,10 +151,11 @@ describe('TeamsAdapter', () => {
     process.env.TEAMS_APP_PASSWORD = 'pwd';
     await expect(new TeamsAdapter().start(async () => null)).rejects.toThrow(/botbuilder/);
   });
-  it('send sin contexto proactivo throws', async () => {
+  it('send proactivo es no-op (no rompe channelRegistry.send)', async () => {
     const a = new TeamsAdapter();
+    // send() ya no lanza: un adapter registrado no debe romper el registry.
     await expect(a.send({ channelId: 'teams', conversationId: 'x' }, { text: 'hi' }))
-      .rejects.toThrow(/proactive/i);
+      .resolves.toBeUndefined();
   });
 });
 
@@ -261,9 +262,10 @@ describe('WebhookAdapter', () => {
     } finally { await a.stop(); }
   });
 
-  it('send síncrono throws', async () => {
+  it('send síncrono es no-op (no rompe channelRegistry.send)', async () => {
     const a = new WebhookAdapter();
+    // send() ya no lanza: un adapter registrado no debe romper el registry.
     await expect(a.send({ channelId: 'webhook', conversationId: 'x' }, { text: 't' }))
-      .rejects.toThrow(/síncrono/i);
+      .resolves.toBeUndefined();
   });
 });

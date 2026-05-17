@@ -102,8 +102,7 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
   if (trimmed.startsWith('/model')) {
     const parts = trimmed.split(' ');
     if (parts.length === 1) {
-      const tier = (ShinobiOrchestrator as any).getTier?.() ?? 'auto';
-      console.log(`Modelo activo: ${ShinobiOrchestrator.getModel()} | tier override: ${tier}`);
+      console.log(`Modelo activo: ${ShinobiOrchestrator.getModel()}`);
     } else if (parts[1] === 'auto') {
       ShinobiOrchestrator.setModel(undefined);
       console.log('Modelo: auto (router decide por tier)');
@@ -120,28 +119,14 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
     return true;
   }
 
-  // /tier fast|balanced|reasoning|auto
-  if (trimmed.startsWith('/tier')) {
-    const parts = trimmed.split(/\s+/);
-    if (parts.length === 1) {
-      const tier = (ShinobiOrchestrator as any).getTier?.() ?? 'auto';
-      console.log(`Tier activo: ${tier} | modelo override: ${ShinobiOrchestrator.getModel()}`);
-    } else {
-      const sub = parts[1].toLowerCase();
-      if (sub === 'auto') {
-        (ShinobiOrchestrator as any).setTier?.(undefined);
-        console.log('Tier: auto (router clasifica por heurística)');
-      } else if (sub === 'fast' || sub === 'balanced' || sub === 'reasoning') {
-        const t = sub.toUpperCase() as 'FAST' | 'BALANCED' | 'REASONING';
-        (ShinobiOrchestrator as any).setTier?.(t);
-        console.log(`Tier forzado a: ${t}`);
-        if (ShinobiOrchestrator.getModel() !== 'default') {
-          console.log(`  ⚠ /model está fijado (${ShinobiOrchestrator.getModel()}) — el modelo gana sobre el tier hasta que hagas /model auto.`);
-        }
-      } else {
-        console.log('Usage: /tier fast | balanced | reasoning | auto');
-      }
-    }
+  // /tier — eliminado. Llamaba a getTier()/setTier() que NUNCA existieron en
+  // el orchestrator (el `?.` se tragaba la llamada): era un no-op silencioso
+  // que además usaba vocabulario de tier (FAST/BALANCED/REASONING) ajeno al
+  // del router real. La selección de modelo se controla con `/model <name>`
+  // (override manual) y la env `SHINOBI_MODEL_ROUTER` (router automático).
+  if (trimmed === '/tier' || trimmed.startsWith('/tier ')) {
+    console.log('`/tier` fue retirado. Usa `/model <nombre>` para fijar el modelo manualmente,');
+    console.log('o `/model auto` + la env SHINOBI_MODEL_ROUTER para que el router decida.');
     return true;
   }
 
