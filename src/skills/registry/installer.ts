@@ -90,13 +90,12 @@ export async function installFromRegistry(
       // la versión anterior fuera del plan si era satisfactoria, pero si
       // llegó hasta aquí significa que va a sobrescribir.
       const previousVersion = inventory[step.name];
-      let existedPrev = false;
       if (previousVersion && previousVersion !== step.version) {
-        existedPrev = backupExisting(skillsRoot, step.name, previousVersion);
+        backupExisting(skillsRoot, step.name, previousVersion);
       } else if (existsSync(dst)) {
         // Mismo nombre@versión ya presente sin entrada en inventory:
         // backupéamoslo con su propia versión para no perder data.
-        existedPrev = backupExisting(skillsRoot, step.name, step.version);
+        backupExisting(skillsRoot, step.name, step.version);
       }
 
       // Delegamos al anthropic_skill_installer pero apuntando al
@@ -127,7 +126,6 @@ export async function installFromRegistry(
       inventory[step.name] = step.version;
       writeInventory(skillsRoot, inventory);
       result.installed.push({ name: step.name, version: step.version, destination: dst });
-      void existedPrev;
     } catch (e: any) {
       result.errors.push({ name: step.name, error: e?.message ?? String(e) });
     }

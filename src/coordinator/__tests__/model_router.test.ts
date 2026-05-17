@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { classifyComplexity } from '../query_complexity.js';
-import { route, anchorCostUsd, pickModelForTier, isRouterEnabled, DEFAULT_MAPPING } from '../model_router.js';
+import { route, pickModelForTier, isRouterEnabled, DEFAULT_MAPPING } from '../model_router.js';
 
 beforeEach(() => {
   for (const k of [
@@ -144,15 +144,5 @@ describe('route', () => {
     process.env.SHINOBI_MODEL_ROUTER = '1';
     const r = route({ input: 'audita seguridad del repo' });
     expect(r.estimatedCostUsd).toBeGreaterThan(0);
-  });
-});
-
-describe('anchorCostUsd', () => {
-  it('siempre cuesta más que un tier menor por la misma query', () => {
-    process.env.SHINOBI_MODEL_ROUTER = '1';
-    const input = 'hola';
-    const tiny = route({ input });
-    const anchor = anchorCostUsd({ input });
-    expect(anchor).toBeGreaterThan(tiny.estimatedCostUsd);
   });
 });

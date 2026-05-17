@@ -57,24 +57,6 @@ class SandboxRegistry {
     this.registerDefaults();
   }
 
-  /** Backend a usar según env. */
-  resolveDefault(): RunBackend {
-    const want = (process.env.SHINOBI_RUN_BACKEND || 'local').toLowerCase() as BackendId;
-    const b = this.backends.get(want);
-    if (b) return b;
-    // El env apunta a un id desconocido — degradamos a local con warning.
-    console.warn(`[sandbox] SHINOBI_RUN_BACKEND='${want}' no reconocido; usando local.`);
-    return this.backends.get('local')!;
-  }
-
-  summary(): BackendStatus[] {
-    return this.list().map(b => ({
-      id: b.id,
-      label: b.label,
-      configured: b.isConfigured(),
-      requires: b.requiredEnvVars(),
-    }));
-  }
 }
 
 let _instance: SandboxRegistry | null = null;

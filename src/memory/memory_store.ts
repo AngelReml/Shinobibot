@@ -158,35 +158,6 @@ export class MemoryStore {
     return top;
   }
 
-  /**
-   * Re-embedea TODAS las memorias usando el backend de embeddings actual.
-   * Útil tras cambiar `SHINOBI_EMBED_PROVIDER` o cuando los embeddings
-   * viejos son hash-based y queremos upgradear a semánticos. Procesa en
-   * batches de `batchSize` para amortizar latencia (Transformers.js y
-   * OpenAI son mucho más rápidos en batch).
-   *
-   * Devuelve cuántas filas fueron re-embedeadas. NO toca el resto del
-   * row (importance, access_count, etc.).
-   */
-  public async reembedAll(batchSize: number = 32): Promise<{ updated: number; total: number; backend: string }> {
-    const rows = this.db.prepare('SELECT id, content FROM memories').all() as Array<{ id: string; content: string }>;
-    if (rows.length === 0) {
-      return { updated: 0, total: 0, backend: await EmbeddingProvider.providerName() };
-    }
-    const update = this.db.prepare('UPDATE memories SET embedding = ? WHERE id = ?');
-    let updated = 0;
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const chunk = rows.slice(i, i + batchSize);
-      const vectors = await EmbeddingProvider.embedBatch(chunk.map(r => r.content));
-      const tx = this.db.transaction((pairs: Array<[string, string]>) => {
-        for (const [emb, id] of pairs) update.run(emb, id);
-      });
-      tx(chunk.map((r, k) => [JSON.stringify(vectors[k]), r.id] as [string, string]));
-      updated += chunk.length;
-    }
-    return { updated, total: rows.length, backend: await EmbeddingProvider.providerName() };
-  }
-
   private recordRecall(results: RecallResult[], queryText: string): void {
     const now = new Date().toISOString();
     const stmt = this.db.prepare(`INSERT INTO recall_log (memory_id, query, score, timestamp) VALUES (?, ?, ?, ?)`);
@@ -202,15 +173,6 @@ export class MemoryStore {
     return result.changes > 0;
   }
 
-  public getRecentMemories(limit: number = 10): MemoryEntry[] {
-    const rows = this.db.prepare(`SELECT * FROM memories ORDER BY last_accessed_at DESC LIMIT ?`).all(limit) as any[];
-    return rows.map(r => ({
-      id: r.id, content: r.content, category: r.category,
-      tags: JSON.parse(r.tags), created_at: r.created_at,
-      last_accessed_at: r.last_accessed_at, access_count: r.access_count,
-      importance: r.importance, source: r.source
-    }));
-  }
 
   public async buildContextSection(query: string, maxChars: number = 2000): Promise<string> {
     const results = await this.recall({ query, limit: 5, min_score: 0.3 });

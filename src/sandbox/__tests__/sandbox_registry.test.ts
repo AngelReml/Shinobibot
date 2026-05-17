@@ -20,36 +20,6 @@ describe('SandboxRegistry — defaults', () => {
     const ids = sandboxRegistry().list().map(b => b.id).sort();
     expect(ids).toEqual(['daytona', 'docker', 'e2b', 'local', 'modal', 'ssh']);
   });
-
-  it('local es default cuando no hay SHINOBI_RUN_BACKEND', () => {
-    expect(sandboxRegistry().resolveDefault().id).toBe('local');
-  });
-
-  it('SHINOBI_RUN_BACKEND=docker → docker backend', () => {
-    process.env.SHINOBI_RUN_BACKEND = 'docker';
-    expect(sandboxRegistry().resolveDefault().id).toBe('docker');
-  });
-
-  it('SHINOBI_RUN_BACKEND desconocido → fallback a local con warning', () => {
-    process.env.SHINOBI_RUN_BACKEND = 'imaginary';
-    expect(sandboxRegistry().resolveDefault().id).toBe('local');
-  });
-});
-
-describe('SandboxRegistry — summary', () => {
-  it('reporta configured + requires por cada backend', () => {
-    const s = sandboxRegistry().summary();
-    const byId = Object.fromEntries(s.map(b => [b.id, b]));
-    expect(byId.local.configured).toBe(true);
-    expect(byId.local.requires).toEqual([]);
-    expect(byId.ssh.configured).toBe(false);
-    expect(byId.ssh.requires).toEqual(['SSH_HOST', 'SSH_USER', 'SSH_KEY_PATH']);
-    expect(byId.modal.requires).toContain('MODAL_TOKEN_ID');
-    expect(byId.daytona.requires).toContain('DAYTONA_API_KEY');
-    expect(byId.e2b.requires).toContain('E2B_API_KEY');
-    // docker reporta configured=true a nivel de metadata; la disponibilidad real se chequea en runtime.
-    expect(byId.docker.configured).toBe(true);
-  });
 });
 
 describe('LocalBackend (real exec)', () => {
