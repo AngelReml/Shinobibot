@@ -129,7 +129,11 @@ export const DESTRUCTIVE_TOOLS = new Set<string>([
   'write_file', 'edit_file', 'run_command',
   'browser_click', 'browser_click_position', 'browser_scroll',
   'screen_act', 'cloud_mission', 'n8n_invoke',
-  'skill_request_generation',
+  // El nombre REGISTRADO de la tool es 'request_new_skill' (skill_request_generation.ts:5),
+  // no el del archivo. isDestructive() recibe el nombre registrado: con la
+  // entrada equivocada la tool se auto-ejecutaba sin gate pese a disparar
+  // generación remota de código (gap detectado en el 5º ciclo de auditoría).
+  'request_new_skill',
   // task_scheduler_create crea tareas programadas persistentes (schtasks
   // /CREATE /F) — declara requiresConfirmation() pero el gate real corre
   // por esta lista, así que sin esta entrada se auto-ejecutaba sin pedir.
