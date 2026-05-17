@@ -24,15 +24,9 @@ export class DockerBackend implements RunBackend {
    * ejecutar el cliente Docker falla, devolvemos exitCode != 0 con
    * stderr descriptivo. Eso es lo mismo que hacer el `run_command`
    * actual.
-   *
-   * Para diagnóstico (`/run_backends`) hay `probe()` async opcional.
    */
   isConfigured(): boolean {
     return true;
-  }
-
-  async probe(): Promise<{ available: boolean; error?: string }> {
-    return isDockerAvailable();
   }
 
   async run(input: RunInput): Promise<RunOutput> {

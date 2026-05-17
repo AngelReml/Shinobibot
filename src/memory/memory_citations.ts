@@ -75,20 +75,3 @@ export function contextSection(
   if (!body) return '';
   return header + body + footer;
 }
-
-/**
- * Formato compacto para anexar al final de una respuesta del asistente:
- *
- *   _Sources: [memory:abc123 score=0.87], [memory:def456 score=0.72]_
- */
-export function inlineCitations(
-  results: RecallResult[],
-  opts: CitationFormatOptions = {},
-): string {
-  if (!results || results.length === 0) return '';
-  const o = { ...DEFAULTS, ...opts };
-  const parts = results.map(
-    r => `[memory:${r.entry.id} score=${safeFloat(r.score, o.scorePrecision)}]`,
-  );
-  return `_Sources: ${parts.join(', ')}_`;
-}

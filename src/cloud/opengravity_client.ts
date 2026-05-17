@@ -78,19 +78,4 @@ export class OpenGravityClient {
       return { success: false, output: '', error: `Connection error: ${e.message}` };
     }
   }
-
-  public static async listSkills(): Promise<CloudResponse> {
-    try {
-      const response = await axios.get<CloudResponse>(
-        `${this.getBaseUrl()}/v1/skills/list`, 
-        { headers: this.getHeaders() }
-      );
-      return response.data;
-    } catch (e: any) {
-      if (e.response && e.response.status === 401) {
-        return { success: false, output: '', error: 'HTTP 401: Unauthorized API Key' };
-      }
-      return { success: false, output: '', error: `Connection error: ${e.message}` };
-    }
-  }
 }

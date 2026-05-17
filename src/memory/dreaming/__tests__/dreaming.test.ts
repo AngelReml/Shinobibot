@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { bucketByDay, dayKey, dayKeysAsc } from '../day_bucket.js';
+import { bucketByDay, dayKey } from '../day_bucket.js';
 import { extractEntities, diffEntities } from '../entity_resolver.js';
 import { DreamingEngine } from '../dreaming_engine.js';
 import type { MemoryMessage } from '../../providers/types.js';

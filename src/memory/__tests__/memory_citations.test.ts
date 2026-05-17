@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   citationLine,
   contextSection,
-  inlineCitations,
 } from '../memory_citations.js';
 import type { RecallResult } from '../types.js';
 
@@ -90,19 +89,5 @@ describe('contextSection', () => {
     expect(out).toContain('memory:a');
     expect(out).toContain('memory:b');
     expect(out).toContain('memory:c');
-  });
-});
-
-describe('inlineCitations', () => {
-  it('lista vacía → string vacío', () => {
-    expect(inlineCitations([])).toBe('');
-  });
-
-  it('formato compacto con id + score', () => {
-    const out = inlineCitations([
-      fakeResult({ id: 'a' }, 0.87),
-      fakeResult({ id: 'b' }, 0.72),
-    ]);
-    expect(out).toBe('_Sources: [memory:a score=0.87], [memory:b score=0.72]_');
   });
 });

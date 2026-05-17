@@ -34,8 +34,3 @@ export function bucketByDay(messages: MemoryMessage[]): Map<string, MemoryMessag
   // Orden cronológico ascendente.
   return new Map([...map.entries()].sort((a, b) => a[0].localeCompare(b[0])));
 }
-
-/** Helper: keys ordenadas. */
-export function dayKeysAsc(messages: MemoryMessage[]): string[] {
-  return [...new Set(messages.map(m => dayKey(m.ts)))].sort();
-}

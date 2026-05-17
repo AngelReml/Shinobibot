@@ -124,16 +124,4 @@ export function route(opts: RouteOptions): RouteDecision {
   };
 }
 
-/** Helper: coste de la misma query si SIEMPRE usásemos el anchor model. */
-export function anchorCostUsd(opts: RouteOptions): number {
-  const complexity = classifyComplexity(opts.input, { recentUserTurns: opts.recentUserTurns });
-  const tier = complexity.tier;
-  const expectedOutput = tier === 'tiny' ? 100
-    : tier === 'simple' ? 400
-    : tier === 'medium' ? 1500
-    : tier === 'complex' ? 4000
-    : 8000;
-  return estimateCostUsd(DEFAULT_MAPPING.expert, complexity.estimatedInputTokens, expectedOutput);
-}
-
 export { DEFAULT_MAPPING, PRICE_PER_1M };
