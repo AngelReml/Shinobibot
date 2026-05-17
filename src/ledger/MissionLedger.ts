@@ -74,7 +74,15 @@ export class MissionLedger {
   list(): LedgerEntry[] {
     if (!fs.existsSync(this.file)) return [];
     const txt = fs.readFileSync(this.file, 'utf-8');
-    return txt.split(/\r?\n/).filter(Boolean).map((line) => JSON.parse(line) as LedgerEntry);
+    // Tolerante a líneas corruptas: una sola línea JSON inválida no debe
+    // tumbar list()/tail()/verify()/count()/export(). Se omite y se sigue.
+    const out: LedgerEntry[] = [];
+    for (const line of txt.split(/\r?\n/)) {
+      if (!line) continue;
+      try { out.push(JSON.parse(line) as LedgerEntry); }
+      catch { console.warn(`[ledger] línea JSONL corrupta omitida en ${this.file}`); }
+    }
+    return out;
   }
 
   tail(): LedgerEntry | undefined {

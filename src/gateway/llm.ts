@@ -7,6 +7,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 dotenv.config({ path: resolve(__dirname, '../../.env'), override: true });
 
+/** Timeout de las llamadas HTTP al proveedor LLM. Sin esto, un proveedor
+ *  colgado bloquea al caller (reader/llm_adapter) indefinidamente. */
+const LLM_TIMEOUT_MS = Number(process.env.SHINOBI_LLM_TIMEOUT_MS) || 60_000;
+
 export interface LLMConfig {
   provider: 'ollama' | 'groq' | 'openai';
   model?: string;
@@ -49,7 +53,7 @@ export class LLMGateway {
     }
     const body: Record<string, unknown> = { model, messages };
     if (temperature !== undefined) body.temperature = temperature;
-    const response = await axios.post(baseUrl, body, { headers });
+    const response = await axios.post(baseUrl, body, { headers, timeout: LLM_TIMEOUT_MS });
     return response.data.choices[0].message.content;
   }
 
@@ -62,14 +66,14 @@ export class LLMGateway {
     }
     const body: Record<string, unknown> = { model, messages };
     if (temperature !== undefined) body.temperature = temperature;
-    const response = await axios.post(baseUrl, body, { headers });
+    const response = await axios.post(baseUrl, body, { headers, timeout: LLM_TIMEOUT_MS });
     return response.data.choices[0].message.content;
   }
 
   private async ollamaChat(messages: any[], model: string, baseUrl: string, temperature?: number) {
     const body: Record<string, unknown> = { model, messages, stream: false };
     if (temperature !== undefined) body.options = { temperature };
-    const response = await axios.post(`${baseUrl}/api/chat`, body);
+    const response = await axios.post(`${baseUrl}/api/chat`, body, { timeout: LLM_TIMEOUT_MS });
     return response.data.message.content;
   }
 }
