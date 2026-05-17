@@ -23,10 +23,12 @@ function setupSampleState(): void {
   writeFileSync(join(shinobiRoot, 'USER.md'), '# Usuario\nNombre: Test', 'utf-8');
   writeFileSync(join(shinobiRoot, 'MEMORY.md'), '# Memoria\nNota: ...', 'utf-8');
   writeFileSync(join(shinobiRoot, 'memory.json'), '{"messages":[]}', 'utf-8');
-  // Audit con secreto que debe redactarse.
-  mkdirSync(join(shinobiRoot, 'audit'), { recursive: true });
+  // Audit con secreto que debe redactarse. RUTA REAL: audit_log.ts escribe
+  // en `<cwd>/audit.jsonl` (raíz), no en un subdirectorio `audit/`. El
+  // fixture debe estar donde el código real lo deja, o el test no
+  // reproduce la traza real (el backup buscaba en `audit/` y nunca lo veía).
   writeFileSync(
-    join(shinobiRoot, 'audit', 'audit.jsonl'),
+    join(shinobiRoot, 'audit.jsonl'),
     '{"tool":"run_command","args":"AUTH=Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.signaturepart"}\n' +
     '{"tool":"read_file","args":"/tmp/x"}\n',
     'utf-8'
@@ -62,7 +64,7 @@ describe('createBackup', () => {
   it('REDACTA secrets dentro del audit.jsonl', () => {
     setupSampleState();
     const r = createBackup({ shinobiRoot, stagingDir });
-    const audit = readFileSync(join(stagingDir, 'audit/audit.jsonl'), 'utf-8');
+    const audit = readFileSync(join(stagingDir, 'audit.jsonl'), 'utf-8');
     expect(audit).toContain('<REDACTED:');
     expect(audit).not.toContain('signaturepart');
     expect(r.filesRedacted).toBeGreaterThan(0);
@@ -115,8 +117,8 @@ describe('restoreBackup', () => {
     // Fix P1: el audit.jsonl iba REDACTADO en el backup; restaurarlo sobre
     // el archivo real destruiría datos. Ahora se restaura a un sidecar
     // .from-backup y NO se sobrescribe el original.
-    expect(existsSync(join(dest, 'audit/audit.jsonl.from-backup'))).toBe(true);
-    expect(existsSync(join(dest, 'audit/audit.jsonl'))).toBe(false);
+    expect(existsSync(join(dest, 'audit.jsonl.from-backup'))).toBe(true);
+    expect(existsSync(join(dest, 'audit.jsonl'))).toBe(false);
   });
 
   it('lanza si manifest no existe', () => {

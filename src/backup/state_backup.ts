@@ -6,7 +6,7 @@
  *   - `config/`        — settings.json, .env redactado, etc.
  *   - `memory/`        — USER.md, MEMORY.md, memory.json, memory_store.db
  *   - `skills/approved/` — skills firmadas instaladas
- *   - `audit/audit.jsonl` — log de operaciones (REDACTADO con secret_redactor)
+ *   - `audit.jsonl` — log de operaciones (REDACTADO con secret_redactor)
  *
  * Estado que se OMITE (deliberadamente):
  *   - `node_modules/`
@@ -77,8 +77,9 @@ const DEFAULT_SOURCES: BackupSource[] = [
   { relPath: 'memory.json' },
   // Skills aprobadas (las firmadas).
   { relPath: 'skills/approved', recursive: true },
-  // Audit log con redacción.
-  { relPath: 'audit/audit.jsonl', redactSecrets: true },
+  // Audit log con redacción. El log real se escribe en `<cwd>/audit.jsonl`
+  // (raíz), ver audit_log.ts:66 — NO en un subdirectorio `audit/`.
+  { relPath: 'audit.jsonl', redactSecrets: true },
   // Reflections markdown.
   { relPath: 'reflections', recursive: true },
 ];
