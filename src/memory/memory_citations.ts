@@ -10,7 +10,6 @@
  *
  * Formatos:
  *   contextSection(results, maxChars) — para inyectar en el system message
- *   inlineCitations(results)          — para anexar al final de una respuesta
  *   citationLine(result)              — utilidad para una sola memoria
  */
 

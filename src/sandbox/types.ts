@@ -55,10 +55,3 @@ export interface RunBackend {
   run(input: RunInput): Promise<RunOutput>;
 }
 
-/** Snapshot legible para `/run_backends` o logs. */
-export interface BackendStatus {
-  id: BackendId;
-  label: string;
-  configured: boolean;
-  requires: string[];
-}
