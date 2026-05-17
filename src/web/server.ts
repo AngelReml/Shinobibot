@@ -30,6 +30,7 @@ import { randomUUID } from 'crypto';
 
 import { ShinobiOrchestrator } from '../coordinator/orchestrator.js';
 import { handleSlashCommand } from '../coordinator/slash_commands.js';
+import { runExclusive } from '../coordinator/orchestrator_mutex.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { KernelClient } from '../bridge/kernel_client.js';
 import { setSkillEventListener } from '../skills/skill_manager.js';
@@ -449,6 +450,15 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
       store.addInConversation(conversationId, 'user', text, null);
       ws.send(JSON.stringify({ type: 'thinking_start' }));
 
+      // Mutex global del orchestrator: serializa esta petición WebChat con
+      // los mensajes de canal (channels_wiring usa el mismo runExclusive).
+      // El orchestrator tiene estado estático y el monkey-patch de console
+      // es global — sin esto, un mensaje de canal concurrente correría
+      // process() mientras WebChat tiene console parcheado y su salida se
+      // colaría en el stream de razonamiento del WebChat. El parche de
+      // console DEBE quedar dentro de la sección exclusiva.
+      await runExclusive(async () => {
+
       // Console capture: monkey-patch console.{log,error,warn,info} so every
       // line the orchestrator (or a slash handler) prints during this request
       // is forwarded to the UI as a `thinking` event. Originals still run so
@@ -540,6 +550,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
         console.info = origInfo;
         busy = false;
       }
+      }); // fin runExclusive — sección exclusiva con canales
     });
 
     ws.on('close', () => {
