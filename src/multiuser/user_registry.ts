@@ -16,7 +16,7 @@
  * en modo VPS sirve a un equipo sin filtraciones cruzadas.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'fs';
 import { resolve, join } from 'path';
 
 export type UserRole = 'owner' | 'collaborator' | 'guest';
@@ -71,7 +71,12 @@ export class UserRegistry {
   }
 
   private save(): void {
-    writeFileSync(this.stateFile, JSON.stringify(this.state, null, 2), 'utf-8');
+    // Escritura atómica: temp + rename. renameSync es atómico dentro del
+    // mismo volumen, así que un crash o una escritura concurrente nunca
+    // dejan users.json a medias / corrupto.
+    const tmp = this.stateFile + '.tmp';
+    writeFileSync(tmp, JSON.stringify(this.state, null, 2), 'utf-8');
+    renameSync(tmp, this.stateFile);
   }
 
   list(): UserRecord[] {

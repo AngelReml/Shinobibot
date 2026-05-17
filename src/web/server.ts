@@ -326,10 +326,37 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
 
   // P2 — A2A: discovery + dispatch para que otro agente invoque a Shinobi.
   const a2aDispatcher = buildA2ADispatcher();
+  // Rate-limit por IP para /a2a (ventana fija). Evita que un peer abuse del
+  // dispatch, especialmente cuando auth='none' (sin SHINOBI_A2A_SECRET).
+  const a2aHits = new Map<string, { count: number; windowStart: number }>();
+  const A2A_WINDOW_MS = 60_000;
+  const A2A_MAX = Number(process.env.SHINOBI_A2A_RATE_LIMIT) || 60;
+  const a2aRateLimited = (ip: string): boolean => {
+    const now = Date.now();
+    if (a2aHits.size > 500) {
+      for (const [k, v] of a2aHits) if (now - v.windowStart > A2A_WINDOW_MS) a2aHits.delete(k);
+    }
+    const e = a2aHits.get(ip);
+    if (!e || now - e.windowStart > A2A_WINDOW_MS) {
+      a2aHits.set(ip, { count: 1, windowStart: now });
+      return false;
+    }
+    e.count++;
+    return e.count > A2A_MAX;
+  };
   app.get('/.well-known/agent-card.json', (req, res) => {
-    res.json(shinobiAgentCard(`http://${req.headers.host}/a2a`));
+    // El endpoint anunciado sale de SHINOBI_PUBLIC_URL si está configurado;
+    // si no, del Host de la petición (uso LAN). En despliegue público NO se
+    // debe confiar el Host: uno falsificado envenenaría el discovery.
+    const base = process.env.SHINOBI_PUBLIC_URL?.replace(/\/+$/, '') || `http://${req.headers.host}`;
+    res.json(shinobiAgentCard(`${base}/a2a`));
   });
   app.post('/a2a', async (req, res) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    if (a2aRateLimited(ip)) {
+      res.status(429).json({ ok: false, error: 'rate limit exceeded' });
+      return;
+    }
     const resp = await a2aDispatcher.dispatch(req.body, {
       bearer: (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || undefined,
       signature: typeof req.headers['x-a2a-signature'] === 'string' ? req.headers['x-a2a-signature'] : undefined,
