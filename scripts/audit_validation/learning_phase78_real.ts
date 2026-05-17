@@ -63,6 +63,11 @@ async function testPhase8() {
   // content vacío -> error claro.
   const empty = await memoryTool.execute({ content: '   ' });
   check('content vacío da error accionable', empty.success === false && /required/.test(empty.error ?? ''), empty.error ?? '');
+
+  // content gigante -> rechazado por el cap de tamaño.
+  const big = await memoryTool.execute({ content: 'x'.repeat(500) });
+  check('content gigante se rechaza por el cap de tamaño', big.success === false && /too long/i.test(big.error ?? ''),
+    big.error?.slice(0, 60) ?? '');
 }
 
 async function main() {
