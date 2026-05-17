@@ -21,12 +21,14 @@ export interface MemoryClassification {
 }
 
 /**
- * Marcadores de ARRANQUE imperativo/directivo. Alta precisión: un hecho
- * declarativo describe al usuario ("el usuario…", "user's…") y nunca
- * empieza por un adverbio de mando ni un imperativo negativo.
+ * Marcadores de ARRANQUE imperativo/directivo. Un hecho declarativo nombra
+ * al sujeto primero ("el usuario…", "user's…", "the project…"); una orden
+ * empieza por adverbio de mando o por el VERBO desnudo. Heurística de buena
+ * precisión, NO exhaustiva: el prompt del review es la defensa primaria;
+ * este guard es la red secundaria en el punto de escritura.
  */
 const IMPERATIVE_START =
-  /^\s*(always\b|never\b|do not\b|don'?t\b|make sure\b|ensure\b|siempre\b|nunca\b|jamás\b|no\s+(hagas|uses|pongas|respondas|escribas|olvides|vuelvas))/i;
+  /^\s*(always\b|never\b|do not\b|don'?t\b|make sure\b|ensure\b|avoid\b|keep\b|respond\b|reply\b|use\b|prefer\b|write\b|give\b|limit\b|format\b|stop\b|focus\b|siempre\b|nunca\b|jamás\b|usa\b|evita\b|responde\b|escribe\b|prioriza\b|limita\b|no\s+(hagas|uses|pongas|respondas|escribas|olvides|vuelvas))/i;
 
 /**
  * Clasifica una entrada candidata a memoria declarativa.
