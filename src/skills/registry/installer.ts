@@ -101,11 +101,16 @@ export async function installFromRegistry(
 
       // Delegamos al anthropic_skill_installer pero apuntando al
       // directorio versionado.
+      // expectedSha256 — análogo a C10: el installer verifica el SHA256 del
+      // SKILL.md DESCARGADO contra el hash declarado por el registry, antes
+      // de firmarlo (la firma reescribe el fichero, así que no se puede
+      // verificar después). Mismatch → install rechazada.
       const installResult = await installSkillFromSource(step.source, {
         skillsRoot,
         allowWarnings: opts.allowWarnings,
         overwrite: true,
         author: `registry:${step.name}@${step.version}`,
+        expectedSha256: step.contentSha256,
       });
       if (!installResult.accepted) {
         result.errors.push({ name: step.name, error: installResult.reason ?? 'install rejected' });

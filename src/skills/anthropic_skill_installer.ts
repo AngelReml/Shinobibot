@@ -34,6 +34,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, statSync, readdirSync, copyFileSync, rmSync } from 'fs';
 import { join, basename, dirname, resolve } from 'path';
 import { tmpdir } from 'os';
+import { createHash } from 'crypto';
 import { auditPath, formatAuditSummary, type AuditResult } from './skill_auditor.js';
 import { parseSkillMd, serializeSkillMd } from './skill_md_parser.js';
 import { signSkill } from './skill_signing.js';
@@ -53,6 +54,9 @@ export interface InstallOptions {
   overwrite?: boolean;
   /** Author override para signSkill. Default: la source URL original. */
   author?: string;
+  /** SHA256 esperado del SKILL.md recién descargado (antes de firmar). Si
+   *  se pasa y no coincide, la install se rechaza (análogo a C10). */
+  expectedSha256?: string;
 }
 
 export interface InstallResult {
@@ -192,6 +196,23 @@ export async function installSkillFromSource(arg: string, opts: InstallOptions =
 
     const audit = auditPath(tmpDir);
     const subSkills = detectSubSkills(tmpDir);
+
+    // Verifica el hash del SKILL.md DESCARGADO contra el declarado por el
+    // registry, antes de firmar (la firma reescribe el fichero, así que el
+    // hash no se puede comprobar después). Análogo a C10: una fuente o
+    // mirror comprometido podría servir un SKILL.md distinto al anunciado.
+    if (opts.expectedSha256) {
+      const actual = createHash('sha256').update(skillMdRaw, 'utf-8').digest('hex');
+      if (actual.toLowerCase() !== opts.expectedSha256.toLowerCase()) {
+        return {
+          accepted: false,
+          reason: `contentSha256 mismatch: declarado ${opts.expectedSha256.slice(0, 12)}… ≠ real ${actual.slice(0, 12)}…`,
+          audit,
+          source: arg,
+          subSkills,
+        };
+      }
+    }
 
     const baseRecord = {
       ts: new Date().toISOString(),
