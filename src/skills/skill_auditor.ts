@@ -31,6 +31,7 @@
 
 import { readFileSync, statSync, readdirSync, existsSync } from 'fs';
 import { join, relative } from 'path';
+import { EXTENDED_CRITICAL, EXTENDED_WARNING } from './auditor/extended_patterns.js';
 
 export type AuditVerdict = 'clean' | 'warning' | 'critical';
 
@@ -200,6 +201,35 @@ export function scanText(content: string, filePath: string): AuditFinding[] {
     }
   }
   for (const pat of WARNING_PATTERNS) {
+    const m = content.match(pat.pattern);
+    if (m && m.index !== undefined) {
+      out.push({
+        level: 'warning',
+        rule: pat.rule,
+        file: filePath,
+        line: findLine(content, m.index),
+        snippet: m[0].slice(0, 120),
+        reason: pat.reason,
+      });
+    }
+  }
+  // Patrones extendidos (~70, paridad densidad Hermes). Estaban definidos
+  // en auditor/extended_patterns.ts pero ningún path de producción los
+  // importaba — el auditor corría con solo 22 reglas. Aquí se unen.
+  for (const pat of EXTENDED_CRITICAL) {
+    const m = content.match(pat.pattern);
+    if (m && m.index !== undefined) {
+      out.push({
+        level: 'critical',
+        rule: pat.rule,
+        file: filePath,
+        line: findLine(content, m.index),
+        snippet: m[0].slice(0, 120),
+        reason: pat.reason,
+      });
+    }
+  }
+  for (const pat of EXTENDED_WARNING) {
     const m = content.match(pat.pattern);
     if (m && m.index !== undefined) {
       out.push({

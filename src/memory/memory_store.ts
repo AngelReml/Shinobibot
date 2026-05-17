@@ -119,7 +119,13 @@ export class MemoryStore {
       // embeddings viejos pero el recall debe seguir respondiendo via
       // keyword match hasta que se haga re-embed manual.
       if (entry.embedding && entry.embedding.length === queryEmbedding.length) {
-        score = EmbeddingProvider.cosineSimilarity(queryEmbedding, entry.embedding);
+        // Normaliza el coseno [-1,1] a [0,1]. Antes el score crudo (que
+        // puede ser negativo para vectores anti-correlados) se mezclaba
+        // con el score fijo de keyword (0.5): un coseno negativo restaba
+        // del score combinado y el ranking semántico vs keyword era
+        // arbitrario. Ahora ambos viven en la misma escala [0,1].
+        const cos = EmbeddingProvider.cosineSimilarity(queryEmbedding, entry.embedding);
+        score = (cos + 1) / 2;
         matchType = 'semantic';
       } else if (entry.content.toLowerCase().includes(lowerQuery)) {
         score = 0.5;
