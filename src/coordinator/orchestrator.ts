@@ -12,7 +12,7 @@ import { tokenBudget } from '../context/token_budget.js';
 import { LoopDetector, loopDetectorConfigFromEnv, failureModeAdvice } from './loop_detector.js';
 import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
-import { isDestructive, requestApproval } from '../security/approval.js';
+import { isDestructive, requestApproval, registerApprovedPath } from '../security/approval.js';
 import { diagnoseError } from '../selfdebug/self_debug.js';
 import { recordToolPattern } from '../skills/pattern_wiring.js';
 import { IterationBudget } from './iteration_budget.js';
@@ -446,6 +446,11 @@ export class ShinobiOrchestrator {
               console.log(`  [⛔] Aprobación denegada: ${functionName}`);
               logToolCall({ tool: functionName, args: functionArgs, success: false, durationMs: 0, error: 'approval_denied' });
             } else {
+            // Aprobación concedida. Si era una escritura/edición fuera del
+            // workspace, registramos ese path para que validatePath lo
+            // desbloquee en esta operación concreta (permisos absolutos bajo
+            // aprobación manual explícita en el chat).
+            registerApprovedPath(functionName, functionArgs);
             const t0 = Date.now();
             toolEvents().emitToolStarted({ tool: functionName, args: functionArgs });
             const result = await tool.execute(functionArgs);

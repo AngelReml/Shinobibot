@@ -11,6 +11,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { isOutsideWorkspace, approvePathForSession } from '../utils/permissions.js';
 
 export type ApprovalMode = 'on' | 'smart' | 'off';
 export type Approval = 'yes' | 'no' | 'always';
@@ -167,6 +168,12 @@ export function isDestructive(toolName: string, args: any): DestructiveVerdict {
     for (const p of CRITICAL_PATH_PATTERNS) {
       if (p.regex.test(target)) return { destructive: true, reason: p.reason };
     }
+    // Escritura/edición fuera del workspace: requiere aprobación manual
+    // explícita. Si el usuario la concede, registerApprovedPath() desbloquea
+    // ese path en validatePath para esa operación concreta.
+    if (target && isOutsideWorkspace(target)) {
+      return { destructive: true, reason: `escritura fuera del workspace (${target}) — requiere aprobación manual` };
+    }
     return { destructive: false };
   }
 
@@ -243,6 +250,23 @@ export async function requestApproval(input: ApprovalInput): Promise<boolean> {
     return true;
   }
   return answer === 'yes';
+}
+
+/**
+ * Tras una aprobación CONCEDIDA, registra el path objetivo como aprobado
+ * manualmente para esta sesión. Así `validatePath` deja pasar la escritura
+ * fuera del workspace que el usuario autorizó explícitamente en el chat.
+ *
+ * Solo aplica a `write_file`/`edit_file` cuyo destino esté fuera del
+ * workspace — escrituras dentro del workspace no necesitan registro. El
+ * orchestrator lo llama justo después de obtener `approved === true`, antes
+ * de ejecutar la tool.
+ */
+export function registerApprovedPath(toolName: string, args: any): void {
+  if (toolName !== 'write_file' && toolName !== 'edit_file') return;
+  const p = args?.path;
+  if (typeof p !== 'string' || !p.length) return;
+  if (isOutsideWorkspace(p)) approvePathForSession(p);
 }
 
 export function clearSessionApprovals(): void { sessionAlwaysApproved.clear(); }
