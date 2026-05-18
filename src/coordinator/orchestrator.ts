@@ -4,7 +4,7 @@ import { route } from './model_router.js';
 import { getAllTools, getTool, toOpenAITools } from '../tools/index.js';
 import { sharedMemory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
-import { MemoryStore } from '../memory/memory_store.js';
+import { MemoryStore, sharedMemoryStore } from '../memory/memory_store.js';
 import { skillManager } from '../skills/skill_manager.js';
 import { compactMessages, type CompactionResult } from '../context/compactor.js';
 import { shouldUseLLM, compactWithLLM } from '../context/llm_compactor.js';
@@ -34,11 +34,15 @@ export class ShinobiOrchestrator {
   private static mode: ExecutionMode = 'kernel';
   private static memory = sharedMemory();
   private static contextBuilder = new ContextBuilder();
-  private static memoryStore: MemoryStore | null = null;
   private static openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   private static activeModel: string | undefined = undefined;
 
-  static getMemory(): MemoryStore { if (!this.memoryStore) this.memoryStore = new MemoryStore(); return this.memoryStore; }
+  /**
+   * Índice de recall semántico (SQLite). Es un derivado de memory/MEMORY.md
+   * — semantic_index.ts lo reconstruye en boot. Se usa el singleton
+   * compartido para no abrir dos conexiones sobre el mismo memory.db.
+   */
+  static getMemory(): MemoryStore { return sharedMemoryStore(); }
 
   static setModel(model: string | undefined) { this.activeModel = model; }
   static getModel(): string { return this.activeModel || 'default'; }

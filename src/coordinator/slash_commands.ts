@@ -152,9 +152,10 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
     const memAction = parts[1];
     const memArgs = parts.slice(2).join(' ');
 
-    // Bloque 4 — curated memory commands. Coexisten con la transaccional
-    // (recall/store/stats/forget) sin colisión: archivos USER.md/MEMORY.md
-    // vs SQLite memory_store.
+    // Bloque 4 — curated memory commands sobre la bóveda Markdown memory/.
+    // memory/USER.md y memory/MEMORY.md son la fuente de verdad. `recall` y
+    // `stats` consultan el índice semántico SQLite (derivado de MEMORY.md);
+    // `store` escribe en MEMORY.md (la fuente), no en SQLite.
     if (memAction === 'snapshot') {
       const snap = curatedMemory().getSnapshot();
       if (!snap) console.log('(snapshot vacío — añade contenido a USER.md o MEMORY.md y reinicia)');
@@ -236,8 +237,10 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
         console.log('--- Memory Recall ---');
         results.forEach(r => console.log(`[${r.score.toFixed(2)}] ${r.entry.content}`));
       } else if (memAction === 'store') {
-        const entry = await store.store(memArgs);
-        console.log(`Saved memory (ID: ${entry.id})`);
+        // memory/MEMORY.md es la fuente de verdad — `store` añade ahí (no a
+        // SQLite). El índice semántico se reconstruye al siguiente arranque.
+        const r = curatedMemory().appendEnv(memArgs);
+        console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
       } else if (memAction === 'stats') {
         console.log(store.stats());
       } else if (memAction === 'forget') {

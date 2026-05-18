@@ -4,7 +4,7 @@
  *
  * Estado que se incluye en el backup:
  *   - `config/`        — settings.json, .env redactado, etc.
- *   - `memory/`        — USER.md, MEMORY.md, memory.json, memory_store.db
+ *   - `memory/`        — bóveda Markdown curada (USER.md + MEMORY.md) + memory.json
  *   - `skills/approved/` — skills firmadas instaladas
  *   - `audit.jsonl` — log de operaciones (REDACTADO con secret_redactor)
  *
@@ -71,9 +71,9 @@ const DEFAULT_SOURCES: BackupSource[] = [
   // Config minimal (no .env crudo).
   { relPath: 'settings.json' },
   { relPath: 'package.json' },
-  // Memorias (curadas).
-  { relPath: 'USER.md' },
-  { relPath: 'MEMORY.md' },
+  // Memorias curadas — bóveda Markdown memory/ (USER.md + MEMORY.md).
+  { relPath: 'memory/USER.md' },
+  { relPath: 'memory/MEMORY.md' },
   { relPath: 'memory.json' },
   // Skills aprobadas (las firmadas).
   { relPath: 'skills/approved', recursive: true },

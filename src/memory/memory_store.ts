@@ -173,6 +173,30 @@ export class MemoryStore {
     return result.changes > 0;
   }
 
+  /**
+   * Reconstruye el índice semántico DESDE la memoria en Markdown.
+   *
+   * Tras la migración a memory/MEMORY.md, este SQLite ya NO es la fuente de
+   * verdad de la memoria de usuario/entorno — es un índice de recall por
+   * embeddings, derivado y desechable. `reindexFromMarkdown` lo vacía y lo
+   * re-puebla con las entradas del .md. Idempotente: dos llamadas seguidas
+   * dejan el mismo estado.
+   *
+   * Lo invoca semantic_index.ts en el arranque (ver loadAtBoot wiring).
+   */
+  public async reindexFromMarkdown(entries: string[]): Promise<number> {
+    this.db.prepare('DELETE FROM memories').run();
+    this.db.prepare('DELETE FROM recall_log').run();
+    let indexed = 0;
+    for (const raw of entries) {
+      const text = (raw || '').trim();
+      if (!text) continue;
+      await this.store(text, { category: 'curated', source: 'memory/MEMORY.md' });
+      indexed++;
+    }
+    return indexed;
+  }
+
 
   public async buildContextSection(query: string, maxChars: number = 2000): Promise<string> {
     const results = await this.recall({ query, limit: 5, min_score: 0.3 });
@@ -193,4 +217,17 @@ export class MemoryStore {
   }
 
   public close(): void { this.db.close(); }
+}
+
+// ─── Singleton compartido ──────────────────────────────────────────────────
+//
+// Un único MemoryStore por proceso: el orchestrator (buildContextSection) y
+// semantic_index.ts (reindex en boot) deben operar sobre la MISMA instancia
+// SQLite — abrir dos `better-sqlite3` sobre memory.db competiría por el WAL.
+
+let _sharedStore: MemoryStore | null = null;
+
+export function sharedMemoryStore(): MemoryStore {
+  if (!_sharedStore) _sharedStore = new MemoryStore();
+  return _sharedStore;
 }

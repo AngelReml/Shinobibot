@@ -76,6 +76,14 @@ skills/approved/
 task_runs.db
 
 # === Bloque 4 — Memoria curada (privada por usuario, no checkear) ===
+# Bóveda Markdown memory/ (compatible con Obsidian). Datos personales:
+# no se commitea; loadAtBoot() los recrea desde plantilla.
+memory/USER.md
+memory/MEMORY.md
+memory/.*.lock
+memory/.*.tmp
+.memory-pending.json
+# Rutas legacy (la memoria curada vivía en la raíz antes de la bóveda memory/).
 USER.md
 MEMORY.md
 MEMORY.md.pending

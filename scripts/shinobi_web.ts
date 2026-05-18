@@ -22,6 +22,7 @@ import { KernelClient } from '../src/bridge/kernel_client.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
 import { skillManager } from '../src/skills/skill_manager.js';
 import { curatedMemory } from '../src/memory/curated_memory.js';
+import { rebuildSemanticIndex } from '../src/memory/semantic_index.js';
 import { startWebServer } from '../src/web/server.js';
 import { ChatStore } from '../src/web/chat_store.js';
 import { startGateway, parseAllowedUserIds } from '../src/gateway/index.js';
@@ -195,7 +196,11 @@ async function main() {
   try {
     const r = curatedMemory().loadAtBoot();
     console.log(`[Shinobi] Curated memory: ${r.userEntries} user entr(ies) (${r.userPct}%) | ${r.memoryEntries} env entr(ies) (${r.memoryPct}%).`);
+    if (r.migrated.length) console.log(`[Shinobi] Memoria migrada a memory/: ${r.migrated.join(', ')}`);
     if (r.created.length) console.log(`[Shinobi] Plantillas creadas: ${r.created.join(', ')} — edítalos para personalizar.`);
+    const idx = await rebuildSemanticIndex();
+    if (idx.ok) console.log(`[Shinobi] Índice semántico reconstruido desde MEMORY.md: ${idx.indexed} entrada(s).`);
+    else console.log(`[Shinobi] Índice semántico no disponible: ${idx.error}`);
   } catch (e: any) {
     console.log('[Shinobi] Curated memory error:', e?.message ?? e);
   }
