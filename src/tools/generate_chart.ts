@@ -13,7 +13,8 @@ const generateChartTool: Tool = {
   name: 'generate_chart',
   description:
     'Render a data chart (bar, line, scatter, or pie) to an .svg file that opens in any browser. ' +
-    'Use this when the user asks for a chart, graph, plot, or data visualization. ' +
+    'For a user-facing chart or data-visualization request, PREFER the `data_agent_run` specialist ' +
+    'instead of this tool; use this tool directly only when no specialist applies. ' +
     'Pass `type`, `title`, and `data` (an array of {label, value}; for scatter also {x}).',
   parameters: {
     type: 'object',

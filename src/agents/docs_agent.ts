@@ -24,7 +24,8 @@ export interface DocsRequest {
   format?: 'pdf' | 'markdown' | 'word';
 }
 
-function stripFence(s: string): string {
+function stripFence(s: unknown): string {
+  if (typeof s !== 'string') return '';
   return s.replace(/^\s*```[\w-]*\s*\n?/, '').replace(/\n?```\s*$/, '').trim();
 }
 
@@ -72,15 +73,27 @@ export class DocsAgent extends SpecialistAgent {
       `Return ONLY the Markdown document body — no preamble, no code fence, no commentary.\n\n` +
       `<content>\n${content}\n</content>`;
 
-    const raw = await agentLLM().chat(
-      [
-        { role: 'system', content: this.promptMadre() },
-        { role: 'user', content: user },
-      ],
-      { temperature: 0.2 },
-    );
-    const body = stripFence(raw);
-    if (!body) throw new Error('DocsAgent.produce: el LLM no devolvió cuerpo de documento.');
+    // Llamada al LLM resiliente a un hipo transitorio del proveedor: si
+    // `chat` lanza o devuelve algo que no es texto, se reintenta. Sin esto,
+    // una respuesta null reventaba en stripFence (`null.replace`).
+    let body = '';
+    let lastErr = 'sin respuesta';
+    for (let attempt = 0; attempt < 3 && !body; attempt++) {
+      let raw: unknown = null;
+      try {
+        raw = await agentLLM().chat(
+          [
+            { role: 'system', content: this.promptMadre() },
+            { role: 'user', content: user },
+          ],
+          { temperature: 0.2 },
+        );
+      } catch (e: any) { lastErr = e?.message ?? String(e); }
+      const stripped = stripFence(raw);
+      if (stripped) body = stripped;
+      else { lastErr = typeof raw === 'string' ? 'cuerpo vacío' : 'respuesta no textual'; await new Promise(r => setTimeout(r, 400)); }
+    }
+    if (!body) throw new Error(`DocsAgent.produce: el LLM no devolvió cuerpo de documento (${lastErr}).`);
 
     // Maquinaria de documentos del entorno (sin librería nueva).
     const doc = await generateDocument({ type: format, title, content_md: body });

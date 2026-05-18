@@ -23,12 +23,22 @@ export interface ResearchOptions {
   searchFn?: SearchFn;
 }
 
-/** searchFn de producción — envuelve la tool `web_search` (browser CDP). */
+/**
+ * searchFn de producción — envuelve la tool `web_search` (browser CDP).
+ * El browser CDP puede colgarse al arrancar; un timeout acota la espera para
+ * que un browser atascado NO cuelgue al agente indefinidamente — si expira,
+ * se devuelve [] y ResearchAgent reporta "INSUFFICIENT EVIDENCE" con limpieza.
+ */
 async function defaultWebSearch(query: string): Promise<WebResult[]> {
   const mod = await import('../tools/web_search.js');
-  const res = await mod.default.execute({ query });
-  if (!res.success || !res.output) return [];
-  const urls = [...new Set(res.output.match(/https?:\/\/[^\s)\]"'<>]+/g) || [])];
+  const res = await Promise.race([
+    mod.default.execute({ query }),
+    new Promise<{ success: boolean; output: string }>(r =>
+      setTimeout(() => r({ success: false, output: '' }), 90_000)),
+  ]);
+  const text = res.success && typeof res.output === 'string' ? res.output : '';
+  if (!text) return [];
+  const urls: string[] = [...new Set(text.match(/https?:\/\/[^\s)\]"'<>]+/g) || [])];
   return urls.slice(0, 8).map(url => ({ title: url, url, snippet: '' }));
 }
 
