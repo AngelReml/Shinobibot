@@ -14,6 +14,7 @@ import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import { isDestructive, requestApproval, registerApprovedPath } from '../security/approval.js';
 import { shadowDispatchEnabled, shadowClassifyAndRecord } from '../dispatch/shadow_recorder.js';
+import { refinerShadowEnabled, refineShadowForTask } from '../refiner/refiner_shadow.js';
 import { diagnoseError } from '../selfdebug/self_debug.js';
 import { recordToolPattern } from '../skills/pattern_wiring.js';
 import { IterationBudget } from './iteration_budget.js';
@@ -61,6 +62,22 @@ export class ShinobiOrchestrator {
       return 'You are operating in KERNEL mode. When a task is complex, research-heavy, or requires isolated execution, prefer delegating to the OpenGravity Kernel using start_kernel_mission. For simple file reads or listings, local tools are still fine.';
     }
     return null;
+  }
+
+  /**
+   * FASE 2 cabo C — directiva de delegación. Indica al orchestrator que las
+   * tareas de investigación / documento / gráfico van a los SpecialistAgents
+   * dedicados (vía sus tools) en vez de resolverse con tools sueltas.
+   */
+  private static buildDelegationHint(): string {
+    return (
+      'DELEGACIÓN A AGENTES ESPECIALISTAS — regla de despacho:\n' +
+      '- Si el usuario pide INVESTIGAR o BUSCAR información en la web, llama a la tool `research_agent_run`.\n' +
+      '- Si pide generar un DOCUMENTO o INFORME (PDF, Markdown, Word), llama a `docs_agent_run`.\n' +
+      '- Si pide un GRÁFICO o VISUALIZACIÓN de datos, llama a `data_agent_run`.\n' +
+      'Estos agentes especialistas son la vía dedicada y preferente: úsalos en vez de resolver esas ' +
+      'tareas con tools sueltas (web_search, generate_document, generate_chart) directamente.'
+    );
   }
 
   // Fase 1 del bucle de aprendizaje — contadores de nudge. Estáticos: el
@@ -159,6 +176,20 @@ export class ShinobiOrchestrator {
       } catch (e: any) {
         console.log(`[Shinobi] shadow_dispatch wiring failed: ${e?.message ?? e}`);
       }
+
+      // FASE 1 — refinador de prompts en camino caliente en SHADOW MODE.
+      // Para una tarea que iría a un SpecialistAgent, registra qué nivel le
+      // pondría y si la reescribiría, SIN controlar lo que recibe el
+      // subordinado. Opt-in con SHINOBI_REFINER_SHADOW=1; fire-and-forget.
+      // La promoción de shadow a camino real es la parada R — no se cruza.
+      try {
+        if (refinerShadowEnabled()) {
+          void refineShadowForTask(input).catch((e) =>
+            console.log(`[Shinobi] refiner_shadow failed: ${e?.message ?? e}`));
+        }
+      } catch (e: any) {
+        console.log(`[Shinobi] refiner_shadow wiring failed: ${e?.message ?? e}`);
+      }
     }
   }
 
@@ -199,6 +230,11 @@ export class ShinobiOrchestrator {
     if (modeHint) {
       currentMessages = [{ role: 'system', content: modeHint }, ...currentMessages];
     }
+
+    // FASE 2 cabo C — directiva de delegación a SpecialistAgents. Sin esto el
+    // orchestrator resolvía investigación / documentos / gráficos con tools
+    // sueltas en vez de delegar en el agente especialista dedicado.
+    currentMessages = [{ role: 'system', content: this.buildDelegationHint() }, ...currentMessages];
 
     // Ghost feature cableada (soul/persona): si SHINOBI_PERSONA está definida,
     // se inyecta el system message de esa persona. soul.ts existía con 10

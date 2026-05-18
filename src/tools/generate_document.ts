@@ -14,7 +14,8 @@ const generateDocumentTool: Tool = {
   name: 'generate_document',
   description:
     'Generate a professional document file (Word .docx, PDF, Excel .xlsx, or Markdown .md) from structured content. ' +
-    'Use this when the user asks for a "report", "table", "spreadsheet", "PDF", or any deliverable file. ' +
+    'For a user-facing document or report request, PREFER the `docs_agent_run` specialist instead of this tool; ' +
+    'use this tool directly only for spreadsheets/tables or when no specialist applies. ' +
     'For word/pdf/markdown pass `content_md` (markdown with #/##/### headings, lists, paragraphs). ' +
     'For excel pass `content_table` with `headers` array and `rows` 2D array. ' +
     'Use type:"auto" to let Shinobi pick based on the instruction (recommended unless the user is explicit).',

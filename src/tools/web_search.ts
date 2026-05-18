@@ -8,7 +8,7 @@ import { extractDom, formatPageState } from './browser_engine.js';
 
 const webSearchTool: Tool = {
   name: 'web_search',
-  description: 'Search the web using Bing or navigate to a specific website. Requires a Chromium browser running with --remote-debugging-port=9222. Returns page titles and search result snippets.',
+  description: 'Search the web using Bing or navigate to a specific website. For a user research or investigation request, PREFER the `research_agent_run` specialist instead of this tool; use web_search directly only for a quick single lookup or to navigate to a known URL. Requires a Chromium browser running with --remote-debugging-port=9222. Returns page titles and search result snippets.',
   parameters: {
     type: 'object',
     properties: {

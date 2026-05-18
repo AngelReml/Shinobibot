@@ -23,6 +23,7 @@ import './committee_review.js';
 import './list_specialist_agents.js';
 import './generate_chart.js';
 import './prompt_refactor.js';
+import './specialist_agents.js';
 import './screen_observe.js';
 import './screen_act.js';
 
