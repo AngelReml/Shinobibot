@@ -20,6 +20,9 @@ import './skill_list.js';
 import './skill_request_generation.js';
 import './memory_tool.js';
 import './committee_review.js';
+import './list_specialist_agents.js';
+import './generate_chart.js';
+import './prompt_refactor.js';
 import './screen_observe.js';
 import './screen_act.js';
 
