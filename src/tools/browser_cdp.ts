@@ -85,17 +85,6 @@ async function isPortOpen(port: number, host = 'localhost', timeoutMs = 500): Pr
   });
 }
 
-async function isBrowserProcessRunning(): Promise<boolean> {
-  if (process.platform !== 'win32') return false;
-  return new Promise((resolve) => {
-    const child = spawn('tasklist', ['/NH', '/FO', 'CSV'], { windowsHide: true });
-    let out = '';
-    child.stdout.on('data', (d) => { out += d.toString(); });
-    child.on('error', () => resolve(false));
-    child.on('close', () => resolve(/(comet\.exe|chrome\.exe)/i.test(out)));
-  });
-}
-
 async function waitForPort(port: number, totalMs: number, intervalMs: number): Promise<boolean> {
   const deadline = Date.now() + totalMs;
   while (Date.now() < deadline) {
@@ -105,8 +94,26 @@ async function waitForPort(port: number, totalMs: number, intervalMs: number): P
   return false;
 }
 
+/**
+ * Perfil de navegador DEDICADO de Shinobi. Lanzar Chromium con un
+ * `--user-data-dir` propio hace que el navegador de Shinobi sea una
+ * instancia SEPARADA de la del usuario: Shinobi abre su CDP en 9222 sin
+ * chocar con Chrome/Comet, y los navegadores del usuario quedan intactos
+ * y abiertos. Es la clave para no tener que pedirle nunca al usuario que
+ * cierre los suyos. El perfil persiste (logins propios de Shinobi).
+ */
+function shinobiBrowserProfileDir(): string {
+  const base = process.env.LOCALAPPDATA || process.env.APPDATA || process.cwd();
+  return join(base, 'Shinobi', 'browser-profile');
+}
+
 function launchBrowserDetached(exe: string): void {
-  const child = spawn(exe, [`--remote-debugging-port=${CDP_PORT}`], {
+  const child = spawn(exe, [
+    `--remote-debugging-port=${CDP_PORT}`,
+    `--user-data-dir=${shinobiBrowserProfileDir()}`,
+    '--no-first-run',
+    '--no-default-browser-check',
+  ], {
     detached: true,
     stdio: 'ignore',
     windowsHide: false,
@@ -123,12 +130,10 @@ async function doLaunch(): Promise<void> {
     );
   }
 
-  if (await isBrowserProcessRunning()) {
-    throw new Error(
-      `No browser on port ${CDP_PORT}, but a Comet/Chrome process is already running. ` +
-      `Close every instance (check tray icons) and retry — Chromium refuses to enable remote debugging on a second instance.`
-    );
-  }
+  // Ya NO se aborta si hay un Chrome/Comet del usuario corriendo: Shinobi
+  // lanza su navegador con un user-data-dir DEDICADO (ver
+  // launchBrowserDetached), así que es una instancia independiente y abre
+  // su CDP sin chocar con los navegadores del usuario, que quedan abiertos.
 
   const found = await findBrowserExecutable();
   if (!found) {
