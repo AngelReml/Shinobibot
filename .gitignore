@@ -83,6 +83,9 @@ memory/MEMORY.md
 memory/.*.lock
 memory/.*.tmp
 .memory-pending.json
+# Bloque 3 — registro shadow del clasificador de despacho (datos de runtime).
+shadow_dispatch.jsonl
+
 # Rutas legacy (la memoria curada vivía en la raíz antes de la bóveda memory/).
 USER.md
 MEMORY.md

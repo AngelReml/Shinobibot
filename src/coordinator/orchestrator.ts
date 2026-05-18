@@ -13,6 +13,7 @@ import { LoopDetector, loopDetectorConfigFromEnv, failureModeAdvice } from './lo
 import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import { isDestructive, requestApproval, registerApprovedPath } from '../security/approval.js';
+import { shadowDispatchEnabled, shadowClassifyAndRecord } from '../dispatch/shadow_recorder.js';
 import { diagnoseError } from '../selfdebug/self_debug.js';
 import { recordToolPattern } from '../skills/pattern_wiring.js';
 import { IterationBudget } from './iteration_budget.js';
@@ -144,6 +145,19 @@ export class ShinobiOrchestrator {
         }
       } catch (e: any) {
         console.log(`[Shinobi] background_review wiring failed: ${e?.message ?? e}`);
+      }
+
+      // Bloque 3 — clasificador de despacho por afinidad en SHADOW MODE.
+      // Registra a qué especialista HABRÍA enrutado esta orden, SIN tocar el
+      // despacho real (que la maneja el orchestrator general). Opt-in con
+      // SHINOBI_SHADOW_DISPATCH=1; fire-and-forget: jamás afecta la respuesta.
+      try {
+        if (shadowDispatchEnabled()) {
+          void shadowClassifyAndRecord(input).catch((e) =>
+            console.log(`[Shinobi] shadow_dispatch failed: ${e?.message ?? e}`));
+        }
+      } catch (e: any) {
+        console.log(`[Shinobi] shadow_dispatch wiring failed: ${e?.message ?? e}`);
       }
     }
   }
