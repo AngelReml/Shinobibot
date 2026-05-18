@@ -49,7 +49,14 @@ interface Synthesis {
 }
 
 function parseSynthesis(raw: unknown): { ok: true; value: Synthesis } | { ok: false; error: string } {
-  const p = tryParseJSON(typeof raw === 'string' ? raw : JSON.stringify(raw)) as any;
+  // parseSynthesis NUNCA lanza: un JSON malformado del modelo se devuelve
+  // como {ok:false} para que el bucle de reintentos lo cubra.
+  let p: any;
+  try {
+    p = tryParseJSON(typeof raw === 'string' ? raw : JSON.stringify(raw));
+  } catch (e: any) {
+    return { ok: false, error: `JSON inválido: ${e?.message ?? e}` };
+  }
   if (!p || typeof p !== 'object') return { ok: false, error: 'no es objeto JSON' };
   if (typeof p.answer !== 'string' || !p.answer.trim()) return { ok: false, error: 'answer ausente' };
   if (!Array.isArray(p.findings) || !p.findings.every((f: any) => typeof f === 'string')) {

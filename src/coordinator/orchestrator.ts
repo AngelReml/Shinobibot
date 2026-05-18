@@ -65,19 +65,40 @@ export class ShinobiOrchestrator {
   }
 
   /**
-   * FASE 2 cabo C — directiva de delegación. Indica al orchestrator que las
-   * tareas de investigación / documento / gráfico van a los SpecialistAgents
-   * dedicados (vía sus tools) en vez de resolverse con tools sueltas.
+   * FASE 2 cabo C / FASE 1 cierre — directiva de delegación a SpecialistAgents.
+   *
+   * Devuelve la regla general de delegación y, cuando heurísticas de keywords
+   * baratas detectan que la petición es claramente de investigación /
+   * documento / datos, AÑADE una directiva DIRIGIDA y enfática que nombra la
+   * tool exacta. NO es un router rígido: el LLM sigue eligiendo y ejecutando
+   * la tool libremente (puede ignorar la directiva); las keywords solo hacen
+   * el system message más certero. No usa el clasificador del Bloque 3
+   * (parada (a) — congelado en shadow).
    */
-  private static buildDelegationHint(): string {
-    return (
+  private static buildDelegationHint(input: string): string {
+    const base =
       'DELEGACIÓN A AGENTES ESPECIALISTAS — regla de despacho:\n' +
       '- Si el usuario pide INVESTIGAR o BUSCAR información en la web, llama a la tool `research_agent_run`.\n' +
       '- Si pide generar un DOCUMENTO o INFORME (PDF, Markdown, Word), llama a `docs_agent_run`.\n' +
       '- Si pide un GRÁFICO o VISUALIZACIÓN de datos, llama a `data_agent_run`.\n' +
-      'Estos agentes especialistas son la vía dedicada y preferente: úsalos en vez de resolver esas ' +
-      'tareas con tools sueltas (web_search, generate_document, generate_chart) directamente.'
-    );
+      'Estos agentes especialistas son la vía dedicada y obligatoria: úsalos en vez de resolver esas ' +
+      'tareas con tools sueltas (web_search, generate_document, generate_chart) directamente.';
+    const t = (input || '').toLowerCase();
+    const target = (tool: string, kind: string, forbidden: string) =>
+      base + `\n\n⚠️ ESTA PETICIÓN es una tarea de ${kind}. Es OBLIGATORIO que tu PRIMERA acción ` +
+      `(y única vía para esta tarea) sea llamar a la tool \`${tool}\`. Tienes ESTRICTAMENTE PROHIBIDO ` +
+      `llamar a \`${forbidden}\` para esta petición — esa tool es interna y NO debe usarse aquí. ` +
+      `Delega en \`${tool}\`.`;
+    if (/\b(investiga|investigar|investígame|busca informaci|búscame informaci|averigua|averíguame|qué es el |que es el |qué es la |que es la )\b/.test(t)) {
+      return target('research_agent_run', 'INVESTIGACIÓN', 'web_search');
+    }
+    if (/\b(informe|documento|redacta|redáctame|gen[eé]rame un informe|gen[eé]rame un documento|en pdf|en markdown|en word|\.pdf|\.docx|\.md)\b/.test(t)) {
+      return target('docs_agent_run', 'DOCUMENTO', 'generate_document');
+    }
+    if (/\b(gr[aá]fico|chart|graf[ií]came|grafica|graficar|graf[ií]ca|diagrama|visualiza|visualízame|analiza estas cifras|analiza estos datos|analiza estas ventas)\b/.test(t)) {
+      return target('data_agent_run', 'DATOS / GRÁFICO', 'generate_chart');
+    }
+    return base;
   }
 
   // Fase 1 del bucle de aprendizaje — contadores de nudge. Estáticos: el
@@ -231,10 +252,10 @@ export class ShinobiOrchestrator {
       currentMessages = [{ role: 'system', content: modeHint }, ...currentMessages];
     }
 
-    // FASE 2 cabo C — directiva de delegación a SpecialistAgents. Sin esto el
-    // orchestrator resolvía investigación / documentos / gráficos con tools
-    // sueltas en vez de delegar en el agente especialista dedicado.
-    currentMessages = [{ role: 'system', content: this.buildDelegationHint() }, ...currentMessages];
+    // FASE 2 cabo C / FASE 1 — directiva de delegación a SpecialistAgents,
+    // dirigida por keywords. Sin esto el orchestrator resolvía investigación /
+    // documentos / gráficos con tools sueltas en vez de delegar al especialista.
+    currentMessages = [{ role: 'system', content: this.buildDelegationHint(input) }, ...currentMessages];
 
     // Ghost feature cableada (soul/persona): si SHINOBI_PERSONA está definida,
     // se inyecta el system message de esa persona. soul.ts existía con 10

@@ -36,7 +36,14 @@ interface ChartPlan {
 }
 
 function parseChartPlan(raw: unknown): { ok: true; plan: ChartPlan } | { ok: false; error: string } {
-  const p = tryParseJSON(typeof raw === 'string' ? raw : JSON.stringify(raw)) as any;
+  // parseChartPlan NUNCA lanza: un JSON malformado del modelo se devuelve
+  // como {ok:false} para que el bucle de reintentos lo cubra.
+  let p: any;
+  try {
+    p = tryParseJSON(typeof raw === 'string' ? raw : JSON.stringify(raw));
+  } catch (e: any) {
+    return { ok: false, error: `JSON inválido: ${e?.message ?? e}` };
+  }
   if (!p || typeof p !== 'object') return { ok: false, error: 'no es un objeto JSON' };
   if (!(['bar', 'line', 'scatter', 'pie'] as const).includes(p.type)) {
     return { ok: false, error: `type inválido: ${p.type}` };
