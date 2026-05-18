@@ -26,19 +26,71 @@ function isInsideDir(parent: string, child: string): boolean {
   return rel === '' || (!rel.startsWith('..' + path.sep) && rel !== '..' && !path.isAbsolute(rel));
 }
 
+/**
+ * Workspace root efectivo (WORKSPACE_ROOT o cwd), siempre resuelto.
+ */
+function workspaceRoot(): string {
+  return path.resolve(process.env.WORKSPACE_ROOT || process.cwd());
+}
+
+/**
+ * True si el path resuelto cae FUERA del workspace root. Usado por el gate
+ * de aprobación para clasificar una escritura fuera del workspace como
+ * operación que requiere autorización explícita del usuario.
+ */
+export function isOutsideWorkspace(requestedPath: string): boolean {
+  return !isInsideDir(workspaceRoot(), path.resolve(requestedPath));
+}
+
+/**
+ * Paths fuera del workspace que el usuario aprobó EXPLÍCITAMENTE en el chat
+ * durante esta sesión. `validatePath` los deja pasar pese a estar fuera del
+ * workspace — la aprobación manual desbloquea el path traversal para esa
+ * operación concreta. Sin aprobación, el bloqueo se mantiene.
+ *
+ * Nota de seguridad: esto NUNCA desbloquea `ABSOLUTE_PROHIBITED_PATHS`
+ * (System32, /etc/shadow, …) — esos siguen siendo un bloqueo duro aunque el
+ * usuario los apruebe.
+ */
+const sessionApprovedPaths = new Set<string>();
+
+/**
+ * Registra un path como aprobado manualmente para esta sesión. Se normaliza
+ * con `path.resolve` para que coincida con la comprobación de `validatePath`.
+ */
+export function approvePathForSession(requestedPath: string): void {
+  sessionApprovedPaths.add(path.resolve(requestedPath));
+}
+
+/** True si el path fue aprobado manualmente en esta sesión. */
+export function isPathManuallyApproved(requestedPath: string): boolean {
+  return sessionApprovedPaths.has(path.resolve(requestedPath));
+}
+
+/** Olvida todas las aprobaciones manuales (p. ej. al cambiar de sesión). */
+export function clearApprovedPaths(): void {
+  sessionApprovedPaths.clear();
+}
+
 export function validatePath(requestedPath: string, mode: 'read' | 'write' = 'read') {
   // In a real production system, this should be tightly bound to the actual workspace root.
   // For Shinobibot, we use the current working directory as the workspace root.
-  const workspaceRoot = path.resolve(process.env.WORKSPACE_ROOT || process.cwd());
+  const root = workspaceRoot();
 
   const resolvedPath = path.resolve(requestedPath);
 
+  // Aprobación manual: si el usuario autorizó explícitamente este path en el
+  // chat, el límite del workspace se desbloquea SOLO para esa operación. La
+  // lista ABSOLUTE_PROHIBITED_PATHS de más abajo sigue siendo un bloqueo duro.
+  const manuallyApproved = sessionApprovedPaths.has(resolvedPath);
+
   // Directory traversal check — usa path.relative para que un directorio
   // hermano con prefijo común NO pase el filtro (bug C5 de la auditoría).
-  if (!isInsideDir(workspaceRoot, resolvedPath)) {
+  if (!manuallyApproved && !isInsideDir(root, resolvedPath)) {
     return {
       allowed: false,
-      reason: `Access denied: Path ${resolvedPath} is outside the workspace root (${workspaceRoot}).`
+      reason: `Access denied: Path ${resolvedPath} is outside the workspace root (${root}). ` +
+        `Si el usuario aprueba la operación explícitamente en el chat, el path se desbloqueará para ella.`
     };
   }
 
