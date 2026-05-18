@@ -20,8 +20,10 @@ afterEach(() => {
 });
 
 function setupSampleState(): void {
-  writeFileSync(join(shinobiRoot, 'USER.md'), '# Usuario\nNombre: Test', 'utf-8');
-  writeFileSync(join(shinobiRoot, 'MEMORY.md'), '# Memoria\nNota: ...', 'utf-8');
+  // Bóveda Markdown memory/ (layout real tras la migración de SQLite a .md).
+  mkdirSync(join(shinobiRoot, 'memory'), { recursive: true });
+  writeFileSync(join(shinobiRoot, 'memory', 'USER.md'), '# Usuario\nNombre: Test', 'utf-8');
+  writeFileSync(join(shinobiRoot, 'memory', 'MEMORY.md'), '# Memoria\nNota: ...', 'utf-8');
   writeFileSync(join(shinobiRoot, 'memory.json'), '{"messages":[]}', 'utf-8');
   // Audit con secreto que debe redactarse. RUTA REAL: audit_log.ts escribe
   // en `<cwd>/audit.jsonl` (raíz), no en un subdirectorio `audit/`. El
@@ -47,8 +49,8 @@ describe('createBackup', () => {
     setupSampleState();
     const r = createBackup({ shinobiRoot, stagingDir });
     expect(r.filesCopied).toBeGreaterThan(0);
-    expect(existsSync(join(stagingDir, 'USER.md'))).toBe(true);
-    expect(existsSync(join(stagingDir, 'MEMORY.md'))).toBe(true);
+    expect(existsSync(join(stagingDir, 'memory/USER.md'))).toBe(true);
+    expect(existsSync(join(stagingDir, 'memory/MEMORY.md'))).toBe(true);
     expect(existsSync(join(stagingDir, 'skills/approved/my-skill/SKILL.md'))).toBe(true);
     expect(existsSync(join(stagingDir, 'BACKUP_MANIFEST.json'))).toBe(true);
     expect(existsSync(join(stagingDir, 'README.md'))).toBe(true);
@@ -78,7 +80,7 @@ describe('createBackup', () => {
     expect(Array.isArray(m.files)).toBe(true);
     const auditEntry = m.files.find((f: any) => f.relPath.includes('audit.jsonl'));
     expect(auditEntry?.redacted).toBe(true);
-    const userEntry = m.files.find((f: any) => f.relPath === 'USER.md');
+    const userEntry = m.files.find((f: any) => f.relPath.includes('USER.md'));
     expect(userEntry?.redacted).toBe(false);
   });
 
@@ -87,10 +89,10 @@ describe('createBackup', () => {
     const r = createBackup({
       shinobiRoot,
       stagingDir,
-      sources: [{ relPath: 'USER.md' }],
+      sources: [{ relPath: 'memory/USER.md' }],
     });
-    expect(existsSync(join(stagingDir, 'USER.md'))).toBe(true);
-    expect(existsSync(join(stagingDir, 'MEMORY.md'))).toBe(false);
+    expect(existsSync(join(stagingDir, 'memory/USER.md'))).toBe(true);
+    expect(existsSync(join(stagingDir, 'memory/MEMORY.md'))).toBe(false);
     expect(r.filesCopied).toBe(1);
   });
 
@@ -113,7 +115,7 @@ describe('restoreBackup', () => {
     mkdirSync(dest);
     const r = restoreBackup({ stagingDir, destDir: dest });
     expect(r.filesRestored).toBeGreaterThan(0);
-    expect(existsSync(join(dest, 'USER.md'))).toBe(true);
+    expect(existsSync(join(dest, 'memory', 'USER.md'))).toBe(true);
     // Fix P1: el audit.jsonl iba REDACTADO en el backup; restaurarlo sobre
     // el archivo real destruiría datos. Ahora se restaura a un sidecar
     // .from-backup y NO se sobrescribe el original.
@@ -133,10 +135,10 @@ describe('restoreBackup', () => {
     createBackup({ shinobiRoot, stagingDir });
 
     const dest = join(workspace, 'restored');
-    mkdirSync(dest);
-    writeFileSync(join(dest, 'USER.md'), 'YA EXISTE', 'utf-8');
+    mkdirSync(join(dest, 'memory'), { recursive: true });
+    writeFileSync(join(dest, 'memory', 'USER.md'), 'YA EXISTE', 'utf-8');
     restoreBackup({ stagingDir, destDir: dest, overwrite: false });
-    expect(readFileSync(join(dest, 'USER.md'), 'utf-8')).toBe('YA EXISTE');
+    expect(readFileSync(join(dest, 'memory', 'USER.md'), 'utf-8')).toBe('YA EXISTE');
   });
 
   it('overwrite=true sobrescribe', () => {
@@ -144,9 +146,9 @@ describe('restoreBackup', () => {
     createBackup({ shinobiRoot, stagingDir });
 
     const dest = join(workspace, 'restored');
-    mkdirSync(dest);
-    writeFileSync(join(dest, 'USER.md'), 'OBSOLETO', 'utf-8');
+    mkdirSync(join(dest, 'memory'), { recursive: true });
+    writeFileSync(join(dest, 'memory', 'USER.md'), 'OBSOLETO', 'utf-8');
     restoreBackup({ stagingDir, destDir: dest, overwrite: true });
-    expect(readFileSync(join(dest, 'USER.md'), 'utf-8')).toContain('Test');
+    expect(readFileSync(join(dest, 'memory', 'USER.md'), 'utf-8')).toContain('Test');
   });
 });

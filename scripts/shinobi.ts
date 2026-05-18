@@ -10,6 +10,7 @@ import { KernelClient } from '../src/bridge/kernel_client.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
 import { skillManager } from '../src/skills/skill_manager.js';
 import { curatedMemory } from '../src/memory/curated_memory.js';
+import { rebuildSemanticIndex } from '../src/memory/semantic_index.js';
 import { ResidentLoop } from '../src/runtime/resident_loop.js';
 import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -331,12 +332,17 @@ async function main() {
     console.log('[Shinobi] Error cargando skills markdown:', e.message);
   }
 
-  // Bloque 4 — Curated memory snapshot (USER.md + MEMORY.md). Frozen for the
-  // session; mid-session writes via /memory env append refresh on the fly.
+  // Bloque 4 — Curated memory: bóveda Markdown memory/ (USER.md + MEMORY.md).
+  // Snapshot congelado para la sesión; tras loadAtBoot se reconstruye el
+  // índice semántico SQLite (derivado de MEMORY.md).
   try {
     const r = curatedMemory().loadAtBoot();
     console.log(`[Shinobi] Curated memory: ${r.userEntries} user entr(ies) (${r.userPct}%) | ${r.memoryEntries} env entr(ies) (${r.memoryPct}%).`);
+    if (r.migrated.length) console.log(`[Shinobi] Memoria migrada a memory/: ${r.migrated.join(', ')}`);
     if (r.created.length) console.log(`[Shinobi] Plantillas creadas: ${r.created.join(', ')} — edítalos para personalizar.`);
+    const idx = await rebuildSemanticIndex();
+    if (idx.ok) console.log(`[Shinobi] Índice semántico reconstruido desde MEMORY.md: ${idx.indexed} entrada(s).`);
+    else console.log(`[Shinobi] Índice semántico no disponible: ${idx.error}`);
   } catch (e: any) {
     console.log('[Shinobi] Curated memory error:', e?.message ?? e);
   }
