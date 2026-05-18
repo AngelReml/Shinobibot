@@ -13,9 +13,9 @@ import { generateDocument, type DocumentRequest } from '../documents/factory.js'
 const generateDocumentTool: Tool = {
   name: 'generate_document',
   description:
-    'Generate a professional document file (Word .docx, PDF, Excel .xlsx, or Markdown .md) from structured content. ' +
-    'For a user-facing document or report request, PREFER the `docs_agent_run` specialist instead of this tool; ' +
-    'use this tool directly only for spreadsheets/tables or when no specialist applies. ' +
+    'INTERNAL document generator. For ANY user-facing document or report request (PDF, Markdown, Word) you MUST ' +
+    'NOT call this tool — call `docs_agent_run` instead, the dedicated specialist. Use generate_document directly ' +
+    'ONLY for Excel spreadsheets/tables, which docs_agent_run does not handle. ' +
     'For word/pdf/markdown pass `content_md` (markdown with #/##/### headings, lists, paragraphs). ' +
     'For excel pass `content_table` with `headers` array and `rows` 2D array. ' +
     'Use type:"auto" to let Shinobi pick based on the instruction (recommended unless the user is explicit).',
