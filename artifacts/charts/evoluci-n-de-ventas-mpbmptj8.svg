@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="520" viewBox="0 0 820 520" font-family="Segoe UI, Arial, sans-serif">
+<rect width="820" height="520" fill="#ffffff"/>
+<text x="410" y="32" text-anchor="middle" font-size="20" font-weight="700" fill="#111">Evolución de Ventas</text>
+<line x1="80" y1="430" x2="780" y2="430" stroke="#444" stroke-width="1.5"/>
+<line x1="80" y1="60" x2="80" y2="430" stroke="#444" stroke-width="1.5"/>
+<line x1="80" y1="430.0" x2="780" y2="430.0" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="434.0" text-anchor="end" font-size="11" fill="#555">0</text>
+<line x1="80" y1="299.7" x2="780" y2="299.7" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="303.7" text-anchor="end" font-size="11" fill="#555">5000</text>
+<line x1="80" y1="169.4" x2="780" y2="169.4" stroke="#e5e7eb" stroke-width="1"/>
+<text x="72" y="173.4" text-anchor="end" font-size="11" fill="#555">10000</text>
+<text x="18" y="245" text-anchor="middle" font-size="12" fill="#333" transform="rotate(-90 18 245)">Ventas (€)</text>
+<text x="430" y="502" text-anchor="middle" font-size="12" fill="#333">Mes</text>
+<polyline fill="none" stroke="#2563eb" stroke-width="2.5" points="80.0,117.3 430.0,182.5 780.0,60.0"/>
+<circle cx="80.0" cy="117.3" r="4" fill="#2563eb"/>
+<text x="80.0" y="107.3" text-anchor="middle" font-size="10" fill="#222">12000</text>
+<text x="80.0" y="448.0" text-anchor="middle" font-size="11" fill="#444">Enero</text>
+<circle cx="430.0" cy="182.5" r="4" fill="#2563eb"/>
+<text x="430.0" y="172.5" text-anchor="middle" font-size="10" fill="#222">9500</text>
+<text x="430.0" y="448.0" text-anchor="middle" font-size="11" fill="#444">Febrero</text>
+<circle cx="780.0" cy="60.0" r="4" fill="#2563eb"/>
+<text x="780.0" y="50.0" text-anchor="middle" font-size="10" fill="#222">14200</text>
+<text x="780.0" y="448.0" text-anchor="middle" font-size="11" fill="#444">Marzo</text>
+</svg>

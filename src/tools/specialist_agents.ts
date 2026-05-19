@@ -31,7 +31,9 @@ const researchAgentTool: Tool = {
   async execute(args: { question?: string }): Promise<ToolResult> {
     const question = typeof args?.question === 'string' ? args.question.trim() : '';
     if (!question) return { success: false, output: '', error: 'research_agent_run requires "question".' };
+    const prevDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0');
     try {
+      process.env.SHINOBI_SPAWN_DEPTH = String(prevDepth + 1);
       const r = await new ResearchAgent().produce(question);
       const lines = [
         `[delegado → ResearchAgent] valid=${r.valid}`,
@@ -43,6 +45,8 @@ const researchAgentTool: Tool = {
       return { success: r.valid, output: lines.join('\n'), error: r.valid ? undefined : 'sin fuentes verificables' };
     } catch (err: any) {
       return { success: false, output: '', error: `research_agent_run failed: ${err?.message ?? err}` };
+    } finally {
+      process.env.SHINOBI_SPAWN_DEPTH = String(prevDepth);
     }
   },
 };
@@ -66,7 +70,9 @@ const docsAgentTool: Tool = {
     if (!args?.title || !args?.content) {
       return { success: false, output: '', error: 'docs_agent_run requires "title" and "content".' };
     }
+    const prevDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0');
     try {
+      process.env.SHINOBI_SPAWN_DEPTH = String(prevDepth + 1);
       const r = await new DocsAgent().produce({ title: args.title, content: args.content, format: args.format });
       return {
         success: true,
@@ -75,6 +81,8 @@ const docsAgentTool: Tool = {
       };
     } catch (err: any) {
       return { success: false, output: '', error: `docs_agent_run failed: ${err?.message ?? err}` };
+    } finally {
+      process.env.SHINOBI_SPAWN_DEPTH = String(prevDepth);
     }
   },
 };
@@ -98,7 +106,9 @@ const dataAgentTool: Tool = {
     if (!args?.title || !args?.dataset) {
       return { success: false, output: '', error: 'data_agent_run requires "title" and "dataset".' };
     }
+    const prevDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0');
     try {
+      process.env.SHINOBI_SPAWN_DEPTH = String(prevDepth + 1);
       const r = await new DataAgent().produce({ title: args.title, dataset: args.dataset, goal: args.goal ?? '' });
       return {
         success: true,
@@ -107,6 +117,8 @@ const dataAgentTool: Tool = {
       };
     } catch (err: any) {
       return { success: false, output: '', error: `data_agent_run failed: ${err?.message ?? err}` };
+    } finally {
+      process.env.SHINOBI_SPAWN_DEPTH = String(prevDepth);
     }
   },
 };

@@ -18,8 +18,6 @@ import type { BackendId, RunBackend } from './types.js';
 import { LocalBackend } from './backends/local.js';
 import { DockerBackend } from './backends/docker.js';
 import { SSHBackend } from './backends/ssh.js';
-import { ModalBackend } from './backends/modal.js';
-import { DaytonaBackend } from './backends/daytona.js';
 import { E2BBackend } from './backends/e2b.js';
 import { MockBackend } from './backends/mock.js';
 
@@ -34,8 +32,6 @@ class SandboxRegistry {
     this.register(new LocalBackend());
     this.register(new DockerBackend());
     this.register(new SSHBackend());
-    this.register(new ModalBackend());
-    this.register(new DaytonaBackend());
     this.register(new E2BBackend());
     // Mock NO se registra por default — lo añaden los tests con `register()`.
   }

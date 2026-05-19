@@ -44,12 +44,12 @@ export interface BackgroundReviewResult {
 
 /** Modelo auxiliar barato — el review corre seguido, no usa el principal. */
 function reviewModel(): string {
-  return process.env.SHINOBI_REVIEW_MODEL || 'anthropic/claude-haiku-4.5';
+  return process.env.SHINOBI_REVIEW_MODEL || 'anthropic/claude-3-5-haiku-20241022';
 }
 
-/** ¿Está el Motor 1 habilitado? Opt-in, como el resto de subsistemas. */
+/** ¿Está el Motor 1 habilitado? Por defecto SÍ en la Mejora 1, a menos que se deshabilite. */
 export function backgroundReviewEnabled(): boolean {
-  return process.env.SHINOBI_REVIEW_ENABLED === '1';
+  return process.env.SHINOBI_REVIEW_ENABLED !== '0';
 }
 
 let _running = false;

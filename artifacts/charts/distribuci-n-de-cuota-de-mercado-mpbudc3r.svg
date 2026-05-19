@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="520" viewBox="0 0 820 520" font-family="Segoe UI, Arial, sans-serif">
+<rect width="820" height="520" fill="#ffffff"/>
+<text x="410" y="32" text-anchor="middle" font-size="20" font-weight="700" fill="#111">Distribución de Cuota de Mercado</text>
+<path d="M 340 245 L 340.0 90.8 A 154.16666666666669 154.16666666666669 0 0 1 387.6 391.6 Z" fill="#2563eb"/>
+<text x="516.0" y="217.1" text-anchor="middle" font-size="11" fill="#333">Producto A (45.0%)</text>
+<path d="M 340 245 L 387.6 391.6 A 154.16666666666669 154.16666666666669 0 0 1 185.8 245.0 Z" fill="#dc2626"/>
+<text x="235.3" y="389.1" text-anchor="middle" font-size="11" fill="#333">Producto B (30.0%)</text>
+<path d="M 340 245 L 185.8 245.0 A 154.16666666666669 154.16666666666669 0 0 1 340.0 90.8 Z" fill="#16a34a"/>
+<text x="214.0" y="119.0" text-anchor="middle" font-size="11" fill="#333">Producto C (25.0%)</text>
+<rect x="630" y="60" width="12" height="12" fill="#2563eb"/>
+<text x="648" y="70" font-size="11" fill="#333">Producto A</text>
+<rect x="630" y="80" width="12" height="12" fill="#dc2626"/>
+<text x="648" y="90" font-size="11" fill="#333">Producto B</text>
+<rect x="630" y="100" width="12" height="12" fill="#16a34a"/>
+<text x="648" y="110" font-size="11" fill="#333">Producto C</text>
+</svg>

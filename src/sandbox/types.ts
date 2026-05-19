@@ -10,8 +10,6 @@
  *                 src/tools/_docker_backend.ts)
  *   - `ssh`     : VPS remoto vía SSH (opcional, requiere SSH_HOST,
  *                 SSH_USER, SSH_KEY_PATH/SSH_PASS, SSH_PORT)
- *   - `modal`   : Modal serverless containers (requiere MODAL_TOKEN_ID/SECRET)
- *   - `daytona` : Daytona dev environments (requiere DAYTONA_API_KEY)
  *   - `e2b`     : E2B sandboxes (requiere E2B_API_KEY)
  *   - `mock`    : determinista, para tests, devuelve outputs scripted
  *
@@ -25,7 +23,7 @@
  * operador decidir qué backend activar.
  */
 
-export type BackendId = 'local' | 'docker' | 'ssh' | 'modal' | 'daytona' | 'e2b' | 'mock';
+export type BackendId = 'local' | 'docker' | 'ssh' | 'e2b' | 'mock';
 
 export interface RunInput {
   command: string;

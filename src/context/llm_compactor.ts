@@ -138,21 +138,58 @@ export async function compactWithLLM(
   }
   if (current.length > 0) turns.push(current);
 
-  if (turns.length <= preserve) {
-    // Nada que comprimir.
-    return {
-      messages,
-      compacted: false,
-      beforeTokens,
-      afterTokens: beforeTokens,
-      truncatedCount: 0,
-      droppedCount: 0,
-      method: 'skipped',
-    };
-  }
+  let middle: any[] = [];
+  let last: any[] = [];
+  let droppedCount = 0;
+  let userPromptMsg: any = null;
 
-  const middle = turns.slice(0, turns.length - preserve).flat();
-  const last = turns.slice(turns.length - preserve).flat();
+  if (turns.length <= preserve) {
+    // Si sólo hay un turno largo (turns.length === 1), intentamos subdividirlo en sub-turnos
+    // para poder compactarlo. Un sub-turno es un conjunto de mensajes que empiezan con 'assistant'.
+    if (turns.length === 1) {
+      const singleTurn = turns[0];
+      const userPrompt = singleTurn.find(m => m.role === 'user');
+      const assistantAndToolMsgs = singleTurn.filter(m => m.role !== 'user');
+
+      // Agrupamos en sub-turnos (cada asistente + sus herramientas)
+      const subTurns: any[][] = [];
+      let currentGroup: any[] = [];
+      for (const m of assistantAndToolMsgs) {
+        if (m.role === 'assistant' && currentGroup.length > 0) {
+          subTurns.push(currentGroup);
+          currentGroup = [];
+        }
+        currentGroup.push(m);
+      }
+      if (currentGroup.length > 0) {
+        subTurns.push(currentGroup);
+      }
+
+      if (subTurns.length > preserve) {
+        userPromptMsg = userPrompt;
+        middle = subTurns.slice(0, subTurns.length - preserve).flat();
+        last = subTurns.slice(subTurns.length - preserve).flat();
+        droppedCount = middle.length;
+      }
+    }
+
+    if (middle.length === 0) {
+      // Nada que comprimir.
+      return {
+        messages,
+        compacted: false,
+        beforeTokens,
+        afterTokens: beforeTokens,
+        truncatedCount: 0,
+        droppedCount: 0,
+        method: 'skipped',
+      };
+    }
+  } else {
+    middle = turns.slice(0, turns.length - preserve).flat();
+    last = turns.slice(turns.length - preserve).flat();
+    droppedCount = middle.length;
+  }
 
   let summary: string;
   try {
@@ -172,10 +209,12 @@ export async function compactWithLLM(
 
   const synthetic = {
     role: 'system',
-    content: `[…compactado-llm] Resumen de ${middle.length} mensajes anteriores:\n${summary}`,
+    content: `[…compactado-llm] Resumen de ${droppedCount} mensajes anteriores:\n${summary}`,
   };
 
-  const newMessages = [...systemMsgs, synthetic, ...last];
+  const newMessages = userPromptMsg
+    ? [...systemMsgs, userPromptMsg, synthetic, ...last]
+    : [...systemMsgs, synthetic, ...last];
   const afterTokens = estimateTokens(newMessages);
 
   // Si el resumen NO reduce de verdad (caso típico en conversaciones

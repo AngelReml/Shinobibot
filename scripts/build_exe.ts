@@ -81,7 +81,6 @@ async function step2_bundle(): Promise<void> {
     outfile: out,
     external: [
       'better-sqlite3',
-      'sqlite-vec',
       '@nut-tree-fork/nut-js',
       'playwright',
       'playwright-core',
@@ -124,7 +123,6 @@ async function step4_pkg(): Promise<void> {
         // Native modules — paths relativos a este package.json (en build/)
         '../node_modules/better-sqlite3/build/Release/*.node',
         '../node_modules/better-sqlite3/prebuilds/**/*',
-        '../node_modules/sqlite-vec/**/*',
         '../node_modules/@nut-tree-fork/**/*.node',
         '../node_modules/@nut-tree-fork/**/build/Release/*',
       ],

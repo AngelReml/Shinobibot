@@ -59,7 +59,7 @@ async function testRecallNormalized() {
   console.log('\n=== #6 memory recall — coseno normalizado [0,1] ===');
   process.env.SHINOBI_FORCE_HASH_EMBED = '1'; // embeddings deterministas hash
   const { MemoryStore } = await import('../../src/memory/memory_store.js');
-  const store = new MemoryStore(':memory:');
+  const store = new MemoryStore({ db_path: ':memory:' });
   await store.store('el gato duerme en el tejado', { category: 'fact', importance: 0.5 });
   await store.store('protocolo de red TCP tres vías', { category: 'fact', importance: 0.5 });
   // Query no relacionada: con hash-embeds el coseno puede ser negativo.

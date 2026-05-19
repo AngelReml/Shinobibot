@@ -19,8 +19,7 @@
     ],
     "assets": [
       "node_modules/better-sqlite3/build/Release/*.node",
-      "node_modules/better-sqlite3/prebuilds/**/*",
-      "node_modules/sqlite-vec/**/*"
+      "node_modules/better-sqlite3/prebuilds/**/*"
     ],
     "targets": [
       "node22-win-x64"
@@ -28,8 +27,8 @@
     "outputPath": "build"
   },
   "scripts": {
-    "start": "ts-node src/index.ts",
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "start": "tsx scripts/shinobi.ts",
+    "dev": "tsx scripts/shinobi_web.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -52,7 +51,7 @@
     "grammy": "^1.42.0",
     "openai": "^6.34.0",
     "playwright": "^1.59.1",
-    "sqlite-vec": "^0.1.9",
+    "@e2b/sdk": "^0.8.6",
     "ws": "^8.20.0"
   },
   "devDependencies": {

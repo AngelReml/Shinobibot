@@ -22,6 +22,9 @@ import { ProgressTracker, progressDetectionEnabled } from './progress_judge.js';
 import { MemoryReflector, reflectionEnabled } from '../context/memory_reflector.js';
 import { runBackgroundReview, backgroundReviewEnabled, reviewInProgress } from '../learning/background_review.js';
 import { loadSoul, personaSystemMessage, builtinSoul } from '../soul/soul.js';
+import { sanitizeToolCallArguments, repairMessageSequence } from '../runtime/trajectory_helpers.js';
+import { capToolResultJson, TOOL_OUTPUT_MAX_CHARS } from '../context/tool_output_truncator.js';
+import { metrics } from '../observability/metrics.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -109,6 +112,16 @@ export class ShinobiOrchestrator {
   private static _itersSinceSkill = 0;
 
   static async process(input: string): Promise<any> {
+    const currentDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0');
+    const maxDepth = Number(process.env.SHINOBI_MAX_SPAWN_DEPTH || '3');
+    if (currentDepth >= maxDepth) {
+      console.warn(`[Shinobi] Max spawn depth reached (${currentDepth}/${maxDepth}). Aborting recursive execution.`);
+      return {
+        verdict: 'ERROR',
+        error: `Max spawn depth reached (${currentDepth}/${maxDepth}). Aborting recursive execution.`
+      };
+    }
+
     console.log(`[Shinobi] Processing: ${input.slice(0, 50)}...`);
     this._turnsSinceMemory++;
 
@@ -161,8 +174,8 @@ export class ShinobiOrchestrator {
       // SHINOBI_REVIEW_ENABLED=1. Fire-and-forget: no bloquea la respuesta.
       try {
         if (backgroundReviewEnabled() && !reviewInProgress()) {
-          const memNudge = Number(process.env.SHINOBI_MEMORY_NUDGE_INTERVAL) || 10;
-          const skillNudge = Number(process.env.SHINOBI_SKILL_NUDGE_INTERVAL) || 15;
+          const memNudge = Number(process.env.SHINOBI_MEMORY_NUDGE_INTERVAL) || 5;
+          const skillNudge = Number(process.env.SHINOBI_SKILL_NUDGE_INTERVAL) || 5;
           // Si el agente ya tocó skills en vivo, no se vuelve a nudgear.
           if (toolSequence.includes('request_new_skill')) this._itersSinceSkill = 0;
           const reviewMemory = this._turnsSinceMemory >= memNudge;
@@ -385,7 +398,7 @@ export class ShinobiOrchestrator {
         }
 
         const llmPayload = {
-          messages: currentMessages,
+          messages: repairMessageSequence(currentMessages),
           model: this.activeModel,
           tools: openAITools.length > 0 ? openAITools : undefined,
           tool_choice: openAITools.length > 0 ? 'auto' : 'none',
@@ -397,13 +410,43 @@ export class ShinobiOrchestrator {
         if (routeDecision.enabled) {
           llmPayload.model = routeDecision.choice.model;
         }
+        const t0 = Date.now();
+        console.log(`[DEBUG-ORCHESTRATOR] [${new Date().toISOString()}] BEFORE LLM CALL. Model: ${llmPayload.model}, Provider: ${routeDecision.enabled ? routeDecision.choice.provider : 'default'}`);
         const result = await routedInvokeLLM(
           llmPayload,
           routeDecision.enabled ? { provider: routeDecision.choice.provider as any } : undefined,
         );
+        const durationMs = Date.now() - t0;
+        console.log(`[DEBUG-ORCHESTRATOR] [${new Date().toISOString()}] AFTER LLM CALL. Success: ${result.success}, output length: ${result.output?.length ?? 0}, error: ${result.error || 'none'}`);
         if (!result.success) {
           throw new Error(`LLM Error: ${result.error}`);
         }
+
+        // --- Record Metrics ---
+        const resolvedProvider = result.resolvedProvider || 'default';
+        const resolvedModel = llmPayload.model || 'default';
+        const callDurationSec = durationMs / 1000;
+
+        const registry = metrics();
+        registry.counterInc('shinobi_llm_calls_total', 1, { provider: resolvedProvider, model: resolvedModel });
+
+        try {
+          registry.histogramObserve('shinobi_llm_duration_seconds', callDurationSec, { provider: resolvedProvider, model: resolvedModel });
+        } catch {
+          registry.describeHistogram('shinobi_llm_duration_seconds', { buckets: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0] }, 'LLM call duration in seconds');
+          registry.histogramObserve('shinobi_llm_duration_seconds', callDurationSec, { provider: resolvedProvider, model: resolvedModel });
+        }
+
+        if (result.usage) {
+          registry.counterInc('shinobi_llm_tokens_total', result.usage.prompt_tokens, { provider: resolvedProvider, model: resolvedModel, type: 'prompt' });
+          registry.counterInc('shinobi_llm_tokens_total', result.usage.completion_tokens, { provider: resolvedProvider, model: resolvedModel, type: 'completion' });
+
+          const cost = calculateCost(resolvedProvider, resolvedModel, result.usage);
+          registry.counterInc('shinobi_llm_cost_usd_total', cost, { provider: resolvedProvider, model: resolvedModel });
+        }
+
+        // Apply helper from Hermes (sanitization)
+        result.output = sanitizeToolCallArguments(result.output);
 
         // C1 — parseo defensivo. Si un provider devuelve texto plano en vez
         // del JSON del message, NO se aborta la misión: se trata como una
@@ -505,13 +548,35 @@ export class ShinobiOrchestrator {
             // devuelve como resultado de la tool para que el LLM lo vea y se
             // adapte — el loop NO se rompe.
             const approvalVerdict = isDestructive(functionName, functionArgs);
-            const approved = await requestApproval({
-              toolName: functionName,
-              args: functionArgs,
-              destructive: approvalVerdict.destructive,
-              reason: approvalVerdict.reason,
+            const approvalTimeoutMs = Number(process.env.SHINOBI_APPROVAL_TIMEOUT_MS) || 120_000;
+            let approved = false;
+            let isTimeout = false;
+            let timer: NodeJS.Timeout | undefined;
+
+            const timeoutPromise = new Promise<boolean>((resolve) => {
+              timer = setTimeout(() => {
+                isTimeout = true;
+                resolve(true); // implicit approval on timeout
+              }, approvalTimeoutMs);
             });
-            if (!approved) {
+
+            try {
+              approved = await Promise.race([
+                requestApproval({
+                  toolName: functionName,
+                  args: functionArgs,
+                  destructive: approvalVerdict.destructive,
+                  reason: approvalVerdict.reason,
+                }),
+                timeoutPromise
+              ]);
+            } catch (err: any) {
+              // Si fue por otro error, approved queda false y se maneja
+            } finally {
+              if (timer) clearTimeout(timer);
+            }
+
+            if (!approved && !isTimeout) {
               const denyReason = approvalVerdict.reason || 'requiere confirmación del usuario';
               toolResultStr = JSON.stringify({
                 success: false,
@@ -521,6 +586,9 @@ export class ShinobiOrchestrator {
               console.log(`  [⛔] Aprobación denegada: ${functionName}`);
               logToolCall({ tool: functionName, args: functionArgs, success: false, durationMs: 0, error: 'approval_denied' });
             } else {
+              if (isTimeout) {
+                console.log(`  [✓] Aprobación por timeout (${approvalTimeoutMs / 1000}s): tool ejecutada`);
+              }
             // Aprobación concedida. Si era una escritura/edición fuera del
             // workspace, registramos ese path para que validatePath lo
             // desbloquee en esta operación concreta (permisos absolutos bajo
@@ -630,6 +698,22 @@ export class ShinobiOrchestrator {
             } // fin del bloque `if (approved)`
           }
 
+          // Cap: limita el tamaño del tool output ANTES de añadirlo al historial.
+          // El compactor reduce el historial acumulado en iteraciones siguientes,
+          // pero no puede acotar lo que entra en la iteración actual. Sin este
+          // cap, un read_file de archivo extenso puede inyectar decenas de miles
+          // de tokens en un solo turno y reventar el límite del proveedor.
+          const { result: cappedResult, truncated: wasTruncated } =
+            capToolResultJson(toolResultStr, TOOL_OUTPUT_MAX_CHARS);
+          if (wasTruncated) {
+            console.log(
+              `  [✂] Tool output truncated: ${functionName} ` +
+              `(${toolResultStr.length} → ${cappedResult.length} chars, ` +
+              `cap=${TOOL_OUTPUT_MAX_CHARS})`,
+            );
+            toolResultStr = cappedResult;
+          }
+
           // Append tool response to messages
           const toolMessage = {
             role: 'tool' as const,
@@ -679,4 +763,47 @@ export class ShinobiOrchestrator {
       error: 'Tool loop hit max iterations without generating a final response.'
     };
   }
+}
+
+function calculateCost(provider: string, model: string, usage: { prompt_tokens: number; completion_tokens: number }): number {
+  const p = provider.toLowerCase();
+  const m = model.toLowerCase();
+  let inputRate = 0; // per 1M tokens
+  let outputRate = 0; // per 1M tokens
+
+  if (p === 'openai') {
+    if (m.includes('mini')) {
+      inputRate = 0.15;
+      outputRate = 0.60;
+    } else {
+      inputRate = 2.50;
+      outputRate = 10.00;
+    }
+  } else if (p === 'anthropic') {
+    if (m.includes('haiku')) {
+      inputRate = 0.80;
+      outputRate = 4.00;
+    } else if (m.includes('opus')) {
+      inputRate = 15.00;
+      outputRate = 75.00;
+    } else {
+      inputRate = 3.00;
+      outputRate = 15.00; // sonnet default
+    }
+  } else if (p === 'groq') {
+    inputRate = 0.59;
+    outputRate = 0.79;
+  } else if (p === 'openrouter') {
+    // Blended rate
+    inputRate = 2.00;
+    outputRate = 8.00;
+  } else {
+    // default/opengravity
+    inputRate = 1.00;
+    outputRate = 4.00;
+  }
+
+  const inputCost = (usage.prompt_tokens * inputRate) / 1_000_000;
+  const outputCost = (usage.completion_tokens * outputRate) / 1_000_000;
+  return inputCost + outputCost;
 }

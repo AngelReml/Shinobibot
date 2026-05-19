@@ -39,16 +39,21 @@ export function classifyProviderError(error: string | undefined): ErrorClass {
   if (
     /no\s*est[áa]\s*definida/i.test(error) ||
     /missing\s+(api\s+)?key/i.test(error) ||
-    /api\s+key\s+not\s+set/i.test(error)
+    /api\s+key\s+not\s+set/i.test(error) ||
+    /define\s+[A-Z_]+_API_KEY/i.test(error)
   ) {
     return 'no_key';
   }
 
-  // 2) Rate limit / cuota.
+  // 2) Rate limit / cuota / falta de saldo.
   if (
     /\b429\b/.test(e) ||
+    /\b402\b/.test(e) ||
     /rate[\s_-]?limit/.test(e) ||
     /quota\s+exceed/.test(e) ||
+    /insufficient\s+credits/.test(e) ||
+    /payment\s+required/.test(e) ||
+    /balance/.test(e) ||
     /too\s+many\s+requests/.test(e)
   ) {
     return 'rate_limit';

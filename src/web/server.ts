@@ -126,11 +126,8 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   const store = new ChatStore(dbPath);
   const residentLoop = new ResidentLoop();
 
-  // D-017: ensure approval_mode field exists. The web UI does not yet route
-  // approval prompts through a modal — install a deny-by-default asker for v1.
-  // Future iteration: emit a `type:'approval_request'` WS event and wait.
+  // D-017: ensure approval_mode field exists.
   ensureApprovalModeInitialized();
-  setApprovalAsker(async (_p: string): Promise<Approval> => 'no');
 
   const app = express();
   // Límite de body: sin esto un POST gigante a /api/* agota memoria (DoS).
@@ -377,6 +374,23 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     }
   };
 
+  const pendingApprovals = new Map<string, (v: Approval) => void>();
+  setApprovalAsker(async (promptText: string): Promise<Approval> => {
+    if (allClients.size === 0) {
+      console.log(`[DIAG-SERVER] [${new Date().toISOString()}] No clients connected, denying approval request.`);
+      return 'no';
+    }
+    return new Promise((resolve) => {
+      const requestId = randomUUID();
+      pendingApprovals.set(requestId, resolve);
+      console.log(`[DIAG-SERVER] [${new Date().toISOString()}] Emitiendo approval_request a ${allClients.size} cliente(s). Payload:`, { type: 'approval_request', promptText, requestId });
+      for (const c of allClients) {
+        console.log(`[DIAG-SERVER] Cliente readyState:`, c.readyState);
+      }
+      broadcastAll({ type: 'approval_request', promptText, requestId });
+    });
+  });
+
   // Bloque 3: broadcast skill lifecycle events to every connected UI client.
   setSkillEventListener((event) => broadcastAll({ type: 'skill_event', event }));
 
@@ -431,6 +445,16 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
         const r = pendingAsk;
         pendingAsk = null;
         r.resolve(String(msg.text ?? ''));
+        return;
+      }
+
+      if (msg.type === 'approval_response' && msg.requestId) {
+        const resolve = pendingApprovals.get(msg.requestId);
+        if (resolve) {
+          pendingApprovals.delete(msg.requestId);
+          // msg.answer debe ser 'yes', 'no' o 'always'
+          resolve((msg.answer as Approval) || 'no');
+        }
         return;
       }
 
