@@ -336,6 +336,21 @@ async function main() {
     console.log('[Shinobi] Error cargando skills markdown:', e.message);
   }
 
+  // Hot Plug Plugins (Split-Brain Fase 2)
+  try {
+    const { HotPlugRegistry } = await import('../src/plugins/hot_plug_registry.js');
+    const skillsPath = path.resolve(process.cwd(), 'skills');
+    if (fs.existsSync(skillsPath)) {
+      const loaded = HotPlugRegistry.loadDirectory(skillsPath);
+      if (loaded.length > 0) {
+        console.log(`[Shinobi] Hot-loaded ${loaded.length} dynamic plugins from skills/ directory.`);
+      }
+      HotPlugRegistry.watchDirectory(skillsPath);
+    }
+  } catch (e: any) {
+    console.log('[Shinobi] Error al inicializar HotPlugRegistry:', e.message);
+  }
+
   // Bloque 4 — Curated memory: bóveda Markdown memory/ (USER.md + MEMORY.md).
   // Snapshot congelado para la sesión; tras loadAtBoot se reconstruye el
   // índice semántico SQLite (derivado de MEMORY.md).

@@ -53,6 +53,10 @@ export function registerTool(tool: Tool) {
   _tools.set(tool.name, tool);
 }
 
+export function unregisterTool(name: string) {
+  _tools.delete(name);
+}
+
 export function getTool(name: string): Tool | undefined {
   return _tools.get(name);
 }
