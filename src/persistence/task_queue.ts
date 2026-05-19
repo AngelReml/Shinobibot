@@ -13,6 +13,9 @@ export interface TaskItem {
   description: string | null;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   assigned_to: string | null;
+  role_required: string;
+  current_tool: string | null;
+  steps_completed: number;
   priority: number;
   result: string | null;
   error: string | null;
@@ -39,6 +42,9 @@ export class TaskQueueStore {
         description TEXT,
         status TEXT NOT NULL,
         assigned_to TEXT,
+        role_required TEXT NOT NULL DEFAULT 'general',
+        current_tool TEXT,
+        steps_completed INTEGER DEFAULT 0,
         priority INTEGER NOT NULL DEFAULT 0,
         result TEXT,
         error TEXT,
@@ -48,15 +54,25 @@ export class TaskQueueStore {
       CREATE INDEX IF NOT EXISTS idx_tasks_status ON task_items(status);
       CREATE INDEX IF NOT EXISTS idx_tasks_priority ON task_items(priority DESC, created_at ASC);
     `);
+    const cols = (this.db.prepare(`PRAGMA table_info(task_items)`).all() as any[]).map(r => r.name);
+    if (!cols.includes('role_required')) {
+      this.db.exec(`ALTER TABLE task_items ADD COLUMN role_required TEXT NOT NULL DEFAULT 'general'`);
+    }
+    if (!cols.includes('current_tool')) {
+      this.db.exec(`ALTER TABLE task_items ADD COLUMN current_tool TEXT`);
+    }
+    if (!cols.includes('steps_completed')) {
+      this.db.exec(`ALTER TABLE task_items ADD COLUMN steps_completed INTEGER DEFAULT 0`);
+    }
   }
 
-  public addTask(title: string, description?: string, priority: number = 0): TaskItem {
+  public addTask(title: string, description?: string, priority: number = 0, role_required: string = 'general'): TaskItem {
     const id = `tsk_${crypto.randomBytes(6).toString('hex')}`;
     const now = new Date().toISOString();
     this.db.prepare(`
-      INSERT INTO task_items (id, title, description, status, assigned_to, priority, result, error, created_at, updated_at)
-      VALUES (?, ?, ?, 'pending', NULL, ?, NULL, NULL, ?, ?)
-    `).run(id, title, description ?? null, priority, now, now);
+      INSERT INTO task_items (id, title, description, status, assigned_to, role_required, priority, result, error, created_at, updated_at)
+      VALUES (?, ?, ?, 'pending', NULL, ?, ?, NULL, NULL, ?, ?)
+    `).run(id, title, description ?? null, role_required, priority, now, now);
     return this.get(id)!;
   }
 
@@ -65,7 +81,7 @@ export class TaskQueueStore {
     return row ? this.fromRow(row as any) : null;
   }
 
-  public claimNextTask(agentId: string): TaskItem | null {
+  public claimNextTask(agentId: string, roleRequired: string = 'general'): TaskItem | null {
     // Atomically find the highest priority pending task and claim it.
     const now = new Date().toISOString();
     
@@ -73,10 +89,10 @@ export class TaskQueueStore {
     const claimTx = this.db.transaction(() => {
       const task = this.db.prepare(`
         SELECT * FROM task_items 
-        WHERE status = 'pending' 
+        WHERE status = 'pending' AND (role_required = ? OR role_required = 'general')
         ORDER BY priority DESC, created_at ASC 
         LIMIT 1
-      `).get() as any;
+      `).get(roleRequired) as any;
 
       if (!task) return null;
 
@@ -113,6 +129,27 @@ export class TaskQueueStore {
     return r.changes > 0;
   }
 
+  public updateTaskProgress(id: string, progress: { current_tool?: string | null; steps_completed?: number }): void {
+    const now = new Date().toISOString();
+    const cols: string[] = [];
+    const vals: any[] = [];
+    if (progress.current_tool !== undefined) {
+      cols.push('current_tool = ?');
+      vals.push(progress.current_tool);
+    }
+    if (progress.steps_completed !== undefined) {
+      cols.push('steps_completed = ?');
+      vals.push(progress.steps_completed);
+    }
+    if (cols.length === 0) return;
+    vals.push(now, id);
+    this.db.prepare(`
+      UPDATE task_items 
+      SET ${cols.join(', ')}, updated_at = ?
+      WHERE id = ?
+    `).run(...vals);
+  }
+
   public listTasks(status?: 'pending' | 'in_progress' | 'completed' | 'failed'): TaskItem[] {
     if (status) {
       return (this.db.prepare('SELECT * FROM task_items WHERE status = ? ORDER BY priority DESC, created_at ASC').all(status) as any[]).map(r => this.fromRow(r));
@@ -136,6 +173,9 @@ export class TaskQueueStore {
       description: r.description ?? null,
       status: r.status,
       assigned_to: r.assigned_to ?? null,
+      role_required: r.role_required ?? 'general',
+      current_tool: r.current_tool ?? null,
+      steps_completed: Number(r.steps_completed || 0),
       priority: r.priority,
       result: r.result ?? null,
       error: r.error ?? null,

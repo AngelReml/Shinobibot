@@ -765,7 +765,7 @@ export class ShinobiOrchestrator {
   }
 }
 
-function calculateCost(provider: string, model: string, usage: { prompt_tokens: number; completion_tokens: number }): number {
+export function calculateCost(provider: string, model: string, usage: { prompt_tokens: number; completion_tokens: number }): number {
   const p = provider.toLowerCase();
   const m = model.toLowerCase();
   let inputRate = 0; // per 1M tokens

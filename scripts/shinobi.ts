@@ -3,6 +3,9 @@
  * Shinobi CLI v5 - Connected to OpenGravity Kernel
  */
 
+import * as fs from 'fs';
+import * as path from 'path';
+import { TaskQueueStore } from '../src/persistence/task_queue.js';
 import * as readline from 'readline';
 import { ShinobiOrchestrator } from '../src/coordinator/orchestrator.js';
 import { handleSlashCommand } from '../src/coordinator/slash_commands.js';
@@ -379,8 +382,87 @@ async function main() {
   const askViaRl = (q: string): Promise<string> =>
     new Promise<string>((res) => rl.question(q, (a) => res(a)));
 
-  const handleInput = async (input: string): Promise<void> => {
-    const trimmed = input.trim();
+  const handleSwarmCommand = async (): Promise<void> => {
+    try {
+      const queue = new TaskQueueStore();
+      const tasks = queue.listTasks();
+      queue.close();
+
+      if (tasks.length === 0) {
+        console.log('No tasks in the Kanban queue.');
+        return;
+      }
+
+      console.log('\n=================== SHINOBIBOT KANBAN SWARM STATUS ===================');
+      console.log(String('ID').padEnd(12) + ' | ' + String('TITLE').padEnd(25) + ' | ' + String('STATUS').padEnd(12) + ' | ' + String('ROLE').padEnd(15) + ' | ' + String('PROGRESS'));
+      console.log('-'.repeat(80));
+      
+      for (const t of tasks) {
+        let progress = '';
+        if (t.status === 'in_progress') {
+          progress = `[Steps: ${t.steps_completed || 0}] running: ${t.current_tool || 'thinking...'}`;
+        } else if (t.status === 'completed') {
+          progress = 'Done';
+        } else if (t.status === 'failed') {
+          progress = `Error: ${t.error || 'Unknown'}`;
+        } else {
+          progress = 'Idle';
+        }
+        
+        const idStr = t.id.padEnd(12);
+        const titleStr = (t.title.length > 25 ? t.title.slice(0, 22) + '...' : t.title).padEnd(25);
+        const statusStr = t.status.padEnd(12);
+        const roleStr = t.role_required.padEnd(15);
+        
+        console.log(`${idStr} | ${titleStr} | ${statusStr} | ${roleStr} | ${progress}`);
+      }
+      console.log('======================================================================\n');
+    } catch (err: any) {
+      console.error('Failed to query swarm status:', err.message);
+    }
+  };
+
+  const injectContextFiles = (inputStr: string): string => {
+    const fileRegex = /@([a-zA-Z0-9_\-\.\/\\:]+)/g;
+    let matches: string[] = [];
+    let match;
+    while ((match = fileRegex.exec(inputStr)) !== null) {
+      matches.push(match[1]);
+    }
+
+    if (matches.length === 0) return inputStr;
+
+    let finalInput = inputStr;
+    let injectedContent = '\n\n=== INJECTED CONTEXT ===\n';
+
+    for (const filePath of matches) {
+      const resolvedPath = path.resolve(process.cwd(), filePath);
+      if (fs.existsSync(resolvedPath)) {
+        try {
+          const stats = fs.statSync(resolvedPath);
+          if (stats.isFile()) {
+            const content = fs.readFileSync(resolvedPath, 'utf8');
+            const ext = path.extname(filePath).slice(1) || 'text';
+            injectedContent += `\n[Archivo inyectado de forma rápida: ${filePath}]\n\`\`\`${ext}\n${content}\n\`\`\`\n`;
+            console.log(`[+] Contexto inyectado con éxito: ${filePath}`);
+          }
+        } catch (err: any) {
+          console.warn(`[!] Error al leer archivo: ${filePath} (${err.message})`);
+        }
+      } else {
+        console.log(`[!] Archivo no encontrado: ${filePath}`);
+      }
+    }
+
+    if (injectedContent !== '\n\n=== INJECTED CONTEXT ===\n') {
+      finalInput += injectedContent;
+    }
+
+    return finalInput;
+  };
+
+  const handleInput = async (inputStr: string): Promise<void> => {
+    const trimmed = inputStr.trim();
 
     if (!trimmed) {
       prompt();
@@ -396,6 +478,11 @@ async function main() {
     // Slash commands extracted to src/coordinator/slash_commands.ts (Bloque 1).
     // Shared with src/web/server.ts so CLI and Web stay in lockstep.
     if (trimmed.startsWith('/')) {
+      if (trimmed.startsWith('/swarm')) {
+        await handleSwarmCommand();
+        prompt();
+        return;
+      }
       const handled = await handleSlashCommand(trimmed, {
         residentLoop,
         ask: askViaRl,
@@ -407,11 +494,14 @@ async function main() {
       // Unrecognised slash → fall through to orchestrator (legacy behaviour).
     }
 
+    // Process context injection via @
+    const processedInput = injectContextFiles(trimmed);
+
     // Process request
     console.log('[Engine procesando...]');
 
     try {
-      const result = await ShinobiOrchestrator.process(trimmed);
+      const result = await ShinobiOrchestrator.process(processedInput);
       if (result && (result as any).output) {
         console.log('\n--- FINAL MISSION OUTPUT ---');
         console.log((result as any).output);
