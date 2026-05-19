@@ -257,6 +257,58 @@ function collapseOldTurns(
 }
 
 /**
+ * Prunes assistant tool call arguments to keep structural keys intact
+ * while truncating large values (> 120 chars) to prevent context lobotomy.
+ */
+export function pruneToolArguments(args: any): string {
+  if (args == null) return '{}';
+
+  let obj: any;
+  if (typeof args === 'string') {
+    try {
+      obj = JSON.parse(args);
+    } catch {
+      // Fallback: character limit if raw string cannot be parsed as JSON
+      if (args.length > 120 && !args.includes('[Truncated')) {
+        return `${args.slice(0, 80)}... [Truncated ${args.length - 80} chars for context optimization]`;
+      }
+      return args;
+    }
+  } else if (typeof args === 'object') {
+    obj = args;
+  } else {
+    return String(args);
+  }
+
+  if (typeof obj !== 'object' || obj === null) {
+    return JSON.stringify(obj);
+  }
+
+  const pruned: any = {};
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (typeof val === 'string') {
+      if (val.length > 120 && !val.includes('[Truncated')) {
+        pruned[key] = `${val.slice(0, 80)}... [Truncated ${val.length - 80} chars for context optimization]`;
+      } else {
+        pruned[key] = val;
+      }
+    } else if (typeof val === 'object' && val !== null) {
+      const str = JSON.stringify(val);
+      if (str.length > 120 && !str.includes('[Truncated')) {
+        pruned[key] = `[Truncated Object: ${str.length} chars]`;
+      } else {
+        pruned[key] = val;
+      }
+    } else {
+      pruned[key] = val;
+    }
+  }
+
+  return JSON.stringify(pruned);
+}
+
+/**
  * Punto de entrada principal. Devuelve un nuevo array de messages (no
  * muta el input) junto con métricas.
  */
@@ -420,15 +472,18 @@ export function compactMessages(
             const updated: any = { ...m };
             if (Array.isArray(m.tool_calls) && m.tool_calls.length > 0) {
               updated.tool_calls = m.tool_calls.map((tc: any) => {
-                if (tc?.function && tc.function.arguments !== '{}') {
-                  changed = true;
-                  return {
-                    ...tc,
-                    function: {
-                      ...tc.function,
-                      arguments: '{}'
-                    }
-                  };
+                if (tc?.function && tc.function.arguments) {
+                  const pruned = pruneToolArguments(tc.function.arguments);
+                  if (pruned !== tc.function.arguments) {
+                    changed = true;
+                    return {
+                      ...tc,
+                      function: {
+                        ...tc.function,
+                        arguments: pruned
+                      }
+                    };
+                  }
                 }
                 return tc;
               });

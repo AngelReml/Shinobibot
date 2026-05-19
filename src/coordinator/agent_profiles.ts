@@ -1,5 +1,6 @@
 import { SwarmWorker } from './swarm_worker.js';
 import type { TaskQueueStore } from '../persistence/task_queue.js';
+import { getAllTools } from '../tools/tool_registry.js';
 
 export const RESEARCHER_PROMPT = `You are a specialized Researcher Agent.
 Your objective is to gather, analyze, and synthesize information.
@@ -15,6 +16,41 @@ export const DOCUMENT_PROMPT = `You are a specialized Document Agent.
 Your objective is to draft, format, and structure clean, professional documents, summaries, and deliverables.
 Ensure all outputs are in beautifully structured Markdown or clean JSON, focusing on clarity and professional presentation.`;
 
+/**
+ * Filter tools dynamically based on target role categories,
+ * with complete backwards compatibility and fallback lists.
+ */
+function getToolsForRole(role: string, fallbackList: string[]): string[] {
+  try {
+    const allTools = getAllTools();
+    if (!allTools || allTools.length === 0) {
+      return fallbackList;
+    }
+
+    const roleCategoryMap: Record<string, string> = {
+      researcher: 'research',
+      coder: 'coder',
+      document_generator: 'document_generator'
+    };
+
+    const category = roleCategoryMap[role];
+    if (!category) return fallbackList;
+
+    const filtered = allTools
+      .filter(t => {
+        if (t.categories && t.categories.includes(category)) return true;
+        // Fallback for tools without categories that match our fallback list
+        if (!t.categories && fallbackList.includes(t.name)) return true;
+        return false;
+      })
+      .map(t => t.name);
+
+    return filtered.length > 0 ? filtered : fallbackList;
+  } catch {
+    return fallbackList;
+  }
+}
+
 export function getAgentProfile(
   role: string,
   agentId: string,
@@ -26,7 +62,7 @@ export function getAgentProfile(
       return new SwarmWorker(
         agentId,
         'researcher',
-        ['read_file', 'search_files', 'list_dir', 'web_search'],
+        getToolsForRole('researcher', ['read_file', 'search_files', 'list_dir', 'web_search']),
         queue,
         RESEARCHER_PROMPT,
         pollingIntervalMs
@@ -35,7 +71,7 @@ export function getAgentProfile(
       return new SwarmWorker(
         agentId,
         'coder',
-        ['read_file', 'search_files', 'list_dir', 'write_file', 'edit_file', 'run_command'],
+        getToolsForRole('coder', ['read_file', 'search_files', 'list_dir', 'write_file', 'edit_file', 'run_command']),
         queue,
         CODER_PROMPT,
         pollingIntervalMs
@@ -44,7 +80,7 @@ export function getAgentProfile(
       return new SwarmWorker(
         agentId,
         'document_generator',
-        ['read_file', 'write_file', 'edit_file', 'generate_document'],
+        getToolsForRole('document_generator', ['read_file', 'write_file', 'edit_file', 'generate_document']),
         queue,
         DOCUMENT_PROMPT,
         pollingIntervalMs

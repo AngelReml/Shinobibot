@@ -20,6 +20,7 @@ export interface Tool {
   execute(args: any): Promise<ToolResult>;
   /** Return true if this tool call needs user confirmation before running */
   requiresConfirmation?(args: any): boolean;
+  categories?: string[];
 }
 
 /** Convert a Shinobi Tool to OpenAI function-calling format */
@@ -38,6 +39,17 @@ export function toOpenAITools(tools: Tool[]) {
 const _tools: Map<string, Tool> = new Map();
 
 export function registerTool(tool: Tool) {
+  if (!tool.categories) {
+    if (['read_file', 'grep', 'view_outline', 'list_dir', 'search_files'].includes(tool.name)) {
+      tool.categories = ['research', 'coder'];
+    } else if (['write_file', 'edit_file_patch', 'edit_file', 'run_command'].includes(tool.name)) {
+      tool.categories = ['coder'];
+    } else if (['generate_document', 'write_document'].includes(tool.name)) {
+      tool.categories = ['document_generator'];
+    } else if (['web_search'].includes(tool.name)) {
+      tool.categories = ['research'];
+    }
+  }
   _tools.set(tool.name, tool);
 }
 

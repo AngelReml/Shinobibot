@@ -4,6 +4,7 @@ import {
   estimateTokens,
   totalTokens,
   COMPACTION_MARKER,
+  pruneToolArguments,
 } from '../compactor.js';
 
 function bigStr(n: number, fill = 'x'): string {
@@ -218,6 +219,90 @@ describe('compactor', () => {
       const t1 = r.messages.find(m => m.role === 'tool' && m.tool_call_id === 'tc1');
       expect(t1).toBeTruthy();
       expect(t1.content).toContain(COMPACTION_MARKER);
+    });
+
+    describe('Smart Argument Pruning', () => {
+      it('preserva argumentos estructurales cortos y trunca payloads largos', () => {
+        const shortArgs = { target_file: 'src/main.ts', line: 10 };
+        const longArgs = { target_file: 'src/main.ts', content: 'x'.repeat(200) };
+
+        // Test direct helper function
+        const resShort = JSON.parse(pruneToolArguments(JSON.stringify(shortArgs)));
+        expect(resShort.target_file).toBe('src/main.ts');
+        expect(resShort.line).toBe(10);
+
+        const resLong = JSON.parse(pruneToolArguments(JSON.stringify(longArgs)));
+        expect(resLong.target_file).toBe('src/main.ts');
+        expect(resLong.content.length).toBeLessThan(150);
+        expect(resLong.content).toContain('Truncated');
+
+        // Test fallback for invalid JSON strings
+        const invalidJson = '{ invalid json "key": "val"' + 'x'.repeat(200);
+        const prunedInvalid = pruneToolArguments(invalidJson);
+        expect(prunedInvalid).toContain('Truncated');
+
+        // Test fallback for already truncated string (idempotency)
+        const alreadyTruncated = 'x'.repeat(80) + '... [Truncated 120 chars for context optimization]';
+        const resIdempotent = pruneToolArguments(alreadyTruncated);
+        expect(resIdempotent).toBe(alreadyTruncated);
+      });
+
+      it('prunea argumentos dentro de compactMessages', () => {
+        const hugeContent = 'x'.repeat(200);
+        const msgs = [
+          { role: 'system', content: 'SYS' },
+          { role: 'user', content: 'USER_INPUT' },
+          // Primer tool call: compactable (será podado)
+          {
+            role: 'assistant',
+            content: 'razonamiento 1',
+            tool_calls: [
+              {
+                id: 'tc1',
+                type: 'function',
+                function: {
+                  name: 'write_file',
+                  arguments: JSON.stringify({ path: 'src/app.ts', content: hugeContent }),
+                },
+              },
+            ],
+          },
+          { role: 'tool', tool_call_id: 'tc1', name: 'write_file', content: 'OK' },
+          // Segundo tool call: preservado por preserveLastTurns: 1
+          {
+            role: 'assistant',
+            content: 'razonamiento 2',
+            tool_calls: [
+              {
+                id: 'tc2',
+                type: 'function',
+                function: {
+                  name: 'write_file',
+                  arguments: JSON.stringify({ path: 'src/main.ts', content: 'short' }),
+                },
+              },
+            ],
+          },
+          { role: 'tool', tool_call_id: 'tc2', name: 'write_file', content: 'OK' },
+          { role: 'assistant', content: 'thinking final' },
+        ];
+
+        // Forzamos compactación bajando el budget
+        const r = compactMessages(msgs, { budgetTokens: 150, preserveLastTurns: 1 });
+        expect(r.compacted).toBe(true);
+
+        const assistant1 = r.messages.find(m => m.role === 'assistant' && m.tool_calls && m.tool_calls[0].id === 'tc1');
+        expect(assistant1).toBeTruthy();
+        const parsedArgs1 = JSON.parse(assistant1.tool_calls[0].function.arguments);
+        expect(parsedArgs1.path).toBe('src/app.ts');
+        expect(parsedArgs1.content).toContain('Truncated');
+
+        // El segundo (preservado) no debe ser podado
+        const assistant2 = r.messages.find(m => m.role === 'assistant' && m.tool_calls && m.tool_calls[0].id === 'tc2');
+        expect(assistant2).toBeTruthy();
+        const parsedArgs2 = JSON.parse(assistant2.tool_calls[0].function.arguments);
+        expect(parsedArgs2.content).toBe('short');
+      });
     });
 
     // ── Tests del suelo de compactación (floor) ─────────────────────────────
