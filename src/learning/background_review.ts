@@ -139,7 +139,7 @@ export async function runBackgroundReview(opts: BackgroundReviewOptions): Promis
           continue;
         }
         try {
-          const r = curatedMemory().appendEnv(content);
+          const r = await curatedMemory().appendEnv(content);
           if (r.ok) memorySaved++;
         } catch (e: any) { console.log(`[review] appendEnv falló: ${e?.message ?? e}`); }
       }

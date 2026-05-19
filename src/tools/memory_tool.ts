@@ -75,7 +75,7 @@ const memoryTool: Tool = {
       };
     }
     try {
-      const r = curatedMemory().appendEnv(content);
+      const r = await curatedMemory().appendEnv(content);
       if (r.ok) {
         return { success: true, output: `Saved to memory: "${content.slice(0, 80)}"` };
       }

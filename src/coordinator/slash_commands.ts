@@ -177,7 +177,7 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
         if (!m) { console.log('Usage: /memory user edit "<sección>" <contenido>'); return true; }
         const name = m[1] ?? m[2];
         const content = m[3];
-        const r = curatedMemory().editUserSection(name, content);
+        const r = await curatedMemory().editUserSection(name, content);
         console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
         return true;
       }
@@ -200,28 +200,28 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
       if (sub === 'append') {
         const note = trimmed.slice(trimmed.indexOf('append') + 'append'.length).trim();
         if (!note) { console.log('Usage: /memory env append <nota>'); return true; }
-        const r = curatedMemory().appendEnv(note);
+        const r = await curatedMemory().appendEnv(note);
         console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
         return true;
       }
       if (sub === 'propose') {
         const note = trimmed.slice(trimmed.indexOf('propose') + 'propose'.length).trim();
         if (!note) { console.log('Usage: /memory env propose <nota>'); return true; }
-        const r = curatedMemory().proposeEnv(note);
+        const r = await curatedMemory().proposeEnv(note);
         console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
         return true;
       }
       if (sub === 'approve' && parts[3]) {
         const idx = parseInt(parts[3], 10);
         if (!Number.isFinite(idx)) { console.log('Usage: /memory env approve <idx>'); return true; }
-        const r = curatedMemory().approveEnvProposal(idx);
+        const r = await curatedMemory().approveEnvProposal(idx);
         console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
         return true;
       }
       if (sub === 'reject' && parts[3]) {
         const idx = parseInt(parts[3], 10);
         if (!Number.isFinite(idx)) { console.log('Usage: /memory env reject <idx>'); return true; }
-        const r = curatedMemory().rejectEnvProposal(idx);
+        const r = await curatedMemory().rejectEnvProposal(idx);
         console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
         return true;
       }
@@ -239,7 +239,7 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
       } else if (memAction === 'store') {
         // memory/MEMORY.md es la fuente de verdad — `store` añade ahí (no a
         // SQLite). El índice semántico se reconstruye al siguiente arranque.
-        const r = curatedMemory().appendEnv(memArgs);
+        const r = await curatedMemory().appendEnv(memArgs);
         console.log(r.ok ? `✓ ${r.message}` : `✗ ${r.message}`);
       } else if (memAction === 'stats') {
         console.log(store.stats());

@@ -38,6 +38,7 @@ import {
 } from './memory_md_parser.js';
 import { MarkdownStore } from './markdown_store.js';
 import { scanContent } from './threat_scan.js';
+import { ContradictionFilter } from './contradiction_filter.js';
 
 // Re-export para compatibilidad con callers que importaban scanContent desde
 // este módulo (el threat scan vive ahora en threat_scan.ts).
@@ -276,7 +277,30 @@ export class CuratedMemory {
    * Edit a named section of USER.md by replacing its body. NO snapshot refresh
    * (intentional — preserves prefix cache; takes effect on next reboot).
    */
-  editUserSection(name: string, content: string): { ok: boolean; message: string } {
+  async editUserSection(name: string, content: string): Promise<{ ok: boolean; message: string }> {
+    const check = await ContradictionFilter.check(content);
+    if (check.hasConflict) {
+      console.warn(`[CONTRADICCIÓN MEMORIA L3 DETECTADA]
+  Hecho Propuesto para sección "${name}": "${content}"
+  Hecho Existente: "${check.conflictingFact}"
+  Razón: "${check.reason}"
+  -> Generando evento de conciliación en segundo plano.`);
+
+      const pending = readPending(this.pendingPath);
+      const nextIdx = pending.length === 0 ? 1 : Math.max(...pending.map(p => p.idx)) + 1;
+      pending.push({
+        idx: nextIdx,
+        note: `[CONCILIACIÓN REQUERIDA] Conflicto al editar la sección "${name}" con "${content}". Conflicto con: "${check.conflictingFact}". Razón: ${check.reason}`,
+        ts: new Date().toISOString()
+      });
+      atomicWriteJson(this.pendingPath, JSON.stringify(pending, null, 2));
+
+      return {
+        ok: false,
+        message: `Conflicto de memoria detectado: "${check.reason}". Se ha generado un evento de conciliación pendiente #${nextIdx}.`
+      };
+    }
+
     const r = this.userStore.replaceNamedSection(name, content);
     if (!r.ok) return r;
     this.userSections = this.userStore.readSections();
@@ -291,7 +315,34 @@ export class CuratedMemory {
    * snapshot refresh is the documented exception to the freeze rule (the
    * agent's own appends should be visible immediately).
    */
-  appendEnv(note: string): { ok: boolean; message: string } {
+  async appendEnv(note: string): Promise<{ ok: boolean; message: string }> {
+    const check = await ContradictionFilter.check(note);
+    if (check.hasConflict) {
+      console.warn(`[CONTRADICCIÓN MEMORIA L3 DETECTADA]
+  Hecho Propuesto: "${note}"
+  Hecho Existente: "${check.conflictingFact}"
+  Razón: "${check.reason}"
+  -> Generando evento de conciliación en segundo plano.`);
+
+      const pending = readPending(this.pendingPath);
+      const nextIdx = pending.length === 0 ? 1 : Math.max(...pending.map(p => p.idx)) + 1;
+      pending.push({
+        idx: nextIdx,
+        note: `[CONCILIACIÓN REQUERIDA] Conflicto entre el hecho propuesto "${note}" y el existente "${check.conflictingFact}". Razón: ${check.reason}`,
+        ts: new Date().toISOString()
+      });
+      atomicWriteJson(this.pendingPath, JSON.stringify(pending, null, 2));
+
+      return {
+        ok: false,
+        message: `Conflicto de memoria detectado: "${check.reason}". Se ha generado un evento de conciliación pendiente #${nextIdx}.`
+      };
+    }
+
+    return this.appendEnvRaw(note);
+  }
+
+  private appendEnvRaw(note: string): { ok: boolean; message: string } {
     const r = this.memStore.appendEntry(note);
     if (!r.ok) return r;
     this.memorySections = this.memStore.readSections();
@@ -300,7 +351,7 @@ export class CuratedMemory {
   }
 
   /** Add a note to the pending queue; needs explicit /memory env approve. */
-  proposeEnv(note: string): { ok: boolean; idx?: number; message: string } {
+  async proposeEnv(note: string): Promise<{ ok: boolean; idx?: number; message: string }> {
     const scan = scanContent(note);
     if (!scan.ok) {
       return {
@@ -313,18 +364,31 @@ export class CuratedMemory {
         ].join('\n'),
       };
     }
+
+    const check = await ContradictionFilter.check(note);
+    let noteToSave = note.trim();
+    let warningMsg = '';
+    if (check.hasConflict) {
+      console.warn(`[CONTRADICCIÓN MEMORIA L3 DETECTADA EN PROPUESTA]
+  Propuesta: "${note}"
+  Hecho Existente: "${check.conflictingFact}"
+  Razón: "${check.reason}"`);
+      noteToSave = `[CONCILIACIÓN REQUERIDA] ${noteToSave} (Conflicto con: "${check.conflictingFact}". Razón: ${check.reason})`;
+      warningMsg = ` (¡Advertencia: se detectó conflicto con "${check.conflictingFact}"!)`;
+    }
+
     const pending = readPending(this.pendingPath);
     const nextIdx = pending.length === 0 ? 1 : Math.max(...pending.map(p => p.idx)) + 1;
-    pending.push({ idx: nextIdx, note: note.trim(), ts: new Date().toISOString() });
+    pending.push({ idx: nextIdx, note: noteToSave, ts: new Date().toISOString() });
     atomicWriteJson(this.pendingPath, JSON.stringify(pending, null, 2));
-    return { ok: true, idx: nextIdx, message: `Propuesta #${nextIdx} guardada. Aprueba con /memory env approve ${nextIdx} o descarta con /memory env reject ${nextIdx}.` };
+    return { ok: true, idx: nextIdx, message: `Propuesta #${nextIdx} guardada${warningMsg}. Aprueba con /memory env approve ${nextIdx} o descarta con /memory env reject ${nextIdx}.` };
   }
 
-  approveEnvProposal(idx: number): { ok: boolean; message: string } {
+  async approveEnvProposal(idx: number): Promise<{ ok: boolean; message: string }> {
     const pending = readPending(this.pendingPath);
     const found = pending.find(p => p.idx === idx);
     if (!found) return { ok: false, message: `propuesta #${idx} no existe` };
-    const result = this.appendEnv(found.note);
+    const result = this.appendEnvRaw(found.note);
     if (!result.ok) return result;
     const remaining = pending.filter(p => p.idx !== idx);
     if (remaining.length === 0) {
@@ -335,7 +399,7 @@ export class CuratedMemory {
     return { ok: true, message: `propuesta #${idx} aprobada y añadida a MEMORY.md.` };
   }
 
-  rejectEnvProposal(idx: number): { ok: boolean; message: string } {
+  async rejectEnvProposal(idx: number): Promise<{ ok: boolean; message: string }> {
     const pending = readPending(this.pendingPath);
     const found = pending.find(p => p.idx === idx);
     if (!found) return { ok: false, message: `propuesta #${idx} no existe` };
