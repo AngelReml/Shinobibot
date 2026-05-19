@@ -2,23 +2,21 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { sandboxRegistry, _resetSandboxRegistry, MockBackend } from '../registry.js';
 import { LocalBackend } from '../backends/local.js';
 import { SSHBackend } from '../backends/ssh.js';
-import { ModalBackend } from '../backends/modal.js';
-import { DaytonaBackend } from '../backends/daytona.js';
 import { E2BBackend } from '../backends/e2b.js';
 
 beforeEach(() => {
   _resetSandboxRegistry();
   delete process.env.SHINOBI_RUN_BACKEND;
-  for (const k of ['SSH_HOST', 'SSH_USER', 'SSH_KEY_PATH', 'MODAL_TOKEN_ID', 'MODAL_TOKEN_SECRET', 'DAYTONA_API_KEY', 'E2B_API_KEY']) delete process.env[k];
+  for (const k of ['SSH_HOST', 'SSH_USER', 'SSH_KEY_PATH', 'E2B_API_KEY']) delete process.env[k];
 });
 afterEach(() => {
   delete process.env.SHINOBI_RUN_BACKEND;
 });
 
 describe('SandboxRegistry — defaults', () => {
-  it('registra los 6 backends por defecto', () => {
+  it('registra los 4 backends por defecto', () => {
     const ids = sandboxRegistry().list().map(b => b.id).sort();
-    expect(ids).toEqual(['daytona', 'docker', 'e2b', 'local', 'modal', 'ssh']);
+    expect(ids).toEqual(['docker', 'e2b', 'local', 'ssh']);
   });
 });
 
@@ -82,22 +80,10 @@ describe('Remote backends — config detection', () => {
     process.env.SSH_KEY_PATH = '/key';
     expect(b.isConfigured()).toBe(true);
   });
-  it('ModalBackend: stub honesto — isConfigured() false aunque haya tokens', () => {
-    const b = new ModalBackend();
-    expect(b.isConfigured()).toBe(false);
-    process.env.MODAL_TOKEN_ID = 'x';
-    process.env.MODAL_TOKEN_SECRET = 'y';
-    // Es un stub no funcional: NO debe presentarse como backend usable.
-    expect(b.isConfigured()).toBe(false);
-  });
-  it('DaytonaBackend stub (siempre false) / E2BBackend toggle por env', () => {
-    const d = new DaytonaBackend();
+  it('E2BBackend toggle por env', () => {
     const e = new E2BBackend();
-    expect(d.isConfigured()).toBe(false);
     expect(e.isConfigured()).toBe(false);
-    process.env.DAYTONA_API_KEY = 'x';
     process.env.E2B_API_KEY = 'x';
-    expect(d.isConfigured()).toBe(false); // stub no funcional
     expect(e.isConfigured()).toBe(true);
   });
 });
@@ -108,11 +94,6 @@ describe('Remote backends — run() sin config devuelve error claro', () => {
     expect(r.success).toBe(false);
     expect(r.stderr).toMatch(/SSH_HOST|SSH_USER|SSH_KEY_PATH/);
     expect(r.exitCode).toBe(127);
-  });
-  it('Modal run() declara que es un stub no funcional', async () => {
-    const r = await new ModalBackend().run({ command: 'x', cwd: '/x', timeoutMs: 5000 });
-    expect(r.success).toBe(false);
-    expect(r.stderr).toMatch(/stub no funcional/i);
   });
   it('E2B sin env key devuelve mensaje pidiendo dashboard', async () => {
     const r = await new E2BBackend().run({ command: 'x', cwd: '/x', timeoutMs: 5000 });

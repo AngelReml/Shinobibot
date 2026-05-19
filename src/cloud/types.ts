@@ -1,8 +1,16 @@
+export interface LLMUsage {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+}
+
 export interface CloudResponse<T = string> {
   success: boolean;
   output: T;
   error: string;
   trace_id?: string;
+  usage?: LLMUsage;
+  resolvedProvider?: string;
 }
 
 export interface SwarmMissionPayload {

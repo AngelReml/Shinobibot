@@ -19,8 +19,12 @@ const writeFileTool: Tool = {
   },
 
   requiresConfirmation(args: { path: string }) {
+    const filePath = path.resolve(args.path);
+    const root = path.resolve(process.env.WORKSPACE_ROOT || process.cwd());
+    const scratchPath = path.resolve(root, 'scratch');
+    if (filePath.startsWith(scratchPath)) return false;
     // Overwriting existing files requires confirmation
-    return fs.existsSync(path.resolve(args.path));
+    return fs.existsSync(filePath);
   },
 
   async execute(args: { path: string; content: string }): Promise<ToolResult> {

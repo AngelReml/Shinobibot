@@ -202,6 +202,19 @@
       </div>
     </div>
 
+    <!-- Approval modal -->
+    <div class="modal-backdrop" id="approval-modal" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="approval-title">
+        <h3 id="approval-title" class="font-display-poetic">Aprobación requerida</h3>
+        <div class="ask-question" id="approval-question" style="white-space: pre-wrap; margin-bottom: 16px; font-family: monospace; font-size: 0.9em;"></div>
+        <div class="modal-actions" style="justify-content: flex-end; gap: 10px;">
+          <button class="secondary" id="approval-no" style="color: var(--error);">Rechazar (No)</button>
+          <button class="secondary" id="approval-always">Permitir Siempre</button>
+          <button class="accent" id="approval-yes">Aprobar (Sí)</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Toasts -->
     <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="false"></div>
   </div>

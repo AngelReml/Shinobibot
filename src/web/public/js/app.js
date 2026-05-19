@@ -32,6 +32,12 @@
   const $askInput = document.getElementById('ask-input');
   const $askOk = document.getElementById('ask-ok');
   const $askCancel = document.getElementById('ask-cancel');
+  const $approvalModal = document.getElementById('approval-modal');
+  const $approvalQuestion = document.getElementById('approval-question');
+  const $approvalYes = document.getElementById('approval-yes');
+  const $approvalNo = document.getElementById('approval-no');
+  const $approvalAlways = document.getElementById('approval-always');
+  let approvalRequestId = null;
   const $toastStack = document.getElementById('toast-stack');
   const $themeToggle = document.getElementById('theme-toggle');
 
@@ -54,11 +60,14 @@
     ws.addEventListener('message', (ev) => {
       let msg;
       try { msg = JSON.parse(ev.data); } catch { return; }
+      console.log(`[DIAG-WS] [${new Date().toISOString()}] Mensaje recibido. Type: ${msg.type}`, msg);
       handleWS(msg);
     });
   }
 
   function handleWS(msg) {
+    console.log("WS connected"); // Se pide textualmente aunque se llame en cada msj
+    console.log({ type: msg.type });
     switch (msg.type) {
       case 'thinking_start':
         ensurePendingAgent();
@@ -77,6 +86,13 @@
         break;
       case 'ask':
         showAskModal(String(msg.question ?? ''), String(msg.requestId ?? ''));
+        break;
+      case 'approval_request':
+        console.log(`[DIAG-WS] [${new Date().toISOString()}] Entró a case 'approval_request'`);
+        console.log(`[DIAG-WS] Elemento destino $approvalModal:`, $approvalModal, "en DOM:", document.body.contains($approvalModal));
+        showApprovalModal(String(msg.promptText ?? ''), String(msg.requestId ?? ''));
+        console.log(`[DIAG-WS] Post-show outerHTML:`, $approvalModal ? $approvalModal.outerHTML : null);
+        console.log(`[DIAG-WS] Post-show rect:`, $approvalModal ? $approvalModal.getBoundingClientRect() : null);
         break;
       case 'conversation_title_updated':
         if (msg.conversationId && msg.title) {
@@ -358,6 +374,19 @@
     $askModal.hidden = true;
   }
 
+  // ─── Approval modal ───────────────────────────────────────────────────
+  function showApprovalModal(promptText, requestId) {
+    approvalRequestId = requestId;
+    $approvalQuestion.textContent = promptText;
+    $approvalModal.hidden = false;
+  }
+  function closeApprovalModal(answer) {
+    if (!approvalRequestId) { $approvalModal.hidden = true; return; }
+    ws?.send(JSON.stringify({ type: 'approval_response', answer: answer, requestId: approvalRequestId }));
+    approvalRequestId = null;
+    $approvalModal.hidden = true;
+  }
+
   // ─── Toasts (Bloque 3/5 preserved) ────────────────────────────────────
   function pushToast(title, body, opts = {}) {
     if (!$toastStack) return;
@@ -475,6 +504,11 @@
       if (e.key === 'Enter') { e.preventDefault(); closeAskModal(true); }
       if (e.key === 'Escape') closeAskModal(false);
     });
+
+    // Approval modal
+    $approvalYes?.addEventListener('click', () => closeApprovalModal('yes'));
+    $approvalNo?.addEventListener('click', () => closeApprovalModal('no'));
+    $approvalAlways?.addEventListener('click', () => closeApprovalModal('always'));
 
     setupTitleEditing();
     maybeTypeOpeningPhrase();

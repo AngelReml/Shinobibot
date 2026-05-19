@@ -145,4 +145,42 @@ describe('compactWithLLM', () => {
     // 5 turnos - 2 = 3 turnos intermedios = 6 mensajes (3 user + 3 assistant)
     expect(r.droppedCount).toBe(6);
   });
+
+  it('compacta sub-turnos internos dentro de un único turno largo', async () => {
+    const longContent = 'detalle extenso de la ejecucion '.repeat(10);
+    const singleTurnMsgs = [
+      { role: 'system', content: 'sistema' },
+      { role: 'user', content: 'PROMPT_LARGO' },
+      { role: 'assistant', content: 'razonamiento 1', tool_calls: [{ id: 'tc1', type: 'function', function: { name: 't1', arguments: '{}' } }] },
+      { role: 'tool', tool_call_id: 'tc1', content: longContent },
+      { role: 'assistant', content: 'razonamiento 2', tool_calls: [{ id: 'tc2', type: 'function', function: { name: 't2', arguments: '{}' } }] },
+      { role: 'tool', tool_call_id: 'tc2', content: longContent },
+      { role: 'assistant', content: 'razonamiento 3', tool_calls: [{ id: 'tc3', type: 'function', function: { name: 't3', arguments: '{}' } }] },
+      { role: 'tool', tool_call_id: 'tc3', content: 'resultado 3' },
+      { role: 'assistant', content: 'pensamiento final' }
+    ];
+
+    let promptReceived = '';
+    const r = await compactWithLLM(singleTurnMsgs, {
+      preserveLastTurns: 2,
+      llmFn: async (p) => {
+        promptReceived = p;
+        return 'summary de los pasos 1 y 2';
+      }
+    });
+
+    expect(r.compacted).toBe(true);
+    expect(r.method).toBe('llm');
+    expect(r.messages[0].role).toBe('system');
+    expect(r.messages[1].role).toBe('user');
+    expect(r.messages[1].content).toBe('PROMPT_LARGO');
+    expect(r.messages[2].role).toBe('system');
+    expect(r.messages[2].content).toContain('summary de los pasos 1 y 2');
+    
+    // El último sub-turno preservado (assistant 3 + tool 3 + assistant final)
+    const lastBlock = r.messages.slice(3);
+    expect(lastBlock[0].content).toBe('razonamiento 3');
+    expect(lastBlock[1].content).toBe('resultado 3');
+    expect(lastBlock[2].content).toBe('pensamiento final');
+  });
 });

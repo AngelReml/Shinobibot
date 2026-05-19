@@ -34,7 +34,12 @@ export const openaiClient: ProviderClient = {
       });
       const msg = resp.data?.choices?.[0]?.message;
       if (!msg) return { success: false, output: '', error: `OpenAI: respuesta vacía (data=${JSON.stringify(resp.data).slice(0, 200)})` };
-      return { success: true, output: JSON.stringify(msg), error: '' };
+      const usage = resp.data?.usage ? {
+        prompt_tokens: resp.data.usage.prompt_tokens || 0,
+        completion_tokens: resp.data.usage.completion_tokens || 0,
+        total_tokens: resp.data.usage.total_tokens || 0,
+      } : undefined;
+      return { success: true, output: JSON.stringify(msg), error: '', usage };
     } catch (e: any) {
       if (e.response?.status === 401) return { success: false, output: '', error: 'OpenAI HTTP 401: key inválida.' };
       if (e.response?.data?.error?.message) return { success: false, output: '', error: `OpenAI: ${e.response.data.error.message}` };

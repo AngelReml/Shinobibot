@@ -106,7 +106,12 @@ export const anthropicClient: ProviderClient = {
       const tool_calls = extractToolCalls(blocks);
       const openAiMsg: any = { role: 'assistant', content };
       if (tool_calls) openAiMsg.tool_calls = tool_calls;
-      return { success: true, output: JSON.stringify(openAiMsg), error: '' };
+      const usage = resp.data?.usage ? {
+        prompt_tokens: resp.data.usage.input_tokens || 0,
+        completion_tokens: resp.data.usage.output_tokens || 0,
+        total_tokens: (resp.data.usage.input_tokens || 0) + (resp.data.usage.output_tokens || 0),
+      } : undefined;
+      return { success: true, output: JSON.stringify(openAiMsg), error: '', usage };
     } catch (e: any) {
       if (e.response?.status === 401) return { success: false, output: '', error: 'Anthropic HTTP 401: key inválida.' };
       if (e.response?.data?.error?.message) return { success: false, output: '', error: `Anthropic: ${e.response.data.error.message}` };

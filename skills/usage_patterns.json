@@ -1,0 +1,206 @@
+{
+  "records": [
+    {
+      "signature": "screen_observe→browser_click→web_search→web_search_with_warmup",
+      "tools": [
+        "screen_observe",
+        "browser_click",
+        "web_search",
+        "web_search_with_warmup"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-18T07:09:20.919Z",
+      "lastSeenAt": "2026-05-18T07:09:20.919Z"
+    },
+    {
+      "signature": "run_command→write_file→write_file→read_file",
+      "tools": [
+        "run_command",
+        "write_file",
+        "write_file",
+        "read_file"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-18T07:31:00.839Z",
+      "lastSeenAt": "2026-05-18T07:31:00.839Z"
+    },
+    {
+      "signature": "system_info→run_command",
+      "tools": [
+        "system_info",
+        "run_command"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-18T08:13:36.940Z",
+      "lastSeenAt": "2026-05-18T08:13:36.940Z"
+    },
+    {
+      "signature": "research_agent_run→web_search→clean_extract",
+      "tools": [
+        "research_agent_run",
+        "web_search",
+        "clean_extract"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-18T22:32:59.679Z",
+      "lastSeenAt": "2026-05-18T22:32:59.679Z"
+    },
+    {
+      "signature": "generate_document→research_agent_run→generate_document",
+      "tools": [
+        "generate_document",
+        "research_agent_run",
+        "generate_document"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-18T22:34:04.120Z",
+      "lastSeenAt": "2026-05-18T22:34:04.120Z"
+    },
+    {
+      "signature": "write_file→write_file→write_file",
+      "tools": [
+        "write_file",
+        "write_file",
+        "write_file"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-18T23:51:39.217Z",
+      "lastSeenAt": "2026-05-18T23:51:39.217Z"
+    },
+    {
+      "signature": "web_search→clean_extract",
+      "tools": [
+        "web_search",
+        "clean_extract"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-18T23:54:19.393Z",
+      "lastSeenAt": "2026-05-18T23:54:19.393Z"
+    },
+    {
+      "signature": "research_agent_run→clean_extract→web_search→clean_extract→docs_agent_run",
+      "tools": [
+        "research_agent_run",
+        "clean_extract",
+        "web_search",
+        "clean_extract",
+        "docs_agent_run"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-19T00:15:13.636Z",
+      "lastSeenAt": "2026-05-19T00:15:13.636Z"
+    },
+    {
+      "signature": "clean_extract→clean_extract→clean_extract→clean_extract→clean_extract→clean_extract→docs_agent_run→memory",
+      "tools": [
+        "clean_extract",
+        "clean_extract",
+        "clean_extract",
+        "clean_extract",
+        "clean_extract",
+        "clean_extract",
+        "docs_agent_run",
+        "memory"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-19T01:15:44.483Z",
+      "lastSeenAt": "2026-05-19T01:15:44.483Z"
+    },
+    {
+      "signature": "web_search→browser_click",
+      "tools": [
+        "web_search",
+        "browser_click"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-19T01:18:05.944Z",
+      "lastSeenAt": "2026-05-19T01:18:05.944Z"
+    },
+    {
+      "signature": "browser_click→screen_observe→screen_act",
+      "tools": [
+        "browser_click",
+        "screen_observe",
+        "screen_act"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-19T01:19:28.421Z",
+      "lastSeenAt": "2026-05-19T01:19:28.421Z"
+    },
+    {
+      "signature": "screen_observe→screen_act→browser_click",
+      "tools": [
+        "screen_observe",
+        "screen_act",
+        "browser_click"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-19T01:20:11.893Z",
+      "lastSeenAt": "2026-05-19T01:20:11.893Z"
+    },
+    {
+      "signature": "web_search→browser_click→web_search",
+      "tools": [
+        "web_search",
+        "browser_click",
+        "web_search"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-19T07:32:34.932Z",
+      "lastSeenAt": "2026-05-19T07:32:34.932Z"
+    },
+    {
+      "signature": "read_file→list_dir→read_file→read_file→env_list→list_dir→read_file",
+      "tools": [
+        "read_file",
+        "list_dir",
+        "read_file",
+        "read_file",
+        "env_list",
+        "list_dir",
+        "read_file"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-19T08:47:27.884Z",
+      "lastSeenAt": "2026-05-19T08:47:27.884Z"
+    },
+    {
+      "signature": "clean_extract→web_search→web_search→write_file",
+      "tools": [
+        "clean_extract",
+        "web_search",
+        "web_search",
+        "write_file"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-19T14:11:24.714Z",
+      "lastSeenAt": "2026-05-19T14:11:24.714Z"
+    },
+    {
+      "signature": "clean_extract→clean_extract",
+      "tools": [
+        "clean_extract",
+        "clean_extract"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-19T16:46:08.592Z",
+      "lastSeenAt": "2026-05-19T16:46:08.592Z"
+    }
+  ]
+}

@@ -3,23 +3,30 @@
 // (que es la ruta crítica con el orquestador) ni las llamadas a /api/* —
 // esas siempre deben ir al server real.
 
-const CACHE_NAME = 'shinobi-shell-v1';
-const SHELL_ASSETS = [
+const CACHE_NAME = 'shinobi-shell-v2';
+// Assets que cambian con cada deploy: siempre network-first.
+const NETWORK_FIRST_ASSETS = new Set([
   '/',
   '/index.html',
-  '/styles/tokens.css',
-  '/styles/base.css',
-  '/styles/layout.css',
-  '/styles/chat.css',
   '/js/app.js',
   '/js/typewriter.js',
   '/js/theme.js',
   '/js/markdown.js',
   '/js/conversations.js',
   '/js/easter_eggs.js',
+]);
+
+// Assets verdaderamente estáticos: cache-first está bien.
+const CACHE_FIRST_ASSETS = new Set([
+  '/styles/tokens.css',
+  '/styles/base.css',
+  '/styles/layout.css',
+  '/styles/chat.css',
   '/assets/shinobi-mark.png',
   '/manifest.webmanifest',
-];
+]);
+
+const SHELL_ASSETS = [...NETWORK_FIRST_ASSETS, ...CACHE_FIRST_ASSETS];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -49,32 +56,47 @@ self.addEventListener('fetch', (event) => {
   // GET-only para no romper formularios.
   if (event.request.method !== 'GET') return;
 
-  // Strategy: cache-first para el shell, network-first para todo lo demás.
-  const isShell = SHELL_ASSETS.includes(url.pathname);
-  if (isShell) {
-    event.respondWith(
-      caches.match(event.request).then((hit) => hit || fetch(event.request).then((res) => {
-        // Refrescamos cache en background si el fetch va bien.
+  // Network-first: intenta siempre el servidor; caché solo como fallback offline.
+  const networkFirst = () => fetch(event.request)
+    .then((res) => {
+      if (res && res.status === 200) {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
+      }
+      return res;
+    })
+    .catch(() => caches.match(event.request));
+
+  // Cache-first: sirve desde caché; refresca en background si hay red.
+  const cacheFirst = () => caches.match(event.request).then((hit) => {
+    if (hit) {
+      fetch(event.request).then((res) => {
         if (res && res.status === 200) {
           const copy = res.clone();
           caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
         }
-        return res;
-      })),
-    );
+      }).catch(() => {});
+      return hit;
+    }
+    return fetch(event.request).then((res) => {
+      if (res && res.status === 200) {
+        const copy = res.clone();
+        caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
+      }
+      return res;
+    });
+  });
+
+  if (NETWORK_FIRST_ASSETS.has(url.pathname)) {
+    event.respondWith(networkFirst());
     return;
   }
 
-  // Network-first con fallback a cache si la red está caída.
-  event.respondWith(
-    fetch(event.request)
-      .then((res) => {
-        if (res && res.status === 200) {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
-        }
-        return res;
-      })
-      .catch(() => caches.match(event.request)),
-  );
+  if (CACHE_FIRST_ASSETS.has(url.pathname)) {
+    event.respondWith(cacheFirst());
+    return;
+  }
+
+  // Todo lo demás fuera del shell: network-first con fallback.
+  event.respondWith(networkFirst());
 });

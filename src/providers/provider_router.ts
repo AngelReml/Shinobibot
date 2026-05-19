@@ -127,6 +127,7 @@ export async function invokeLLM(
       if (i > 0) {
         console.log(`[Shinobi] Provider OK after failover: ${chain[0]} → ${p}`);
       }
+      result.resolvedProvider = p;
       return result;
     }
 

@@ -165,6 +165,12 @@ export function isDestructive(toolName: string, args: any): DestructiveVerdict {
 
   if (toolName === 'write_file' || toolName === 'edit_file') {
     const target = typeof args?.path === 'string' ? path.resolve(args.path) : '';
+    const root = path.resolve(process.env.WORKSPACE_ROOT || process.cwd());
+    const scratchPath = path.resolve(root, 'scratch');
+    if (target && target.startsWith(scratchPath)) {
+      return { destructive: false };
+    }
+
     for (const p of CRITICAL_PATH_PATTERNS) {
       if (p.regex.test(target)) return { destructive: true, reason: p.reason };
     }
@@ -224,6 +230,13 @@ export async function requestApproval(input: ApprovalInput): Promise<boolean> {
 
   const cacheKey = approvalCacheKey(input.toolName, input.args);
   if (sessionAlwaysApproved.has(cacheKey)) return true;
+
+  if ((input.toolName === 'write_file' || input.toolName === 'edit_file') && input.args?.path) {
+    const filePath = path.resolve(input.args.path);
+    const root = path.resolve(process.env.WORKSPACE_ROOT || process.cwd());
+    const scratchPath = path.resolve(root, 'scratch');
+    if (filePath.startsWith(scratchPath)) return true;
+  }
 
   if (mode === 'smart' && !input.destructive) return true;
 

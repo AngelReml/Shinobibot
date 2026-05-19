@@ -33,6 +33,19 @@ export interface CompactionConfig {
   assistantTextCap?: number;
   /** Hasta cuánto se reduce el texto assistant (default 600). */
   assistantTextKeep?: number;
+  /**
+   * Fracción del budgetTokens por debajo de la cual el compactor NUNCA bajará
+   * (default 0.40 = 40 %). Evita vaciar el contexto en cargas muy grandes.
+   * El suelo efectivo es max(budgetTokens * floorRatio, absoluteFloorTokens),
+   * pero nunca supera el 50 % del budget para que el parámetro sea coherente
+   * con presupuestos pequeños usados en tests.
+   */
+  floorRatio?: number;
+  /**
+   * Mínimo absoluto de tokens que el compactor preservará, independientemente
+   * del budget (default 8 000). Se aplica como max junto con floorRatio.
+   */
+  absoluteFloorTokens?: number;
 }
 
 export interface CompactionResult {
@@ -42,6 +55,13 @@ export interface CompactionResult {
   afterTokens: number;
   truncatedCount: number;
   droppedCount: number;
+  /**
+   * true cuando el compactor llegó al suelo mínimo sin poder reducir el
+   * contexto hasta el límite del proveedor. Señal para que el orchestrator
+   * avise al usuario de dividir el trabajo en lugar de continuar con un
+   * contexto potencialmente inservible.
+   */
+  irreducible?: boolean;
 }
 
 /** Marker para detectar mensajes ya compactados (idempotencia). */
@@ -55,6 +75,8 @@ const DEFAULTS: Required<CompactionConfig> = {
   toolOutputKeep: 400,
   assistantTextCap: 1200,
   assistantTextKeep: 600,
+  floorRatio: 0.40,
+  absoluteFloorTokens: 8_000,
 };
 
 /**
@@ -179,10 +201,15 @@ function truncateInZone(
  * compactable) en un único mensaje system con un resumen ultracorto.
  * Se aplica solo si tras el truncado el contexto sigue por encima del
  * threshold.
+ *
+ * @param sacredIdxs Índices que NUNCA deben colapsar aunque estén dentro de
+ *   un turno compactable. Úsalo para proteger el primer mensaje 'user'
+ *   (tarea original) aunque su turno quede en la zona de colapso.
  */
 function collapseOldTurns(
   messages: any[],
   dialogTurnsToCollapse: Turn[],
+  sacredIdxs: Set<number> = new Set(),
 ): { newMessages: any[]; dropped: number } {
   if (dialogTurnsToCollapse.length === 0) return { newMessages: messages, dropped: 0 };
 
@@ -192,7 +219,8 @@ function collapseOldTurns(
   const collapseIdxs = new Set<number>();
   for (const t of dialogTurnsToCollapse) {
     for (let i = t.start; i < t.end; i++) {
-      collapseIdxs.add(i);
+      // Índices sagrados (p.ej. primer mensaje user) quedan fuera del colapso.
+      if (!sacredIdxs.has(i)) collapseIdxs.add(i);
       const m = messages[i];
       if (m.role === 'user') userCount++;
       if (m.role === 'assistant' && Array.isArray(m.tool_calls)) {
@@ -240,6 +268,15 @@ export function compactMessages(
   const before = totalTokens(messages);
   const limit = c.budgetTokens * c.thresholdRatio;
 
+  // Suelo: el compactor nunca reducirá por debajo de este valor.
+  // Se calcula como max(budgetTokens * floorRatio, absoluteFloorTokens) pero
+  // sin superar el 50 % del budget, para que sea coherente con presupuestos
+  // pequeños de tests (ej. budgetTokens=2000 → floor=1000, no 8000).
+  const floorTokens = Math.min(
+    Math.max(c.budgetTokens * c.floorRatio, c.absoluteFloorTokens),
+    c.budgetTokens * 0.50,
+  );
+
   if (before <= limit || messages.length === 0) {
     return {
       messages,
@@ -251,28 +288,82 @@ export function compactMessages(
     };
   }
 
+  // Índice del primer mensaje 'user' en todo el array — es la tarea original
+  // del usuario y nunca debe perderse, ni en colapso agresivo de turnos.
+  const firstUserIdx = messages.findIndex(m => m.role === 'user');
+
   // 1) Segmenta en turnos.
   const turns = segmentTurns(messages);
   const dialogTurns = turns.filter(t => t.kind === 'dialog');
 
-  // 2) Zona protegida = system turns + últimos N dialog turns + último msg.
-  const protectedDialog = dialogTurns.slice(-c.preserveLastTurns);
-  const compactableDialog = dialogTurns.slice(0, dialogTurns.length - c.preserveLastTurns);
-
-  const protectedIdxs = new Set<number>();
-  for (const t of turns.filter(x => x.kind === 'system')) {
-    for (let i = t.start; i < t.end; i++) protectedIdxs.add(i);
-  }
-  for (const t of protectedDialog) {
-    for (let i = t.start; i < t.end; i++) protectedIdxs.add(i);
-  }
-  // El último mensaje del array siempre protegido (input actual del user).
-  if (messages.length > 0) protectedIdxs.add(messages.length - 1);
-
   const compactableIdxs = new Set<number>();
-  for (const t of compactableDialog) {
-    for (let i = t.start; i < t.end; i++) {
-      if (!protectedIdxs.has(i)) compactableIdxs.add(i);
+  let compactableDialog: Turn[] = [];
+
+  if (dialogTurns.length === 1) {
+    const turn = dialogTurns[0];
+    const toolIdxs: number[] = [];
+    const assistantIdxs: number[] = [];
+    for (let i = turn.start; i < turn.end; i++) {
+      const m = messages[i];
+      if (m.role === 'tool') {
+        toolIdxs.push(i);
+      } else if (m.role === 'assistant') {
+        assistantIdxs.push(i);
+      }
+    }
+
+    const n = c.preserveLastTurns;
+    const preservedToolIdxs = new Set(toolIdxs.slice(-n));
+    const preservedAssistantIdxs = new Set(assistantIdxs.slice(-n));
+
+    for (const tIdx of preservedToolIdxs) {
+      const toolMsg = messages[tIdx];
+      if (toolMsg && toolMsg.tool_call_id) {
+        for (const aIdx of assistantIdxs) {
+          const astMsg = messages[aIdx];
+          if (astMsg && Array.isArray(astMsg.tool_calls)) {
+            if (astMsg.tool_calls.some((tc: any) => tc.id === toolMsg.tool_call_id)) {
+              preservedAssistantIdxs.add(aIdx);
+            }
+          }
+        }
+      }
+    }
+
+    for (let i = turn.start; i < turn.end; i++) {
+      const m = messages[i];
+      if (m.role === 'system' || m.role === 'user') continue;
+      if (i === messages.length - 1) continue; // Último mensaje siempre protegido
+
+      if (m.role === 'tool') {
+        if (!preservedToolIdxs.has(i)) {
+          compactableIdxs.add(i);
+        }
+      } else if (m.role === 'assistant') {
+        if (!preservedAssistantIdxs.has(i)) {
+          compactableIdxs.add(i);
+        }
+      }
+    }
+  } else {
+    // 2) Zona protegida = system turns + últimos N dialog turns + último msg.
+    const protectedDialog = dialogTurns.slice(-c.preserveLastTurns);
+    compactableDialog = dialogTurns.slice(0, dialogTurns.length - c.preserveLastTurns);
+
+    const protectedIdxs = new Set<number>();
+    for (const t of turns.filter(x => x.kind === 'system')) {
+      for (let i = t.start; i < t.end; i++) protectedIdxs.add(i);
+    }
+    for (const t of protectedDialog) {
+      for (let i = t.start; i < t.end; i++) protectedIdxs.add(i);
+    }
+    // El último mensaje del array siempre protegido (input actual del user).
+    if (messages.length > 0) protectedIdxs.add(messages.length - 1);
+
+    for (const t of compactableDialog) {
+      for (let i = t.start; i < t.end; i++) {
+        if (!protectedIdxs.has(i)) compactableIdxs.add(i);
+      }
     }
   }
 
@@ -281,11 +372,80 @@ export function compactMessages(
   const truncated = truncateInZone(working, compactableIdxs, c);
   let dropped = 0;
 
-  // 4) Si tras truncar aún excede, colapsar turnos antiguos.
-  if (totalTokens(working) > limit && compactableDialog.length > 0) {
-    const collapsed = collapseOldTurns(working, compactableDialog);
-    working = collapsed.newMessages;
-    dropped = collapsed.dropped;
+  // Comprobación de suelo post-truncado. Si el truncado solo ya llevó el
+  // contexto por debajo del mínimo viable, detener aquí y señalizar
+  // irreducible en lugar de continuar con colapso destructivo.
+  // Nota de diseño: se prefiere devolver el array truncado (aún con
+  // estructura de mensajes intacta) sobre devolver el original sin comprimir,
+  // porque el truncado reduce sin eliminar mensajes, lo que sigue siendo
+  // más útil para el LLM que un contexto que revienta el límite del proveedor.
+  const afterTruncate = totalTokens(working);
+  if (afterTruncate < floorTokens) {
+    return {
+      messages: working,
+      compacted: true,
+      beforeTokens: before,
+      afterTokens: afterTruncate,
+      truncatedCount: truncated,
+      droppedCount: 0,
+      irreducible: true,
+    };
+  }
+
+  // 4) Si tras truncar aún excede, colapsar turnos antiguos o colapsar
+  //    herramientas en un solo turno largo.
+  if (totalTokens(working) > limit) {
+    if (dialogTurns.length > 1 && compactableDialog.length > 0) {
+      // El primer mensaje 'user' es sagrado: pasa como índice protegido para
+      // que collapseOldTurns no lo elimine aunque su turno sea compactable.
+      const sacredIdxs: Set<number> = firstUserIdx >= 0
+        ? new Set([firstUserIdx])
+        : new Set();
+      const collapsed = collapseOldTurns(working, compactableDialog, sacredIdxs);
+      working = collapsed.newMessages;
+      dropped = collapsed.dropped;
+    } else if (dialogTurns.length === 1) {
+      let collapsedCount = 0;
+      for (const idx of compactableIdxs) {
+        const m = working[idx];
+        if (m) {
+          if (m.role === 'tool' && typeof m.content === 'string') {
+            const collapsedContent = `[Tool output collapsed] ${COMPACTION_MARKER} collapsed]`;
+            if (m.content !== collapsedContent) {
+              working[idx] = { ...m, content: collapsedContent };
+              collapsedCount++;
+            }
+          } else if (m.role === 'assistant') {
+            let changed = false;
+            const updated: any = { ...m };
+            if (Array.isArray(m.tool_calls) && m.tool_calls.length > 0) {
+              updated.tool_calls = m.tool_calls.map((tc: any) => {
+                if (tc?.function && tc.function.arguments !== '{}') {
+                  changed = true;
+                  return {
+                    ...tc,
+                    function: {
+                      ...tc.function,
+                      arguments: '{}'
+                    }
+                  };
+                }
+                return tc;
+              });
+            }
+            if (typeof m.content === 'string' && m.content.length > 100 && !m.content.includes(COMPACTION_MARKER)) {
+              updated.content = `${m.content.slice(0, 50)} ${COMPACTION_MARKER} assistant collapsed]`;
+              changed = true;
+            }
+            if (changed) {
+              working[idx] = updated;
+              collapsedCount++;
+            }
+          }
+        }
+      }
+      dropped += collapsedCount;
+    }
   }
 
   const after = totalTokens(working);
@@ -296,5 +456,9 @@ export function compactMessages(
     afterTokens: after,
     truncatedCount: truncated,
     droppedCount: dropped,
+    // Si el resultado quedó bajo el suelo (p.ej. el colapso lo llevó demasiado
+    // abajo), señalizamos irreducible para que el orchestrator pueda avisar al
+    // usuario de dividir el trabajo.
+    irreducible: after < floorTokens,
   };
 }

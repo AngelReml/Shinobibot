@@ -139,7 +139,7 @@ const runCommandTool: Tool = {
 
     // Sprint 1.4 — Multi-backend de ejecución. Si SHINOBI_RUN_BACKEND
     // apunta a algo distinto de 'local', delegamos al backend pedido
-    // (docker, ssh, modal, daytona, e2b, mock). La ruta `local` cae al
+    // (docker, ssh, e2b, mock). La ruta `local` cae al
     // exec directo de abajo para no añadir overhead a la mayoría de
     // ejecuciones.
     const wantBackend = (process.env.SHINOBI_RUN_BACKEND || 'local').toLowerCase();
@@ -167,7 +167,7 @@ const runCommandTool: Tool = {
         success: false,
         output: '',
         error: `SHINOBI_RUN_BACKEND='${wantBackend}' no es un backend reconocido. ` +
-          `Backends válidos: local, docker, ssh, modal, daytona, e2b, mock. ` +
+          `Backends válidos: local, docker, ssh, e2b, mock. ` +
           `No se ejecuta en 'local' por seguridad (rompería el aislamiento esperado).`,
       };
     }

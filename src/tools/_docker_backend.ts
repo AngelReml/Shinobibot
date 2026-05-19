@@ -14,7 +14,7 @@
  * referencia estándar de Docker (rechaza inyección via flags).
  *
  * Diferenciador: Hermes tiene 7 terminal backends pero la mayoría son
- * experimentales (Modal, Daytona, Singularity). OpenClaw no tiene sandbox
+ * experimentales (Singularity, etc.). OpenClaw no tiene sandbox
  * OS real. Shinobi añade UN backend sólido (Docker) que la mayoría de
  * desarrolladores ya tiene instalado.
  */
