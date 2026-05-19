@@ -342,3 +342,4 @@
 {"kind":"failover","ts":"2026-05-19T20:19:05.683Z","from":"openai","to":"groq","reason":"rate limit"}
 {"kind":"failover","ts":"2026-05-19T20:38:53.512Z","from":"openai","to":"groq","reason":"rate limit"}
 {"kind":"failover","ts":"2026-05-19T20:41:10.990Z","from":"openai","to":"groq","reason":"rate limit"}
+{"kind":"failover","ts":"2026-05-19T21:10:23.667Z","from":"openai","to":"groq","reason":"rate limit"}
