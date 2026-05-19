@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { L1Cache } from '../memory/l1_cache.js';
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system' | 'tool';
@@ -13,6 +14,7 @@ export interface ChatMessage {
 export class Memory {
   private filePath: string;
   private maxHistory: number = 30; // Limit history to prevent context overflow
+  private static cache = new L1Cache<string, ChatMessage[]>(10, 30000); // Cache up to 10 files, TTL 30s
   /**
    * Cola de escritura en proceso. addMessage hace read-modify-write; sin
    * serializar, dos llamadas async concurrentes producen lost-update. La
@@ -30,6 +32,7 @@ export class Memory {
     if (!fs.existsSync(this.filePath)) {
       console.log(`[Memory] Initializing new memory file at ${this.filePath}`);
       this.atomicWrite([]);
+      Memory.cache.set(this.filePath, []);
     }
   }
 
@@ -50,7 +53,7 @@ export class Memory {
   }
 
   private async addMessageLocked(msg: Omit<ChatMessage, 'timestamp'>): Promise<void> {
-    let messages = await this.getMessages(this.maxHistory * 2); // Get more so we can compress if needed
+    let messages = await this.getMessages(); // Hits cache or loads from disk
 
     const newMessage: ChatMessage = {
       ...msg,
@@ -78,16 +81,23 @@ export class Memory {
     }
 
     this.atomicWrite(messages);
+    Memory.cache.set(this.filePath, messages);
   }
 
   async getMessages(limit?: number): Promise<ChatMessage[]> {
     try {
-      const data = fs.readFileSync(this.filePath, 'utf-8');
-      let messages = JSON.parse(data) as ChatMessage[];
-      if (limit) {
-         messages = messages.slice(-limit);
+      let messages = Memory.cache.get(this.filePath);
+      if (!messages) {
+        const data = fs.readFileSync(this.filePath, 'utf-8');
+        messages = JSON.parse(data) as ChatMessage[];
+        Memory.cache.set(this.filePath, messages);
       }
-      return messages;
+      
+      const copy = messages.map(m => ({ ...m }));
+      if (limit) {
+         return copy.slice(-limit);
+      }
+      return copy;
     } catch (error) {
       console.error("[Memory] Error reading memory file:", error);
       return [];
@@ -95,7 +105,10 @@ export class Memory {
   }
 
   async clear() {
-    this.writeChain = this.writeChain.then(() => { this.atomicWrite([]); });
+    this.writeChain = this.writeChain.then(() => { 
+      this.atomicWrite([]); 
+      Memory.cache.set(this.filePath, []);
+    });
     return this.writeChain;
   }
 }
