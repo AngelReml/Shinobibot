@@ -22,3 +22,4 @@ export {
   type DispatchDecision,
   type ShadowEntry,
 } from './types.js';
+export { IntentRouter, type IntentRouteResult, type IntentRule } from './intent_router.js';

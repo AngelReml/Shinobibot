@@ -10,6 +10,7 @@ import * as readline from 'readline';
 import { ShinobiOrchestrator } from '../src/coordinator/orchestrator.js';
 import { handleSlashCommand } from '../src/coordinator/slash_commands.js';
 import { KernelClient } from '../src/bridge/kernel_client.js';
+import { IntentRouter } from '../src/dispatch/intent_router.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
 import { skillManager } from '../src/skills/skill_manager.js';
 import { curatedMemory } from '../src/memory/curated_memory.js';
@@ -495,6 +496,18 @@ async function main() {
       console.log('Hasta luego.');
       rl.close();
       process.exit(0);
+    }
+
+    // Intent Router (Split-Brain Fase 1)
+    try {
+      const intentRes = await IntentRouter.route(trimmed);
+      if (intentRes.matched && intentRes.response) {
+        console.log(intentRes.response);
+        prompt();
+        return;
+      }
+    } catch (err: any) {
+      console.warn(`[IntentRouter Warning] Error al procesar intenciones: ${err.message}`);
     }
 
     // Slash commands extracted to src/coordinator/slash_commands.ts (Bloque 1).
