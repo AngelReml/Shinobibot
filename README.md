@@ -53,6 +53,7 @@ Tres cosas que **ningún otro agente del mercado tiene a la vez**:
 | Mission replay con detección de divergencias | ◐ trajectory_compressor | ◐ ACP loadSession | ❌ | ✅ dryRunReplay |
 | Multi-user con scoped dirs y permisos | ◐ multi-session sin tenant | ◐ pairing sin scoping | ❌ | ✅ owner/collab/guest |
 | A2A / agent protocol | ✅ ACP oficial | ✅ ACP IDE-bridge | ❌ | ✅ envelope+HMAC |
+| Orquestación Swarm (Kanban SQLite) | ❌ | ◐ lineal | ❌ | ✅ Concurrente + telemetría |
 | Benchmark suite reproducible | ✅ tblite/yc/SWE/term | ◐ qa-lab interno | ❌ | ✅ [BENCHMARK_M3_REAL](./BENCHMARK_M3_REAL.md) (20 tareas, runtimes reales) |
 
 **Veredicto honesto:** la tabla anterior afirmaba "única Shinobi" en varias filas que **son paridad con Hermes/OpenClaw**. Tras re-auditoría (`competitive_audit_M3_revisado.md`), Shinobi tiene **9 capacidades genuinamente exclusivas**: loop detector v3 (capa de modo de fallo heurística), committee evolutivo, audit log unificado JSONL, registry con rollback formal, auto-skill por patrones de tools, memory reflector con markdown auditable, observability `/admin`+Prometheus, token budget endpoint, tools PowerShell Windows-native. El resto es paridad o ligera ventaja, no exclusividad.
@@ -118,6 +119,16 @@ Tres capas independientes para que el agente no se quede atascado:
 **Misiones residentes con scheduler rico**
 Triggers `interval` (cada N segs), `daily` (HH:MM), `weekly` (día + HH:MM),
 `cron` (m h d M w). Background tasks que sobreviven a reinicios.
+
+**Orquestación Multi-Agente (OpenSwarm)**
+Sub-agentes concurrentes gestionados por cola Kanban en SQLite. Perfiles
+especializados (\`researcher\`, \`coder\`, \`document_generator\`) con acceso
+restringido a herramientas. Telemetría en tiempo real visible vía \`/swarm\`.
+
+**Inyector de Contexto Rápido (\`@\`)**
+Operador \`@ruta/archivo\` en la CLI que lee automáticamente archivos locales
+y los inyecta como Markdown seguro antes de enviar el prompt, acelerando el
+flujo de desarrollo sin copiar y pegar.
 
 **n8n integration**
 Delega a workflows externos vía n8n bridge.
@@ -314,6 +325,7 @@ Three things **no other agent on the market has at once**:
 | Mission replay from audit.jsonl | ❌ | ❌ | ❌ | ✅ |
 | Multi-user with scoped dirs and roles | ❌ | ❌ | ❌ | ✅ |
 | A2A protocol (envelope v1 + bearer/HMAC + agent_card) | ❌ | ❌ | ❌ | ✅ |
+| Swarm Orchestration (SQLite Kanban) | ❌ | ❌ | ❌ | ✅ Concurrent + telemetry |
 | Public reproducible benchmark (20 tasks / 6 cat.) | ❌ | ❌ | ❌ | ✅ [BENCHMARK_M3_REAL](./BENCHMARK_M3_REAL.md) |
 
 See [ARCHITECTURE.md](./ARCHITECTURE.md) for technical detail.
@@ -358,6 +370,15 @@ sensitive vars), network_info, registry_read (with allowlist),
 task_scheduler_create, windows_notification.
 
 **Resident missions** with rich scheduler: interval/daily/weekly/cron.
+
+**Multi-Agent Orchestration (OpenSwarm)** — concurrent sub-agents managed
+by an SQLite Kanban queue. Specialized profiles (\`researcher\`, \`coder\`,
+\`document_generator\`) with restricted tools. Real-time telemetry tracking
+available via \`/swarm\` CLI command.
+
+**Quick Context Injector (\`@\`)** — CLI operator (\`@path/to/file\`) that
+auto-reads and safely injects local files as Markdown into your prompt,
+preventing manual copy-pasting.
 
 **Cloud bridge** — offloads heavy missions to OpenGravity kernel with
 transparent failover OpenRouter → Groq → OpenAI → Anthropic.
