@@ -25,6 +25,8 @@ export interface TaskItem {
 
 export class TaskQueueStore {
   private db: BetterSqlite3.Database;
+  private progressBuffer = new Map<string, { current_tool: string | null; steps_completed: number; dirty: boolean }>();
+  private flushTimer: NodeJS.Timeout | null = null;
 
   constructor(dbPath?: string) {
     const defaultDir = path.join(process.env.APPDATA || os.homedir(), 'Shinobi');
@@ -32,6 +34,11 @@ export class TaskQueueStore {
     this.db = new Database(dbPath || path.join(defaultDir, 'tasks.db'));
     this.db.pragma('journal_mode = WAL');
     this.initSchema();
+
+    // Start background asynchronous flush timer (every 200ms)
+    this.flushTimer = setInterval(() => {
+      this.flushProgress();
+    }, 200);
   }
 
   private initSchema(): void {
@@ -78,7 +85,14 @@ export class TaskQueueStore {
 
   public get(id: string): TaskItem | null {
     const row = this.db.prepare('SELECT * FROM task_items WHERE id = ?').get(id);
-    return row ? this.fromRow(row as any) : null;
+    if (!row) return null;
+    const item = this.fromRow(row as any);
+    const buffered = this.progressBuffer.get(id);
+    if (buffered) {
+      item.current_tool = buffered.current_tool;
+      item.steps_completed = buffered.steps_completed;
+    }
+    return item;
   }
 
   public claimNextTask(agentId: string, roleRequired: string = 'general'): TaskItem | null {
@@ -111,58 +125,110 @@ export class TaskQueueStore {
 
   public completeTask(id: string, result: string): boolean {
     const now = new Date().toISOString();
+    
+    // Clean up task from buffer and get final steps count to flush immediately
+    const buffered = this.progressBuffer.get(id);
+    const stepsCompleted = buffered ? buffered.steps_completed : 0;
+    this.progressBuffer.delete(id);
+
     const r = this.db.prepare(`
       UPDATE task_items 
-      SET status = 'completed', result = ?, updated_at = ? 
+      SET status = 'completed', result = ?, current_tool = NULL, steps_completed = ?, updated_at = ? 
       WHERE id = ? AND status = 'in_progress'
-    `).run(result, now, id);
+    `).run(result, stepsCompleted, now, id);
     return r.changes > 0;
   }
 
   public failTask(id: string, error: string): boolean {
     const now = new Date().toISOString();
+
+    // Clean up task from buffer and get final steps count to flush immediately
+    const buffered = this.progressBuffer.get(id);
+    const stepsCompleted = buffered ? buffered.steps_completed : 0;
+    this.progressBuffer.delete(id);
+
     const r = this.db.prepare(`
       UPDATE task_items 
-      SET status = 'failed', error = ?, updated_at = ? 
+      SET status = 'failed', error = ?, current_tool = NULL, steps_completed = ?, updated_at = ? 
       WHERE id = ? AND status = 'in_progress'
-    `).run(error, now, id);
+    `).run(error, stepsCompleted, now, id);
     return r.changes > 0;
   }
 
   public updateTaskProgress(id: string, progress: { current_tool?: string | null; steps_completed?: number }): void {
+    const existing = this.progressBuffer.get(id) || { current_tool: null, steps_completed: 0 };
+    const current_tool = progress.current_tool !== undefined ? progress.current_tool : existing.current_tool;
+    const steps_completed = progress.steps_completed !== undefined ? progress.steps_completed : existing.steps_completed;
+
+    this.progressBuffer.set(id, {
+      current_tool,
+      steps_completed,
+      dirty: true
+    });
+  }
+
+  public flushProgress(): void {
+    const dirtyEntries: [string, { current_tool: string | null; steps_completed: number }][] = [];
+    for (const [id, entry] of this.progressBuffer.entries()) {
+      if (entry.dirty) {
+        dirtyEntries.push([id, entry]);
+        entry.dirty = false;
+      }
+    }
+
+    if (dirtyEntries.length === 0) return;
+
     const now = new Date().toISOString();
-    const cols: string[] = [];
-    const vals: any[] = [];
-    if (progress.current_tool !== undefined) {
-      cols.push('current_tool = ?');
-      vals.push(progress.current_tool);
-    }
-    if (progress.steps_completed !== undefined) {
-      cols.push('steps_completed = ?');
-      vals.push(progress.steps_completed);
-    }
-    if (cols.length === 0) return;
-    vals.push(now, id);
-    this.db.prepare(`
+    const updateStmt = this.db.prepare(`
       UPDATE task_items 
-      SET ${cols.join(', ')}, updated_at = ?
+      SET current_tool = ?, steps_completed = ?, updated_at = ?
       WHERE id = ?
-    `).run(...vals);
+    `);
+
+    const transaction = this.db.transaction((entries: [string, { current_tool: string | null; steps_completed: number }][]) => {
+      for (const [id, entry] of entries) {
+        updateStmt.run(entry.current_tool, entry.steps_completed, now, id);
+      }
+    });
+
+    try {
+      transaction(dirtyEntries);
+    } catch (err) {
+      console.error('[TaskQueueStore] Error flushing progress to DB:', err);
+      // Restore dirty flags on error
+      for (const [id] of dirtyEntries) {
+        const entry = this.progressBuffer.get(id);
+        if (entry) entry.dirty = true;
+      }
+    }
   }
 
   public listTasks(status?: 'pending' | 'in_progress' | 'completed' | 'failed'): TaskItem[] {
+    let rows: any[];
     if (status) {
-      return (this.db.prepare('SELECT * FROM task_items WHERE status = ? ORDER BY priority DESC, created_at ASC').all(status) as any[]).map(r => this.fromRow(r));
+      rows = this.db.prepare('SELECT * FROM task_items WHERE status = ? ORDER BY priority DESC, created_at ASC').all(status);
+    } else {
+      rows = this.db.prepare('SELECT * FROM task_items ORDER BY priority DESC, created_at ASC').all();
     }
-    return (this.db.prepare('SELECT * FROM task_items ORDER BY priority DESC, created_at ASC').all() as any[]).map(r => this.fromRow(r));
+    return rows.map(r => {
+      const item = this.fromRow(r);
+      const buffered = this.progressBuffer.get(item.id);
+      if (buffered) {
+        item.current_tool = buffered.current_tool;
+        item.steps_completed = buffered.steps_completed;
+      }
+      return item;
+    });
   }
 
   public deleteTask(id: string): boolean {
+    this.progressBuffer.delete(id);
     const r = this.db.prepare('DELETE FROM task_items WHERE id = ?').run(id);
     return r.changes > 0;
   }
 
   public clear(): void {
+    this.progressBuffer.clear();
     this.db.exec('DELETE FROM task_items');
   }
 
@@ -185,6 +251,11 @@ export class TaskQueueStore {
   }
 
   public close(): void {
+    if (this.flushTimer) {
+      clearInterval(this.flushTimer);
+      this.flushTimer = null;
+    }
+    this.flushProgress();
     this.db.close();
   }
 }

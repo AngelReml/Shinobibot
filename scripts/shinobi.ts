@@ -441,10 +441,32 @@ async function main() {
         try {
           const stats = fs.statSync(resolvedPath);
           if (stats.isFile()) {
-            const content = fs.readFileSync(resolvedPath, 'utf8');
+            // Check hard limit (250KB)
+            if (stats.size > 256000) {
+              console.warn(`[!] Archivo demasiado grande: ${filePath} (${(stats.size / 1024).toFixed(1)} KB) excede el límite estricto de 250KB. Utiliza herramientas de búsqueda selectiva como grep o view_outline.`);
+              continue;
+            }
+
+            let content = fs.readFileSync(resolvedPath, 'utf8');
+            let isTruncated = false;
+
+            // Check warn/truncate limit (50KB)
+            if (stats.size > 51200) {
+              const lines = content.split('\n');
+              if (lines.length > 250) {
+                content = lines.slice(0, 250).join('\n');
+                isTruncated = true;
+              }
+              console.warn(`[!] Archivo grande (${(stats.size / 1024).toFixed(1)} KB): ${filePath}. Truncado a las primeras 250 líneas.`);
+            }
+
             const ext = path.extname(filePath).slice(1) || 'text';
+            
             injectedContent += `\n[Archivo inyectado de forma rápida: ${filePath}]\n\`\`\`${ext}\n${content}\n\`\`\`\n`;
-            console.log(`[+] Contexto inyectado con éxito: ${filePath}`);
+            if (isTruncated) {
+              injectedContent += `\n\n[¡ADVERTENCIA: CONTENIDO TRUNCADO POR SEGURIDAD DE CONTEXTO - EL ARCHIVO EXCEDÍA EL LÍMITE DE 50KB!]\n\n`;
+            }
+            console.log(`[+] Contexto inyectado con éxito: ${filePath}${isTruncated ? ' (truncado a 250 líneas)' : ''}`);
           }
         } catch (err: any) {
           console.warn(`[!] Error al leer archivo: ${filePath} (${err.message})`);
