@@ -26,7 +26,6 @@ function step(name, skipEnv) {
 }
 
 const STEPS = [
-  step('Demo Auto-Mejora end-to-end (full-self-improve --no-record)', 'SKIP_DEMO_AUTOMEJORA'),
   step('Demo Windows Native (skill load: 8 desktop bundles register tools)', 'SKIP_DEMO_WIN_NATIVE'),
   step('shinobi import hermes --dry-run with synthetic fixture', 'SKIP_HERMES_IMPORT'),
   step('audit.zapweave.com landing reachable (or local web/audit/index.html exists)', 'SKIP_LANDING_AUDIT'),
@@ -80,68 +79,59 @@ async function main() {
   console.log(`[verify-release] OG=${OG_ROOT}  SHINOBI_BENCH=${SHINOBI_BENCH_ROOT}`);
   console.log('');
 
-  // 1) Demo auto-mejora — uses runDemo --no-record (no OBS dependency).
-  if (process.env.SKIP_DEMO_AUTOMEJORA === '1') {
-    record(STEPS[0].name, 'skipped', 'env');
-  } else {
-    const r = await runChild('npx', ['tsx', 'scripts/shinobi.ts', 'run-demo', 'full-self-improve', '--no-record'], ROOT, 120_000);
-    const passed = (r.stdout.match(/"verdict":\s*"PASS"/g) ?? []).length;
-    record(STEPS[0].name, r.code === 0 && passed >= 5, `exit=${r.code} pass=${passed}`);
-  }
-
-  // 2) Desktop skill load (we don't open the apps; assert all 8 bundles register their tools)
+  // 1) Desktop skill load (we don't open the apps; assert all 8 bundles register their tools)
   if (process.env.SKIP_DEMO_WIN_NATIVE === '1') {
-    record(STEPS[1].name, 'skipped', 'env');
+    record(STEPS[0].name, 'skipped', 'env');
   } else {
     const r = await runChild('npx', ['tsx', 'scripts/desktop_skills_load.ts'], ROOT, 60_000);
     const ok = r.code === 0 && /8\/8 bundles loadable/.test(r.stdout);
-    record(STEPS[1].name, ok, `exit=${r.code}`);
+    record(STEPS[0].name, ok, `exit=${r.code}`);
   }
 
-  // 3) Hermes import dry-run via the synthetic fixture in the test suite.
+  // 2) Hermes import dry-run via the synthetic fixture in the test suite.
   if (process.env.SKIP_HERMES_IMPORT === '1') {
-    record(STEPS[2].name, 'skipped', 'env');
+    record(STEPS[1].name, 'skipped', 'env');
   } else {
     const r = await runChild('npx', ['tsx', 'src/migration/__tests__/from_hermes.test.ts'], ROOT, 60_000);
-    record(STEPS[2].name, r.code === 0 && /\[a4-e2e\] OK/.test(r.stdout), `exit=${r.code}`);
+    record(STEPS[1].name, r.code === 0 && /\[a4-e2e\] OK/.test(r.stdout), `exit=${r.code}`);
   }
 
-  // 4) AuditGravity landing reachable. Live URL preferred; local HTML acceptable as fallback.
+  // 3) AuditGravity landing reachable. Live URL preferred; local HTML acceptable as fallback.
   if (process.env.SKIP_LANDING_AUDIT === '1') {
-    record(STEPS[3].name, 'skipped', 'env');
+    record(STEPS[2].name, 'skipped', 'env');
   } else {
     const live = await tryFetch(`${ZAPWEAVE_BASE}/audit/`, 200);
-    if (live.ok) record(STEPS[3].name, true, `live ${live.status}`);
-    else if (existsSync(join(ROOT, 'web', 'audit', 'index.html'))) record(STEPS[3].name, true, 'local file present');
-    else record(STEPS[3].name, false, `live=${live.status} no local file`);
+    if (live.ok) record(STEPS[2].name, true, `live ${live.status}`);
+    else if (existsSync(join(ROOT, 'web', 'audit', 'index.html'))) record(STEPS[2].name, true, 'local file present');
+    else record(STEPS[2].name, false, `live=${live.status} no local file`);
   }
 
-  // 5) Kernel /v1/health.
+  // 4) Kernel /v1/health.
   if (process.env.SKIP_KERNEL_HEALTH === '1' || process.env.KERNEL_OFFLINE === '1') {
-    record(STEPS[4].name, 'skipped', 'KERNEL_OFFLINE');
+    record(STEPS[3].name, 'skipped', 'KERNEL_OFFLINE');
   } else {
     const r = await tryFetch(`${KERNEL_BASE}/v1/health`, 200, 8000);
-    record(STEPS[4].name, r.ok, r.ok ? `${r.status}` : `${r.status} ${r.err ?? ''}`);
+    record(STEPS[3].name, r.ok, r.ok ? `${r.status}` : `${r.status} ${r.err ?? ''}`);
   }
 
-  // 6) zapweave.com landing.
+  // 5) zapweave.com landing.
   if (process.env.SKIP_ZAPWEAVE_LANDING === '1') {
-    record(STEPS[5].name, 'skipped', 'env');
+    record(STEPS[4].name, 'skipped', 'env');
   } else {
     const live = await tryFetch(`${ZAPWEAVE_BASE}/`, 200);
-    if (live.ok) record(STEPS[5].name, true, `live ${live.status}`);
-    else if (existsSync(join(ROOT, 'web', 'index.html'))) record(STEPS[5].name, true, 'local file present');
-    else record(STEPS[5].name, false, 'no live, no local');
+    if (live.ok) record(STEPS[4].name, true, `live ${live.status}`);
+    else if (existsSync(join(ROOT, 'web', 'index.html'))) record(STEPS[4].name, true, 'local file present');
+    else record(STEPS[4].name, false, 'no live, no local');
   }
 
-  // 7) Installer present (B1 manual). Soft skip if absent.
+  // 6) Installer present (B1 manual). Soft skip if absent.
   if (process.env.SKIP_INSTALLER_PRESENT === '1') {
-    record(STEPS[6].name, 'skipped', 'env');
+    record(STEPS[5].name, 'skipped', 'env');
   } else {
     const candidates = [join(ROOT, 'build', 'ShinobiSetup.exe'), join(ROOT, 'build', `ShinobiSetup-${process.env.SHINOBI_VERSION ?? '1.0.0'}.exe`)];
     const found = candidates.find((c) => existsSync(c));
-    if (found) record(STEPS[6].name, true, `${found} (${statSync(found).size} bytes)`);
-    else record(STEPS[6].name, 'skipped', 'absent — B1 not yet executed');
+    if (found) record(STEPS[5].name, true, `${found} (${statSync(found).size} bytes)`);
+    else record(STEPS[5].name, 'skipped', 'absent — B1 not yet executed');
   }
 
   console.log('');

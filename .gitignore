@@ -38,7 +38,13 @@ missions/
 self_reports/
 committee_reports/
 logs.txt
+audit.jsonl
 *.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 *.docx
 *.pdf
 *.xlsx

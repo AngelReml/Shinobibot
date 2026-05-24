@@ -6,6 +6,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { TaskQueueStore } from '../src/persistence/task_queue.js';
+import { getAgentProfile } from '../src/coordinator/agent_profiles.js';
+import type { SwarmWorker } from '../src/coordinator/swarm_worker.js';
 import * as readline from 'readline';
 import { ShinobiOrchestrator } from '../src/coordinator/orchestrator.js';
 import { handleSlashCommand } from '../src/coordinator/slash_commands.js';
@@ -115,21 +117,8 @@ async function maybeRunOneShotCommand(): Promise<boolean> {
       }
       process.exit(exitCode);
     }
-    const { runDemo } = await import('../src/demo/demo_runner.js');
-    const r = await runDemo({ task_id, record });
-    console.log('\n=== demo summary ===');
-    console.log(JSON.stringify(r, null, 2));
-    process.exit(0);
-  }
-
-  // H5 — full self-improvement demo with optional OBS bracketing.
-  if (argv[0] === 'run-demo' && argv[1] === 'full-self-improve') {
-    const record = argv.includes('--record');
-    const { runDemo } = await import('../src/demo/demo_runner.js');
-    const r = await runDemo({ fullSelfImprove: true, record });
-    console.log('\n=== run-demo summary ===');
-    console.log(JSON.stringify(r, null, 2));
-    process.exit(0);
+    console.error(`demo: only '--task killer' is supported. Got: ${task_id ?? '(none)'}`);
+    process.exit(2);
   }
 
   // 24/7 resident mode — `shinobi daemon`. Headless: no REPL, just the
@@ -382,43 +371,138 @@ async function main() {
   const askViaRl = (q: string): Promise<string> =>
     new Promise<string>((res) => rl.question(q, (a) => res(a)));
 
-  const handleSwarmCommand = async (): Promise<void> => {
-    try {
-      const queue = new TaskQueueStore();
-      const tasks = queue.listTasks();
-      queue.close();
+  // Roles with a concrete worker profile (see src/coordinator/agent_profiles.ts).
+  const SWARM_ROLES = ['researcher', 'coder', 'document_generator'] as const;
+  // Live workers and their shared queue connection, kept across REPL turns so
+  // `/swarm stop` can halt what `/swarm start` launched.
+  let swarmWorkers: SwarmWorker[] = [];
+  let swarmRuntimeQueue: TaskQueueStore | null = null;
 
-      if (tasks.length === 0) {
-        console.log('No tasks in the Kanban queue.');
+  const showSwarmStatus = (): void => {
+    const queue = new TaskQueueStore();
+    let tasks;
+    try {
+      tasks = queue.listTasks();
+    } finally {
+      queue.close();
+    }
+
+    if (tasks.length === 0) {
+      console.log('No tasks in the Kanban queue.');
+      return;
+    }
+
+    console.log('\n=================== SHINOBIBOT KANBAN SWARM STATUS ===================');
+    console.log(String('ID').padEnd(12) + ' | ' + String('TITLE').padEnd(25) + ' | ' + String('STATUS').padEnd(12) + ' | ' + String('ROLE').padEnd(15) + ' | ' + String('PROGRESS'));
+    console.log('-'.repeat(80));
+
+    for (const t of tasks) {
+      let progress = '';
+      if (t.status === 'in_progress') {
+        progress = `[Steps: ${t.steps_completed || 0}] running: ${t.current_tool || 'thinking...'}`;
+      } else if (t.status === 'completed') {
+        progress = 'Done';
+      } else if (t.status === 'failed') {
+        progress = `Error: ${t.error || 'Unknown'}`;
+      } else {
+        progress = 'Idle';
+      }
+
+      const idStr = t.id.padEnd(12);
+      const titleStr = (t.title.length > 25 ? t.title.slice(0, 22) + '...' : t.title).padEnd(25);
+      const statusStr = t.status.padEnd(12);
+      const roleStr = t.role_required.padEnd(15);
+
+      console.log(`${idStr} | ${titleStr} | ${statusStr} | ${roleStr} | ${progress}`);
+    }
+    const running = swarmWorkers.length > 0 ? `${swarmWorkers.length} worker(s) running` : 'no workers running';
+    console.log('-'.repeat(80));
+    console.log(`Workers: ${running}.`);
+    console.log('======================================================================\n');
+  };
+
+  const stopSwarmWorkers = (): number => {
+    const n = swarmWorkers.length;
+    for (const w of swarmWorkers) w.stop();
+    swarmWorkers = [];
+    if (swarmRuntimeQueue) {
+      swarmRuntimeQueue.close();
+      swarmRuntimeQueue = null;
+    }
+    return n;
+  };
+
+  const handleSwarmCommand = async (raw: string): Promise<void> => {
+    const parts = raw.trim().split(/\s+/);
+    const sub = (parts[1] || 'status').toLowerCase();
+
+    try {
+      if (sub === 'help') {
+        console.log([
+          'Swarm commands:',
+          '  /swarm [status]            — show the Kanban queue + worker state',
+          '  /swarm add <role> <title>  — enqueue a task',
+          `      roles: ${[...SWARM_ROLES, 'general'].join(', ')}`,
+          '  /swarm start               — start one worker per role (polls the queue, real LLM calls)',
+          '  /swarm stop                — stop all running workers',
+        ].join('\n'));
         return;
       }
 
-      console.log('\n=================== SHINOBIBOT KANBAN SWARM STATUS ===================');
-      console.log(String('ID').padEnd(12) + ' | ' + String('TITLE').padEnd(25) + ' | ' + String('STATUS').padEnd(12) + ' | ' + String('ROLE').padEnd(15) + ' | ' + String('PROGRESS'));
-      console.log('-'.repeat(80));
-      
-      for (const t of tasks) {
-        let progress = '';
-        if (t.status === 'in_progress') {
-          progress = `[Steps: ${t.steps_completed || 0}] running: ${t.current_tool || 'thinking...'}`;
-        } else if (t.status === 'completed') {
-          progress = 'Done';
-        } else if (t.status === 'failed') {
-          progress = `Error: ${t.error || 'Unknown'}`;
-        } else {
-          progress = 'Idle';
-        }
-        
-        const idStr = t.id.padEnd(12);
-        const titleStr = (t.title.length > 25 ? t.title.slice(0, 22) + '...' : t.title).padEnd(25);
-        const statusStr = t.status.padEnd(12);
-        const roleStr = t.role_required.padEnd(15);
-        
-        console.log(`${idStr} | ${titleStr} | ${statusStr} | ${roleStr} | ${progress}`);
+      if (sub === 'status') {
+        showSwarmStatus();
+        return;
       }
-      console.log('======================================================================\n');
+
+      if (sub === 'add') {
+        const role = (parts[2] || '').toLowerCase();
+        const validRoles = [...SWARM_ROLES, 'general'];
+        if (!validRoles.includes(role)) {
+          console.error(`/swarm add: role must be one of ${validRoles.join(', ')}. Got: ${role || '(none)'}`);
+          return;
+        }
+        const title = parts.slice(3).join(' ').trim();
+        if (!title) {
+          console.error('/swarm add: a task title is required. Usage: /swarm add <role> <title>');
+          return;
+        }
+        const queue = new TaskQueueStore();
+        try {
+          const task = queue.addTask(title, undefined, 0, role);
+          console.log(`[swarm] queued ${task.id} (role=${role}): ${title}`);
+        } finally {
+          queue.close();
+        }
+        if (swarmWorkers.length === 0) {
+          console.log("[swarm] no workers running — run '/swarm start' to process the queue.");
+        }
+        return;
+      }
+
+      if (sub === 'start') {
+        if (swarmWorkers.length > 0) {
+          console.log(`[swarm] already running ${swarmWorkers.length} worker(s). Use '/swarm stop' first.`);
+          return;
+        }
+        swarmRuntimeQueue = new TaskQueueStore();
+        for (const role of SWARM_ROLES) {
+          const worker = getAgentProfile(role, `worker_${role}_${Date.now().toString(36)}`, swarmRuntimeQueue);
+          worker.start();
+          swarmWorkers.push(worker);
+        }
+        console.log(`[swarm] started ${swarmWorkers.length} workers (${SWARM_ROLES.join(', ')}). They poll the Kanban queue and make real LLM calls. Use '/swarm stop' to halt.`);
+        return;
+      }
+
+      if (sub === 'stop') {
+        const n = stopSwarmWorkers();
+        console.log(n > 0 ? `[swarm] stopped ${n} workers.` : '[swarm] no workers running.');
+        return;
+      }
+
+      console.error(`/swarm: unknown subcommand '${sub}'. Try '/swarm help'.`);
     } catch (err: any) {
-      console.error('Failed to query swarm status:', err.message);
+      console.error('[swarm] command failed:', err?.message ?? err);
     }
   };
 
@@ -471,6 +555,7 @@ async function main() {
 
     if (trimmed.toLowerCase() === 'exit') {
       console.log('Hasta luego.');
+      stopSwarmWorkers();
       rl.close();
       process.exit(0);
     }
@@ -479,7 +564,7 @@ async function main() {
     // Shared with src/web/server.ts so CLI and Web stay in lockstep.
     if (trimmed.startsWith('/')) {
       if (trimmed.startsWith('/swarm')) {
-        await handleSwarmCommand();
+        await handleSwarmCommand(trimmed);
         prompt();
         return;
       }
