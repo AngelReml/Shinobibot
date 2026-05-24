@@ -39,7 +39,17 @@ export class ShinobiOrchestrator {
   private static mode: ExecutionMode = 'kernel';
   private static memory = sharedMemory();
   private static contextBuilder = new ContextBuilder();
-  private static openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  private static _openai: OpenAI | null = null;
+  // Lazy: the OpenAI SDK throws in its constructor when no key is present, so
+  // building the client eagerly made the whole module un-importable (and the
+  // safety/swarm test suites un-loadable) in any environment without a key.
+  // The key is only needed at call time, so defer construction until first use.
+  private static get openai(): OpenAI {
+    if (!this._openai) {
+      this._openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    }
+    return this._openai;
+  }
   private static activeModel: string | undefined = undefined;
 
   /**
