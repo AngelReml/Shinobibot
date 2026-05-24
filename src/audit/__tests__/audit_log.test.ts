@@ -143,9 +143,19 @@ describe('audit_log no lanza si algo va mal', () => {
     // El contrato real: el audit es best-effort, jamás bloquea el flujo del
     // agente. La función puede devolver true (algunos OS aceptan el path) o
     // false (otros rechazan); lo importante es que NO LANCE.
-    process.env.SHINOBI_AUDIT_LOG_PATH = '<invalid>|*?.jsonl';
-    expect(() =>
-      logToolCall({ tool: 'x', args: {}, success: true, durationMs: 1 }),
-    ).not.toThrow();
+    // Anclamos el path en tmpdir: en Windows estos caracteres son ilegales y
+    // ejercitan la rama de rechazo; en Linux son válidos, así que escribir en
+    // tmpdir (no en el repo) evita dejar un fichero basura en el árbol.
+    const reservedPath = join(tmpdir(), 'shinobi-audit-reserved-<>|*?.jsonl');
+    process.env.SHINOBI_AUDIT_LOG_PATH = reservedPath;
+    try {
+      expect(() =>
+        logToolCall({ tool: 'x', args: {}, success: true, durationMs: 1 }),
+      ).not.toThrow();
+    } finally {
+      if (existsSync(reservedPath)) {
+        try { unlinkSync(reservedPath); } catch {}
+      }
+    }
   });
 });
