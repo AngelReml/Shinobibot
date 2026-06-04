@@ -21,6 +21,7 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { configExists, loadConfig, runFirstRunWizard } from '../src/runtime/first_run_wizard.js';
 import { acquireLock, formatLockedError } from '../src/runtime/process_lock.js';
+import { isOutsideWorkspace } from '../src/utils/permissions.js';
 import {
   ensureApprovalModeInitialized,
   setApprovalAsker,
@@ -453,6 +454,24 @@ async function main() {
 
     for (const filePath of matches) {
       const resolvedPath = path.resolve(process.cwd(), filePath);
+      // FIX-003 — no inyectar ficheros fuera del workspace (path traversal)
+      // ni ficheros sensibles (secretos) en el contexto del LLM.
+      if (isOutsideWorkspace(resolvedPath)) {
+        console.warn(`[shinobi] @archivo rechazado: ruta fuera del workspace (${filePath})`);
+        continue;
+      }
+      // Bloqueo por extensión real / nombre / segmento de ruta — no por
+      // subcadena (antes `.includes('.key')` rechazaba 'monkey', 'turkey.txt').
+      const ext = path.extname(resolvedPath).toLowerCase();
+      const BLOCKED_EXT = ['.pem', '.key', '.pfx', '.p12'];
+      const base = path.basename(resolvedPath).toLowerCase();
+      const segments = resolvedPath.toLowerCase().split(/[\\/]/);
+      if (BLOCKED_EXT.includes(ext) ||
+          base === '.env' || base.startsWith('.env.') ||
+          segments.includes('.ssh')) {
+        console.warn(`[shinobi] @archivo rechazado: fichero sensible (${filePath})`);
+        continue;
+      }
       if (fs.existsSync(resolvedPath)) {
         try {
           const stats = fs.statSync(resolvedPath);
