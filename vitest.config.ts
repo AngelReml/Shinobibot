@@ -47,6 +47,7 @@ export default defineConfig({
       'src/web/__tests__/pwa.test.ts',
       'src/dispatch/__tests__/**/*.test.ts',
       'src/agents/__tests__/**/*.test.ts',
+      'src/__tests__/stress/**/*.test.ts',
     ],
     exclude: ['node_modules', 'dist', 'scratch', 'test_*.ts'],
     pool: 'forks',
