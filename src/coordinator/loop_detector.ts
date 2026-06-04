@@ -77,7 +77,15 @@ export type FailureMode =
  */
 export function classifyFailureMode(error: unknown): FailureMode | null {
   if (error == null) return null;
-  const e = String(error).toLowerCase();
+  // String(error) invoca error.toString(), que en objetos hostiles (proxies,
+  // errores malformados) puede lanzar. Si no se puede estringificar, no es
+  // clasificable — pero NUNCA debe tumbar el loop del orchestrator.
+  let e: string;
+  try {
+    e = String(error).toLowerCase();
+  } catch {
+    return null;
+  }
   if (!e.trim()) return null;
   // Browser / CDP caído — el caso del incidente Iván (clean_extract sin Comet).
   if (/no browser|port\s*9222|\bcdp\b|devtools|chrome[^.]*not[^.]*(found|running|available)|comet[^.]*(not|no)[^.]*(open|running)|browserless|puppeteer.*(connect|launch)/.test(e)) {
