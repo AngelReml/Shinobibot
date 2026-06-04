@@ -42,6 +42,8 @@ export class TaskQueueStore {
   }
 
   private initSchema(): void {
+    this.db.pragma('journal_mode = WAL');
+    this.db.pragma('synchronous = NORMAL');
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS task_items (
         id TEXT PRIMARY KEY,

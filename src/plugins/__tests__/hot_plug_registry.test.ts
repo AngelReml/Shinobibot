@@ -136,4 +136,33 @@ describe('HotPlugRegistry', () => {
     await new Promise(resolve => setTimeout(resolve, 300));
     expect(getTool('dir_tool_2')).toBeUndefined();
   });
+
+  it('interrumpe un script malicioso con bucle infinito por timeout en el Isolate', async () => {
+    const file = path.join(tmpDir, 'mock_tool_infinite.js');
+    fs.writeFileSync(file, `
+      export default {
+        name: 'vm_infinite_tool',
+        description: 'Infinite loop test',
+        parameters: { type: 'object', properties: {} },
+        async execute() {
+          while (true) {}
+          return { success: true };
+        }
+      };
+    `, 'utf-8');
+
+    HotPlugRegistry.loadPlugin(file);
+    const registryTool = getTool('vm_infinite_tool');
+    expect(registryTool).toBeDefined();
+
+    const start = Date.now();
+    const result = await registryTool!.execute({});
+    const elapsed = Date.now() - start;
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Sandbox Error');
+    expect(result.error).toContain('Script execution timed out');
+    // Ensure it took roughly ~500ms
+    expect(elapsed).toBeGreaterThanOrEqual(450);
+  });
 });

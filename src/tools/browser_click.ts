@@ -2,6 +2,8 @@ import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { connectOrLaunchCDP } from './browser_cdp.js';
 import { extractDom, formatPageState } from './browser_engine.js';
 
+const CLICK_TIMEOUT_MS = Number(process.env.SHINOBI_CLICK_TIMEOUT_MS) || 15000;
+
 const browserClickTool: Tool = {
   name: 'browser_click',
   description: 'Click an element in the active browser tab connected via CDP on port 9222. Supports three matching strategies: by visible text content (button_text), by CSS selector (css_selector), or by aria-label (aria_label). Returns the new page state after the click. At least one of button_text, css_selector, or aria_label must be provided.',
@@ -66,7 +68,7 @@ const browserClickTool: Tool = {
           const locator = page.locator(args.css_selector).first();
           const count = await locator.count();
           if (count > 0) {
-            await locator.click({ timeout: 5000 });
+            await locator.click({ timeout: CLICK_TIMEOUT_MS });
             strategy_used = 'css_selector';
             matched_descriptor = args.css_selector;
           } else {
@@ -80,26 +82,17 @@ const browserClickTool: Tool = {
       // ESTRATEGIA 2: aria-label exacto (útil para SVG/icon buttons)
       if (args.aria_label && !strategy_used) {
         try {
-          const locator = page.locator(`[aria-label="${args.aria_label}"]`).first();
-          const count = await locator.count();
-          if (count > 0) {
-            await locator.click({ timeout: 5000 });
-            strategy_used = 'aria_label_exact';
+          await page.locator(`[aria-label="${args.aria_label}"]`).first().click({ timeout: CLICK_TIMEOUT_MS });
+          strategy_used = 'aria_label_exact';
+          matched_descriptor = args.aria_label;
+        } catch {
+          try {
+            await page.locator(`[aria-label*="${args.aria_label}" i]`).first().click({ timeout: CLICK_TIMEOUT_MS });
+            strategy_used = 'aria_label_partial';
             matched_descriptor = args.aria_label;
-          } else {
-            // Fallback: aria-label parcial (case-insensitive)
-            const partial = page.locator(`[aria-label*="${args.aria_label}" i]`).first();
-            const partialCount = await partial.count();
-            if (partialCount > 0) {
-              await partial.click({ timeout: 5000 });
-              strategy_used = 'aria_label_partial';
-              matched_descriptor = args.aria_label;
-            } else {
-              strategy_error = (strategy_error ? strategy_error + ' | ' : '') + `aria-label "${args.aria_label}" not found`;
-            }
+          } catch (e: any) {
+            strategy_error = (strategy_error ? strategy_error + ' | ' : '') + `aria_label failed: ${e.message}`;
           }
-        } catch (e: any) {
-          strategy_error = (strategy_error ? strategy_error + ' | ' : '') + `aria_label failed: ${e.message}`;
         }
       }
 
@@ -107,17 +100,17 @@ const browserClickTool: Tool = {
       if (args.button_text && !strategy_used) {
         const targetText = args.button_text;
         try {
-          await page.click(`text=${targetText}`, { timeout: 5000 });
+          await page.click(`text=${targetText}`, { timeout: CLICK_TIMEOUT_MS });
           strategy_used = 'text_exact';
           matched_descriptor = targetText;
         } catch (e1) {
           try {
-            await page.getByRole('button', { name: new RegExp(targetText, 'i') }).first().click({ timeout: 5000 });
+            await page.getByRole('button', { name: new RegExp(targetText, 'i') }).first().click({ timeout: CLICK_TIMEOUT_MS });
             strategy_used = 'role_button';
             matched_descriptor = targetText;
           } catch (e2) {
             try {
-              await page.getByRole('link', { name: new RegExp(targetText, 'i') }).first().click({ timeout: 5000 });
+              await page.getByRole('link', { name: new RegExp(targetText, 'i') }).first().click({ timeout: CLICK_TIMEOUT_MS });
               strategy_used = 'role_link';
               matched_descriptor = targetText;
             } catch (e3: any) {

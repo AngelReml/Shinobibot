@@ -28,6 +28,7 @@ import { metrics } from '../observability/metrics.js';
 import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { validatePayload as contractsValidatePayload, ProtocolViolation } from './contracts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -41,6 +42,15 @@ export class ShinobiOrchestrator {
   private static contextBuilder = new ContextBuilder();
   private static openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   private static activeModel: string | undefined = undefined;
+
+  /**
+   * Validates an event payload against its registered I/O contract.
+   * Returns true if valid; throws ProtocolViolation if the event type is
+   * unknown or the payload does not match its schema.
+   */
+  static validatePayload(eventType: string, payload: unknown): boolean {
+    return contractsValidatePayload(eventType, payload);
+  }
 
   /**
    * Índice de recall semántico (SQLite). Es un derivado de memory/MEMORY.md
@@ -295,6 +305,14 @@ export class ShinobiOrchestrator {
     // vez de un `maxIterations = 10` hardcodeado.
     const budget = new IterationBudget(Number(process.env.SHINOBI_MAX_ITERATIONS) || 10);
     let iteration = 0;
+
+    // Anti-loop de navegación: si el bot llama a web_search / browser_click
+    // más de 3 veces consecutivas sin cambiar el contenido obtenido, inyecta
+    // un mensaje de ruptura en el contexto antes de seguir.
+    const NAV_TOOLS = new Set(['web_search', 'browser_click', 'browser_click_position', 'browser_scroll', 'web_search_with_warmup']);
+    let navConsecutiveCount = 0;
+    let lastNavContentFingerprint = '';
+    const NAV_STALL_LIMIT = Number(process.env.SHINOBI_NAV_STALL_LIMIT) || 3;
 
     // P2 — progress_judge: capa 3 semántica del loop detector (opt-in con
     // SHINOBI_PROGRESS_DETECTION=1). Default OFF = sin coste de tokens.
@@ -730,7 +748,37 @@ export class ShinobiOrchestrator {
             content: toolResultStr
           });
           iterationOutput += '\n' + toolResultStr;
-        }
+
+          // Anti-loop de navegación: incrementa el contador si la tool es
+          // de browser/web; lo resetea si es cualquier otra cosa.
+          if (NAV_TOOLS.has(functionName)) {
+            // Fingerprint ligero del output (primeros 200 chars)
+            const navFingerprint = toolResultStr.slice(0, 200);
+            if (navFingerprint === lastNavContentFingerprint) {
+              navConsecutiveCount++;
+            } else {
+              // Contenido distinto → se consideró progreso, resetear.
+              navConsecutiveCount = 1;
+              lastNavContentFingerprint = navFingerprint;
+            }
+            if (navConsecutiveCount >= NAV_STALL_LIMIT) {
+              const stallMsg =
+                `Sistema: Estás atrapado en un bucle de carga en la página web ` +
+                `(${navConsecutiveCount} llamadas consecutivas a ${functionName} sin datos nuevos). ` +
+                `Cambia de estrategia: prueba una URL alternativa, usa browser_cdp para extraer ` +
+                `el DOM directamente, o reporta el fallo estructural al usuario.`;
+              console.log(`  [\u26D4] NAV_STALL_LOOP: ${functionName} x${navConsecutiveCount} — inyectando mensaje de ruptura`);
+              currentMessages.push({ role: 'user' as const, content: stallMsg });
+              await this.memory.addMessage({ role: 'user', content: stallMsg });
+              navConsecutiveCount = 0; // reset para evitar inyecciones repetidas
+            }
+          } else {
+            // Tool no-navegación → resetear racha
+            navConsecutiveCount = 0;
+            lastNavContentFingerprint = '';
+          }
+
+        }  // end for (toolCall)
 
         // P2 — progress_judge (capa 3 semántica del loop detector, opt-in
         // con SHINOBI_PROGRESS_DETECTION=1). Un juez LLM independiente puntúa

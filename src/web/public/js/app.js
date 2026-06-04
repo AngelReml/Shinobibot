@@ -65,6 +65,14 @@
     });
   }
 
+  function triggerNeonPulse() {
+    if (!$statusChip) return;
+    $statusChip.classList.remove('neon-pulse');
+    // Force reflow para re-lanzar animación
+    void $statusChip.offsetWidth;
+    $statusChip.classList.add('neon-pulse');
+  }
+
   function handleWS(msg) {
     console.log("WS connected"); // Se pide textualmente aunque se llame en cada msj
     console.log({ type: msg.type });
@@ -74,9 +82,11 @@
         break;
       case 'thinking':
         appendThinkingLine(String(msg.line ?? ''));
+        triggerNeonPulse();
         break;
       case 'tool_call':
         appendToolPill(String(msg.name ?? ''));
+        triggerNeonPulse();
         break;
       case 'final':
         finalizeAgent(msg);

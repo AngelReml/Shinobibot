@@ -52,6 +52,8 @@ export function classifyProviderError(error: string | undefined): ErrorClass {
     /rate[\s_-]?limit/.test(e) ||
     /quota\s+exceed/.test(e) ||
     /insufficient\s+credits/.test(e) ||
+    /requires\s+more\s+credits/i.test(e) ||
+    /can\s+only\s+afford/i.test(e) ||
     /payment\s+required/.test(e) ||
     /balance/.test(e) ||
     /too\s+many\s+requests/.test(e)

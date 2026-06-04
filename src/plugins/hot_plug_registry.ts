@@ -8,6 +8,8 @@ import { registerTool, unregisterTool, type Tool } from '../tools/tool_registry.
 
 const parentRequire = createRequire(import.meta.url);
 
+import ivm from 'isolated-vm';
+
 export function transformEsmToV8Script(code: string): string {
   // Translate multiline and single line: import { a, b } from 'c';
   let transformed = code.replace(
@@ -51,71 +53,91 @@ export class HotPlugRegistry {
     const rawCode = fs.readFileSync(resolvedPath, 'utf-8');
     const transformed = transformEsmToV8Script(rawCode);
 
-    let registeredToolInstance: Tool | undefined = undefined;
+    // 1. Extraer metadata de forma segura
+    const extractIsolate = new ivm.Isolate({ memoryLimit: 64 });
+    const extractContext = extractIsolate.createContextSync();
+    
+    extractContext.evalSync(`
+      globalThis.console = { log: () => {}, warn: () => {}, error: () => {} };
+      globalThis.require = function(mod) { 
+        return { registerTool: function(t) { globalThis.__registeredTool = t; } }; 
+      };
+      globalThis.module = { exports: {} };
+    `);
 
-    // Build the VM sandbox
-    const moduleObj = { exports: {} as any };
-    const sandboxRequire = (moduleName: string) => {
-      // Intercept tool registry import
-      if (moduleName.includes('tool_registry')) {
-        return {
-          registerTool: (t: Tool) => {
-            registeredToolInstance = t;
-          },
-          unregisterTool
-        };
-      }
-
-      // Handle node: prefix
-      let resolvedModuleName = moduleName;
-      if (resolvedModuleName.startsWith('node:')) {
-        resolvedModuleName = resolvedModuleName.substring(5);
-      }
-
-      // Handle relative imports
-      if (resolvedModuleName.startsWith('.') || path.isAbsolute(resolvedModuleName)) {
-        const targetPath = path.resolve(path.dirname(resolvedPath), resolvedModuleName);
-        if (targetPath.endsWith('.json') || fs.existsSync(targetPath + '.json')) {
-          const jsonPath = targetPath.endsWith('.json') ? targetPath : targetPath + '.json';
-          return JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-        }
-        return parentRequire(targetPath);
-      }
-
-      return parentRequire(resolvedModuleName);
-    };
-
-    const sandbox = {
-      console,
-      process,
-      require: sandboxRequire,
-      module: moduleObj,
-      exports: moduleObj.exports,
-      __dirname: path.dirname(resolvedPath),
-      __filename: resolvedPath,
-      registerTool: (t: Tool) => {
-        registeredToolInstance = t;
-      }
-    };
-
-    const context = vm.createContext(sandbox);
-    const script = new vm.Script(transformed, { filename: resolvedPath });
-    script.runInContext(context);
-
-    // If script didn't call registerTool but exported it
-    const exported = moduleObj.exports;
-    let tool: Tool | undefined = registeredToolInstance;
-    if (!tool) {
-      if (exported && exported.name && exported.execute) {
-        tool = exported as Tool;
-      } else if (exported && exported.default && exported.default.name && exported.default.execute) {
-        tool = exported.default as Tool;
-      }
+    try {
+      extractIsolate.compileScriptSync(transformed).runSync(extractContext, { timeout: 500 });
+    } catch(e: any) {
+      extractIsolate.dispose();
+      throw new Error(`Failed to extract tool metadata from ${filePath}: ${e.message}`);
     }
 
-    if (!tool || !tool.name || typeof tool.execute !== 'function') {
+    const metadataStr = extractContext.evalSync(`
+      let t = globalThis.__registeredTool || module.exports.default || module.exports;
+      t ? JSON.stringify({ name: t.name, description: t.description, parameters: t.parameters }) : null;
+    `);
+    extractIsolate.dispose();
+
+    if (!metadataStr) {
       throw new Error(`Script at ${filePath} did not register or export a valid Tool object.`);
     }
+
+    const metadata = JSON.parse(metadataStr);
+    if (!metadata.name) {
+      throw new Error(`Script at ${filePath} did not register or export a valid Tool object.`);
+    }
+
+    // 2. Construir la herramienta envolvente blindada
+    const tool: Tool = {
+      name: metadata.name,
+      description: metadata.description,
+      parameters: metadata.parameters,
+      execute: async (args: any) => {
+        // INSTALACIÓN Y CONFIGURACIÓN DEL ISOLATE
+        const isolate = new ivm.Isolate({ memoryLimit: 64 });
+        const context = await isolate.createContext();
+        
+        try {
+          const jail = context.global;
+          await jail.set('global', jail.derefInto());
+          
+          // TRANSFERENCIA SEGURA DE ARGUMENTOS (JAIL)
+          await jail.set('args', new ivm.ExternalCopy(args).copyInto());
+          
+          await context.eval(`
+            globalThis.console = { log: () => {}, warn: () => {}, error: () => {} };
+            globalThis.require = function(mod) { 
+              return { registerTool: function(t) { globalThis.__registeredTool = t; } }; 
+            };
+            globalThis.module = { exports: {} };
+          `);
+
+          const script = await isolate.compileScript(transformed, { filename: resolvedPath });
+          
+          // CONTROL DE TIEMPO DE CPU (TIMEOUT DE 500MS)
+          await script.run(context, { timeout: 500 });
+
+          const runner = await isolate.compileScript(`
+            (async () => {
+              let t = globalThis.__registeredTool || module.exports.default || module.exports;
+              if (!t || typeof t.execute !== 'function') throw new Error("tool.execute is not a function");
+              const res = await t.execute(globalThis.args);
+              return JSON.stringify(res);
+            })()
+          `);
+          
+          const resultStr = await runner.run(context, { timeout: 500, promise: true });
+          return JSON.parse(resultStr);
+
+        } catch (e: any) {
+          return { success: false, output: '', error: `Sandbox Error: ${e.message}` };
+        } finally {
+          // ELIMINACIÓN DE RESIDUOS (GARBAGE COLLECTION)
+          context.release();
+          isolate.dispose();
+        }
+      }
+    };
 
     // Overwrite existing tool if already loaded from this path
     const old = this.loadedPlugins.get(resolvedPath);

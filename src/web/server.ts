@@ -330,6 +330,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     const r = prometheusResponse();
     res.type(r.contentType).send(r.body);
   });
+
   // P2 — A2A: discovery + dispatch para que otro agente invoque a Shinobi.
   const a2aDispatcher = buildA2ADispatcher();
   // Rate-limit por IP para /a2a (ventana fija). Evita que un peer abuse del
@@ -392,10 +393,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     return new Promise((resolve) => {
       const requestId = randomUUID();
       pendingApprovals.set(requestId, resolve);
-      console.log(`[DIAG-SERVER] [${new Date().toISOString()}] Emitiendo approval_request a ${allClients.size} cliente(s). Payload:`, { type: 'approval_request', promptText, requestId });
-      for (const c of allClients) {
-        console.log(`[DIAG-SERVER] Cliente readyState:`, c.readyState);
-      }
+      console.log(`[DIAG-SERVER] [${new Date().toISOString()}] Emitiendo approval_request a ${allClients.size} cliente(s).`);
       broadcastAll({ type: 'approval_request', promptText, requestId });
     });
   });
@@ -503,9 +501,14 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
       const origInfo = console.info;
       const send = (line: string) => {
         captured.push(line);
-        const toolMatch = line.match(/\[🔨\]\s+Tool called:\s+(\S+)/);
-        if (toolMatch) {
-          try { ws.send(JSON.stringify({ type: 'tool_call', name: toolMatch[1] })); } catch {}
+        // Estrategia dual para detectar tool_call: el regex primario busca el
+        // emoji [🔨] que el orchestrator emite; el fallback busca el texto ASCII
+        // 'Tool called:' por si el emoji cambia o se pierde en el log pipeline.
+        const toolMatchEmoji = line.match(/\[🔨\]\s+Tool called:\s+(\S+)/);
+        const toolMatchAscii = !toolMatchEmoji && line.match(/Tool called:\s+(\S+)/);
+        const toolName = (toolMatchEmoji ?? toolMatchAscii)?.[1];
+        if (toolName) {
+          try { ws.send(JSON.stringify({ type: 'tool_call', name: toolName })); } catch {}
         }
         try { ws.send(JSON.stringify({ type: 'thinking', line })); } catch {}
       };
