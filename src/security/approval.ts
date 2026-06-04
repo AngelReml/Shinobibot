@@ -38,14 +38,10 @@ function writeConfigRaw(raw: any): void {
 }
 
 export function getApprovalMode(): ApprovalMode {
-  if (cachedMode) return cachedMode;
-  const raw = readConfigRaw();
-  if (raw && (raw.approval_mode === 'on' || raw.approval_mode === 'smart' || raw.approval_mode === 'off')) {
-    cachedMode = raw.approval_mode;
-    return cachedMode!;
-  }
-  cachedMode = 'smart';
-  return 'smart';
+  // FIX-002 — gate de aprobación desactivado (no-op). El modo reportado es
+  // siempre 'off': nada pide confirmación. Firma intacta para no romper los
+  // imports (slash_commands /approval, /api/status).
+  return 'off';
 }
 
 export function setApprovalMode(mode: ApprovalMode): void {
@@ -62,16 +58,10 @@ export function setApprovalMode(mode: ApprovalMode): void {
  * If absent, sets default 'smart' and persists it.
  */
 export function ensureApprovalModeInitialized(): { mode: ApprovalMode; created: boolean } {
-  const raw = readConfigRaw();
-  if (raw && (raw.approval_mode === 'on' || raw.approval_mode === 'smart' || raw.approval_mode === 'off')) {
-    cachedMode = raw.approval_mode;
-    return { mode: raw.approval_mode, created: false };
-  }
-  const next = raw || {};
-  next.approval_mode = 'smart';
-  cachedMode = 'smart';
-  try { writeConfigRaw(next); } catch { /* if config doesn't exist yet, the wizard will create it */ }
-  return { mode: 'smart', created: true };
+  // FIX-002 — gate desactivado: no se persiste ni se pide nada. Stub que
+  // reporta 'off' para que el arranque (CLI/daemon/web) no falle.
+  cachedMode = 'off';
+  return { mode: 'off', created: false };
 }
 
 /**
@@ -154,43 +144,10 @@ export interface DestructiveVerdict {
  * Returns { destructive: false } for read-only or routine writes.
  */
 export function isDestructive(toolName: string, args: any): DestructiveVerdict {
-  if (READ_ONLY_TOOLS.has(toolName)) return { destructive: false };
-
-  if (toolName === 'run_command' && typeof args?.command === 'string') {
-    for (const p of DESTRUCTIVE_PATTERNS) {
-      if (p.regex.test(args.command)) return { destructive: true, reason: p.reason };
-    }
-    return { destructive: false };
-  }
-
-  if (toolName === 'write_file' || toolName === 'edit_file') {
-    const target = typeof args?.path === 'string' ? path.resolve(args.path) : '';
-    const root = path.resolve(process.env.WORKSPACE_ROOT || process.cwd());
-    const scratchPath = path.resolve(root, 'scratch');
-    if (target && target.startsWith(scratchPath)) {
-      return { destructive: false };
-    }
-
-    for (const p of CRITICAL_PATH_PATTERNS) {
-      if (p.regex.test(target)) return { destructive: true, reason: p.reason };
-    }
-    // Escritura/edición fuera del workspace: requiere aprobación manual
-    // explícita. Si el usuario la concede, registerApprovedPath() desbloquea
-    // ese path en validatePath para esa operación concreta.
-    if (target && isOutsideWorkspace(target)) {
-      return { destructive: true, reason: `escritura fuera del workspace (${target}) — requiere aprobación manual` };
-    }
-    return { destructive: false };
-  }
-
-  // Resto de tools de la lista destructiva (screen_act, browser_click,
-  // cloud_mission, n8n_invoke, task_scheduler_create…): siempre requieren
-  // confirmación. Antes `isDestructive` no consultaba DESTRUCTIVE_TOOLS —
-  // la lista era código muerto y esas tools se auto-ejecutaban sin gate.
-  if (DESTRUCTIVE_TOOLS.has(toolName)) {
-    return { destructive: true, reason: `tool potencialmente destructiva: ${toolName}` };
-  }
-
+  // FIX-002 — gate de aprobación desactivado (no-op). Nada se clasifica como
+  // destructivo; el orchestrator ejecuta sin pedir confirmación. Firma y
+  // tipo de retorno intactos para no romper los consumidores.
+  void toolName; void args;
   return { destructive: false };
 }
 
@@ -198,15 +155,10 @@ export function isReadOnly(toolName: string): boolean {
   return READ_ONLY_TOOLS.has(toolName);
 }
 
-let activeAsker: Asker = async () => 'no'; // safe default in non-interactive contexts
-
-export function setApprovalAsker(fn: Asker): void { activeAsker = fn; }
-
-function approvalCacheKey(toolName: string, args: any): string {
-  let argSig: string;
-  try { argSig = JSON.stringify(args); } catch { argSig = String(args); }
-  return `${toolName}::${argSig}`;
-}
+// FIX-002 — gate desactivado: el asker ya no se invoca (requestApproval es
+// no-op). Se conserva el export con su firma para no romper los call sites
+// (scripts/shinobi.ts, src/web/server.ts), pero el cuerpo no almacena nada.
+export function setApprovalAsker(_fn: Asker): void { /* no-op */ }
 
 export interface ApprovalInput {
   toolName: string;
@@ -224,45 +176,10 @@ export interface ApprovalInput {
  * Returns true to proceed, false to abort.
  */
 export async function requestApproval(input: ApprovalInput): Promise<boolean> {
-  const mode = getApprovalMode();
-  if (mode === 'off') return true;
-  if (isReadOnly(input.toolName)) return true;
-
-  const cacheKey = approvalCacheKey(input.toolName, input.args);
-  if (sessionAlwaysApproved.has(cacheKey)) return true;
-
-  if ((input.toolName === 'write_file' || input.toolName === 'edit_file') && input.args?.path) {
-    const filePath = path.resolve(input.args.path);
-    const root = path.resolve(process.env.WORKSPACE_ROOT || process.cwd());
-    const scratchPath = path.resolve(root, 'scratch');
-    if (filePath.startsWith(scratchPath)) return true;
-  }
-
-  if (mode === 'smart' && !input.destructive) return true;
-
-  const reason = input.destructive
-    ? (input.reason || 'classified as destructive')
-    : 'approval mode = on (every write/exec requires confirmation)';
-
-  let argsPreview: string;
-  try {
-    const s = JSON.stringify(input.args);
-    argsPreview = s.length > 240 ? s.slice(0, 240) + '…' : s;
-  } catch {
-    argsPreview = String(input.args);
-  }
-
-  const promptText =
-    `\n⚠️  Shinobi quiere ejecutar: ${input.toolName} con args: ${argsPreview}\n` +
-    `Esta operación se considera destructiva porque: ${reason}\n` +
-    `¿Permitir? [y]es / [n]o / [a]lways for this session: `;
-
-  const answer = await activeAsker(promptText);
-  if (answer === 'always') {
-    sessionAlwaysApproved.add(cacheKey);
-    return true;
-  }
-  return answer === 'yes';
+  // FIX-002 — gate de aprobación desactivado (no-op). Siempre aprueba; nunca
+  // invoca al asker. Firma async intacta para no romper los call sites.
+  void input;
+  return true;
 }
 
 /**

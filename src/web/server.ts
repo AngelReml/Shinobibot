@@ -60,6 +60,19 @@ function stringifyArgs(args: any[]): string {
   }).join(' ');
 }
 
+/**
+ * ¿La config tiene credenciales utilizables? Punto único de verdad para el
+ * onboarding: `GET /`, `/api/onboarding/status` y `/api/onboarding/skip`
+ * deben coincidir, o el skip "aprueba" una config que `GET /` rechaza y el
+ * usuario queda atrapado en un bucle de onboarding (FIX-001).
+ */
+function isConfigUsable(cfg: any): boolean {
+  return !!(
+    (cfg?.provider && cfg?.provider_key) ||           // provider Bloque 7 configurado
+    (cfg?.opengravity_api_key && cfg?.opengravity_url) // o config legacy OpenGravity
+  );
+}
+
 export interface StartWebServerOptions {
   port?: number;
   dbPath?: string;
@@ -136,11 +149,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   // ─── Bloque 7 — onboarding: si no hay config, sirve la pantalla de bienvenida en `/` ─
   app.get('/', (_req, res, next) => {
     const cfg = loadConfig();
-    const hasUsableConfig = !!cfg && (
-      (cfg.provider && cfg.provider_key) ||           // provider Bloque 7 configurado
-      (cfg.opengravity_api_key && cfg.opengravity_url) // o config legacy OpenGravity
-    );
-    if (!hasUsableConfig) {
+    if (!isConfigUsable(cfg)) {
       res.sendFile(path.join(publicPath, 'onboarding.html'));
       return;
     }
@@ -153,7 +162,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   app.get('/api/onboarding/status', (_req, res) => {
     const cfg = loadConfig();
     res.json({
-      configured: !!cfg && ((cfg.provider && cfg.provider_key) || (cfg.opengravity_api_key && cfg.opengravity_url)),
+      configured: isConfigUsable(cfg),
       currentProvider: currentProvider(),
       providerLabel: cfg?.provider || null,
       modelDefault: cfg?.model_default || null,
@@ -207,8 +216,8 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
 
   app.post('/api/onboarding/skip', (_req, res) => {
     const cfg = loadConfig();
-    if (!cfg) {
-      res.status(400).json({ ok: false, error: 'No hay config previa. Configura una key arriba.' });
+    if (!cfg || !isConfigUsable(cfg)) {
+      res.status(400).json({ ok: false, error: 'config incompleta: falta provider_key o opengravity_api_key' });
       return;
     }
     // Asegura que process.env refleja la config legacy presente.
