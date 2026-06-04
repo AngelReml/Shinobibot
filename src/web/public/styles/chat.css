@@ -795,3 +795,96 @@ body.dojo-quiet .enso-watermark {
   from { opacity: 0; transform: translateX(20px); }
   to   { opacity: 1; transform: translateX(0); }
 }
+
+/* ─── Split-Brain Interceptors (Experimentos 1, 2 y 3) ────────────────── */
+
+/* Neon pulse for status chip (Exp 2) */
+.neon-pulse {
+  animation: neonPulseAnim 300ms ease-out forwards;
+}
+@keyframes neonPulseAnim {
+  0%   { text-shadow: 0 0 0 transparent; color: inherit; }
+  50%  { text-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent); color: var(--accent); }
+  100% { text-shadow: 0 0 0 transparent; color: inherit; }
+}
+
+/* Split brain alert base */
+.split-brain-alert {
+  margin: 16px 0;
+  padding: 14px 18px;
+  border-radius: 8px;
+  background: var(--bg-overlay);
+  border: 1px solid var(--outline-variant, var(--border));
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Exp 1: Injector alert */
+.injector-alert {
+  border-left: 3px solid #e53e3e;
+  background: rgba(229, 62, 62, 0.05);
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+}
+.injector-alert svg {
+  color: #e53e3e;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.injector-alert .alert-title {
+  color: #e53e3e;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.injector-alert .alert-desc {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+/* Exp 3: L3 Conciliation Card */
+.l3-alert {
+  border: 1px solid var(--accent);
+  background: var(--bg-elev);
+}
+.l3-alert .alert-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+}
+.l3-alert .alert-body {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.l3-alert .alert-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+.l3-alert .alert-btn {
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.l3-alert .alert-btn:hover {
+  opacity: 0.8;
+}

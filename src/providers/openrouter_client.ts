@@ -29,7 +29,7 @@ export const openrouterClient: ProviderClient = {
         tools: payload.tools,
         tool_choice: payload.tool_choice,
         temperature: payload.temperature,
-        max_tokens: payload.max_tokens,
+        max_tokens: payload.max_tokens ?? (Number(process.env.SHINOBI_OPENROUTER_MAX_TOKENS) || 4096),
       }, {
         headers: {
           Authorization: `Bearer ${key}`,

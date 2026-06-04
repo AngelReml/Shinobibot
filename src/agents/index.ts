@@ -32,3 +32,11 @@ export {
 export type { DocsRequest } from './docs_agent.js';
 export type { DataRequest } from './data_agent.js';
 export type { ResearchOptions } from './research_agent.js';
+export {
+  listAlcaynaAgents,
+  getAlcaynaAgent,
+  getAlcaynaAgentByKeyword,
+  ALCAYNA_AGENT_IDS,
+  type AlcaynaAgentDef,
+  type AlcaynaLayer,
+} from './agent_registry.js';

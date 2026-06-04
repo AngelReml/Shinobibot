@@ -159,7 +159,7 @@ export async function invokeLLM(
       // Silencioso — provider no estaba configurado, no es un fallo real.
       console.log(`[Shinobi] Skip ${p} (no key) → trying ${next}`);
     } else {
-      console.log(`[Shinobi] Provider switched: ${p} → ${next} (${reasonLabel(klass)})`);
+      console.log(`[Shinobi] Provider switched: ${p} → ${next} (${reasonLabel(klass)}: ${result.error ?? 'sin mensaje'})`);
     }
     logFailover({ from: p, to: next, reason: reasonLabel(klass) });
   }

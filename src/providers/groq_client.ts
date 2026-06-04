@@ -23,10 +23,17 @@ export const groqClient: ProviderClient = {
     const key = process.env.GROQ_API_KEY || process.env.SHINOBI_PROVIDER_KEY;
     if (!key) return { success: false, output: '', error: 'Groq: define GROQ_API_KEY (o SHINOBI_PROVIDER_KEY).' };
     const model = payload.model || process.env.SHINOBI_MODEL_DEFAULT || DEFAULT_MODEL;
+    const messages = payload.messages.map((m: any) => {
+      if (m.annotations !== undefined) {
+        const { annotations: _annotations, ...clean } = m;
+        return clean;
+      }
+      return m;
+    });
     try {
       const resp = await axios.post(`${BASE_URL}/chat/completions`, {
         model,
-        messages: payload.messages,
+        messages,
         tools: payload.tools,
         tool_choice: payload.tool_choice,
         temperature: payload.temperature,

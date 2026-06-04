@@ -1,9 +1,12 @@
 // src/dispatch/intent_router.ts
+import { validatePayload, ProtocolViolation } from '../coordinator/contracts.js';
+import { ALCAYNA_AGENT_IDS, getAlcaynaAgentByKeyword } from '../agents/agent_registry.js';
 
 export interface IntentRouteResult {
   matched: boolean;
-  type: 'command' | 'regex_intent' | 'none';
+  type: 'command' | 'regex_intent' | 'agent_activation' | 'none';
   intentName?: string;
+  agentId?: string;
   response?: string;
 }
 
@@ -43,11 +46,25 @@ export class IntentRouter {
     }
   ];
 
+  public static isValidAgentNode(id: string): boolean {
+    return ALCAYNA_AGENT_IDS.has(id);
+  }
+
   /**
    * Routes the input string to find a match.
    * Resolves in <2ms for deterministic commands or cached regex intents.
    */
   public static async route(input: string): Promise<IntentRouteResult> {
+    try {
+      validatePayload('user_input', { content: input });
+    } catch (err) {
+      if (err instanceof ProtocolViolation) {
+        console.warn(`[IntentRouter] ProtocolViolation — discarding message: ${err.message}`);
+        return { matched: false, type: 'none' };
+      }
+      throw err;
+    }
+
     const trimmed = input.trim();
     if (!trimmed) {
       return { matched: false, type: 'none' };
@@ -78,7 +95,18 @@ export class IntentRouter {
       return { matched: false, type: 'none' };
     }
 
-    // 2. Intent Matching ligero síncrono para lenguaje natural
+    // 2. Activación de departamentos Alcayna (palabras clave exactas)
+    const alcaynaAgent = getAlcaynaAgentByKeyword(trimmed);
+    if (alcaynaAgent) {
+      return {
+        matched: true,
+        type: 'agent_activation',
+        agentId: alcaynaAgent.id,
+        response: `Departamento ${alcaynaAgent.name} activado. ${alcaynaAgent.activationKeyword}.`,
+      };
+    }
+
+    // 3. Intent Matching ligero síncrono para lenguaje natural
     for (const rule of this.rules) {
       if (rule.pattern.test(trimmed)) {
         const response = await rule.handler(trimmed);

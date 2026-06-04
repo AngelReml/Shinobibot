@@ -26,13 +26,28 @@ interface AnthropicContentBlock {
 function splitSystemAndMessages(messages: any[]): { system: string; rest: any[] } {
   const systemParts: string[] = [];
   const rest: any[] = [];
+  let pendingToolResults: any[] = [];
+
   for (const m of messages) {
     if (m.role === 'system') {
       const txt = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
       if (txt) systemParts.push(txt);
+    } else if (m.role === 'tool') {
+      pendingToolResults.push({
+        type: 'tool_result',
+        tool_use_id: m.tool_call_id,
+        content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+      });
     } else {
+      if (pendingToolResults.length > 0) {
+        rest.push({ role: 'user', content: pendingToolResults });
+        pendingToolResults = [];
+      }
       rest.push(m);
     }
+  }
+  if (pendingToolResults.length > 0) {
+    rest.push({ role: 'user', content: pendingToolResults });
   }
   return { system: systemParts.join('\n\n'), rest };
 }

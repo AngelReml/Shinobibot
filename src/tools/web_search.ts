@@ -42,15 +42,28 @@ const webSearchTool: Tool = {
         });
 
         if (page) {
-          await page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          // SPA-aware: networkidle espera a que los frameworks terminen de pintar
+          await page.goto(fullUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
+            page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+          );
           isNewPage = false;
         } else {
           page = await ctx.newPage();
           isNewPage = true;
-          await page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+          await page.goto(fullUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
+            page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+          );
         }
 
-        await page.waitForTimeout(3000);
+        // YouTube/SPA: esperar al contenedor de contenido real antes de scraping
+        if (/youtube\.com/i.test(fullUrl)) {
+          await page.waitForSelector('ytd-rich-grid-media, #contents, ytd-video-renderer', { timeout: 15000 }).catch(() => {});
+        } else if (/notebooklm\.google|docs\.google/i.test(fullUrl)) {
+          await page.waitForSelector('[data-id], .docs-title-widget, .notebook-content', { timeout: 15000 }).catch(() => {});
+        } else {
+          // Fallback genérico: espera corta para SPAs arbitrarias
+          await page.waitForTimeout(2000);
+        }
         const title = await page.title();
         const finalUrl = page.url();
 
@@ -102,8 +115,14 @@ const webSearchTool: Tool = {
           const ctx = allContexts[0] || await browser.newContext();
           page = await ctx.newPage();
           isNewPage = true;
-          await page.goto(`https://${targetDomain}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-          await page.waitForTimeout(3000);
+          await page.goto(`https://${targetDomain}`, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
+            page.goto(`https://${targetDomain}`, { waitUntil: 'domcontentloaded', timeout: 30000 })
+          );
+          if (/youtube\.com/i.test(targetDomain)) {
+            await page.waitForSelector('ytd-rich-grid-media, #contents, ytd-video-renderer', { timeout: 15000 }).catch(() => {});
+          } else {
+            await page.waitForTimeout(2000);
+          }
           const title = await page.title();
           stdout = `Navigated to: https://${targetDomain}\nPage title: ${title}`;
         }
@@ -113,7 +132,9 @@ const webSearchTool: Tool = {
         page = await ctx.newPage();
         isNewPage = true;
         const cleanQuery = args.query.replace(/busca\s+(en\s+google\s+)?|search\s+(for\s+)?/gi, '').trim();
-        await page.goto(`https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}`, { waitUntil: 'networkidle', timeout: 30000 }).catch(() =>
+          page.goto(`https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}`, { waitUntil: 'domcontentloaded', timeout: 30000 })
+        );
         await page.waitForSelector('h2 a', { timeout: 10000 }).catch(() => {});
 
         const results: { title: string; link: string }[] = await page.evaluate(() => {
