@@ -419,26 +419,73 @@ class SkillManagerImpl {
 
   /**
    * Match approved skills against the user's input by `trigger_keywords`.
-   * Substring match (case-insensitive). Returns up to 3 skill bodies as a
-   * single system-message-ready block, or null if no match.
+   *
+   * Matching tolerante a lenguaje natural (auditoría 2026-06-06): el match
+   * por substring exacto fallaba con acentos ("búsqueda" vs "busqueda"),
+   * plurales ("informe" vs "informes") y keywords multi-palabra que el
+   * usuario reordena. Ahora:
+   *   1. Se normaliza (lowercase + sin diacríticos) input y keywords.
+   *   2. Keyword multi-palabra matchea si TODAS sus palabras aparecen en el
+   *      input (en cualquier orden), no solo como substring contiguo.
+   *   3. Cada palabra matchea con tolerancia singular/plural y por prefijo
+   *      compartido (≥4 chars) para variaciones morfológicas suaves.
+   *   4. Las skills se ordenan por nº de keywords que matchean (no por orden
+   *      de carga) y se toman las `maxSkills` mejores.
+   *   5. Cada match se loguea visiblemente; con SHINOBI_SKILL_DEBUG=1 también
+   *      se loguea cuando NO matchea nada (confirmación visual para el user).
    */
   getContextSection(input: string, maxSkills: number = 3, maxBodyChars: number = 1500): string | null {
     if (this.approved.length === 0) return null;
-    const inputLower = input.toLowerCase();
-    const matched: ApprovedSkill[] = [];
+
+    const normalize = (s: string) =>
+      s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const inputNorm = normalize(input);
+    const inputWords = new Set(inputNorm.split(/[^a-z0-9ñ]+/).filter(w => w.length > 1));
+
+    const wordHits = (kwWord: string): boolean => {
+      if (inputNorm.includes(kwWord)) return true; // substring rápido
+      for (const iw of inputWords) {
+        // tolerancia singular/plural: "informes" ~ "informe"
+        if (iw === kwWord + 's' || iw + 's' === kwWord || iw === kwWord + 'es' || iw + 'es' === kwWord) return true;
+        // prefijo compartido para variaciones morfológicas ("convertir"/"convierte" NO,
+        // pero "exporta"/"exportar"/"exportacion" SÍ): ambas ≥5 chars y una es prefijo de la otra
+        if (kwWord.length >= 5 && iw.length >= 5 && (iw.startsWith(kwWord.slice(0, Math.max(4, kwWord.length - 3))) || kwWord.startsWith(iw.slice(0, Math.max(4, iw.length - 3))))) return true;
+      }
+      return false;
+    };
+
+    const keywordHits = (kw: string): boolean => {
+      const words = normalize(kw).split(/[^a-z0-9ñ]+/).filter(w => w.length > 1);
+      if (words.length === 0) return false;
+      return words.every(wordHits); // multi-palabra: todas presentes, cualquier orden
+    };
+
+    const scored: Array<{ skill: ApprovedSkill; score: number; hitKws: string[] }> = [];
     for (const skill of this.approved) {
       const kws = skill.frontmatter.trigger_keywords;
       if (!Array.isArray(kws) || kws.length === 0) continue;
-      const hit = kws.some(kw => typeof kw === 'string' && kw.length > 0 && inputLower.includes(kw.toLowerCase()));
-      if (hit) {
-        // Fase 6 — una skill que el Curator archivó no se inyecta (archived
-        // es un flag reversible: deja de usarse sin perder el contenido).
-        if (getUsageRecord(String(skill.frontmatter.name || ''))?.state === 'archived') continue;
-        matched.push(skill);
-      }
-      if (matched.length >= maxSkills) break;
+      // Fase 6 — una skill que el Curator archivó no se inyecta (archived
+      // es un flag reversible: deja de usarse sin perder el contenido).
+      if (getUsageRecord(String(skill.frontmatter.name || ''))?.state === 'archived') continue;
+      const hitKws = kws.filter(kw => typeof kw === 'string' && kw.length > 0 && keywordHits(kw));
+      if (hitKws.length > 0) scored.push({ skill, score: hitKws.length, hitKws });
     }
-    if (matched.length === 0) return null;
+    scored.sort((a, b) => b.score - a.score);
+    const top = scored.slice(0, maxSkills);
+
+    if (top.length === 0) {
+      if (process.env.SHINOBI_SKILL_DEBUG === '1') {
+        console.log(`  [🧩] Ninguna skill matchea este input (${this.approved.length} aprobadas cargadas).`);
+      }
+      return null;
+    }
+
+    // Confirmación visual: el usuario ve QUÉ skill se activó y POR QUÉ.
+    for (const t of top) {
+      console.log(`  [🧩] Skill activada: ${t.skill.frontmatter.name || t.skill.id} (trigger: ${t.hitKws.slice(0, 3).join(', ')})`);
+    }
+
+    const matched = top.map(t => t.skill);
 
     // Fase 4 — telemetría: una skill que se inyecta al prompt cuenta como
     // uso. Es el ancla de staleness que consume el Curator (best-effort).
