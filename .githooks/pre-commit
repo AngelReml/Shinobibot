@@ -1,0 +1,22 @@
+#!/bin/sh
+# Pre-commit: bloquea commits que incluyan claves API en claro.
+# Activar una vez con:  git config core.hooksPath .githooks
+# (Ver DOSSIER_AUDITORIA_2026-06-06.md §3.2)
+
+# Si .env entra al stage, abortar siempre.
+if git diff --cached --name-only | grep -qE '(^|/)\.env$'; then
+  echo "BLOQUEADO: .env está en el stage. Nunca commitear secretos." >&2
+  exit 1
+fi
+
+# Patrones de claves conocidas (Groq, OpenAI, OpenRouter, Anthropic, Mem0, etc.)
+PATTERN='gsk_[A-Za-z0-9]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|sk-or-[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|m0-[A-Za-z0-9_-]{16,}|sm_[A-Za-z0-9_-]{16,}|mat_[A-Za-z0-9_-]{16,}'
+
+MATCHES=$(git diff --cached -U0 | grep -E '^\+' | grep -vE '^\+\+\+' | grep -nE "$PATTERN")
+if [ -n "$MATCHES" ]; then
+  echo "BLOQUEADO: el diff a commitear contiene lo que parece una clave API:" >&2
+  echo "$MATCHES" | head -5 >&2
+  echo "Si es un falso positivo, usa: git commit --no-verify" >&2
+  exit 1
+fi
+exit 0
