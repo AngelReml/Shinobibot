@@ -30,6 +30,9 @@ import './list_specialist_agents.js';
 import './generate_chart.js';
 import './prompt_refactor.js';
 import './specialist_agents.js';
+// Delegación multi-agente: crea subagentes acotados (caja de mínimo privilegio,
+// tools destructivas filtradas, profundidad acotada). Ver src/agents/agent_loop.ts.
+import './spawn_agent.js';
 import './screen_observe.js';
 import './screen_act.js';
 
