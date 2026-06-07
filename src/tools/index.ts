@@ -33,6 +33,9 @@ import './specialist_agents.js';
 // Delegación multi-agente: crea subagentes acotados (caja de mínimo privilegio,
 // tools destructivas filtradas, profundidad acotada). Ver src/agents/agent_loop.ts.
 import './spawn_agent.js';
+// E2/E4 sobre el cimiento: fábrica de skills verificadas+firmadas y enjambre.
+import './synthesize_skill.js';
+import './run_swarm.js';
 import './screen_observe.js';
 import './screen_act.js';
 
