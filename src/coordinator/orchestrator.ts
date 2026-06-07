@@ -503,6 +503,18 @@ export class ShinobiOrchestrator {
         // el juez de progreso semántico (capa 3, opt-in) lo evalúe.
         let iterationOutput = String(responseMessage.content || '');
 
+        // Confirmación visual del razonamiento (auditoría 2026-06-06): antes
+        // de este cambio, el contenido que el modelo emite junto a sus
+        // tool_calls (su plan/razonamiento, incl. la línea "PLAN:" del
+        // protocolo del system prompt) se guardaba en memoria pero NUNCA se
+        // mostraba — el usuario solo veía "[🔨] Tool called". Ahora se imprime
+        // truncado; el WebChat lo recoge vía la intercepción de console.log.
+        const reasoning = String(responseMessage.content || '').trim();
+        if (reasoning.length > 0) {
+          const oneLine = reasoning.replace(/\s+/g, ' ').slice(0, 300);
+          console.log(`  [🧠] ${oneLine}${reasoning.length > 300 ? '…' : ''}`);
+        }
+
         // Execute all requested tool calls
         for (const toolCall of responseMessage.tool_calls) {
           if (toolCall.type !== 'function') continue;
