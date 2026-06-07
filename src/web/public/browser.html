@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shinobi · Panel de Navegador</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: #0d1117; color: #e6edf3; display: flex; flex-direction: column; height: 100vh;
+    }
+    header {
+      padding: 10px 16px; background: #161b22; border-bottom: 1px solid #30363d;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+    .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #21262d; border: 1px solid #30363d; }
+    .pill.live { background: #1f6f3f; border-color: #2ea043; }
+    .pill.idle { background: #5a1e1e; border-color: #b62324; }
+    .pill.lock { background: #6e4a00; border-color: #b8860b; }
+    #stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 12px; }
+    #frame { max-width: 100%; max-height: 100%; border: 1px solid #30363d; border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,.5); background:#000; }
+    #placeholder { color: #7d8590; text-align: center; font-size: 14px; line-height: 1.6; }
+    #consent {
+      position: fixed; inset: 0; background: rgba(0,0,0,.75); display: none;
+      align-items: center; justify-content: center; z-index: 50;
+    }
+    #consent .card {
+      background: #161b22; border: 1px solid #b8860b; border-radius: 12px; padding: 20px 22px;
+      max-width: 520px; width: calc(100% - 40px); box-shadow: 0 10px 40px rgba(0,0,0,.6);
+    }
+    #consent h2 { margin: 0 0 10px; font-size: 16px; }
+    #consent pre { white-space: pre-wrap; font-size: 13px; color: #c9d1d9; background:#0d1117; padding:10px; border-radius:8px; border:1px solid #30363d; }
+    #consent .row { display: flex; gap: 10px; margin-top: 14px; justify-content: flex-end; }
+    button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid #30363d; cursor: pointer; background:#21262d; color:#e6edf3; }
+    button.approve { background: #238636; border-color: #2ea043; }
+    button.deny { background: #b62324; border-color: #da3633; }
+    footer { padding: 6px 16px; font-size: 11px; color: #7d8590; border-top: 1px solid #30363d; background:#161b22; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🥷 Panel de Navegador</h1>
+    <span id="status" class="pill idle">desconectado</span>
+    <span id="lock" class="pill" style="display:none">🔒 entrada bloqueada</span>
+    <span id="fps" class="pill">— fps</span>
+    <span style="flex:1"></span>
+    <span class="pill">Solo lectura · tus clics aquí no llegan al navegador</span>
+  </header>
+
+  <div id="stage">
+    <div id="placeholder">
+      Esperando frames del navegador…<br />
+      Pídele a Shinobi que abra una web (p. ej. <em>"abre ejemplo.com"</em>) y activa el screencast.
+    </div>
+    <img id="frame" alt="screencast" style="display:none" />
+  </div>
+
+  <footer id="foot">Conectando al WebSocket…</footer>
+
+  <div id="consent">
+    <div class="card">
+      <h2>⚠️ Permiso requerido</h2>
+      <pre id="consent-text"></pre>
+      <div class="row">
+        <button class="deny" id="btn-deny">Denegar</button>
+        <button class="approve" id="btn-approve">Aprobar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var img = document.getElementById('frame');
+      var ph = document.getElementById('placeholder');
+      var statusPill = document.getElementById('status');
+      var lockPill = document.getElementById('lock');
+      var fpsPill = document.getElementById('fps');
+      var foot = document.getElementById('foot');
+      var consent = document.getElementById('consent');
+      var consentText = document.getElementById('consent-text');
+      var pendingReqId = null;
+      var frames = 0, lastFpsTs = Date.now();
+
+      function wsURL() {
+        var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        return proto + '//' + location.host + '/ws';
+      }
+
+      function connect() {
+        var ws = new WebSocket(wsURL());
+        ws.onopen = function () {
+          foot.textContent = 'Conectado. Escuchando frames y eventos.';
+          statusPill.textContent = 'conectado'; statusPill.className = 'pill';
+        };
+        ws.onclose = function () {
+          foot.textContent = 'Desconectado. Reintentando en 2s…';
+          statusPill.textContent = 'desconectado'; statusPill.className = 'pill idle';
+          setTimeout(connect, 2000);
+        };
+        ws.onmessage = function (ev) {
+          var msg;
+          try { msg = JSON.parse(ev.data); } catch (e) { return; }
+
+          if (msg.type === 'browser_frame' && msg.dataB64) {
+            img.src = 'data:image/jpeg;base64,' + msg.dataB64;
+            img.style.display = 'block'; ph.style.display = 'none';
+            statusPill.textContent = 'EN VIVO'; statusPill.className = 'pill live';
+            frames++;
+            var now = Date.now();
+            if (now - lastFpsTs >= 1000) {
+              fpsPill.textContent = frames + ' fps'; frames = 0; lastFpsTs = now;
+            }
+          }
+
+          if (msg.type === 'plan' && msg.text) { foot.textContent = '🧠 ' + msg.text; }
+          if (msg.type === 'tool_call' && msg.name) { foot.textContent = '🔨 ' + msg.name; }
+
+          if (msg.type === 'approval_request' && msg.kind === 'browser_consent') {
+            pendingReqId = msg.requestId;
+            consentText.textContent = msg.promptText || 'Acción de navegador sensible.';
+            consent.style.display = 'flex';
+          }
+        };
+
+        document.getElementById('btn-approve').onclick = function () {
+          if (pendingReqId) ws.send(JSON.stringify({ type: 'approval_response', requestId: pendingReqId, answer: 'yes' }));
+          consent.style.display = 'none'; pendingReqId = null;
+        };
+        document.getElementById('btn-deny').onclick = function () {
+          if (pendingReqId) ws.send(JSON.stringify({ type: 'approval_response', requestId: pendingReqId, answer: 'no' }));
+          consent.style.display = 'none'; pendingReqId = null;
+        };
+      }
+      connect();
+    })();
+  </script>
+</body>
+</html>

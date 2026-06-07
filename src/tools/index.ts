@@ -10,6 +10,12 @@ import './web_search.js';
 import './browser_click.js';
 import './browser_scroll.js';
 import './browser_click_position.js';
+// Subsistema de navegador "Kage" (observe → act → verify). Ver
+// docs/BROWSER_SUBSYSTEM.md. Mapa de elementos con ref estable, acción anclada
+// con verificación, screencast e input-lock, consentimiento propio.
+import './browser_observe.js';
+import './browser_act.js';
+import './browser_session.js';
 import './cloud_mission.js'; // The new tool to bridge with OpenGravity Cloud
 import './web_search_with_warmup.js';
 import './clean_extract.js';
