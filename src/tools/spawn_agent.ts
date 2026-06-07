@@ -13,9 +13,16 @@
 // Ver agent_loop.ts (el motor) y el plan competitivo (motores E2/E4).
 
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
-import { runAgentLoop, type LLMInvoker } from '../agents/agent_loop.js';
+import { runAgentLoop, type AgentLoopResult, type LLMInvoker } from '../agents/agent_loop.js';
 import { invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import { DESTRUCTIVE_TOOLS } from '../security/approval.js';
+import { WorktreeManager, withWorktree } from '../agents/worktree.js';
+
+// Tools destructivas que SÍ son seguras bajo aislamiento por worktree porque
+// validatePath las confina a WORKSPACE_ROOT (= el worktree desechable). El resto
+// (run_command, screen_act, cloud_mission…) NO: un shell no se sandboxea con
+// chdir — eso lo cubre la pieza de sandbox real. Por eso siguen bloqueadas.
+const WORKTREE_SAFE = new Set(['write_file', 'edit_file']);
 
 const DEFAULT_SYSTEM_PROMPT =
   'Eres un subagente de shinobi enfocado en UNA tarea concreta. Trabaja solo con ' +
@@ -30,6 +37,17 @@ let _invoker: LLMInvoker = routedInvokeLLM;
 /** Solo para tests: sustituye el invocador de LLM que usan los subagentes. */
 export function __setSpawnInvokerForTest(fn: LLMInvoker | null): void {
   _invoker = fn ?? routedInvokeLLM;
+}
+
+// Mánager de worktrees (override en test). Lazy: usa el repo del cwd actual.
+let _wtManager: WorktreeManager | null = null;
+function worktreeManager(): WorktreeManager {
+  if (!_wtManager) _wtManager = new WorktreeManager();
+  return _wtManager;
+}
+/** Solo para tests: sustituye el mánager de worktrees. */
+export function __setWorktreeManagerForTest(m: WorktreeManager | null): void {
+  _wtManager = m;
 }
 
 const spawnAgent: Tool = {
@@ -69,6 +87,16 @@ const spawnAgent: Tool = {
         type: 'string',
         description: 'Opcional: etiqueta del subagente para correlación en el audit.',
       },
+      isolation: {
+        type: 'string',
+        enum: ['none', 'worktree'],
+        description:
+          'Opcional. "worktree": el subagente trabaja en un checkout git aislado ' +
+          '(desechable). En ese modo se le PERMITEN las tools de escritura de ' +
+          'ficheros (write_file/edit_file), confinadas al worktree. Si hace ' +
+          'cambios, el worktree se conserva (rama propia) para fusionar; si no, ' +
+          'se descarta. Default "none".',
+      },
     },
     required: ['task'],
   },
@@ -80,17 +108,22 @@ const spawnAgent: Tool = {
     system_prompt?: string;
     max_iterations?: number;
     label?: string;
+    isolation?: 'none' | 'worktree';
   }): Promise<ToolResult> {
     const task = (args.task ?? '').trim();
     if (!task) {
       return { success: false, output: '', error: 'spawn_agent requiere "task".' };
     }
 
+    const isolation = args.isolation === 'worktree' ? 'worktree' : 'none';
     const requested = Array.isArray(args.tools) && args.tools.length > 0 ? args.tools : DEFAULT_BOX;
     // Mínimo privilegio + seguridad: el subagente corre sin gate de aprobación,
-    // así que se le retiran las tools destructivas de la caja.
-    const stripped = requested.filter((t) => DESTRUCTIVE_TOOLS.has(t));
-    const box = requested.filter((t) => !DESTRUCTIVE_TOOLS.has(t));
+    // así que se le retiran las tools destructivas de la caja. Bajo aislamiento
+    // por worktree, las escrituras de fichero confinadas vuelven a ser seguras.
+    const isBlocked = (t: string) =>
+      DESTRUCTIVE_TOOLS.has(t) && !(isolation === 'worktree' && WORKTREE_SAFE.has(t));
+    const stripped = requested.filter(isBlocked);
+    const box = requested.filter((t) => !isBlocked(t));
 
     // Profundidad: el hijo está un nivel por debajo del actual. Se publica en
     // env durante su ejecución para que un spawn_agent anidado vea su nivel
@@ -100,19 +133,40 @@ const spawnAgent: Tool = {
     const childDepth = parentDepth + 1;
     const label = (args.label ?? `sub-${childDepth}`).trim() || `sub-${childDepth}`;
 
+    const runLoop = (): Promise<AgentLoopResult> => runAgentLoop({
+      task,
+      systemPrompt: (args.system_prompt ?? '').trim() || DEFAULT_SYSTEM_PROMPT,
+      tools: box,
+      depth: childDepth,
+      label,
+      maxIterations: typeof args.max_iterations === 'number' ? args.max_iterations : undefined,
+      invokeLLM: _invoker,
+    });
+
     const prevDepthEnv = process.env.SHINOBI_SPAWN_DEPTH;
     process.env.SHINOBI_SPAWN_DEPTH = String(childDepth);
-    let result;
+    let result: AgentLoopResult;
+    let worktreeNote = '';
     try {
-      result = await runAgentLoop({
-        task,
-        systemPrompt: (args.system_prompt ?? '').trim() || DEFAULT_SYSTEM_PROMPT,
-        tools: box,
-        depth: childDepth,
-        label,
-        maxIterations: typeof args.max_iterations === 'number' ? args.max_iterations : undefined,
-        invokeLLM: _invoker,
-      });
+      if (isolation === 'worktree') {
+        const mgr = worktreeManager();
+        if (!mgr.isGitRepo()) {
+          return {
+            success: false,
+            output: '',
+            error: 'isolation="worktree" requiere que el directorio actual sea un repositorio git.',
+          };
+        }
+        // El subagente corre con cwd + WORKSPACE_ROOT scoped al worktree; si deja
+        // cambios, se conserva (rama propia) para fusionar; si no, se descarta.
+        const wrapped = await withWorktree(mgr, label, async () => runLoop(), { keepIfChanged: true });
+        result = wrapped.result;
+        worktreeNote = wrapped.kept
+          ? `\n[worktree conservado con cambios: rama ${wrapped.worktree.branch} → ${wrapped.worktree.path}]`
+          : `\n[worktree descartado (sin cambios): ${wrapped.worktree.branch}]`;
+      } else {
+        result = await runLoop();
+      }
     } finally {
       if (prevDepthEnv === undefined) delete process.env.SHINOBI_SPAWN_DEPTH;
       else process.env.SHINOBI_SPAWN_DEPTH = prevDepthEnv;
@@ -122,7 +176,7 @@ const spawnAgent: Tool = {
     const strippedNote = stripped.length > 0
       ? `\n[nota: herramientas destructivas excluidas de la caja: ${stripped.join(', ')}]`
       : '';
-    const header = `Subagente "${label}" → ${result.verdict} en ${result.iterations} iter${usedLine}.${strippedNote}`;
+    const header = `Subagente "${label}" → ${result.verdict} en ${result.iterations} iter${usedLine}.${strippedNote}${worktreeNote}`;
 
     if (!result.ok) {
       return {
