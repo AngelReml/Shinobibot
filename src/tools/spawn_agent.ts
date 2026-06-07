@@ -19,10 +19,16 @@ import { DESTRUCTIVE_TOOLS } from '../security/approval.js';
 import { WorktreeManager, withWorktree } from '../agents/worktree.js';
 
 // Tools destructivas que SÍ son seguras bajo aislamiento por worktree porque
-// validatePath las confina a WORKSPACE_ROOT (= el worktree desechable). El resto
-// (run_command, screen_act, cloud_mission…) NO: un shell no se sandboxea con
-// chdir — eso lo cubre la pieza de sandbox real. Por eso siguen bloqueadas.
+// validatePath las confina a WORKSPACE_ROOT (= el worktree desechable).
 const WORKTREE_SAFE = new Set(['write_file', 'edit_file']);
+
+// Tools destructivas que SÍ son seguras cuando hay un SANDBOX de ejecución
+// activo (docker/e2b): run_command corre en un contenedor efímero (red off,
+// solo el cwd montado), no en el host. El resto (screen_act, cloud_mission,
+// task_scheduler…) NO se sandboxean con el contenedor → siguen bloqueadas.
+const SANDBOX_SAFE = new Set(['run_command']);
+
+export type SandboxMode = 'none' | 'docker' | 'e2b';
 
 const DEFAULT_SYSTEM_PROMPT =
   'Eres un subagente de shinobi enfocado en UNA tarea concreta. Trabaja solo con ' +
@@ -97,6 +103,16 @@ const spawnAgent: Tool = {
           'cambios, el worktree se conserva (rama propia) para fusionar; si no, ' +
           'se descarta. Default "none".',
       },
+      sandbox: {
+        type: 'string',
+        enum: ['none', 'docker', 'e2b'],
+        description:
+          'Opcional. Sandbox de EJECUCIÓN para el subagente. "docker": run_command ' +
+          'corre en un contenedor efímero (sin red, solo el cwd montado). "e2b": ' +
+          'sandbox cloud (requiere E2B_API_KEY). En estos modos se PERMITE ' +
+          'run_command (aislado del host). Si el backend no está disponible, falla ' +
+          'en vez de ejecutar en el host. Default "none".',
+      },
     },
     required: ['task'],
   },
@@ -109,6 +125,7 @@ const spawnAgent: Tool = {
     max_iterations?: number;
     label?: string;
     isolation?: 'none' | 'worktree';
+    sandbox?: SandboxMode;
   }): Promise<ToolResult> {
     const task = (args.task ?? '').trim();
     if (!task) {
@@ -116,12 +133,41 @@ const spawnAgent: Tool = {
     }
 
     const isolation = args.isolation === 'worktree' ? 'worktree' : 'none';
+    const sandbox: SandboxMode = args.sandbox === 'docker' || args.sandbox === 'e2b' ? args.sandbox : 'none';
+
+    // Validación fail-loud del sandbox ANTES de tocar nada: si se pidió un
+    // backend que no está disponible/configurado, NO se ejecuta en el host.
+    if (sandbox === 'docker') {
+      const { isDockerAvailable } = await import('./_docker_backend.js');
+      const d = await isDockerAvailable();
+      if (!d.available) {
+        return {
+          success: false, output: '',
+          error: `sandbox="docker" no disponible (${d.error ?? 'docker daemon caído'}). ` +
+            `No se ejecuta en el host por seguridad.`,
+        };
+      }
+    } else if (sandbox === 'e2b') {
+      const { sandboxRegistry } = await import('../sandbox/registry.js');
+      const b = sandboxRegistry().get('e2b');
+      if (!b || !b.isConfigured()) {
+        return {
+          success: false, output: '',
+          error: 'sandbox="e2b" no configurado (define E2B_API_KEY). No se ejecuta en el host por seguridad.',
+        };
+      }
+    }
+
     const requested = Array.isArray(args.tools) && args.tools.length > 0 ? args.tools : DEFAULT_BOX;
     // Mínimo privilegio + seguridad: el subagente corre sin gate de aprobación,
-    // así que se le retiran las tools destructivas de la caja. Bajo aislamiento
-    // por worktree, las escrituras de fichero confinadas vuelven a ser seguras.
-    const isBlocked = (t: string) =>
-      DESTRUCTIVE_TOOLS.has(t) && !(isolation === 'worktree' && WORKTREE_SAFE.has(t));
+    // así que se le retiran las tools destructivas de la caja. Cada modo de
+    // aislamiento DESBLOQUEA el subconjunto que vuelve a ser seguro bajo él:
+    //   - worktree → escrituras de fichero confinadas (write_file/edit_file)
+    //   - sandbox  → ejecución de comandos aislada (run_command)
+    const unlocked = new Set<string>();
+    if (isolation === 'worktree') for (const t of WORKTREE_SAFE) unlocked.add(t);
+    if (sandbox !== 'none') for (const t of SANDBOX_SAFE) unlocked.add(t);
+    const isBlocked = (t: string) => DESTRUCTIVE_TOOLS.has(t) && !unlocked.has(t);
     const stripped = requested.filter(isBlocked);
     const box = requested.filter((t) => !isBlocked(t));
 
@@ -145,6 +191,11 @@ const spawnAgent: Tool = {
 
     const prevDepthEnv = process.env.SHINOBI_SPAWN_DEPTH;
     process.env.SHINOBI_SPAWN_DEPTH = String(childDepth);
+    // Sandbox de ejecución: el subagente routea run_command al backend pedido.
+    // Save/restore (global al proceso → correcto para el anidamiento secuencial,
+    // como la profundidad; el paralelo real lo cubrirá Team).
+    const prevBackendEnv = process.env.SHINOBI_RUN_BACKEND;
+    if (sandbox !== 'none') process.env.SHINOBI_RUN_BACKEND = sandbox;
     let result: AgentLoopResult;
     let worktreeNote = '';
     try {
@@ -170,13 +221,16 @@ const spawnAgent: Tool = {
     } finally {
       if (prevDepthEnv === undefined) delete process.env.SHINOBI_SPAWN_DEPTH;
       else process.env.SHINOBI_SPAWN_DEPTH = prevDepthEnv;
+      if (prevBackendEnv === undefined) delete process.env.SHINOBI_RUN_BACKEND;
+      else process.env.SHINOBI_RUN_BACKEND = prevBackendEnv;
     }
 
     const usedLine = result.toolsUsed.length > 0 ? ` (tools: ${result.toolsUsed.join(', ')})` : '';
     const strippedNote = stripped.length > 0
       ? `\n[nota: herramientas destructivas excluidas de la caja: ${stripped.join(', ')}]`
       : '';
-    const header = `Subagente "${label}" → ${result.verdict} en ${result.iterations} iter${usedLine}.${strippedNote}${worktreeNote}`;
+    const sandboxNote = sandbox !== 'none' ? `\n[sandbox de ejecución: ${sandbox}]` : '';
+    const header = `Subagente "${label}" → ${result.verdict} en ${result.iterations} iter${usedLine}.${strippedNote}${sandboxNote}${worktreeNote}`;
 
     if (!result.ok) {
       return {
