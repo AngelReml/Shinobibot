@@ -48,12 +48,23 @@ Nuevo hecho propuesto:
 
 Respuesta (NO_CONFLICT o la frase de contradicción):`;
 
-      const response = await invokeLLM([
-        { role: 'system', content: 'Eres un validador de consistencia lógica de memoria. Sé preciso y conciso.' },
-        { role: 'user', content: prompt }
-      ], { tier: 'fast' });
+      // invokeLLM espera LLMChatPayload ({ messages }) y devuelve CloudResponse
+      // ({ success, output, error }) — ver provider_router.ts:101 y cloud/types.ts.
+      // El bug histórico (array directo + lectura de `.content`) hacía que
+      // `reply` fuese siempre '' y se reportara un falso conflicto en cada llamada.
+      const response = await invokeLLM({
+        messages: [
+          { role: 'system', content: 'Eres un validador de consistencia lógica de memoria. Sé preciso y conciso.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0
+      });
 
-      const reply = (response.content || '').trim();
+      if (!response.success) {
+        throw new Error(response.error || 'LLM check failed');
+      }
+
+      const reply = (response.output || '').trim();
       if (reply.includes('NO_CONFLICT')) {
         return { hasConflict: false };
       }

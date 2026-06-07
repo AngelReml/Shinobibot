@@ -60,7 +60,7 @@ describe('ContradictionFilter', () => {
         { entry: { content: 'Usa la zona horaria UTC-5' } }
       ]);
       const { invokeLLM } = await import('../../providers/provider_router.js');
-      (invokeLLM as any).mockResolvedValue({ content: 'NO_CONFLICT' });
+      (invokeLLM as any).mockResolvedValue({ success: true, output: 'NO_CONFLICT' });
 
       const check = await ContradictionFilter.check('Vive en Lima');
       expect(check.hasConflict).toBe(false);
@@ -71,7 +71,7 @@ describe('ContradictionFilter', () => {
         { entry: { content: 'Prefiere programar usando Windows' } }
       ]);
       const { invokeLLM } = await import('../../providers/provider_router.js');
-      (invokeLLM as any).mockResolvedValue({ content: 'Conflicto detectado: El usuario prefiere Windows pero ahora propone usar macOS' });
+      (invokeLLM as any).mockResolvedValue({ success: true, output: 'Conflicto detectado: El usuario prefiere Windows pero ahora propone usar macOS' });
 
       const check = await ContradictionFilter.check('Solo uso macOS para desarrollar');
       expect(check.hasConflict).toBe(true);

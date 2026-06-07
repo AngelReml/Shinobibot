@@ -117,21 +117,23 @@ async function maybeRunOneShotCommand(): Promise<boolean> {
       }
       process.exit(exitCode);
     }
-    const { runDemo } = await import('../src/demo/demo_runner.js');
-    const r = await runDemo({ task_id, record });
-    console.log('\n=== demo summary ===');
-    console.log(JSON.stringify(r, null, 2));
-    process.exit(0);
+    // src/demo/demo_runner fue eliminado del repo (existía en 5959de2); solo
+    // sobrevive el runner `killer` (demos/killer_demo_runner.mjs). Hasta que se
+    // restaure, fallamos con mensaje claro en vez de `module not found`.
+    console.error(
+      `Demo runner para tareas individuales no disponible (src/demo/demo_runner fue retirado).\n` +
+      `Usa: shinobi demo --task killer [--record]`
+    );
+    process.exit(2);
   }
 
-  // H5 — full self-improvement demo with optional OBS bracketing.
+  // H5 — full self-improvement demo. Dependía de src/demo/demo_runner (retirado).
   if (argv[0] === 'run-demo' && argv[1] === 'full-self-improve') {
-    const record = argv.includes('--record');
-    const { runDemo } = await import('../src/demo/demo_runner.js');
-    const r = await runDemo({ fullSelfImprove: true, record });
-    console.log('\n=== run-demo summary ===');
-    console.log(JSON.stringify(r, null, 2));
-    process.exit(0);
+    console.error(
+      'run-demo full-self-improve no disponible: src/demo/demo_runner fue retirado del repo.\n' +
+      'Transcripts históricos en demos/*.transcript.txt.'
+    );
+    process.exit(2);
   }
 
   // 24/7 resident mode — `shinobi daemon`. Headless: no REPL, just the
