@@ -13,7 +13,10 @@ import * as os from 'os';
 import * as path from 'path';
 import spawnAgent, { __setSpawnInvokerForTest, __setWorktreeManagerForTest } from '../spawn_agent.js';
 import '../write_file.js'; // registra la tool real write_file en el registry
+import '../run_command.js'; // registra la tool real run_command en el registry
 import { WorktreeManager } from '../../agents/worktree.js';
+import { sandboxRegistry, _resetSandboxRegistry } from '../../sandbox/registry.js';
+import type { RunBackend, RunOutput } from '../../sandbox/types.js';
 import type { LLMInvoker } from '../../agents/agent_loop.js';
 
 /** Invocador que cierra de inmediato con un texto fijo. */
@@ -159,4 +162,109 @@ describe('spawn_agent — isolation worktree (git real)', () => {
     expect(wt, 'debe existir el worktree del writer').toBeTruthy();
     expect(fs.existsSync(path.join(wt!.path, 'out.txt'))).toBe(true);
   });
+});
+
+// ── Sandbox de ejecución ──────────────────────────────────────────────────
+
+describe('spawn_agent — sandbox de ejecución', () => {
+  const toolCallMsg = (name: string, args: unknown) =>
+    JSON.stringify({ content: '', tool_calls: [{ id: 'c1', type: 'function', function: { name, arguments: JSON.stringify(args) } }] });
+  const textMsg = (t: string) => JSON.stringify({ content: t });
+  const script = (steps: string[]): LLMInvoker => {
+    let i = 0;
+    return async () => ({ success: true, output: steps[Math.min(i++, steps.length - 1)], error: '' });
+  };
+
+  // Detección del daemon Docker en tiempo de colección (no en beforeAll, que
+  // corre después de evaluar it.skipIf). Gated: el test real solo corre donde
+  // el daemon está arriba.
+  const DOCKER_UP = (() => {
+    try { return (spawnSync('docker', ['info'], { timeout: 8000, encoding: 'utf-8' }).status ?? 1) === 0; }
+    catch { return false; }
+  })();
+
+  beforeAll(() => { process.env.SHINOBI_AUDIT_DISABLED = '1'; });
+  afterAll(() => {
+    delete process.env.SHINOBI_AUDIT_DISABLED;
+    __setSpawnInvokerForTest(null);
+    _resetSandboxRegistry();
+  });
+  afterEach(() => {
+    delete process.env.SHINOBI_RUN_BACKEND;
+    _resetSandboxRegistry();
+  });
+
+  it('sandbox=docker con daemon caído falla loud (no ejecuta en el host)', async () => {
+    __setSpawnInvokerForTest(completesWith('no debería ejecutarse'));
+    const res = await spawnAgent.execute({ task: 'corre algo', tools: ['run_command'], sandbox: 'docker' });
+    // En este entorno el daemon docker está caído → debe fallar, no caer al host.
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/docker/i);
+    expect(res.error).toMatch(/host|seguridad/i);
+  });
+
+  it('sandbox=e2b sin configurar falla loud', async () => {
+    delete process.env.E2B_API_KEY;
+    __setSpawnInvokerForTest(completesWith('x'));
+    const res = await spawnAgent.execute({ task: 'corre algo', tools: ['run_command'], sandbox: 'e2b' });
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/e2b/i);
+  });
+
+  it('con sandbox activo, run_command se DESBLOQUEA y se routea al backend; env restaurada', async () => {
+    // Backend falso registrado bajo id 'e2b' (isConfigured=true) → valida el
+    // wiring sin e2b/docker reales.
+    let backendCalls = 0;
+    const fake: RunBackend = {
+      id: 'e2b',
+      label: 'fake',
+      requiredEnvVars: () => [],
+      isConfigured: () => true,
+      async run(): Promise<RunOutput> {
+        backendCalls++;
+        return { success: true, stdout: 'SANDBOXED_OK', stderr: '', exitCode: 0, backend: 'e2b', durationMs: 1 };
+      },
+    };
+    sandboxRegistry().register(fake);
+
+    __setSpawnInvokerForTest(script([
+      toolCallMsg('run_command', { command: 'echo hola' }),
+      textMsg('comando ejecutado'),
+    ]));
+
+    const res = await spawnAgent.execute({
+      task: 'ejecuta echo',
+      tools: ['run_command'],
+      sandbox: 'e2b',
+      label: 'runner',
+    });
+
+    expect(res.success).toBe(true);
+    expect(res.output).toMatch(/sandbox de ejecución: e2b/);
+    // run_command NO se filtró
+    expect(res.output).not.toMatch(/excluidas[^\n]*run_command/);
+    // se routeó al backend de sandbox (no al host)
+    expect(backendCalls).toBe(1);
+    // env de backend restaurada tras ejecutar
+    expect(process.env.SHINOBI_RUN_BACKEND).toBeUndefined();
+  });
+
+  // Integración REAL con Docker — gated: solo corre si el daemon está arriba.
+  // En entornos sin daemon (incl. este) se salta; en CI/maquina con Docker
+  // valida la ejecución de run_command DENTRO de un contenedor efímero.
+  it.skipIf(!DOCKER_UP)('REAL docker: run_command corre dentro de un contenedor efímero', async () => {
+    __setSpawnInvokerForTest(script([
+      toolCallMsg('run_command', { command: 'echo sandboxed-ok' }),
+      textMsg('hecho'),
+    ]));
+    const res = await spawnAgent.execute({
+      task: 'ejecuta echo en el sandbox',
+      tools: ['run_command'],
+      sandbox: 'docker',
+      label: 'docker-runner',
+    });
+    expect(res.success).toBe(true);
+    expect(res.output).toMatch(/sandbox de ejecución: docker/);
+    expect(process.env.SHINOBI_RUN_BACKEND).toBeUndefined();
+  }, 120_000);
 });

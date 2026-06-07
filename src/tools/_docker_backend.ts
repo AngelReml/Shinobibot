@@ -32,8 +32,11 @@ export interface DockerExecResult {
 }
 
 /**
- * Verifica que `docker --version` ejecuta OK. Cachea el resultado para
- * evitar el sub-process en cada llamada.
+ * Verifica que Docker está REALMENTE usable: no basta con que la CLI exista
+ * (`docker --version` pasa aunque el daemon esté caído), hay que contactar el
+ * daemon. Usamos `docker info`, que falla si el daemon no responde. Así
+ * "available=true" significa que un `docker run` tiene posibilidades de
+ * funcionar, no solo que el binario está instalado. Cachea el resultado.
  */
 let _availabilityCache: { checked: boolean; available: boolean; error?: string } = { checked: false, available: false };
 
@@ -46,12 +49,13 @@ export function isDockerAvailable(): Promise<{ available: boolean; error?: strin
     return Promise.resolve({ available: _availabilityCache.available, error: _availabilityCache.error });
   }
   return new Promise((resolve) => {
-    exec('docker --version', { timeout: 5000, encoding: 'utf-8' }, (err) => {
+    // `docker info` contacta el daemon; si está caído, exit ≠ 0.
+    exec('docker info', { timeout: 8000, encoding: 'utf-8' }, (err) => {
       const available = !err;
       _availabilityCache = {
         checked: true,
         available,
-        error: err ? `docker no disponible: ${err.message}` : undefined,
+        error: err ? `docker no usable (daemon caído o sin permisos): ${err.message}` : undefined,
       };
       resolve({ available, error: _availabilityCache.error });
     });
