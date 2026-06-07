@@ -29,28 +29,11 @@ jobs:
       - name: Install dependencies
         run: npm ci || npm install --no-audit --no-fund
 
-      # tsc valida orchestrator/run_command/compactor/failover/loop_detector
-      # y los 10 tools nuevos. Los 4 errores pre-existentes en módulos no
-      # tocados (memory_store, missions_recurrent, d017_smoke,
-      # desktop_skills_load) se filtran explícitamente para que no rompan CI
-      # mientras se aborda su deuda técnica por separado.
-      - name: Typecheck (filtra errores pre-existentes en módulos no tocados)
-        shell: pwsh
-        run: |
-          $output = npx tsc --noEmit 2>&1 | Out-String
-          $newErrors = $output -split "`n" | Where-Object {
-            $_ -match 'error TS' -and
-            $_ -notmatch 'memory_store\.ts' -and
-            $_ -notmatch 'missions_recurrent\.ts' -and
-            $_ -notmatch 'scripts/d017_smoke\.ts' -and
-            $_ -notmatch 'scripts/desktop_skills_load\.ts'
-          }
-          if ($newErrors) {
-            Write-Host "NEW tsc errors detected (failing build):"
-            $newErrors | ForEach-Object { Write-Host $_ }
-            exit 1
-          }
-          Write-Host "tsc clean (pre-existing errors filtered)."
+      # Gate estricto: 0 errores de tipo tolerados. La deuda que justificaba
+      # los filtros anteriores se saldó en la auditoría 2026-06-06 (ver
+      # DOSSIER_AUDITORIA_2026-06-06.md). Si tsc falla aquí, el merge no pasa.
+      - name: Typecheck (estricto, 0 errores)
+        run: npx tsc --noEmit
 
       - name: Vitest
         run: npm test

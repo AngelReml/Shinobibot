@@ -22,7 +22,7 @@ flowchart TD
 
     subgraph Coordinator["Coordinator"]
         Orchestrator[ShinobiOrchestrator<br/>src/coordinator/orchestrator.ts]
-        LoopDetector[LoopDetector v2<br/>args + semantic]
+        LoopDetector[LoopDetector v3<br/>args + semantic + failure-mode]
         Compactor[Context Compactor<br/>src/context/compactor.ts]
         TokenBudget[Token Budget<br/>src/context/token_budget.ts]
     end
@@ -36,7 +36,7 @@ flowchart TD
         Anthropic[Anthropic]
     end
 
-    subgraph Tools["Tool Registry (34 tools)"]
+    subgraph Tools["Tool Registry (41 tools registrados)"]
         FS[File I/O<br/>read/write/edit/list/search]
         Shell[run_command<br/>blacklist + sandbox]
         Browser[Playwright CDP<br/>browser_click/scroll]
@@ -144,7 +144,7 @@ flowchart TD
 
 ### Heurístico antes que LLM
 
-El compactor y el loop detector v2 son **100% heurísticos**. Podrían usar un
+El compactor y el loop detector v3 son **100% heurísticos**. Podrían usar un
 LLM para summarization semántica o detección de "non-progress" más fina, pero
 eso añade latencia, coste y un punto de fallo más. La regla `chars/4` y el
 fingerprint con timestamps/paths normalizados cubren el 95% del valor con 0%

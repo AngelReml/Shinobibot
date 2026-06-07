@@ -50,6 +50,7 @@ logs.txt
 docs/*
 !docs/deploy/
 !docs/validation/
+!docs/BROWSER_SUBSYSTEM.md
 audits/
 knowledge/
 
@@ -73,6 +74,8 @@ screenshots/
 # === Bloque 3 — Skill Manager (locales por instalación, no checkear) ===
 skills/pending/
 skills/approved/
+# Excepcion: el skill del subsistema Kage SÍ se versiona (ship con la feature).
+!skills/approved/kage-browser-operator.skill.md
 task_runs.db
 
 # === Bloque 4 — Memoria curada (privada por usuario, no checkear) ===

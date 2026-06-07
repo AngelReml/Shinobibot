@@ -64,9 +64,9 @@ async function main() {
   check('loadAtBoot crea memory/USER.md y memory/MEMORY.md',
     fs.existsSync(path.join(tmp, 'memory', 'USER.md')) && fs.existsSync(path.join(tmp, 'memory', 'MEMORY.md')),
     boot.created.join(', '));
-  const eu = cm.editUserSection('Nombre y ubicación', 'El usuario se llama Iván, zona horaria CET.');
+  const eu = await cm.editUserSection('Nombre y ubicación', 'El usuario se llama Iván, zona horaria CET.');
   check('editUserSection escribe en memory/USER.md', eu.ok, eu.message);
-  const ae = cm.appendEnv('El usuario prefiere respuestas directas y concisas.');
+  const ae = await cm.appendEnv('El usuario prefiere respuestas directas y concisas.');
   check('appendEnv escribe en memory/MEMORY.md', ae.ok, ae.message);
   const snap = cm.getSnapshot() || '';
   check('el snapshot (system prompt) incluye ambos archivos',
