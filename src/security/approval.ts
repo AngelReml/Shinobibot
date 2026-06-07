@@ -110,6 +110,9 @@ const READ_ONLY_TOOLS = new Set<string>([
   'read_file', 'list_dir', 'search_files',
   'web_search', 'web_search_with_warmup',
   'screen_observe', 'skill_list', 'n8n_list_catalog',
+  // browser_observe es read-only; browser_act/browser_session llevan su propio
+  // consentimiento (src/browser/consent.ts), no el gate global.
+  'browser_observe',
 ]);
 
 /**

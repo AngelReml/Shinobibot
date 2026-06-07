@@ -45,6 +45,7 @@ export default defineConfig({
       'src/tools/__tests__/voice_tools.test.ts',
       'src/tui/__tests__/**/*.test.tsx',
       'src/web/__tests__/pwa.test.ts',
+      'src/browser/__tests__/**/*.test.ts',
       'src/dispatch/__tests__/**/*.test.ts',
       'src/agents/__tests__/**/*.test.ts',
       'src/__tests__/stress/**/*.test.ts',

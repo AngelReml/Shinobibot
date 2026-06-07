@@ -39,6 +39,8 @@ import { loadConfig, saveConfig, reloadConfig, type ShinobiConfig } from '../run
 import { getClient, currentProvider, invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import { tokenBudget } from '../context/token_budget.js';
 import { toolEvents } from '../coordinator/tool_events.js';
+import { setBrowserConsentAsker } from '../browser/consent.js';
+import { screencastHub } from '../browser/screencast.js';
 import {
   ensureApprovalModeInitialized,
   setApprovalAsker,
@@ -414,6 +416,39 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     broadcastAll({ type: 'tool_event', event });
   });
 
+  // Subsistema de navegador "Kage": consentimiento de acciones sensibles. Usa
+  // el MISMO canal de aprobaciones (approval_request/approval_response +
+  // pendingApprovals) que ya existe, pero el asker devuelve boolean. Política
+  // timeout-deny la aplica consent.ts; aquí solo preguntamos. Ver
+  // docs/BROWSER_SUBSYSTEM.md §1.5.
+  setBrowserConsentAsker(async (promptText: string): Promise<boolean> => {
+    if (allClients.size === 0) return false; // sin UI → fail-safe deny
+    return new Promise<boolean>((resolve) => {
+      const requestId = randomUUID();
+      let done = false;
+      // finish() es idempotente: borra la entrada del mapa (evita fuga si el
+      // usuario nunca responde) y resuelve una sola vez.
+      const finish = (val: boolean) => {
+        if (done) return;
+        done = true;
+        pendingApprovals.delete(requestId);
+        resolve(val);
+      };
+      pendingApprovals.set(requestId, (ans: Approval) => finish(ans === 'yes' || ans === 'always'));
+      broadcastAll({ type: 'approval_request', promptText, requestId, kind: 'browser_consent' });
+      // Auto-limpieza: consent.ts ya deniega por su propio timeout; esto solo
+      // garantiza que la entrada no quede huérfana. Margen de 5s para que el
+      // deny autoritativo lo emita consent.ts primero.
+      const ms = Number(process.env.KAGE_CONSENT_TIMEOUT_MS) || 60_000;
+      setTimeout(() => finish(false), ms + 5_000);
+    });
+  });
+
+  // Screencast del navegador → frames en vivo al panel (browser.html).
+  screencastHub().on('frame', (frame: { dataB64: string; ts: number }) => {
+    broadcastAll({ type: 'browser_frame', dataB64: frame.dataB64, ts: frame.ts });
+  });
+
   // Serial queue: only one in-flight request per server. The orchestrator
   // holds shared static state and we monkey-patch console during processing,
   // so concurrent requests would mix output streams.
@@ -427,7 +462,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     // redes no confiables conviene además un token — ver nota de la auditoría.
     const origin = request.headers.origin;
     if (origin) {
-      let originHost = ' ';
+      let originHost = '';
       try { originHost = new URL(origin).host; } catch { /* origin malformado */ }
       if (originHost !== request.headers.host) {
         console.warn(`[webchat] WS rechazado — Origin '${origin}' no coincide con host '${request.headers.host}'`);
@@ -505,10 +540,21 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
         // emoji [🔨] que el orchestrator emite; el fallback busca el texto ASCII
         // 'Tool called:' por si el emoji cambia o se pierde en el log pipeline.
         const toolMatchEmoji = line.match(/\[🔨\]\s+Tool called:\s+(\S+)/);
-        const toolMatchAscii = !toolMatchEmoji && line.match(/Tool called:\s+(\S+)/);
+        const toolMatchAscii = toolMatchEmoji ? null : line.match(/Tool called:\s+(\S+)/);
         const toolName = (toolMatchEmoji ?? toolMatchAscii)?.[1];
         if (toolName) {
           try { ws.send(JSON.stringify({ type: 'tool_call', name: toolName })); } catch {}
+        }
+        // Razonamiento/plan del modelo ([🧠], auditoría 2026-06-06) y skills
+        // activadas ([🧩]): se emiten con tipo propio para que la UI pueda
+        // renderizarlos como confirmación visual destacada, no como log plano.
+        const planMatch = line.match(/\[🧠\]\s+(.*)/);
+        if (planMatch) {
+          try { ws.send(JSON.stringify({ type: 'plan', text: planMatch[1] })); } catch {}
+        }
+        const skillMatch = line.match(/\[🧩\]\s+(.*)/);
+        if (skillMatch) {
+          try { ws.send(JSON.stringify({ type: 'skill_activated', text: skillMatch[1] })); } catch {}
         }
         try { ws.send(JSON.stringify({ type: 'thinking', line })); } catch {}
       };
