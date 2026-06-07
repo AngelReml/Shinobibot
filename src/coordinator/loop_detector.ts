@@ -331,16 +331,22 @@ export class LoopDetector {
  * El orchestrator la usa para inyectar la config al construir el detector.
  */
 export function loopDetectorConfigFromEnv(): LoopDetectorConfig {
-  const args = Number(process.env.SHINOBI_LOOP_MAX_REPEAT_ARGS);
-  const output = Number(process.env.SHINOBI_LOOP_MAX_SAME_OUTPUT);
-  const failMode = Number(process.env.SHINOBI_LOOP_MAX_SAME_FAILURE);
-  const winSize = Number(process.env.SHINOBI_LOOP_FAILURE_WINDOW_SIZE);
-  const winThreshold = Number(process.env.SHINOBI_LOOP_FAILURE_WINDOW_THRESHOLD);
-  return {
-    maxRepeatArgs: Number.isFinite(args) && args > 0 ? args : undefined,
-    maxSameOutput: Number.isFinite(output) && output > 0 ? output : undefined,
-    maxSameFailureMode: Number.isFinite(failMode) && failMode > 0 ? failMode : undefined,
-    failureWindowSize: Number.isFinite(winSize) && winSize > 0 ? winSize : undefined,
-    failureWindowThreshold: Number.isFinite(winThreshold) && winThreshold > 0 ? winThreshold : undefined,
+  // IMPORTANTE: solo incluimos las claves cuya env está puesta y es válida.
+  // Devolver `{ maxRepeatArgs: undefined, ... }` rompía el merge del
+  // constructor (`{ ...DEFAULTS, ...cfg }`), porque `undefined` SOBRESCRIBE el
+  // default → `prev >= undefined - 1` = `prev >= NaN` = siempre false, dejando
+  // las tres capas del detector INERTES cuando no había envs configuradas
+  // (el caso por defecto en producción). Construimos un objeto parcial: las
+  // claves ausentes dejan vivir los DEFAULTS.
+  const cfg: LoopDetectorConfig = {};
+  const setIfValid = (key: keyof LoopDetectorConfig, envName: string): void => {
+    const n = Number(process.env[envName]);
+    if (Number.isFinite(n) && n > 0) cfg[key] = n;
   };
+  setIfValid('maxRepeatArgs', 'SHINOBI_LOOP_MAX_REPEAT_ARGS');
+  setIfValid('maxSameOutput', 'SHINOBI_LOOP_MAX_SAME_OUTPUT');
+  setIfValid('maxSameFailureMode', 'SHINOBI_LOOP_MAX_SAME_FAILURE');
+  setIfValid('failureWindowSize', 'SHINOBI_LOOP_FAILURE_WINDOW_SIZE');
+  setIfValid('failureWindowThreshold', 'SHINOBI_LOOP_FAILURE_WINDOW_THRESHOLD');
+  return cfg;
 }

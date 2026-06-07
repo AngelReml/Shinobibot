@@ -165,4 +165,17 @@ describe('loopDetectorConfigFromEnv', () => {
     process.env.SHINOBI_LOOP_MAX_REPEAT_ARGS = 'abc';
     expect(loopDetectorConfigFromEnv().maxRepeatArgs).toBeUndefined();
   });
+
+  // Regresión: el bug era que la función devolvía claves con valor `undefined`
+  // explícito, y `{ ...DEFAULTS, ...cfg }` del constructor las sobrescribía →
+  // las tres capas quedaban inertes SIN envs (el caso por defecto). El test de
+  // arriba no lo cazaba porque accedía a campos (undefined igualmente). Esto sí:
+  // construye el detector como lo hace el orchestrator y exige que los defaults
+  // sigan vivos y aborte.
+  it('los DEFAULTS sobreviven al merge cuando no hay envs (detector funcional)', () => {
+    const det = new LoopDetector(loopDetectorConfigFromEnv());
+    // 1er intento idéntico: ok. 2º intento idéntico: aborta por default (=2).
+    expect(det.recordCallAttempt('t', { a: 1 }).abort).toBe(false);
+    expect(det.recordCallAttempt('t', { a: 1 }).abort).toBe(true);
+  });
 });
