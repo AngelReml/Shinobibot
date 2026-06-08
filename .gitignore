@@ -121,3 +121,4 @@ scratch/
 # Cache del reader (deep_descent) — generado, no versionar
 .shinobi-reader-cache/
 **/.shinobi-reader-cache/
+run_one_out.json
