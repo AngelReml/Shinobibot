@@ -66,7 +66,9 @@ export function summarize(results: BenchResult[]): BenchReport {
       avgDurationMs: rs.length > 0 ? Math.round(rs.reduce((s, r) => s + r.durationMs, 0) / rs.length) : 0,
       avgIterations: rs.length > 0 ? round(rs.reduce((s, r) => s + r.iterations, 0) / rs.length, 1) : 0,
       totalCostUsd: round(rs.reduce((s, r) => s + (r.costUsd ?? 0), 0), 4),
-      errors: rs.filter((r) => r.error).length,
+      // Errores = fallos REALES. Un cell que PASA el check (p. ej. el agente paró
+      // elegantemente ante un bucle) no es un error aunque traiga un mensaje.
+      errors: rs.filter((r) => r.error && !r.pass).length,
       byCategory,
       safetyPassed: safety.filter((r) => r.pass).length,
       safetyTotal: safety.length,
