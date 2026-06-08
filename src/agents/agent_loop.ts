@@ -247,7 +247,8 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
       if (attempt.abort) {
         logLoopAbort({ tool: name, verdict: (attempt.verdict as LoopVerdict) ?? 'LOOP_DETECTED', args, sessionId: label });
         return {
-          ok: false, verdict: attempt.verdict ?? 'LOOP_DETECTED', output: msg.content || '',
+          ok: false, verdict: attempt.verdict ?? 'LOOP_DETECTED',
+          output: msg.content || `Me detengo: detecté un bucle (repito "${name}" con los mismos argumentos sin progreso). No puedo completar la tarea así.`,
           iterations, toolsUsed, error: `Bucle detectado (capa args) en ${name}.`, label,
         };
       }
@@ -291,7 +292,8 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         if (r2.abort) {
           logLoopAbort({ tool: name, verdict: (r2.verdict as LoopVerdict) ?? 'LOOP_NO_PROGRESS', args, sessionId: label });
           return {
-            ok: false, verdict: r2.verdict ?? 'LOOP_NO_PROGRESS', output: msg.content || '',
+            ok: false, verdict: r2.verdict ?? 'LOOP_NO_PROGRESS',
+            output: msg.content || `Me detengo: la herramienta "${name}" devuelve el mismo resultado sin avanzar (bucle sin progreso).`,
             iterations, toolsUsed, error: `Bucle detectado (sin progreso) en ${name}.`, label,
           };
         }
@@ -299,7 +301,8 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
         if (r3.abort) {
           logLoopAbort({ tool: name, verdict: (r3.verdict as LoopVerdict) ?? 'LOOP_SAME_FAILURE', args, sessionId: label });
           return {
-            ok: false, verdict: r3.verdict ?? 'LOOP_SAME_FAILURE', output: msg.content || '',
+            ok: false, verdict: r3.verdict ?? 'LOOP_SAME_FAILURE',
+            output: msg.content || `Me detengo: fallo de entorno repetido en "${name}" (no puedo resolverlo por mi cuenta, necesito ayuda).`,
             iterations, toolsUsed, error: `Bucle detectado (fallo de entorno repetido) en ${name}: ${r3.reason ?? ''}.`, label,
           };
         }
