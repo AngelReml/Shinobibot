@@ -36,6 +36,8 @@ import './spawn_agent.js';
 // E2/E4 sobre el cimiento: fábrica de skills verificadas+firmadas y enjambre.
 import './synthesize_skill.js';
 import './run_swarm.js';
+// E3: audit como sustrato — trust-scores por herramienta desde audit.jsonl.
+import './trust_report.js';
 import './screen_observe.js';
 import './screen_act.js';
 
