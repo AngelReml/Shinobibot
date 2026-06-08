@@ -7,6 +7,7 @@ import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { validatePath } from '../utils/permissions.js';
 import { resolveInContext } from '../agents/exec_context.js';
+import { runDiagnostics, formatDiagnostics, lspOnWriteEnabled } from '../lsp/diagnostics.js';
 
 const editFileTool: Tool = {
   name: 'edit_file',
@@ -43,10 +44,17 @@ const editFileTool: Tool = {
     const newContent = content.replace(args.target, args.replacement);
     fs.writeFileSync(filePath, newContent, 'utf-8');
 
-    return {
-      success: true,
-      output: `Edited ${filePath}: replaced ${args.target.split('\n').length} lines with ${args.replacement.split('\n').length} lines.`,
-    };
+    let output = `Edited ${filePath}: replaced ${args.target.split('\n').length} lines with ${args.replacement.split('\n').length} lines.`;
+
+    // LSP-flavored (opt-in SHINOBI_LSP=1): diagnostica el resultado de la edición.
+    if (lspOnWriteEnabled()) {
+      try {
+        const diags = await runDiagnostics(filePath, newContent);
+        if (diags.length > 0) output += `\n${formatDiagnostics(diags)}`;
+      } catch { /* best-effort */ }
+    }
+
+    return { success: true, output };
   },
 };
 

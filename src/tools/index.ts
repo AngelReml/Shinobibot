@@ -44,6 +44,8 @@ import './trust_report.js';
 import './mcp_connect.js';
 // ToolSearch sobre E3: descubrimiento de tools por relevancia + fiabilidad.
 import './tool_search.js';
+// LSP-flavored: diagnósticos de código (TS/JS/JSON/Python).
+import './lint_file.js';
 import './screen_observe.js';
 import './screen_act.js';
 
