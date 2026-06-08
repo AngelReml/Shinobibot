@@ -55,6 +55,18 @@ export interface AgentRunResult {
   cost?: { promptTokens: number; completionTokens: number; usd: number };
   /** Ruta al audit.jsonl de esta corrida (para el paquete de "provable autonomy"). */
   auditPath?: string;
+  /** Métricas derivadas del audit (FASE 4). */
+  metrics?: {
+    toolCalls: number;
+    successes: number;
+    failures: number;
+    /** Bucles abortados por el loop-detector v3 (eje único de shinobi). */
+    loopAborts: number;
+  };
+  /** Intentos productor→verificador (modo verificado). */
+  attempts?: number;
+  /** true si el verificador cazó un fallo y un reintento lo corrigió (self-correction). */
+  selfCorrected?: boolean;
   /** Error de infraestructura (no es lo mismo que fallar el check). */
   error?: string;
 }
@@ -79,5 +91,9 @@ export interface BenchResult {
   iterations: number;
   toolsUsed: string[];
   costUsd?: number;
+  /** Bucles abortados (loop-detector). */
+  loopAborts?: number;
+  /** Auto-corrección (verificador cazó + reintento arregló). */
+  selfCorrected?: boolean;
   error?: string;
 }

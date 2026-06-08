@@ -82,7 +82,10 @@ export async function runBenchmark(
         pass, checkDetail: detail,
         durationMs: run.durationMs || (Date.now() - t0),
         iterations: run.iterations, toolsUsed: run.toolsUsed,
-        costUsd: run.cost?.usd, error: run.error,
+        costUsd: run.cost?.usd,
+        loopAborts: run.metrics?.loopAborts,
+        selfCorrected: run.selfCorrected,
+        error: run.error,
       };
     } catch (e: any) {
       result = {
