@@ -9,6 +9,7 @@ import {
   computeAdvertisedTools,
   DEFERRED_TOOLS_HINT,
 } from '../tools/tool_activation.js';
+import { loadTrustReport } from '../audit/trust_ledger.js';
 import { sharedMemory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
 import { MemoryStore, sharedMemoryStore } from '../memory/memory_store.js';
@@ -315,6 +316,9 @@ export class ShinobiOrchestrator {
       resetActivatedTools();
       currentMessages = [{ role: 'system', content: DEFERRED_TOOLS_HINT } as any, ...currentMessages];
     }
+    // E3 (FASE 2.B): trust-scores por tool desde el audit, cargados UNA vez por
+    // misión, para ordenar las tools anunciadas por fiabilidad probada.
+    const trustReport = loadTrustReport();
 
     // P2 — iteration_budget: el cap de turnos del loop ahora es un
     // IterationBudget (consumible, con snapshot), configurable por env, en
@@ -373,6 +377,7 @@ export class ShinobiOrchestrator {
       const advertisedTools = computeAdvertisedTools(availableTools, {
         deferred,
         activated: getActivatedTools(),
+        trustReport,
       });
       const openAITools = toOpenAITools(advertisedTools);
 

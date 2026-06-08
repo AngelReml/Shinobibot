@@ -16,6 +16,7 @@
 // orchestrator serializa las misiones (mutex `busy`). Se resetea por misión.
 
 import type { Tool } from './tool_registry.js';
+import { rankToolNamesByTrust, type TrustReport } from '../audit/trust_ledger.js';
 
 /**
  * Núcleo siempre anunciado: lo mínimo para trabajar y para DESCUBRIR el resto
@@ -57,11 +58,21 @@ export function getActivatedTools(): Set<string> {
  */
 export function computeAdvertisedTools(
   allTools: Tool[],
-  opts: { deferred: boolean; activated: Set<string>; core?: readonly string[] },
+  opts: { deferred: boolean; activated: Set<string>; core?: readonly string[]; trustReport?: TrustReport },
 ): Tool[] {
-  if (!opts.deferred) return allTools;
-  const keep = new Set<string>([...(opts.core ?? CORE_TOOLS), ...opts.activated]);
-  return allTools.filter((t) => keep.has(t.name));
+  let out = allTools;
+  if (opts.deferred) {
+    const keep = new Set<string>([...(opts.core ?? CORE_TOOLS), ...opts.activated]);
+    out = allTools.filter((t) => keep.has(t.name));
+  }
+  // E3 cierra el loop: ordena las tools anunciadas por fiabilidad PROBADA (las
+  // más fiables primero) — el sustrato de audit influye en lo que el modelo ve.
+  // Sin historial, orden estable original (sin cambio de comportamiento).
+  if (opts.trustReport && opts.trustReport.tools.length > 0) {
+    const rank = new Map(rankToolNamesByTrust(out.map((t) => t.name), opts.trustReport).map((n, i) => [n, i]));
+    out = [...out].sort((a, b) => (rank.get(a.name) ?? 0) - (rank.get(b.name) ?? 0));
+  }
+  return out;
 }
 
 /** Hint de sistema que se inyecta en modo deferred para que el agente busque. */
