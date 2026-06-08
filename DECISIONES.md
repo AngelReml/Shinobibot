@@ -1,5 +1,19 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-06-08 · ARQUITECTURA: OpenGravity LANZA el benchmark (no shinobi)
+- Decisión del usuario: el benchmark lo lanza OpenGravity (C:\...\OpenGravity), que
+  ya tiene su harness (benchmarks/pilot_agentic_v1/run_bench.py + ledger hash-chain
+  + adaptador eigenai). shinobi es uno de los AGENTES que evalúa.
+- shinobi expone scripts/run_one.ts (runner headless: prompt -> JSON {content,
+  tool_calls, latency_ms, signature=provenance, loop_aborts, ok}). PUSHEADO a shinobi.
+- OpenGravity: nuevo adapters/shinobi/client.py (run_inference que invoca run_one) +
+  run_bench.py --agent (eigenai|shinobi). COMMIT LOCAL en OpenGravity rama
+  chore/cleanup (sin push — otro repo, lo decide el usuario).
+- VALIDADO end-to-end: `python run_bench.py --agent shinobi --smoke` -> ledger entry
+  real con la firma de provenance de shinobi.
+- PENDIENTE: adaptadores Hermes/OpenClaw iguales (su install+keys = bloque b);
+  opcional portar las tareas con check determinista (coding/safety) al schema de OG.
+
 ## 2026-06-08 · Bloque (a) del benchmark — sustancialmente completo
 - 4.2/4.3/4.4: métricas-titular instrumentadas (bucles abortados, safety, auto-corr).
 - Gate selectivo COMPLETO en el harness (mide safety real, no solo hard-block).
