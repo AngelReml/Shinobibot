@@ -14,6 +14,8 @@ tmp/
 # === Benchmark === (resultados de runtime; config puede llevar API keys)
 bench-results/
 bench.config.json
+# === Estado vivo (regenerable con `node estado.mjs`) ===
+ESTADO.md
 *.log 
 *.tmp 
 temp_file.txt 
