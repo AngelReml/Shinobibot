@@ -389,13 +389,13 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   const pendingApprovals = new Map<string, (v: Approval) => void>();
   setApprovalAsker(async (promptText: string): Promise<Approval> => {
     if (allClients.size === 0) {
-      console.log(`[DIAG-SERVER] [${new Date().toISOString()}] No clients connected, denying approval request.`);
+      if (process.env.SHINOBI_DEBUG === '1') console.log(`[DIAG-SERVER] [${new Date().toISOString()}] No clients connected, denying approval request.`);
       return 'no';
     }
     return new Promise((resolve) => {
       const requestId = randomUUID();
       pendingApprovals.set(requestId, resolve);
-      console.log(`[DIAG-SERVER] [${new Date().toISOString()}] Emitiendo approval_request a ${allClients.size} cliente(s).`);
+      if (process.env.SHINOBI_DEBUG === '1') console.log(`[DIAG-SERVER] [${new Date().toISOString()}] Emitiendo approval_request a ${allClients.size} cliente(s).`);
       broadcastAll({ type: 'approval_request', promptText, requestId });
     });
   });

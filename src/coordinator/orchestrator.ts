@@ -453,13 +453,13 @@ export class ShinobiOrchestrator {
           llmPayload.model = routeDecision.choice.model;
         }
         const t0 = Date.now();
-        console.log(`[DEBUG-ORCHESTRATOR] [${new Date().toISOString()}] BEFORE LLM CALL. Model: ${llmPayload.model}, Provider: ${routeDecision.enabled ? routeDecision.choice.provider : 'default'}`);
+        if (process.env.SHINOBI_DEBUG === '1') console.log(`[DEBUG-ORCHESTRATOR] [${new Date().toISOString()}] BEFORE LLM CALL. Model: ${llmPayload.model}, Provider: ${routeDecision.enabled ? routeDecision.choice.provider : 'default'}`);
         const result = await routedInvokeLLM(
           llmPayload,
           routeDecision.enabled ? { provider: routeDecision.choice.provider as any } : undefined,
         );
         const durationMs = Date.now() - t0;
-        console.log(`[DEBUG-ORCHESTRATOR] [${new Date().toISOString()}] AFTER LLM CALL. Success: ${result.success}, output length: ${result.output?.length ?? 0}, error: ${result.error || 'none'}`);
+        if (process.env.SHINOBI_DEBUG === '1') console.log(`[DEBUG-ORCHESTRATOR] [${new Date().toISOString()}] AFTER LLM CALL. Success: ${result.success}, output length: ${result.output?.length ?? 0}, error: ${result.error || 'none'}`);
         if (!result.success) {
           throw new Error(`LLM Error: ${result.error}`);
         }
