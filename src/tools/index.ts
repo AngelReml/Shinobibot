@@ -40,6 +40,8 @@ import './run_swarm.js';
 import './run_team.js';
 // E3: audit como sustrato — trust-scores por herramienta desde audit.jsonl.
 import './trust_report.js';
+// MCP: conecta servidores externos y registra sus tools como nativas.
+import './mcp_connect.js';
 // ToolSearch sobre E3: descubrimiento de tools por relevancia + fiabilidad.
 import './tool_search.js';
 import './screen_observe.js';

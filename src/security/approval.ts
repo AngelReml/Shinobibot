@@ -135,6 +135,9 @@ export const DESTRUCTIVE_TOOLS = new Set<string>([
   // /CREATE /F) — declara requiresConfirmation() pero el gate real corre
   // por esta lista, así que sin esta entrada se auto-ejecutaba sin pedir.
   'task_scheduler_create',
+  // mcp_connect spawnea un proceso externo (servidor MCP) y registra sus tools:
+  // es una decisión de confianza → requiere gate de aprobación.
+  'mcp_connect',
 ]);
 
 export interface DestructiveVerdict {
