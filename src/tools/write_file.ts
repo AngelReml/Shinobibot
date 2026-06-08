@@ -6,7 +6,7 @@ import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { validatePath } from '../utils/permissions.js';
 import { resolveInContext, contextWorkspaceRoot } from '../agents/exec_context.js';
-import { runDiagnostics, formatDiagnostics, lspOnWriteEnabled } from '../lsp/diagnostics.js';
+import { runDiagnostics, formatDiagnostics, lspOnWriteEnabled, lspSemanticEnabled } from '../lsp/diagnostics.js';
 
 const writeFileTool: Tool = {
   name: 'write_file',
@@ -49,7 +49,7 @@ const writeFileTool: Tool = {
       // y adjunta los problemas para que el agente los corrija de inmediato.
       if (lspOnWriteEnabled()) {
         try {
-          const diags = await runDiagnostics(filePath, args.content);
+          const diags = await runDiagnostics(filePath, args.content, { semantic: lspSemanticEnabled() });
           if (diags.length > 0) output += `\n${formatDiagnostics(diags)}`;
         } catch { /* best-effort: nunca rompe la escritura */ }
       }

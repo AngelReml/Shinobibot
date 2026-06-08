@@ -30,6 +30,32 @@ describe('runDiagnostics', () => {
   it('extensión sin checker → []', async () => {
     expect(await runDiagnostics('readme.md', '# hola')).toEqual([]);
   });
+
+  // FASE 3.1 — chequeo SEMÁNTICO (tipos).
+  it('semantic ON caza un error de TIPO que el sintáctico no ve', async () => {
+    const code = 'const a: string = 123;\n';
+    expect(await runDiagnostics('x.ts', code)).toEqual([]); // sintáctico: limpio
+    const diags = await runDiagnostics('x.ts', code, { semantic: true });
+    expect(diags.length).toBeGreaterThan(0);
+    expect(diags.some((d) => d.code === 'TS2322')).toBe(true);
+  });
+
+  it('semantic caza nº de argumentos incorrecto', async () => {
+    const code = 'function f(a: number) { return a; }\nf(1, 2);\n';
+    const diags = await runDiagnostics('y.ts', code, { semantic: true });
+    expect(diags.some((d) => d.code === 'TS2554')).toBe(true);
+  });
+
+  it('semantic FILTRA el ruido de resolución de módulos (no TS2307)', async () => {
+    const code = "import { z } from './no-existe';\nconst a: string = 123;\nconsole.log(z);\n";
+    const diags = await runDiagnostics('z.ts', code, { semantic: true });
+    expect(diags.some((d) => d.code === 'TS2322')).toBe(true); // el error real sí
+    expect(diags.some((d) => d.code === 'TS2307')).toBe(false); // el ruido de import no
+  });
+
+  it('semantic OFF (default) sigue siendo solo sintáctico', async () => {
+    expect(await runDiagnostics('x.ts', 'const a: string = 123;\n')).toEqual([]);
+  });
 });
 
 describe('formatDiagnostics', () => {
