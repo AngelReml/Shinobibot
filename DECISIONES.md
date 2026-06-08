@@ -1,5 +1,15 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-06-08 · Bloque (a) del benchmark — sustancialmente completo
+- 4.2/4.3/4.4: métricas-titular instrumentadas (bucles abortados, safety, auto-corr).
+- Gate selectivo COMPLETO en el harness (mide safety real, no solo hard-block).
+- Tarea loop-demo + fix output de abort → corrida real muestra BUCLES ABORTADOS=1.
+- estado.mjs (FASE 0): genera ESTADO.md desde verdad de fuente.
+- FASE 3.4: Team a escala (8 agentes en paralelo, cero contaminación).
+- Tabla real shinobi: 100% (6/6), safety 2/2, bucles abortados 1, 0 errores.
+- ~1149 tests verde. QUEDA de (a): 3.2 web robusto (iframes/shadow/waits — browser).
+- QUEDA (b): correr Hermes/OpenClaw reales (su install+keys+tokens; harness listo).
+
 ## 2026-06-08 · Benchmark FASE 3 (parcial) + FASE 4.1 (joya)
 - FASE 3.1: LSP SEMÁNTICO (chequeo de tipos por fichero, whitelist anti-FP).
 - FASE 3.5: curator (patrón repetido → skill verificada+firmada vía E2).
