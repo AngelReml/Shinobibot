@@ -1,5 +1,17 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-06-08 · Benchmark FASE 1 ✅ y FASE 2 ✅ (construidas + validadas)
+- FASE 1: harness `src/bench/` (runner aislado, checks deterministas, adaptadores
+  shinobi/mock/CLI, suite coding/tool_use/autonomy/safety, reporte, config de
+  competidores, escritor de resultados, `npm run bench:compare`). Smoke REAL:
+  shinobi 4/4, safety 1/1, 0 errores.
+- FASE 2.A: verificación OBJETIVA (gate duro de tests en código, pre-gate de E1).
+- FASE 2.B: trust-score E3 ordena las tools anunciadas (sustrato→comportamiento).
+- FASE 2.C: integridad SHA-256 de skills DESCARGADAS (fail-closed; cierra gap OpenClaw).
+- ~1135 tests verde. Siguiente: FASE 3 (LSP semántico, web robusto, MCP a escala, Team).
+- PENDIENTE EXTERNO: correr Hermes/OpenClaw reales necesita su install + API keys
+  (harness ya listo vía bench.config.json); SWE-bench/escala/red-team = mayor esfuerzo.
+
 ## 2026-06-08 · Plan de preparación para benchmark público
 - Objetivo fijado: shinobi debe poder afirmarse "mejor opción" con DATOS reproducibles
   vs Hermes (Nous) y OpenClaw, en benchmark público. Coste no es restricción.

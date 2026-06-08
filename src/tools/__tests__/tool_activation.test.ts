@@ -45,6 +45,20 @@ describe('computeAdvertisedTools', () => {
     expect(out.map((t) => t.name)).toContain('browser_click');
     expect(out.map((t) => t.name)).not.toContain('n8n_invoke');
   });
+
+  it('FASE 2.B: ordena las tools anunciadas por trust cuando hay report', () => {
+    const ts = [mk('low'), mk('high'), mk('mid')];
+    const report: any = {
+      fromEvents: 27,
+      tools: [
+        { tool: 'high', calls: 9, successes: 9, failures: 0, successRate: 1, avgDurationMs: 1, score: 0.9 },
+        { tool: 'mid', calls: 9, successes: 5, failures: 4, successRate: 0.55, avgDurationMs: 1, score: 0.55 },
+        { tool: 'low', calls: 9, successes: 1, failures: 8, successRate: 0.11, avgDurationMs: 1, score: 0.2 },
+      ],
+    };
+    const out = computeAdvertisedTools(ts, { deferred: false, activated: new Set(), trustReport: report });
+    expect(out.map((t) => t.name)).toEqual(['high', 'mid', 'low']);
+  });
 });
 
 describe('estado de activación', () => {
