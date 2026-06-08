@@ -36,6 +36,8 @@ import './spawn_agent.js';
 // E2/E4 sobre el cimiento: fábrica de skills verificadas+firmadas y enjambre.
 import './synthesize_skill.js';
 import './run_swarm.js';
+// Team: subagentes que mutan ficheros EN PARALELO, aislados por worktree+contexto.
+import './run_team.js';
 // E3: audit como sustrato — trust-scores por herramienta desde audit.jsonl.
 import './trust_report.js';
 // ToolSearch sobre E3: descubrimiento de tools por relevancia + fiabilidad.

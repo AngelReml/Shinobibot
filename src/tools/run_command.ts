@@ -5,6 +5,7 @@ import { exec } from 'child_process';
 import { resolve as resolvePath, sep } from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { isDangerousCommand } from '../utils/permissions.js';
+import { contextCwd, contextWorkspaceRoot } from '../agents/exec_context.js';
 
 // Patrones destructivos NO configurables por el LLM. Si el command (tras
 // normalizar) hace match con cualquiera de estos, se rechaza antes de
@@ -90,10 +91,10 @@ export function checkDestructive(command: string): string | null {
 
 /** Devuelve mensaje de error si el cwd cae fuera del sandbox, o null si pasa. */
 export function checkSandbox(command: string, cwd: string): string | null {
-  const workspaceRoot = process.env.WORKSPACE_ROOT
-    ? normalizeDir(process.env.WORKSPACE_ROOT)
-    : null;
-  const shinobiRoot = normalizeDir(process.cwd());
+  // Respeta el contexto de ejecución por-agente (Team). Sin contexto equivale a
+  // WORKSPACE_ROOT||cwd y process.cwd() (comportamiento de siempre).
+  const workspaceRoot = normalizeDir(contextWorkspaceRoot());
+  const shinobiRoot = normalizeDir(contextCwd());
   const target = normalizeDir(cwd);
 
   if (workspaceRoot && isInside(target, workspaceRoot)) return null;
@@ -125,7 +126,7 @@ const runCommandTool: Tool = {
 
   async execute(args: { command: string; cwd?: string; timeout?: number }): Promise<ToolResult> {
     const timeout = args.timeout || 30_000;
-    const cwd = args.cwd || process.cwd();
+    const cwd = args.cwd || contextCwd();
 
     const destructiveError = checkDestructive(args.command);
     if (destructiveError) {

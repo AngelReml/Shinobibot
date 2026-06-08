@@ -4,6 +4,7 @@
 import { execFile } from 'child_process';
 import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
+import { resolveInContext } from '../agents/exec_context.js';
 
 const DEFAULT_INCLUDE = ['*.ts', '*.js', '*.json', '*.py', '*.md', '*.txt', '*.css', '*.html'];
 // Patrón de fichero válido: extensiones / wildcards simples. Bloquea cualquier
@@ -25,7 +26,7 @@ const searchFilesTool: Tool = {
   },
 
   async execute(args: { query: string; path?: string; include?: string }): Promise<ToolResult> {
-    const searchDir = path.resolve(args.path || '.');
+    const searchDir = resolveInContext(args.path || '.');
     const query = String(args.query ?? '');
     if (!query) {
       return { success: false, output: '', error: 'search_files requires a non-empty query.' };

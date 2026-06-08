@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { contextWorkspaceRoot } from '../agents/exec_context.js';
 
 /**
  * Validates if a file path is safe to access.
@@ -27,10 +28,12 @@ function isInsideDir(parent: string, child: string): boolean {
 }
 
 /**
- * Workspace root efectivo (WORKSPACE_ROOT o cwd), siempre resuelto.
+ * Workspace root efectivo, siempre resuelto. Respeta el contexto de ejecución
+ * por-agente (Team): dentro de runInContext devuelve el workspaceRoot de ese
+ * agente; fuera, equivale a WORKSPACE_ROOT||cwd (comportamiento de siempre).
  */
 function workspaceRoot(): string {
-  return path.resolve(process.env.WORKSPACE_ROOT || process.cwd());
+  return path.resolve(contextWorkspaceRoot());
 }
 
 /**

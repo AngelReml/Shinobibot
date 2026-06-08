@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { validatePath } from '../utils/permissions.js';
+import { resolveInContext } from '../agents/exec_context.js';
 
 const editFileTool: Tool = {
   name: 'edit_file',
@@ -21,7 +22,7 @@ const editFileTool: Tool = {
   },
 
   async execute(args: { path: string; target: string; replacement: string }): Promise<ToolResult> {
-    const filePath = path.resolve(args.path);
+    const filePath = resolveInContext(args.path);
     const check = validatePath(filePath, 'write');
     if (!check.allowed) return { success: false, output: '', error: check.reason };
 
