@@ -92,7 +92,16 @@ function renderBlock(target: 'user' | 'memory', sections: Section[], limit: numb
     ? `USER PROFILE (who the user is) [${pct}% — ${current.toLocaleString()}/${limit.toLocaleString()} chars]`
     : `MEMORY (your persistent notes) [${pct}% — ${current.toLocaleString()}/${limit.toLocaleString()} chars]`;
   const sep = '═'.repeat(46);
-  return `${sep}\n${header}\n${sep}\n${content}`;
+  // FIX-004 — el header mostraba el % de ocupación, pero el cuerpo se inyectaba
+  // COMPLETO sin topar al límite: un MEMORY.md/USER.md grande reventaba el
+  // contexto. Trunca el cuerpo al límite y marca el sobrante.
+  let body = content;
+  if (limit > 0 && current > limit) {
+    const overflow = current - limit;
+    body = content.slice(0, limit) +
+      `\n[…truncado: ${overflow.toLocaleString()} chars sobre el límite, edita memory/MEMORY.md]`;
+  }
+  return `${sep}\n${header}\n${sep}\n${body}`;
 }
 
 // ─── Atomic write para el JSON de propuestas pendientes ─────────────────────
