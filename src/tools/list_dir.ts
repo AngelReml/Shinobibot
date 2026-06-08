@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { validatePath } from '../utils/permissions.js';
+import { resolveInContext } from '../agents/exec_context.js';
 
 const listDirTool: Tool = {
   name: 'list_dir',
@@ -18,7 +19,7 @@ const listDirTool: Tool = {
   },
 
   async execute(args: { path?: string }): Promise<ToolResult> {
-    const dirPath = path.resolve(args.path || '.');
+    const dirPath = resolveInContext(args.path || '.');
     const check = validatePath(dirPath, 'read');
     if (!check.allowed) return { success: false, output: '', error: check.reason };
 

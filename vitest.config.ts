@@ -48,6 +48,7 @@ export default defineConfig({
       'src/tools/__tests__/e2_e4_tools.test.ts',
       'src/tools/__tests__/tool_search.test.ts',
       'src/tools/__tests__/tool_activation.test.ts',
+      'src/tools/__tests__/run_team.test.ts',
       'src/tui/__tests__/**/*.test.tsx',
       'src/web/__tests__/pwa.test.ts',
       'src/browser/__tests__/**/*.test.ts',

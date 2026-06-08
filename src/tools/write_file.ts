@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { validatePath } from '../utils/permissions.js';
+import { resolveInContext, contextWorkspaceRoot } from '../agents/exec_context.js';
 
 const writeFileTool: Tool = {
   name: 'write_file',
@@ -19,8 +20,8 @@ const writeFileTool: Tool = {
   },
 
   requiresConfirmation(args: { path: string }) {
-    const filePath = path.resolve(args.path);
-    const root = path.resolve(process.env.WORKSPACE_ROOT || process.cwd());
+    const filePath = resolveInContext(args.path);
+    const root = path.resolve(contextWorkspaceRoot());
     const scratchPath = path.resolve(root, 'scratch');
     if (filePath.startsWith(scratchPath)) return false;
     // Overwriting existing files requires confirmation
@@ -28,7 +29,7 @@ const writeFileTool: Tool = {
   },
 
   async execute(args: { path: string; content: string }): Promise<ToolResult> {
-    const filePath = path.resolve(args.path);
+    const filePath = resolveInContext(args.path);
     const check = validatePath(filePath, 'write');
     if (!check.allowed) return { success: false, output: '', error: check.reason };
 

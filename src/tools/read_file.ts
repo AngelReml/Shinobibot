@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { validatePath } from '../utils/permissions.js';
+import { resolveInContext } from '../agents/exec_context.js';
 import { TOOL_OUTPUT_MAX_CHARS } from '../context/tool_output_truncator.js';
 
 const readFileTool: Tool = {
@@ -21,7 +22,7 @@ const readFileTool: Tool = {
   },
 
   async execute(args: { path: string; startLine?: number; endLine?: number }): Promise<ToolResult> {
-    const filePath = path.resolve(args.path);
+    const filePath = resolveInContext(args.path);
     const check = validatePath(filePath, 'read');
     if (!check.allowed) return { success: false, output: '', error: check.reason };
 
