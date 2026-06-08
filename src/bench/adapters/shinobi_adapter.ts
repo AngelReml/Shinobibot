@@ -14,7 +14,15 @@ import { runVerifiedAgent } from '../../agents/verified_agent.js';
 import { runInContext } from '../../agents/exec_context.js';
 import { getAllTools } from '../../tools/index.js';
 import { parseAuditLines } from '../../audit/trust_ledger.js';
+import { isDestructive, requestApproval } from '../../security/approval.js';
 import type { AgentAdapter, AgentRunResult, BenchTask, TaskContext } from '../types.js';
+
+/** Gate selectivo completo de shinobi: lo crítico sin asker (headless) se DENIEGA. */
+async function shinobiApprovalGate(name: string, args: any): Promise<boolean> {
+  const v = isDestructive(name, args);
+  if (!v.destructive) return true;
+  return requestApproval({ toolName: name, args, destructive: true, reason: v.reason });
+}
 
 const SYSTEM =
   'Eres shinobi, un agente autónomo. Resuelve la tarea trabajando en el directorio ' +
@@ -41,11 +49,13 @@ export class ShinobiAdapter implements AgentAdapter {
   private readonly invokeLLM?: LLMInvoker;
   private readonly toolBox?: string[];
   private readonly verified: boolean;
+  private readonly gated: boolean;
 
-  constructor(opts: { invokeLLM?: LLMInvoker; tools?: string[]; verified?: boolean } = {}) {
+  constructor(opts: { invokeLLM?: LLMInvoker; tools?: string[]; verified?: boolean; gated?: boolean } = {}) {
     this.invokeLLM = opts.invokeLLM;
     this.toolBox = opts.tools;
     this.verified = !!opts.verified;
+    this.gated = opts.gated ?? true; // por defecto, mide el gate completo
   }
 
   async isAvailable(): Promise<boolean> { return true; }
@@ -54,6 +64,7 @@ export class ShinobiAdapter implements AgentAdapter {
     const tools = this.toolBox ?? getAllTools().map((t) => t.name);
     const auditPath = path.join(ctx.workdir, 'audit.jsonl');
     const maxIterations = task.limits?.maxIterations ?? 12;
+    const approvalGate = this.gated ? shinobiApprovalGate : undefined;
 
     const prevAudit = process.env.SHINOBI_AUDIT_LOG_PATH;
     process.env.SHINOBI_AUDIT_LOG_PATH = auditPath;
@@ -65,6 +76,7 @@ export class ShinobiAdapter implements AgentAdapter {
           () => runVerifiedAgent({
             task: task.prompt, systemPrompt: SYSTEM, tools, label: `bench:${task.id}`,
             maxIterations, maxAttempts: 2, invokeLLM: this.invokeLLM, verifyInvokeLLM: this.invokeLLM,
+            approvalGate,
           }),
         );
         const last = vr.history[vr.history.length - 1]?.result;
@@ -80,7 +92,7 @@ export class ShinobiAdapter implements AgentAdapter {
         { cwd: ctx.workdir, workspaceRoot: ctx.workdir },
         () => runAgentLoop({
           task: task.prompt, systemPrompt: SYSTEM, tools, label: `bench:${task.id}`,
-          maxIterations, invokeLLM: this.invokeLLM,
+          maxIterations, invokeLLM: this.invokeLLM, approvalGate,
         }),
       );
       return {

@@ -76,6 +76,13 @@ export interface AgentLoopOptions {
   temperature?: number;
   /** Invocador de LLM; por defecto el provider router con failover. Inyectable en test. */
   invokeLLM?: LLMInvoker;
+  /**
+   * Gate de aprobación OPCIONAL. Antes de ejecutar una tool, se llama con
+   * (nombre, args); si devuelve false, la tool NO se ejecuta y el rechazo vuelve
+   * al LLM para que se adapte. Default: sin gate (subagentes sin cambio). El
+   * harness lo usa para medir el gate selectivo completo de shinobi.
+   */
+  approvalGate?: (toolName: string, args: any) => Promise<boolean>;
 }
 
 export interface AgentLoopResult {
@@ -243,6 +250,19 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
           ok: false, verdict: attempt.verdict ?? 'LOOP_DETECTED', output: msg.content || '',
           iterations, toolsUsed, error: `Bucle detectado (capa args) en ${name}.`, label,
         };
+      }
+
+      // Gate de aprobación opcional: una acción no aprobada NO se ejecuta; el
+      // rechazo vuelve al LLM. Mide el gate selectivo completo de shinobi.
+      if (options.approvalGate) {
+        let allowedToRun = false;
+        try { allowedToRun = await options.approvalGate(name, args); } catch { allowedToRun = false; }
+        if (!allowedToRun) {
+          const denial = JSON.stringify({ success: false, error: `Acción "${name}" no aprobada (gate). No se ejecutó.` });
+          logToolCall({ tool: name, args, success: false, durationMs: 0, error: 'approval_denied', sessionId: label });
+          messages.push({ role: 'tool', tool_call_id: call.id, name, content: denial });
+          continue;
+        }
       }
 
       const tool = getTool(name);
