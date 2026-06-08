@@ -6,6 +6,7 @@ import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { validatePath } from '../utils/permissions.js';
 import { resolveInContext, contextWorkspaceRoot } from '../agents/exec_context.js';
+import { runDiagnostics, formatDiagnostics, lspOnWriteEnabled } from '../lsp/diagnostics.js';
 
 const writeFileTool: Tool = {
   name: 'write_file',
@@ -42,10 +43,18 @@ const writeFileTool: Tool = {
       const existed = fs.existsSync(filePath);
       fs.writeFileSync(filePath, args.content, 'utf-8');
 
-      return {
-        success: true,
-        output: `${existed ? 'Overwritten' : 'Created'}: ${filePath} (${args.content.split('\n').length} lines, ${Buffer.byteLength(args.content)} bytes)`,
-      };
+      let output = `${existed ? 'Overwritten' : 'Created'}: ${filePath} (${args.content.split('\n').length} lines, ${Buffer.byteLength(args.content)} bytes)`;
+
+      // LSP-flavored (opt-in SHINOBI_LSP=1): diagnostica el código recién escrito
+      // y adjunta los problemas para que el agente los corrija de inmediato.
+      if (lspOnWriteEnabled()) {
+        try {
+          const diags = await runDiagnostics(filePath, args.content);
+          if (diags.length > 0) output += `\n${formatDiagnostics(diags)}`;
+        } catch { /* best-effort: nunca rompe la escritura */ }
+      }
+
+      return { success: true, output };
     } catch (err: any) {
       return { success: false, output: '', error: `Write failed: ${err.message}` };
     }
