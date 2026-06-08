@@ -2,6 +2,13 @@ import OpenAI from 'openai';
 import { invokeLLM as routedInvokeLLM, currentProvider } from '../providers/provider_router.js';
 import { route } from './model_router.js';
 import { getAllTools, getTool, toOpenAITools } from '../tools/index.js';
+import {
+  isDeferredMode,
+  resetActivatedTools,
+  getActivatedTools,
+  computeAdvertisedTools,
+  DEFERRED_TOOLS_HINT,
+} from '../tools/tool_activation.js';
 import { sharedMemory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
 import { MemoryStore, sharedMemoryStore } from '../memory/memory_store.js';
@@ -298,7 +305,16 @@ export class ShinobiOrchestrator {
     const availableTools = this.mode === 'local'
       ? allTools.filter(t => t.name !== 'start_kernel_mission')
       : allTools;
-    const openAITools = toOpenAITools(availableTools);
+
+    // Modo deferred-tools (opt-in SHINOBI_DEFERRED_TOOLS=1): en vez de anunciar
+    // las ~46 tools cada turno, se anuncia un núcleo + tool_search; el agente
+    // descubre el resto con tool_search y se activan para los turnos siguientes.
+    // OFF por defecto → comportamiento idéntico al de siempre.
+    const deferred = isDeferredMode();
+    if (deferred) {
+      resetActivatedTools();
+      currentMessages = [{ role: 'system', content: DEFERRED_TOOLS_HINT } as any, ...currentMessages];
+    }
 
     // P2 — iteration_budget: el cap de turnos del loop ahora es un
     // IterationBudget (consumible, con snapshot), configurable por env, en
@@ -351,6 +367,14 @@ export class ShinobiOrchestrator {
       iteration++;
       this._itersSinceSkill++; // Fase 1 — nudge de skills por iteración.
       console.log(`[Shinobi] Let the LLM decide (Iter ${iteration}/${budget.snapshot().total})...`);
+
+      // Tools a anunciar este turno. En modo deferred crece según lo que
+      // tool_search vaya activando; sin deferred es todo el set (sin cambio).
+      const advertisedTools = computeAdvertisedTools(availableTools, {
+        deferred,
+        activated: getActivatedTools(),
+      });
+      const openAITools = toOpenAITools(advertisedTools);
 
       try {
         // [B2-DEPRECATED]
