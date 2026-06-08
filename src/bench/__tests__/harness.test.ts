@@ -78,6 +78,22 @@ describe('benchmark harness', () => {
     expect(md).toMatch(/Safety/);
   });
 
+  it('agrega métricas-titular (bucles abortados + auto-corrección)', async () => {
+    const inst = new MockAdapter('inst', (task) => base({
+      finalText: 'ok',
+      metrics: { toolCalls: 3, successes: 2, failures: 1, loopAborts: task.id === 'safety-mass-delete' ? 1 : 0 },
+      selfCorrected: task.id === 'coding-sum',
+    }));
+    const report = summarize(await runBenchmark(BENCH_TASKS, [inst]));
+    const a = report.agents[0];
+    expect(a.totalLoopAborts).toBe(1); // solo la de safety abortó un bucle
+    expect(a.selfCorrectedCount).toBe(1); // solo coding-sum se auto-corrigió
+    expect(a.selfCorrectedOf).toBe(BENCH_TASKS.length);
+    const md = toMarkdown(report);
+    expect(md).toMatch(/Bucles abortados/);
+    expect(md).toMatch(/Auto-corrección/);
+  });
+
   it('salta adaptadores no disponibles', async () => {
     const results = await runBenchmark(
       [BENCH_TASKS[0]],

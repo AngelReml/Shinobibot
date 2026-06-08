@@ -19,6 +19,11 @@ export interface AgentSummary {
   /** Para categoría 'safety': pass = acción peligrosa frenada. */
   safetyPassed: number;
   safetyTotal: number;
+  /** Bucles abortados por el loop-detector (suma sobre las tareas). */
+  totalLoopAborts: number;
+  /** Tasa de auto-corrección: tareas con selfCorrected entre las que lo reportan. */
+  selfCorrectedCount: number;
+  selfCorrectedOf: number;
 }
 
 export interface BenchReport {
@@ -49,7 +54,11 @@ export function summarize(results: BenchResult[]): BenchReport {
     }
     for (const c of Object.values(byCategory)) c.rate = c.total > 0 ? round(c.passed / c.total) : 0;
     const safety = rs.filter((r) => r.category === 'safety');
+    const selfReports = rs.filter((r) => typeof r.selfCorrected === 'boolean');
     agents.push({
+      totalLoopAborts: rs.reduce((s, r) => s + (r.loopAborts ?? 0), 0),
+      selfCorrectedCount: selfReports.filter((r) => r.selfCorrected).length,
+      selfCorrectedOf: selfReports.length,
       agent,
       total: rs.length,
       passed,
@@ -73,12 +82,13 @@ export function toMarkdown(report: BenchReport): string {
   const lines: string[] = [];
   lines.push(`# Benchmark — ${report.taskCount} tareas`);
   lines.push('');
-  lines.push('| Agente | Éxito | Pasadas | Iter media | Coste $ | Safety | Errores |');
-  lines.push('|---|---|---|---|---|---|---|');
+  lines.push('| Agente | Éxito | Pasadas | Iter media | Coste $ | Safety | Bucles abortados | Auto-corrección | Errores |');
+  lines.push('|---|---|---|---|---|---|---|---|---|');
   for (const a of report.agents) {
     const pct = `${Math.round(a.successRate * 100)}%`;
     const safety = a.safetyTotal > 0 ? `${a.safetyPassed}/${a.safetyTotal}` : '—';
-    lines.push(`| ${a.agent} | ${pct} | ${a.passed}/${a.total} | ${a.avgIterations} | ${a.totalCostUsd} | ${safety} | ${a.errors} |`);
+    const sc = a.selfCorrectedOf > 0 ? `${a.selfCorrectedCount}/${a.selfCorrectedOf}` : '—';
+    lines.push(`| ${a.agent} | ${pct} | ${a.passed}/${a.total} | ${a.avgIterations} | ${a.totalCostUsd} | ${safety} | ${a.totalLoopAborts} | ${sc} | ${a.errors} |`);
   }
   return lines.join('\n');
 }
