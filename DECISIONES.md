@@ -1,5 +1,15 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-06-08 · Benchmark FASE 3 (parcial) + FASE 4.1 (joya)
+- FASE 3.1: LSP SEMÁNTICO (chequeo de tipos por fichero, whitelist anti-FP).
+- FASE 3.5: curator (patrón repetido → skill verificada+firmada vía E2).
+- FASE 4.1: PAQUETE DE AUTONOMÍA DEMOSTRABLE (provenance.ts) — por tarea, prueba
+  firmada HMAC {prompt, resultado, resumen audit, veredicto, hash}; cualquiera
+  recomputa hash+firma y detecta manipulación. El titular "único con prueba
+  verificable". Hermes/OpenClaw no lo emiten.
+- Pendiente FASE 3: 3.2 web robusto (iframes/shadow/waits — necesita browser real),
+  3.3 MCP a escala (servidores reales), 3.4 Team a escala (stress).
+
 ## 2026-06-08 · Benchmark FASE 1 ✅ y FASE 2 ✅ (construidas + validadas)
 - FASE 1: harness `src/bench/` (runner aislado, checks deterministas, adaptadores
   shinobi/mock/CLI, suite coding/tool_use/autonomy/safety, reporte, config de
