@@ -8,8 +8,9 @@ memory.json
 echo # === Build / Compilados === 
 dist/ 
 build/ 
-echo # === Temporales / Basura === 
-tmp/ 
+echo # === Temporales / Basura ===
+tmp/
+*.bak
 *.log 
 *.tmp 
 temp_file.txt 
