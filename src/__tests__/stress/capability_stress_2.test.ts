@@ -98,10 +98,30 @@ describe('STRESS · gate selectivo (PASO 3)', () => {
     expect(isDestructive('run_command', { command: 'aws configure' }).destructive).toBe(true);
     expect(isDestructive('start_cloud_mission', {}).destructive).toBe(true);
     expect(isDestructive('mcp_connect', { name: 'x', command: 'y' }).destructive).toBe(true);
-    // NO crítico: destrucción genérica y rutina (otra preocupación, no este freno).
-    expect(isDestructive('run_command', { command: 'rm -rf /' }).destructive).toBe(false);
+    // NO crítico: escritura de código rutinaria, lectura, borrado de UN fichero.
     expect(isDestructive('write_file', { path: 'src/foo.ts', content: 'const a=1' }).destructive).toBe(false);
     expect(isDestructive('read_file', { path: '.env' }).destructive).toBe(false);
+    expect(isDestructive('run_command', { command: 'rm notas.txt' }).destructive).toBe(false);
+    expect(isDestructive('run_command', { command: 'del fichero.txt' }).destructive).toBe(false);
+  });
+
+  it('mode=critical → frena el borrado MASIVO/recursivo (un caso por patrón)', () => {
+    process.env.SHINOBI_APPROVAL_MODE = 'critical';
+    const masivos = [
+      'rm -rf ~/algo',                       // rm -rf
+      'rm -r build',                          // rm -r
+      'rm *',                                 // comodín (este pasaba libre)
+      'rm *.log',                             // comodín
+      'del /s /q C:\\temp',                   // del /s /q
+      'del *.*',                              // comodín del
+      'rmdir /s C:\\x',                       // rmdir /s
+      'Remove-Item -Recurse -Force .\\dir',   // Remove-Item recursivo
+      'format C:',                            // format
+      'mkfs.ext4 /dev/sda1',                  // mkfs
+    ];
+    for (const cmd of masivos) {
+      expect(isDestructive('run_command', { command: cmd }).destructive, cmd).toBe(true);
+    }
   });
 
   it('mode=critical → requestApproval: crítico sin asker DENIEGA; no-crítico procede', async () => {

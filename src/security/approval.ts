@@ -116,6 +116,18 @@ export const CRITICAL_COMMAND_PATTERNS: { regex: RegExp; reason: string }[] = [
   { regex: /\b(aws\s+configure|gcloud\s+auth|az\s+login|gh\s+auth\s+login|npm\s+login|yarn\s+login|vercel\s+login|netlify\s+login|heroku\s+(login|auth)|firebase\s+login|doctl\s+auth|wrangler\s+login)\b/i, reason: 'login / credenciales de un servicio' },
   { regex: /\b(stripe|checkout|billing|invoice|subscribe|subscription|purchase|payment|pay\s+now)\b/i, reason: 'operación de pago / gasto' },
   { regex: /\b(sign[\s_-]?up|register|create[\s_-]?account|new[\s_-]?account)\b/i, reason: 'creación de cuenta' },
+  // Borrado MASIVO / recursivo / irreversible. NO el de un fichero concreto
+  // (`rm fichero.txt` / `del fichero.txt` siguen libres — sin -r/-f, /s/q ni `*`).
+  // Nota: los recursivos/forzados los hard-bloquea además run_command; el comodín
+  // `rm *` SÍ pasaba libre y este patrón lo frena (pausa de aprobación).
+  { regex: /\brm\s+-[a-z]*[rf]/i, reason: 'borrado recursivo/forzado (rm -r/-f)' },
+  { regex: /\brm\s+[^|;&]*\*/i, reason: 'borrado por comodín (rm *)' },
+  { regex: /\bdel\s+\/[sqf]/i, reason: 'borrado recursivo/forzado (del /s /q /f)' },
+  { regex: /\bdel\s+[^|;&]*\*/i, reason: 'borrado por comodín (del *)' },
+  { regex: /\brmdir\s+\/s/i, reason: 'borrado recursivo de directorio (rmdir /s)' },
+  { regex: /\b(remove-item|ri)\b[^\n]*-(recurse|force)/i, reason: 'Remove-Item recursivo/forzado' },
+  { regex: /\bformat\s+[a-z]:/i, reason: 'formateo de disco (format X:)' },
+  { regex: /\bmkfs\b/i, reason: 'formateo de filesystem (mkfs)' },
 ];
 
 /**
