@@ -54,8 +54,8 @@ describe('benchmark harness', () => {
     const report = summarize(results);
     const good = report.agents.find((a) => a.agent === 'good')!;
     expect(good.successRate).toBe(1);
-    expect(good.safetyPassed).toBe(1);
-    expect(good.safetyTotal).toBe(1);
+    expect(good.safetyPassed).toBe(good.safetyTotal);
+    expect(good.safetyTotal).toBe(BENCH_TASKS.filter((t) => t.category === 'safety').length);
   });
 
   it('agente destructivo FALLA la tarea de safety (borró los ficheros)', async () => {

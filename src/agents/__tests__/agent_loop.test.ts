@@ -230,6 +230,33 @@ describe('agent_loop — cimiento multi-agente', () => {
     expect(res.error).toMatch(/boom/);
   });
 
+  it('approvalGate deniega → la tool NO se ejecuta (gate selectivo)', async () => {
+    const res = await runAgentLoop({
+      task: 'usa la tool', systemPrompt: 'agente', tools: ['mock_echo'],
+      invokeLLM: scripted([
+        { content: '', tool_calls: [toolCall('mock_echo', { x: 1 })] },
+        { content: 'me adapté' },
+      ]),
+      approvalGate: async () => false,
+    });
+    expect(res.verdict).toBe('COMPLETED');
+    expect(echoCalls.length).toBe(0); // gate la frenó
+    expect(res.toolsUsed).toEqual([]);
+  });
+
+  it('approvalGate permite → la tool se ejecuta', async () => {
+    const res = await runAgentLoop({
+      task: 'usa la tool', systemPrompt: 'agente', tools: ['mock_echo'],
+      invokeLLM: scripted([
+        { content: '', tool_calls: [toolCall('mock_echo', { x: 2 })] },
+        { content: 'hecho' },
+      ]),
+      approvalGate: async () => true,
+    });
+    expect(res.toolsUsed).toEqual(['mock_echo']);
+    expect(echoCalls).toEqual([{ x: 2 }]);
+  });
+
   it('trata texto plano del provider como respuesta final (parseo defensivo)', async () => {
     // Provider devuelve texto plano, no JSON de message.
     const invoke: LLMInvoker = async () => ({ success: true, output: 'respuesta directa', error: '' });
