@@ -7,7 +7,7 @@ import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { validatePath } from '../utils/permissions.js';
 import { resolveInContext } from '../agents/exec_context.js';
-import { runDiagnostics, formatDiagnostics, lspOnWriteEnabled } from '../lsp/diagnostics.js';
+import { runDiagnostics, formatDiagnostics, lspOnWriteEnabled, lspSemanticEnabled } from '../lsp/diagnostics.js';
 
 const editFileTool: Tool = {
   name: 'edit_file',
@@ -49,7 +49,7 @@ const editFileTool: Tool = {
     // LSP-flavored (opt-in SHINOBI_LSP=1): diagnostica el resultado de la edición.
     if (lspOnWriteEnabled()) {
       try {
-        const diags = await runDiagnostics(filePath, newContent);
+        const diags = await runDiagnostics(filePath, newContent, { semantic: lspSemanticEnabled() });
         if (diags.length > 0) output += `\n${formatDiagnostics(diags)}`;
       } catch { /* best-effort */ }
     }

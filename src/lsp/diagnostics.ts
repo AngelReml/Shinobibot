@@ -45,16 +45,64 @@ async function tsDiagnostics(filePath: string, text: string): Promise<Diagnostic
   if (!ts) return [];
   const sf = ts.createSourceFile(filePath, text, ts.ScriptTarget.Latest, true);
   const parseDiags: any[] = (sf as any).parseDiagnostics ?? [];
-  return parseDiags.map((d) => {
-    const pos = typeof d.start === 'number' ? ts.getLineAndCharacterOfPosition(sf, d.start) : { line: 0, character: 0 };
-    return {
-      line: pos.line + 1,
-      column: pos.character + 1,
-      severity: d.category === ts.DiagnosticCategory.Error ? 'error' : 'warning',
-      message: ts.flattenDiagnosticMessageText(d.messageText, '\n'),
-      code: d.code ? `TS${d.code}` : undefined,
-    } as Diagnostic;
-  });
+  return parseDiags.map((d) => mapDiag(ts, sf, d));
+}
+
+function mapDiag(ts: any, sf: any, d: any): Diagnostic {
+  const pos = typeof d.start === 'number' ? ts.getLineAndCharacterOfPosition(sf, d.start) : { line: 0, character: 0 };
+  return {
+    line: pos.line + 1,
+    column: pos.character + 1,
+    severity: d.category === ts.DiagnosticCategory.Error ? 'error' : 'warning',
+    message: ts.flattenDiagnosticMessageText(d.messageText, '\n'),
+    code: d.code ? `TS${d.code}` : undefined,
+  };
+}
+
+// FASE 3.1 — diagnósticos SEMÁNTICOS (chequeo de tipos) por fichero. Whitelist
+// de errores INTRA-fichero de alta confianza; se EXCLUYE el ruido de resolución
+// de módulos (2307/2304/2305…), que sin el proyecto entero daría falsos
+// positivos. Pesca: tipos no asignables, args mal, sobrecargas, comparaciones
+// imposibles, readonly. Rápido (programa de un fichero, skipLibCheck).
+const SEMANTIC_WHITELIST = new Set<number>([
+  2322, // Type X is not assignable to type Y
+  2345, // Argument of type X not assignable to parameter Y
+  2554, // Expected N arguments, but got M
+  2769, // No overload matches this call
+  2367, // comparison appears unintentional
+  2540, // Cannot assign to readonly
+  2365, // Operator cannot be applied to types
+  2362, 2363, // arithmetic operand must be number/bigint
+]);
+
+async function tsSemanticDiagnostics(filePath: string, text: string): Promise<Diagnostic[]> {
+  const ts = await loadTs();
+  if (!ts) return [];
+  const fileName = filePath.replace(/\\/g, '/');
+  const options = {
+    noEmit: true,
+    target: ts.ScriptTarget.Latest,
+    module: ts.ModuleKind.ESNext,
+    skipLibCheck: true,
+    strict: false,
+    noResolve: true, // no cargamos imports → su ruido se filtra por whitelist
+    noLib: false,
+  };
+  const sf = ts.createSourceFile(fileName, text, ts.ScriptTarget.Latest, true);
+  try {
+    const host = ts.createCompilerHost(options);
+    const origGetSource = host.getSourceFile.bind(host);
+    host.getSourceFile = (name: string, languageVersion: any, ...rest: any[]) =>
+      name.replace(/\\/g, '/') === fileName ? sf : origGetSource(name, languageVersion, ...rest);
+    host.writeFile = () => {};
+    const program = ts.createProgram([fileName], options, host);
+    const diags: any[] = program.getSemanticDiagnostics(sf) ?? [];
+    return diags
+      .filter((d) => SEMANTIC_WHITELIST.has(d.code))
+      .map((d) => mapDiag(ts, sf, d));
+  } catch {
+    return []; // el chequeo semántico es best-effort; nunca rompe
+  }
 }
 
 function jsonDiagnostics(text: string): Diagnostic[] {
@@ -115,7 +163,12 @@ function pyDiagnostics(filePath: string, text: string): Diagnostic[] {
  * Diagnósticos del fichero `filePath` con `content` (si se omite, se lee de
  * disco). Devuelve [] para tipos sin checker o si el checker no está disponible.
  */
-export async function runDiagnostics(filePath: string, content?: string): Promise<Diagnostic[]> {
+export interface DiagnosticsOptions {
+  /** Añade chequeo de tipos (semántico) para TS/JS. Default false (solo sintaxis). */
+  semantic?: boolean;
+}
+
+export async function runDiagnostics(filePath: string, content?: string, opts: DiagnosticsOptions = {}): Promise<Diagnostic[]> {
   const ext = extname(filePath).toLowerCase();
   let text = content;
   if (text === undefined) {
@@ -123,10 +176,23 @@ export async function runDiagnostics(filePath: string, content?: string): Promis
   }
   if (text === undefined) text = '';
 
-  if (TS_EXTS.has(ext)) return tsDiagnostics(filePath, text);
+  if (TS_EXTS.has(ext)) {
+    const syntactic = await tsDiagnostics(filePath, text);
+    // Si ya hay errores de sintaxis, el chequeo de tipos sobra (y sería ruidoso).
+    if (!opts.semantic || syntactic.length > 0) return syntactic;
+    const semantic = await tsSemanticDiagnostics(filePath, text);
+    // Dedup por línea:código.
+    const seen = new Set(syntactic.map((d) => `${d.line}:${d.code}`));
+    return [...syntactic, ...semantic.filter((d) => !seen.has(`${d.line}:${d.code}`))];
+  }
   if (ext === '.json') return jsonDiagnostics(text);
   if (ext === '.py') return pyDiagnostics(filePath, text);
   return [];
+}
+
+/** True si el chequeo semántico (tipos) está activado al escribir (opt-in). */
+export function lspSemanticEnabled(): boolean {
+  return process.env.SHINOBI_LSP_SEMANTIC === '1';
 }
 
 /** Formatea diagnósticos como texto legible para el agente. */
