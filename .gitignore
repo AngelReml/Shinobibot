@@ -11,6 +11,9 @@ build/
 # === Temporales / Basura ===
 tmp/
 *.bak
+# === Benchmark === (resultados de runtime; config puede llevar API keys)
+bench-results/
+bench.config.json
 *.log 
 *.tmp 
 temp_file.txt 

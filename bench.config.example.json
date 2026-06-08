@@ -1,0 +1,21 @@
+{
+  "_README": "Copia a bench.config.json y ajusta cada competidor a la invocación headless REAL de tu install (averíguala con `hermes --help`, el bin de OpenClaw, etc.) y pon sus API keys en env. El harness SALTA cualquiera cuyo binario no responda. {prompt} y {workdir} se sustituyen por tarea.",
+  "competitors": [
+    {
+      "id": "hermes",
+      "command": "hermes",
+      "args": ["--once", "{prompt}"],
+      "promptVia": "arg",
+      "timeoutMs": 300000,
+      "env": { "_nota": "OPENAI_API_KEY / ANTHROPIC_API_KEY etc. del install de Hermes" }
+    },
+    {
+      "id": "openclaw",
+      "command": "openclaw",
+      "args": ["agent", "{prompt}"],
+      "promptVia": "arg",
+      "timeoutMs": 300000,
+      "env": { "_nota": "credenciales del install de OpenClaw" }
+    }
+  ]
+}
