@@ -4,9 +4,9 @@
 //   - approval no-op (FIX-002): requestApproval→true, isDestructive→false SIEMPRE.
 //   - IntentRouter.route: fuzz async (nunca lanza, shape válido).
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { validatePath, isDangerousCommand } from '../../utils/permissions.js';
-import { requestApproval, isDestructive } from '../../security/approval.js';
+import { requestApproval, isDestructive, setApprovalAsker, clearSessionApprovals } from '../../security/approval.js';
 import { IntentRouter } from '../../dispatch/intent_router.js';
 
 describe('STRESS · validatePath (seguridad de rutas)', () => {
@@ -74,31 +74,49 @@ describe('STRESS · isDangerousCommand', () => {
   });
 });
 
-describe('STRESS · approval no-op (FIX-002 invariante)', () => {
-  it('isDestructive SIEMPRE { destructive:false } (gate desactivado)', () => {
-    const cases: Array<[string, any]> = [
-      ['run_command', { command: 'rm -rf /' }],
-      ['write_file', { path: 'C:\\Windows\\System32\\evil.dll', content: 'x' }],
-      ['edit_file', { path: '/etc/shadow' }],
-      ['screen_act', { action: 'type', text: 'rm -rf /' }],
-      ['start_cloud_mission', {}],
-      ['anything_else', { foo: 'bar' }],
-    ];
-    for (const [name, args] of cases) {
-      const v = isDestructive(name, args);
-      expect(v.destructive).toBe(false);
-    }
+describe('STRESS · gate selectivo (PASO 3)', () => {
+  const prevMode = process.env.SHINOBI_APPROVAL_MODE;
+  afterEach(() => {
+    if (prevMode === undefined) delete process.env.SHINOBI_APPROVAL_MODE;
+    else process.env.SHINOBI_APPROVAL_MODE = prevMode;
+    setApprovalAsker(null);
+    clearSessionApprovals();
   });
 
-  it('requestApproval SIEMPRE true (nunca pide, nunca bloquea)', async () => {
-    const inputs = [
-      { toolName: 'run_command', args: { command: 'rm -rf /' }, destructive: true },
-      { toolName: 'write_file', args: { path: 'C:\\Windows\\System32\\x' }, destructive: true, reason: 'crítico' },
-      { toolName: 'anything', args: {} },
-    ];
-    for (const i of inputs) {
-      await expect(requestApproval(i as any)).resolves.toBe(true);
-    }
+  it('mode=off → no-op (isDestructive false, requestApproval true) SIEMPRE', async () => {
+    process.env.SHINOBI_APPROVAL_MODE = 'off';
+    expect(isDestructive('write_file', { path: 'C:\\Windows\\System32\\evil.dll', content: 'x' }).destructive).toBe(false);
+    expect(isDestructive('start_cloud_mission', {}).destructive).toBe(false);
+    await expect(requestApproval({ toolName: 'write_file', args: {}, destructive: true })).resolves.toBe(true);
+  });
+
+  it('mode=critical → flaggea la clase crítica, NO la destrucción genérica', () => {
+    process.env.SHINOBI_APPROVAL_MODE = 'critical';
+    // Crítico: zona de credenciales, secreto en fichero, login, gasto, externo.
+    expect(isDestructive('write_file', { path: 'C:\\proj\\.env', content: 'X=1' }).destructive).toBe(true);
+    expect(isDestructive('write_file', { path: 'notes.txt', content: 'la clave es AKIAIOSFODNN7EXAMPLE' }).destructive).toBe(true);
+    expect(isDestructive('run_command', { command: 'aws configure' }).destructive).toBe(true);
+    expect(isDestructive('start_cloud_mission', {}).destructive).toBe(true);
+    expect(isDestructive('mcp_connect', { name: 'x', command: 'y' }).destructive).toBe(true);
+    // NO crítico: destrucción genérica y rutina (otra preocupación, no este freno).
+    expect(isDestructive('run_command', { command: 'rm -rf /' }).destructive).toBe(false);
+    expect(isDestructive('write_file', { path: 'src/foo.ts', content: 'const a=1' }).destructive).toBe(false);
+    expect(isDestructive('read_file', { path: '.env' }).destructive).toBe(false);
+  });
+
+  it('mode=critical → requestApproval: crítico sin asker DENIEGA; no-crítico procede', async () => {
+    process.env.SHINOBI_APPROVAL_MODE = 'critical';
+    setApprovalAsker(null);
+    await expect(requestApproval({ toolName: 'start_cloud_mission', args: {}, destructive: true })).resolves.toBe(false);
+    await expect(requestApproval({ toolName: 'write_file', args: {}, destructive: false })).resolves.toBe(true);
+  });
+
+  it('mode=critical → asker "no" deniega, "yes" aprueba', async () => {
+    process.env.SHINOBI_APPROVAL_MODE = 'critical';
+    setApprovalAsker(async () => 'no');
+    await expect(requestApproval({ toolName: 'mcp_connect', args: {}, destructive: true })).resolves.toBe(false);
+    setApprovalAsker(async () => 'yes');
+    await expect(requestApproval({ toolName: 'mcp_connect', args: {}, destructive: true })).resolves.toBe(true);
   });
 });
 

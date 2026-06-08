@@ -261,7 +261,7 @@ async function main() {
   console.log('  /resident    - Misiones recurrentes (/resident start|stop|status|add|enable|disable|delete|reset|logs)');
   console.log('  /notify      - Notificaciones (/notify set <workflow_id> | unset | test)');
   console.log('  /record      - Auto-grabar sesion en OBS (/record start | /record stop)');
-  console.log('  /approval    - Modo de aprobación (/approval [on|smart|off])');
+  console.log('  /approval    - Modo de aprobación (/approval [critical|smart|on|off]; default: critical)');
   console.log('  /read        - Lectura jerárquica de un repo (/read <ruta> [--budget=N])');
   console.log('  /self        - Auto-lectura del repo Shinobi (/self [--diff] [--budget=N])');
   console.log('  /committee   - Comité de validación sobre un report (/committee [<report.json>])');
