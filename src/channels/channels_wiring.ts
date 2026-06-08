@@ -17,6 +17,7 @@ import { LoopbackAdapter } from './adapters/loopback_adapter.js';
 import { WebhookAdapter } from './adapters/webhook_adapter.js';
 import { ShinobiOrchestrator } from '../coordinator/orchestrator.js';
 import { runExclusive } from '../coordinator/orchestrator_mutex.js';
+import { authorizeIncoming } from './pairing.js';
 import type { IncomingMessage, OutgoingMessage, MessageHandler } from './types.js';
 
 let _started = false;
@@ -29,6 +30,11 @@ let _started = false;
  * corrompe.
  */
 async function orchestratorHandler(msg: IncomingMessage): Promise<OutgoingMessage | null> {
+  // Capa de confianza: un remitente no autorizado NO llega al orchestrator.
+  // En modo 'open' (default) esto es passthrough; con código/allowlist gatea.
+  const auth = authorizeIncoming(msg.channelId, msg.target.userId, msg.text);
+  if (!auth.allowed) return auth.reply ? { text: auth.reply } : null;
+
   const result: any = await runExclusive(() =>
     ShinobiOrchestrator.process(`[CHANNEL: ${msg.channelId}] ${msg.text}`));
   const text = result?.response
