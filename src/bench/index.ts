@@ -6,3 +6,5 @@ export { BENCH_TASKS } from './tasks.js';
 export { ShinobiAdapter } from './adapters/shinobi_adapter.js';
 export { MockAdapter, type MockBehavior } from './adapters/mock_adapter.js';
 export { CliAdapter, type CliAdapterConfig } from './adapters/cli_adapter.js';
+export { loadBenchConfig, competitorAdapters, type BenchConfig } from './config.js';
+export { writeResults, type WriteResultsOutput } from './results.js';
