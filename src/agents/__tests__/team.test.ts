@@ -91,6 +91,35 @@ describe('runTeam — paralelismo real de mutaciones', () => {
     mgr.remove(b.worktreePath!, true);
   });
 
+  it('8 agentes escriben EN PARALELO sin contaminación cruzada (stress)', async () => {
+    const N = 8;
+    const stressInvoker: LLMInvoker = async (payload: any) => {
+      const msgs = payload?.messages ?? [];
+      if (msgs.some((m: any) => m.role === 'tool')) return { success: true, output: envelope('hecho'), error: '' };
+      const task = String(msgs.find((m: any) => m.role === 'user')?.content ?? '');
+      const n = (task.match(/\d+/) || ['x'])[0];
+      return {
+        success: true,
+        output: JSON.stringify({ content: '', tool_calls: [{ id: 'c1', type: 'function', function: { name: 'write_file', arguments: JSON.stringify({ path: `file_${n}.txt`, content: n }) } }] }),
+        error: '',
+      };
+    };
+    const tasks = Array.from({ length: N }, (_, i) => ({ task: `escribe el fichero ${i}`, label: `m${i}`, tools: ['write_file'] }));
+    const res = await runTeam({ tasks, manager: mgr, concurrency: N, invokeLLM: stressInvoker });
+
+    expect(res.succeeded).toBe(N);
+    expect(res.keptBranches.length).toBe(N);
+    for (let i = 0; i < N; i++) {
+      const m = res.results.find((r) => r.label === `m${i}`)!;
+      expect(m.worktreePath, `m${i} sin worktree`).toBeTruthy();
+      expect(fs.existsSync(path.join(m.worktreePath!, `file_${i}.txt`)), `m${i} sin su fichero`).toBe(true);
+      // No contiene el fichero de un vecino (muestra: i+1).
+      const neighbor = (i + 1) % N;
+      expect(fs.existsSync(path.join(m.worktreePath!, `file_${neighbor}.txt`)), `m${i} contaminado con file_${neighbor}`).toBe(false);
+    }
+    for (const r of res.results) if (r.worktreePath) mgr.remove(r.worktreePath, true);
+  }, 60_000);
+
   it('sin repo git, falla limpio por miembro', async () => {
     const noRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'shinobi-team-norepo-'));
     const res = await runTeam({
