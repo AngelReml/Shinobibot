@@ -19,6 +19,13 @@ import { verifyResult, type Verdict } from './verifier.js';
 export interface VerifiedAgentOptions extends AgentLoopOptions {
   /** Criterios de aceptación que el verificador exigirá. */
   criteria?: string;
+  /**
+   * Pre-gate OBJETIVO (E1): comprobación de código (tests/typecheck/lint) sobre
+   * la salida del productor. Gate DURO — si no pasa, NO se aprueba pase lo que
+   * diga el verificador LLM, y sus issues se reinyectan. Suele construirse con
+   * runObjectiveChecks() del objective_verifier.
+   */
+  objectiveCheck?: (output: string) => Promise<{ passed: boolean; issues: string[] }>;
   /** Nº máximo de intentos productor→verificador (default 2). */
   maxAttempts?: number;
   /** Caja READ-ONLY del verificador (default []). */
@@ -93,6 +100,23 @@ export async function runVerifiedAgent(options: VerifiedAgentOptions): Promise<V
       history.push({ result, verdict: lastVerdict });
       priorFeedback = feedbackContext(lastVerdict);
       continue;
+    }
+
+    // Pre-gate OBJETIVO: si falla, no se aprueba (el LLM no puede revocarlo).
+    if (options.objectiveCheck) {
+      let oc: { passed: boolean; issues: string[] };
+      try {
+        oc = await options.objectiveCheck(result.output);
+      } catch (e: any) {
+        oc = { passed: false, issues: [`el control objetivo lanzó: ${e?.message ?? e}`] };
+      }
+      if (!oc.passed) {
+        lastVerdict = { passed: false, score: 0, issues: oc.issues, rationale: 'controles objetivos (tests/typecheck) fallaron' };
+        lastOutput = result.output;
+        history.push({ result, verdict: lastVerdict });
+        priorFeedback = feedbackContext(lastVerdict);
+        continue;
+      }
     }
 
     const verdict = await verifyResult({
