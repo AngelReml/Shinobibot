@@ -11,6 +11,7 @@
 
 import { type Tool, type ToolResult, registerTool, getAllTools } from './tool_registry.js';
 import { loadTrustReport, type TrustReport } from '../audit/trust_ledger.js';
+import { activateTools } from './tool_activation.js';
 
 export interface ToolMatch {
   name: string;
@@ -126,6 +127,9 @@ const toolSearchTool: Tool = {
     if (matches.length === 0) {
       return { success: true, output: `No hay herramientas que casen con "${args.query ?? ''}".` };
     }
+    // Modo deferred: las tools encontradas quedan ANUNCIADAS en los turnos
+    // siguientes. No-op si el modo está OFF (el conjunto se ignora).
+    activateTools(matches.map((m) => m.name));
     const lines = matches.map((m) => {
       const trustPct = Math.round(m.trust * 100);
       return `- ${m.name} (rel ${m.relevance.toFixed(2)}, trust ${trustPct}%): ${m.description.slice(0, 100)}`;
