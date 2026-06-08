@@ -5,10 +5,10 @@ myenv/
 .env.local 
 *.key 
 memory.json 
-echo # === Build / Compilados === 
+# === Build / Compilados === 
 dist/ 
 build/ 
-echo # === Temporales / Basura ===
+# === Temporales / Basura ===
 tmp/
 *.bak
 *.log 
@@ -17,10 +17,10 @@ temp_file.txt
 test_file.txt 
 example.db 
 debug_*.png 
-echo # === Configuraci�n Local === 
+# === Configuraci�n Local === 
 .claude/ 
 .DS_Store 
-echo # === Archivos de Estres / Hack (Basura) === 
+# === Archivos de Estres / Hack (Basura) === 
 hack_shinobi.js 
 block2_stress.mjs 
 stress_test.ts 
