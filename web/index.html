@@ -3,232 +3,288 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>VeriGest — Adaptación Verifactu para despachos | ZapWeave</title>
-<meta name="description" content="Servicio técnico Verifactu en marca blanca para gestorías: diagnóstico de cartera, migración de clientes y verificación con la AEAT. RD 1007/2023.">
+<title>VeriGest — La parte técnica de Verifactu, resuelta | ZapWeave</title>
+<meta name="description" content="Servicio técnico Verifactu en marca blanca para gestorías: diagnóstico de cartera, migración de clientes y verificación con la AEAT.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
 :root{
-  --azul:#1B3F72; --azul-claro:#EAF0F8; --azul-med:#2D5FA0;
-  --tinta:#111827; --tinta2:#4B5563; --tinta3:#9CA3AF;
-  --papel:#FFFFFF; --fondo:#F9FAFB; --linea:#E5E7EB;
-  --verde:#15803D; --verde-bg:#F0FDF4;
-  --rojo:#B91C1C; --rojo-bg:#FEF2F2;
-  --ambar:#92400E; --ambar-bg:#FFFBEB;
-  --mono:'IBM Plex Mono',monospace;
-  --sans:'DM Sans',sans-serif;
+  --azul:#1B3F72;--azul-osc:#0F2547;--azul-med:#2D5FA0;--azul-claro:#EAF0F8;
+  --tinta:#111827;--tinta2:#4B5563;--tinta3:#9CA3AF;
+  --papel:#FFF;--fondo:#F8FAFB;--linea:#E5E7EB;
+  --verde:#15803D;--verde-bg:#DCFCE7;
+  --rojo:#B91C1C;--rojo-bg:#FEE2E2;
+  --ambar:#92400E;--ambar-bg:#FEF3C7;
+  --mono:'IBM Plex Mono',monospace;--sans:'DM Sans',sans-serif;
 }
 body{font-family:var(--sans);color:var(--tinta);background:var(--papel);-webkit-font-smoothing:antialiased;line-height:1.5}
 a{color:inherit;text-decoration:none}
 button{font-family:inherit;cursor:pointer}
 
-/* ── TOP BAR ── */
-.topbar{background:var(--azul);color:#fff;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:0;z-index:100}
-.topbar .marca{font-family:var(--mono);font-size:.72rem;font-weight:600;letter-spacing:.18em}
-.topbar .marca span{opacity:.55}
-.topbar nav{display:flex;gap:28px;font-size:.82rem;font-weight:600}
-.topbar nav a{opacity:.8}.topbar nav a:hover{opacity:1}
-.topbar nav a.cta-top{border:1.5px solid rgba(255,255,255,.5);padding:6px 14px;border-radius:4px}
-@media(max-width:640px){.topbar nav a:not(.cta-top){display:none}}
+/* TOPBAR */
+.topbar{background:var(--azul-osc);color:#fff;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:100}
+.topbar .m{font-family:var(--mono);font-size:.7rem;font-weight:600;letter-spacing:.18em}
+.topbar .m span{opacity:.5}
+.topbar nav{display:flex;gap:24px;font-size:.82rem;font-weight:600}
+.topbar nav a{opacity:.85}.topbar nav a:hover{opacity:1}
+.topbar nav a.c{border:1.5px solid rgba(255,255,255,.45);padding:5px 13px;border-radius:4px;opacity:1}
+@media(max-width:680px){.topbar nav a:not(.c){display:none}}
 
-/* ── HERO ── */
-.hero{background:var(--azul);color:#fff;padding:56px 28px 0;overflow:hidden}
-.hero-inner{max-width:1080px;margin:0 auto}
-.hero-tag{font-family:var(--mono);font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:#93B4D8;margin-bottom:20px}
-.hero h1{font-size:clamp(2rem,5vw,3.4rem);font-weight:800;line-height:1.06;letter-spacing:-.02em;max-width:20ch}
+/* HERO */
+.hero{background:linear-gradient(180deg,var(--azul) 0%,var(--azul-osc) 100%);color:#fff;padding:60px 24px 64px}
+.hero-grid{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1.15fr .85fr;gap:48px;align-items:center}
+@media(max-width:860px){.hero-grid{grid-template-columns:1fr}}
+.tag{font-family:var(--mono);font-size:.66rem;letter-spacing:.2em;text-transform:uppercase;color:#8FB3DC;margin-bottom:18px}
+.hero h1{font-size:clamp(2rem,4.6vw,3.2rem);font-weight:800;line-height:1.07;letter-spacing:-.02em}
 .hero h1 em{font-style:normal;color:#93C5FD}
-.hero .bajada{margin-top:20px;color:#CBD5E1;font-size:1rem;max-width:56ch;line-height:1.6}
-.hero-ctas{margin-top:28px;display:flex;gap:12px;flex-wrap:wrap}
+.hero .sub{margin-top:16px;color:#C3D2E4;font-size:.98rem;max-width:46ch;line-height:1.65}
+.hero-ctas{margin-top:26px;display:flex;gap:12px;flex-wrap:wrap}
 .btn{display:inline-block;font-weight:700;font-size:.9rem;padding:13px 24px;border-radius:6px;border:none;transition:.12s}
 .btn:hover{transform:translateY(-1px)}
 .btn-b{background:#fff;color:var(--azul)}
 .btn-o{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.4);font-weight:600}
-/* ── STATS STRIP ── */
-.stats{display:flex;margin-top:48px;border-top:1px solid rgba(255,255,255,.15);flex-wrap:wrap}
-.stat{padding:18px 28px 18px 0;margin-right:28px;border-right:1px solid rgba(255,255,255,.12)}
-.stat:last-child{border:none}
-.stat .n{font-family:var(--mono);font-weight:600;font-size:1.45rem}
-.stat .l{font-size:.7rem;color:#93B4D8;text-transform:uppercase;letter-spacing:.06em;margin-top:3px}
-@media(max-width:640px){.stat{border:none;padding:10px 0;width:100%;border-bottom:1px solid rgba(255,255,255,.1)}}
-/* ── DEADLINES ── */
-.deadlines{background:#0F2547;display:grid;grid-template-columns:repeat(3,1fr)}
-.dl{padding:18px 24px;border-right:1px solid rgba(255,255,255,.1);color:#fff}
+
+/* SIGNATURE: expediente mock */
+.exp-card{background:#fff;color:var(--tinta);border-radius:8px;padding:22px 22px 18px;box-shadow:0 24px 60px rgba(0,0,0,.35);transform:rotate(1.2deg);max-width:380px;justify-self:end;position:relative}
+@media(max-width:860px){.exp-card{justify-self:start;transform:rotate(.8deg);margin-top:8px}}
+.exp-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--azul);border-radius:8px 0 0 8px}
+.exp-h{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid var(--tinta);padding-bottom:10px}
+.exp-h .t{font-weight:800;font-size:.78rem;letter-spacing:.02em}
+.exp-h .r{font-family:var(--mono);font-size:.56rem;color:var(--tinta3);text-align:right;line-height:1.5}
+.exp-row{display:flex;justify-content:space-between;font-size:.72rem;padding:7px 0;border-bottom:1px solid var(--linea)}
+.exp-row b{font-weight:600}
+.exp-row .mono{font-family:var(--mono);color:var(--tinta2)}
+.exp-stamp{display:inline-block;font-family:var(--mono);font-weight:600;font-size:.66rem;letter-spacing:.1em;padding:4px 10px;border-radius:3px;margin:10px 0 4px;background:var(--verde-bg);color:var(--verde);border:1.5px solid var(--verde);transform:rotate(-1.5deg)}
+.exp-hash{font-family:var(--mono);font-size:.54rem;color:var(--tinta3);margin-top:8px;border-top:1px dashed var(--linea);padding-top:8px;word-break:break-all;line-height:1.6}
+.exp-hash b{color:var(--verde)}
+.exp-foot{font-size:.56rem;color:var(--tinta3);margin-top:6px}
+
+/* DEADLINES */
+.dls{background:#0A1B36;display:grid;grid-template-columns:repeat(3,1fr)}
+.dl{padding:16px 22px;border-right:1px solid rgba(255,255,255,.08);color:#fff}
 .dl:last-child{border:none}
-.dl .fecha{font-family:var(--mono);font-weight:600;font-size:1rem;color:#93C5FD}
-.dl .quien{font-size:.78rem;color:#94A3B8;margin-top:3px}
-.dl .badge{display:inline-block;margin-top:8px;font-family:var(--mono);font-size:.62rem;font-weight:600;padding:3px 8px;border-radius:2px;background:rgba(147,197,253,.15);color:#93C5FD;letter-spacing:.1em}
-.dl.hoy .badge{background:rgba(252,165,165,.15);color:#FCA5A5}
-@media(max-width:720px){.deadlines{grid-template-columns:1fr}.dl{border-right:none;border-bottom:1px solid rgba(255,255,255,.08)}}
+.dl .f{font-family:var(--mono);font-weight:600;font-size:.95rem;color:#93C5FD}
+.dl .q{font-size:.74rem;color:#8094AD;margin-top:2px}
+.dl .b{display:inline-block;margin-top:7px;font-family:var(--mono);font-size:.58rem;font-weight:600;padding:3px 8px;border-radius:2px;background:rgba(147,197,253,.14);color:#93C5FD;letter-spacing:.1em}
+.dl.hoy .b{background:rgba(252,165,165,.14);color:#FCA5A5}
+@media(max-width:720px){.dls{grid-template-columns:1fr}.dl{border-right:none;border-bottom:1px solid rgba(255,255,255,.06)}}
 
-/* ── SECCIONES GENERALES ── */
-section{padding:72px 28px}
+/* SECTIONS */
+section{padding:68px 24px}
 .inner{max-width:1080px;margin:0 auto}
-.sec-tag{font-family:var(--mono);font-size:.65rem;letter-spacing:.18em;text-transform:uppercase;color:var(--azul);margin-bottom:10px}
-h2{font-size:clamp(1.6rem,3.2vw,2.3rem);font-weight:800;letter-spacing:-.02em;line-height:1.1;max-width:28ch}
-.sec-sub{margin-top:12px;color:var(--tinta2);max-width:64ch}
+.stag{font-family:var(--mono);font-size:.64rem;letter-spacing:.18em;text-transform:uppercase;color:var(--azul);margin-bottom:10px}
+h2{font-size:clamp(1.5rem,3vw,2.1rem);font-weight:800;letter-spacing:-.02em;line-height:1.12;max-width:30ch}
+.ssub{margin-top:10px;color:var(--tinta2);max-width:62ch;font-size:.95rem}
 
-/* ── CÓMO FUNCIONA ── */
-#como{background:var(--fondo)}
-.pasos{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1px;margin-top:40px;background:var(--linea);border:1px solid var(--linea)}
-.paso{background:var(--papel);padding:28px;border-left:4px solid var(--azul)}
-.paso:nth-child(2){border-color:#2563EB}
-.paso:nth-child(3){border-color:#1D4ED8}
-.paso .ref{font-family:var(--mono);font-size:.62rem;color:var(--tinta3);letter-spacing:.12em;margin-bottom:10px}
-.paso h3{font-size:1.1rem;font-weight:700;margin-bottom:8px}
-.paso p{font-size:.88rem;color:var(--tinta2);line-height:1.6}
-.paso .precio{margin-top:16px;font-family:var(--mono);font-weight:600;font-size:1rem;color:var(--azul)}
-.paso .precio small{font-size:.72rem;color:var(--tinta3);font-weight:400}
+/* PROCESO (visual flow) */
+#proceso{background:var(--fondo)}
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:44px;position:relative}
+.flow::before{content:'';position:absolute;top:23px;left:12%;right:12%;height:2px;background:var(--linea);z-index:0}
+.fstep{text-align:center;position:relative;z-index:1;padding:0 12px}
+.fstep .dot{width:46px;height:46px;border-radius:50%;background:var(--papel);border:2.5px solid var(--azul);color:var(--azul);font-family:var(--mono);font-weight:600;font-size:.85rem;display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+.fstep:last-child .dot{background:var(--azul);color:#fff}
+.fstep h3{font-size:.92rem;font-weight:700}
+.fstep p{font-size:.78rem;color:var(--tinta2);margin-top:5px;line-height:1.55}
+@media(max-width:760px){.flow{grid-template-columns:1fr 1fr;gap:28px}.flow::before{display:none}}
+/* cartera bar */
+.cartera-demo{margin-top:56px;background:var(--papel);border:1px solid var(--linea);border-radius:8px;padding:26px 24px}
+.cartera-demo .cd-t{font-weight:700;font-size:.92rem;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.cartera-demo .cd-t small{font-family:var(--mono);font-size:.62rem;color:var(--tinta3);font-weight:400;align-self:center}
+.cbar{display:flex;height:38px;border-radius:5px;overflow:hidden;margin-top:16px}
+.cbar div{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:600;font-size:.7rem;color:#fff;min-width:0}
+.cb-crit{background:#C2410C;flex:38}
+.cb-riesgo{background:#D97706;flex:27}
+.cb-adapt{background:#15803D;flex:24}
+.cb-fuera{background:#1B3F72;flex:11}
+.cleg{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:.74rem;color:var(--tinta2)}
+.cleg span::before{content:'';display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.cleg .l1::before{background:#C2410C}.cleg .l2::before{background:#D97706}.cleg .l3::before{background:#15803D}.cleg .l4::before{background:#1B3F72}
 
-/* ── HERRAMIENTA ── */
-#herramienta{background:var(--papel);border-top:1px solid var(--linea)}
-.tool-wrap{margin-top:36px;border:1px solid var(--linea);border-radius:8px;overflow:hidden}
-.tool-head{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:var(--fondo);border-bottom:1px solid var(--linea)}
-.tool-head .tt{font-weight:700;font-size:.88rem;display:flex;align-items:center;gap:8px}
-.tool-head .tt::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--azul)}
-.tool-head .ts{font-family:var(--mono);font-size:.66rem;color:var(--tinta3)}
+/* PRODUCTOS */
+.prods{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:16px;margin-top:40px}
+.prod{border:1px solid var(--linea);border-radius:8px;padding:24px;border-top:3px solid var(--azul);background:var(--papel)}
+.prod .pr{font-family:var(--mono);font-size:.6rem;color:var(--tinta3);letter-spacing:.12em}
+.prod h3{font-size:1.05rem;font-weight:700;margin:8px 0 6px}
+.prod p{font-size:.84rem;color:var(--tinta2);line-height:1.6}
+.prod .precio{margin-top:14px;font-family:var(--mono);font-weight:600;font-size:1rem;color:var(--azul)}
+.prod .precio small{font-size:.7rem;color:var(--tinta3);font-weight:400}
+
+/* HERRAMIENTA — same engine, lighter chrome */
+#herramienta{background:var(--fondo);border-top:1px solid var(--linea)}
+.tw{margin-top:32px;border:1px solid var(--linea);border-radius:8px;overflow:hidden;background:var(--papel)}
+.th{display:flex;justify-content:space-between;align-items:center;padding:13px 18px;border-bottom:1px solid var(--linea)}
+.th .tt{font-weight:700;font-size:.86rem}
+.th .ts{font-family:var(--mono);font-size:.62rem;color:var(--tinta3)}
 .prog{height:2px;background:var(--linea)}.prog>div{height:100%;background:var(--azul);width:0;transition:width .3s}
-.tool-body{padding:28px 20px 32px;min-height:280px}
-.qlab{font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;color:var(--azul)}
-.qtxt{font-size:clamp(1.1rem,2.4vw,1.5rem);font-weight:700;margin-top:8px;line-height:1.15}
-.qhlp{font-size:.83rem;color:var(--tinta2);margin-top:7px;max-width:60ch}
-.opts{display:grid;gap:8px;margin-top:20px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
-.opt{text-align:left;background:var(--papel);border:1.5px solid var(--linea);border-radius:6px;padding:13px 16px;font-size:.88rem;font-weight:600;transition:.1s}
+.tb{padding:26px 18px 30px;min-height:260px}
+.qlab{font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--azul)}
+.qtxt{font-size:clamp(1.05rem,2.2vw,1.4rem);font-weight:700;margin-top:7px;line-height:1.15}
+.qhlp{font-size:.8rem;color:var(--tinta2);margin-top:6px;max-width:60ch}
+.opts{display:grid;gap:8px;margin-top:18px;grid-template-columns:repeat(auto-fit,minmax(195px,1fr))}
+.opt{text-align:left;background:var(--papel);border:1.5px solid var(--linea);border-radius:6px;padding:12px 15px;font-size:.86rem;font-weight:600;transition:.1s}
 .opt:hover{border-color:var(--azul);background:var(--azul-claro)}
-.opt small{display:block;font-weight:400;font-size:.74rem;color:var(--tinta2);margin-top:3px}
-.inp{width:100%;padding:12px 14px;font-family:var(--sans);font-size:.95rem;border:1.5px solid var(--linea);border-radius:6px;max-width:420px;margin-top:8px}
+.opt small{display:block;font-weight:400;font-size:.72rem;color:var(--tinta2);margin-top:2px}
+.inp{width:100%;padding:11px 13px;font-family:var(--sans);font-size:.93rem;border:1.5px solid var(--linea);border-radius:6px;max-width:400px;margin-top:8px}
 .inp:focus{border-color:var(--azul);outline:none}
-.lbl{display:block;font-weight:600;font-size:.82rem;margin-top:14px}
+.lbl{display:block;font-weight:600;font-size:.8rem;margin-top:13px}
 .lbl span{color:var(--tinta3);font-weight:400}
-.btnp{font-weight:700;font-size:.88rem;padding:12px 22px;border-radius:6px;border:none;background:var(--azul);color:#fff;margin-top:18px;transition:.1s}
+.btnp{font-weight:700;font-size:.86rem;padding:11px 20px;border-radius:6px;border:none;background:var(--azul);color:#fff;margin-top:16px;transition:.1s}
 .btnp:hover{background:var(--azul-med)}
 .btnp:disabled{opacity:.5;cursor:wait}
-.btnp.sec{background:var(--fondo);color:var(--tinta);border:1.5px solid var(--linea)}
-.bk{background:none;border:none;font-size:.8rem;font-weight:600;color:var(--tinta2);text-decoration:underline;padding:10px;margin-top:10px}
-/* stamps */
-.stamp{display:inline-block;font-family:var(--mono);font-weight:600;font-size:.82rem;letter-spacing:.08em;padding:6px 14px;border-radius:3px;text-transform:uppercase}
+.btnp.s2{background:var(--papel);color:var(--tinta);border:1.5px solid var(--linea)}
+.bk{background:none;border:none;font-size:.78rem;font-weight:600;color:var(--tinta2);text-decoration:underline;padding:9px;margin-top:8px}
+.stamp{display:inline-block;font-family:var(--mono);font-weight:600;font-size:.78rem;letter-spacing:.08em;padding:5px 13px;border-radius:3px;text-transform:uppercase}
 .st-CRITICO{background:var(--rojo-bg);color:var(--rojo);border:1.5px solid var(--rojo)}
 .st-RIESGO{background:var(--ambar-bg);color:var(--ambar);border:1.5px solid var(--ambar)}
 .st-ADAPTADO{background:var(--verde-bg);color:var(--verde);border:1.5px solid var(--verde)}
 .st-FUERA{background:var(--azul-claro);color:var(--azul);border:1.5px solid var(--azul)}
-.vtit{font-size:1.25rem;font-weight:700;margin-top:14px;line-height:1.2}
-.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:16px}
-.kc{border:1px solid var(--linea);border-radius:6px;padding:12px;background:var(--fondo)}
-.kc .k{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--tinta3)}
-.kc .v{font-family:var(--mono);font-weight:600;font-size:.95rem;margin-top:4px}
+.vtit{font-size:1.15rem;font-weight:700;margin-top:13px;line-height:1.25}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:9px;margin-top:14px}
+.kc{border:1px solid var(--linea);border-radius:6px;padding:11px;background:var(--fondo)}
+.kc .k{font-family:var(--mono);font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--tinta3)}
+.kc .v{font-family:var(--mono);font-weight:600;font-size:.9rem;margin-top:3px}
 .kc .v.red{color:var(--rojo)}
-.plan-wrap{margin-top:20px;border-left:3px solid var(--azul);padding-left:16px}
-.plan-wrap h4{font-size:.75rem;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta3);margin-bottom:8px}
-.plan-wrap ol{list-style:none;counter-reset:p;padding:0}
-.plan-wrap li{counter-increment:p;display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--linea);font-size:.88rem}
-.plan-wrap li::before{content:counter(p,decimal-leading-zero);font-family:var(--mono);font-weight:600;font-size:.72rem;color:var(--azul);min-width:24px;padding-top:1px}
-.capt{margin-top:22px;background:var(--azul-claro);border:1px solid #BFDBFE;border-radius:8px;padding:18px}
-.capt .ct{font-weight:700;font-size:.9rem;margin-bottom:12px}
-.msg{margin-top:12px;font-size:.84rem;font-weight:600;display:none;padding:10px 12px;border-radius:6px}
+.pw{margin-top:18px;border-left:3px solid var(--azul);padding-left:15px}
+.pw h4{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta3);margin-bottom:7px}
+.pw ol{list-style:none;counter-reset:p;padding:0}
+.pw li{counter-increment:p;display:flex;gap:9px;padding:7px 0;border-bottom:1px solid var(--linea);font-size:.85rem}
+.pw li::before{content:counter(p,decimal-leading-zero);font-family:var(--mono);font-weight:600;font-size:.68rem;color:var(--azul);min-width:22px;padding-top:1px}
+.capt{margin-top:20px;background:var(--azul-claro);border:1px solid #BFDBFE;border-radius:8px;padding:16px}
+.capt .ct{font-weight:700;font-size:.86rem;margin-bottom:8px}
+.msg{margin-top:11px;font-size:.82rem;font-weight:600;display:none;padding:9px 11px;border-radius:6px}
 .msg.ok{display:block;background:var(--verde-bg);color:var(--verde)}
 .msg.err{display:block;background:var(--rojo-bg);color:var(--rojo)}
 
-/* ── POR QUÉ AHORA ── */
-#porque{background:var(--fondo)}
-.hechos{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:36px}
-.hecho{background:var(--papel);border:1px solid var(--linea);padding:22px;border-top:3px solid var(--azul)}
-.hecho h3{font-size:1.05rem;font-weight:700;margin-bottom:6px}
-.hecho p{font-size:.86rem;color:var(--tinta2);line-height:1.6}
-.hecho .hfecha{font-family:var(--mono);font-size:.7rem;color:var(--tinta3);margin-bottom:8px;letter-spacing:.06em}
+/* HECHOS — calm version */
+.hechos{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;margin-top:36px}
+.hecho{border:1px solid var(--linea);border-radius:8px;padding:20px;background:var(--papel)}
+.hecho .hf{font-family:var(--mono);font-size:.62rem;color:var(--azul);letter-spacing:.08em;margin-bottom:8px}
+.hecho h3{font-size:.98rem;font-weight:700;margin-bottom:5px}
+.hecho p{font-size:.82rem;color:var(--tinta2);line-height:1.6}
 
-/* ── CONTACTO ── */
-#contacto{background:var(--azul);color:#fff}
-#contacto h2{max-width:22ch;color:#fff}
-#contacto .sec-sub{color:#93B4D8}
-#contacto .sec-tag{color:#93B4D8}
-.cform{margin-top:32px;max-width:520px}
-.cform .lbl{color:#CBD5E1}
-.cform .inp{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.2);color:#fff}
-.cform .inp::placeholder{color:#64748B}
+/* CONTACTO */
+#contacto{background:var(--azul-osc);color:#fff}
+#contacto h2{color:#fff}
+#contacto .ssub{color:#8FA8C8}
+#contacto .stag{color:#8FB3DC}
+.cform{margin-top:28px;max-width:500px}
+.cform .lbl{color:#C3D2E4}
+.cform .inp{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.18);color:#fff}
+.cform .inp::placeholder{color:#5A6F8C}
 .cform .inp:focus{border-color:#93C5FD}
-.foot-bar{background:#0F2547;color:#64748B;padding:24px 28px;font-size:.72rem;line-height:1.8}
-.foot-inner{max-width:1080px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.fbar{background:#061226;color:#5A6F8C;padding:20px 24px;font-size:.7rem;line-height:1.8}
+.fbar .fi{max-width:1080px;margin:0 auto;display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
 
-/* ── PRINT ── */
+/* PRINT */
 #informe{display:none}
 @media print{body>*{display:none!important}#informe{display:block!important}}
 .rep{max-width:700px;margin:0 auto;padding:32px 24px;font-family:Arial,sans-serif;color:#000}
 .rep-head{display:flex;justify-content:space-between;border-bottom:2px solid #1B3F72;padding-bottom:12px}
-.rep-head .ra{font-weight:bold;font-size:1.1rem;color:#1B3F72}
-.rep-head .rb{font-family:monospace;font-size:.64rem;text-align:right;color:#555}
-.rep h1{font-size:1.3rem;margin:20px 0 4px}
-.rep .rsub{font-size:.78rem;color:#555}
-.rep .rstamp{display:inline-block;font-family:monospace;font-weight:700;padding:7px 14px;border:2px solid #000;border-radius:4px;margin:14px 0;text-transform:uppercase;font-size:.85rem}
-.rep table{width:100%;border-collapse:collapse;font-size:.8rem;margin:12px 0}
+.rep-head .ra{font-weight:bold;font-size:1.05rem;color:#1B3F72}
+.rep-head .rb{font-family:monospace;font-size:.62rem;text-align:right;color:#555}
+.rep h1{font-size:1.25rem;margin:18px 0 4px}
+.rep .rsub{font-size:.76rem;color:#555}
+.rep .rstamp{display:inline-block;font-family:monospace;font-weight:700;padding:6px 13px;border:2px solid #000;border-radius:4px;margin:13px 0;text-transform:uppercase;font-size:.82rem}
+.rep table{width:100%;border-collapse:collapse;font-size:.78rem;margin:11px 0}
 .rep td{border:1px solid #CCC;padding:7px 9px}
 .rep td:first-child{font-weight:bold;background:#F0F5FF;width:34%}
-.rep ol{margin:8px 0 8px 18px;font-size:.83rem}
-.rep ol li{margin-bottom:6px}
-.rep .rfoot{margin-top:24px;border-top:1px dashed #CCC;padding-top:10px;font-family:monospace;font-size:.58rem;color:#888}
+.rep ol{margin:8px 0 8px 18px;font-size:.81rem}
+.rep ol li{margin-bottom:5px}
+.rep .rfoot{margin-top:22px;border-top:1px dashed #CCC;padding-top:9px;font-family:monospace;font-size:.56rem;color:#888}
 </style>
 </head>
 <body>
 
-<!-- TOPBAR -->
 <header class="topbar">
-  <div class="marca">ZAPWEAVE <span>·</span> VERIGEST</div>
+  <div class="m">ZAPWEAVE <span>·</span> VERIGEST</div>
   <nav>
-    <a href="#como">Servicio</a>
+    <a href="#proceso">Cómo funciona</a>
     <a href="#herramienta">Diagnóstico</a>
-    <a href="#porque">Urgencia</a>
-    <a class="cta-top" href="#contacto">Solicitar propuesta →</a>
+    <a href="#vigente">Marco legal</a>
+    <a class="c" href="#contacto">Hablemos →</a>
   </nav>
 </header>
 
 <!-- HERO -->
 <div class="hero">
-  <div class="hero-inner">
-    <div class="hero-tag">Servicio técnico Verifactu · Marca blanca para gestorías</div>
-    <h1>Verifactu es un trabajo técnico que tu despacho <em>no puede hacer solo.</em></h1>
-    <p class="bajada">Verificar declaraciones responsables, auditar software cliente a cliente y ejecutar las migraciones requiere tiempo técnico que no tienes. Yo lo hago con tu nombre delante. Tú mantienes la relación y facturas el servicio.</p>
-    <div class="hero-ctas">
-      <a class="btn btn-b" href="#contacto">Solicitar diagnóstico de cartera</a>
-      <a class="btn btn-o" href="#herramienta">Probar el diagnóstico (60 seg)</a>
+  <div class="hero-grid">
+    <div>
+      <div class="tag">Servicio técnico Verifactu · marca blanca para despachos</div>
+      <h1>La parte técnica de Verifactu, <em>resuelta.</em></h1>
+      <p class="sub">Tu despacho pone la cartera y la confianza. Yo pongo las horas técnicas: auditar el software de cada cliente, verificar declaraciones responsables y ejecutar las migraciones — con tu membrete y con evidencias de la AEAT en cada expediente.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-b" href="#contacto">Solicitar estimación de cartera</a>
+        <a class="btn btn-o" href="#herramienta">Probar el diagnóstico</a>
+      </div>
     </div>
-    <div class="stats">
-      <div class="stat"><div class="n">3.600.000</div><div class="l">obligados en territorio común</div></div>
-      <div class="stat"><div class="n">50.000 €</div><div class="l">sanción por software no conforme (art. 201 bis LGT)</div></div>
-      <div class="stat"><div class="n">180–350 €</div><div class="l">honorario por cliente adaptado que factura tu despacho</div></div>
+    <!-- SIGNATURE: el expediente -->
+    <div class="exp-card" aria-label="Ejemplo de expediente entregado">
+      <div class="exp-h">
+        <div class="t">EXPEDIENTE DE ADAPTACIÓN<br>VERIFACTU</div>
+        <div class="r">REF EXP-2026-0014<br>RD 1007/2023</div>
+      </div>
+      <div class="exp-row"><b>Cliente</b><span>Panadería de la Plaza</span></div>
+      <div class="exp-row"><b>Sistema anterior</b><span class="mono">Excel + talonario</span></div>
+      <div class="exp-row"><b>Migrado a</b><span class="mono">software conforme · VERI*FACTU</span></div>
+      <div class="exp-row"><b>Cotejo QR en sede AEAT</b><span class="mono" style="color:var(--verde)">✓ verificado</span></div>
+      <span class="exp-stamp">ADAPTADO ✓</span>
+      <div class="exp-hash">registro 0001 · huella <b>a3f91c…</b> ⛓ encadena correctamente · acuse CSV K7M2-····</div>
+      <div class="exp-foot">Informe entregado con el membrete del despacho · datos de ejemplo</div>
     </div>
   </div>
 </div>
 
 <!-- DEADLINES -->
-<div class="deadlines">
-  <div class="dl hoy"><div class="fecha">Hoy mismo</div><div class="quien">El software de doble uso ya es sancionable desde oct. 2021</div><span class="badge">VIGENTE</span></div>
-  <div class="dl"><div class="fecha" id="d-pj">01/01/2027</div><div class="quien">Sociedades y entidades (Impuesto de Sociedades) — RDL 15/2025</div><span class="badge" id="b-pj">—</span></div>
-  <div class="dl"><div class="fecha">01/07/2027</div><div class="quien">Autónomos y resto de obligados (IRPF)</div><span class="badge" id="b-pf">—</span></div>
+<div class="dls">
+  <div class="dl hoy"><div class="f">En vigor hoy</div><div class="q">Software de doble uso sancionable desde oct. 2021</div><span class="b">ART. 201 BIS LGT</span></div>
+  <div class="dl"><div class="f">01/01/2027</div><div class="q">Sociedades (Impuesto de Sociedades)</div><span class="b" id="b-pj">—</span></div>
+  <div class="dl"><div class="f">01/07/2027</div><div class="q">Autónomos y resto de obligados (IRPF)</div><span class="b" id="b-pf">—</span></div>
 </div>
 
-<!-- CÓMO FUNCIONA -->
-<section id="como">
+<!-- PROCESO -->
+<section id="proceso">
   <div class="inner">
-    <div class="sec-tag">El servicio</div>
-    <h2>Tres productos. Tu nombre siempre delante.</h2>
-    <p class="sec-sub">Sin formarte en ningún software, sin contratar técnicos. Cada expediente se cierra con evidencias auditables: declaración responsable, factura de prueba, acuse de la AEAT.</p>
-    <div class="pasos">
-      <div class="paso">
-        <div class="ref">PRODUCTO 01</div>
+    <div class="stag">Cómo funciona</div>
+    <h2>Del listado de tu programa al expediente cerrado.</h2>
+    <div class="flow">
+      <div class="fstep"><div class="dot">1</div><h3>Tu cartera</h3><p>Exportas el listado que ya tienes. Sin formatos especiales: del resto me encargo yo.</p></div>
+      <div class="fstep"><div class="dot">2</div><h3>Diagnóstico</h3><p>Cada cliente clasificado con plazo, exposición y plan. Informe individual con tu membrete.</p></div>
+      <div class="fstep"><div class="dot">3</div><h3>Migración</h3><p>Software conforme, datos importados, prueba real con la AEAT y 45 min de formación.</p></div>
+      <div class="fstep"><div class="dot">✓</div><h3>Evidencias</h3><p>Declaración responsable, factura test, cotejo de QR y acuse CSV, archivados por expediente.</p></div>
+    </div>
+
+    <div class="cartera-demo">
+      <div class="cd-t">Lo que entrega el diagnóstico: el mapa de tu cartera <small>EJEMPLO ILUSTRATIVO · CARTERA DE 250 CLIENTES</small></div>
+      <div class="cbar">
+        <div class="cb-crit">38%</div><div class="cb-riesgo">27%</div><div class="cb-adapt">24%</div><div class="cb-fuera">11%</div>
+      </div>
+      <div class="cleg">
+        <span class="l1">CRÍTICO — migración obligatoria</span>
+        <span class="l2">EN RIESGO — conformidad sin verificar</span>
+        <span class="l3">ADAPTADO — verificado con evidencias</span>
+        <span class="l4">FUERA DE ÁMBITO — SII / foral / exento</span>
+      </div>
+    </div>
+
+    <div class="prods">
+      <div class="prod">
+        <div class="pr">PRODUCTO 01</div>
         <h3>Diagnóstico de cartera</h3>
-        <p>Exportas el listado que ya tienes en tu programa. Yo clasifico a cada cliente: CRÍTICO, EN RIESGO, ADAPTADO o FUERA DE ÁMBITO — con plazo, exposición y plan de actuación. Informe individual con tu membrete, listo para entregar y facturar.</p>
+        <p>El mapa completo: veredicto, plazo y plan por cliente. Listo para entregar — y para facturar.</p>
         <div class="precio">desde 290 € <small>/ cartera · llave en mano 490 €</small></div>
       </div>
-      <div class="paso">
-        <div class="ref">PRODUCTO 02</div>
+      <div class="prod">
+        <div class="pr">PRODUCTO 02</div>
         <h3>Migración por expediente</h3>
-        <p>Cada cliente en riesgo, migrado a software conforme: alta, importación de datos, configuración VERI*FACTU, prueba real con cotejo de QR en sede de la AEAT y 45 min de formación. Dossier de evidencias incluido. Tú facturas 180–350 €.</p>
-        <div class="precio">90 € <small>/ expediente cerrado · verificación sin migración: 40 €</small></div>
+        <p>Cliente migrado, probado contra la AEAT y formado. Tu despacho lo factura a 180–350 €.</p>
+        <div class="precio">90 € <small>/ expediente cerrado · verificación: 40 €</small></div>
       </div>
-      <div class="paso">
-        <div class="ref">PRODUCTO 03</div>
-        <h3>Acompañamiento anual</h3>
-        <p>El calendario ya se ha movido dos veces. Vigilancia normativa continua (FAQ AEAT, consultas DGT), altas de clientes nuevos, soporte de incidencias de remisión y re-auditoría anual. Tu despacho, siempre al día.</p>
+      <div class="prod">
+        <div class="pr">PRODUCTO 03</div>
+        <h3>Acompañamiento</h3>
+        <p>Vigilancia normativa, altas nuevas e incidencias de remisión. Tu cartera, siempre al día.</p>
         <div class="precio">190 € <small>/ mes por despacho</small></div>
       </div>
     </div>
@@ -238,41 +294,26 @@ h2{font-size:clamp(1.6rem,3.2vw,2.3rem);font-weight:800;letter-spacing:-.02em;li
 <!-- HERRAMIENTA -->
 <section id="herramienta">
   <div class="inner">
-    <div class="sec-tag">La herramienta — úsala ahora</div>
-    <h2>Diagnostica cualquier cliente en 60 segundos.</h2>
-    <p class="sec-sub">Lógica normativa real: RD 1007/2023, Orden HAC/1177/2024 y calendario del RDL 15/2025. El mismo motor que aplico a carteras enteras. Al final puedes imprimir el informe para entregárselo a tu cliente.</p>
-    <div class="tool-wrap">
-      <div class="tool-head">
-        <div class="tt">Auditoría exprés Verifactu</div>
-        <div class="ts" id="step">INICIO</div>
-      </div>
+    <div class="stag">Pruébalo ahora</div>
+    <h2>Diagnostica un cliente en 60 segundos.</h2>
+    <p class="ssub">La misma lógica normativa que aplico a carteras enteras: RD 1007/2023, Orden HAC/1177/2024 y calendario vigente. Al final, imprime el informe.</p>
+    <div class="tw">
+      <div class="th"><span class="tt">Auditoría exprés Verifactu</span><span class="ts" id="step">INICIO</span></div>
       <div class="prog"><div id="pbar"></div></div>
-      <div class="tool-body" id="tbody"></div>
+      <div class="tb" id="tbody"></div>
     </div>
   </div>
 </section>
 
-<!-- POR QUÉ AHORA -->
-<section id="porque">
+<!-- VIGENTE -->
+<section id="vigente">
   <div class="inner">
-    <div class="sec-tag">La urgencia</div>
-    <h2>Tres realidades que no dependen del calendario.</h2>
+    <div class="stag">Marco legal</div>
+    <h2>Lo que ya está en vigor, con fecha y artículo.</h2>
     <div class="hechos">
-      <div class="hecho">
-        <div class="hfecha">VIGENTE DESDE OCT. 2021</div>
-        <h3>El software de doble uso ya es ilegal</h3>
-        <p>La Ley Antifraude (art. 201 bis LGT) prohíbe tener software que permita ocultar ventas desde octubre de 2021. Cualquier aplazamiento de fechas no suspende esto. La sanción es de 50.000 € por ejercicio y es por mera tenencia, sin necesidad de probar fraude.</p>
-      </div>
-      <div class="hecho">
-        <div class="hfecha">DESDE JULIO 2025</div>
-        <h3>Solo puede venderse software conforme</h3>
-        <p>Los fabricantes están obligados desde el 29 de julio de 2025. No existe lista oficial de software homologado: cada fabricante se autocertifica y hay que verificarlo versión a versión. Eso es exactamente el trabajo que hago en cada expediente.</p>
-      </div>
-      <div class="hecho">
-        <div class="hfecha">SEGUNDO SEMESTRE 2026</div>
-        <h3>La demanda se va a concentrar</h3>
-        <p>Cuando toda España migre a la vez, los proveedores de software no darán abasto. Los despachos que actúen ahora completan la cartera con calma, facturan el servicio a precio completo y tienen el caso de estudio listo cuando los demás estén en pánico.</p>
-      </div>
+      <div class="hecho"><div class="hf">11/10/2021 · ART. 201 BIS LGT</div><h3>Software de doble uso</h3><p>La mera tenencia de software que permita ocultar o alterar registros es sancionable con 50.000 € por ejercicio. No depende del calendario de 2027.</p></div>
+      <div class="hecho"><div class="hf">29/07/2025 · RD 1007/2023</div><h3>Fabricantes obligados</h3><p>Solo puede comercializarse software conforme. No existe lista oficial: cada fabricante se autocertifica con su declaración responsable, y hay que verificarla versión a versión.</p></div>
+      <div class="hecho"><div class="hf">2027 · RDL 15/2025</div><h3>Plazos para los obligados</h3><p>1 de enero (sociedades) y 1 de julio (autónomos). 2026 es la ventana para adaptar la cartera de forma ordenada, antes de la concentración de demanda.</p></div>
     </div>
   </div>
 </section>
@@ -280,9 +321,9 @@ h2{font-size:clamp(1.6rem,3.2vw,2.3rem);font-weight:800;letter-spacing:-.02em;li
 <!-- CONTACTO -->
 <section id="contacto">
   <div class="inner">
-    <div class="sec-tag">Hablemos</div>
+    <div class="stag">Hablemos</div>
     <h2>Cuéntame tu cartera. Te preparo la estimación.</h2>
-    <p class="sec-sub">En menos de 24 h laborables te envío el número de expedientes, el honorario potencial para tu despacho y por dónde empezaríamos. Sin compromiso.</p>
+    <p class="ssub">En menos de 24 h laborables: número de expedientes estimado, honorario potencial para tu despacho y por dónde empezar. Sin compromiso.</p>
     <div class="cform">
       <label class="lbl">Nombre del despacho</label>
       <input class="inp" id="f-despacho" placeholder="Asesoría Ejemplo, S.L.">
@@ -292,18 +333,18 @@ h2{font-size:clamp(1.6rem,3.2vw,2.3rem);font-weight:800;letter-spacing:-.02em;li
       <input class="inp" id="f-email" type="email" placeholder="contacto@despacho.es">
       <label class="lbl">Teléfono <span>(opcional)</span></label>
       <input class="inp" id="f-tel" placeholder="600 000 000">
-      <label class="lbl">Clientes en cartera aproximadamente <span>(opcional)</span></label>
+      <label class="lbl">Clientes en cartera, aprox. <span>(opcional)</span></label>
       <input class="inp" id="f-n" placeholder="p. ej. 180">
-      <button class="btnp" id="f-send" onclick="sendContacto()">Solicitar estimación de cartera</button>
+      <button class="btnp" id="f-send" onclick="sendContacto()">Solicitar estimación</button>
       <div class="msg" id="f-msg"></div>
     </div>
   </div>
 </section>
 
-<div class="foot-bar">
-  <div class="foot-inner">
+<div class="fbar">
+  <div class="fi">
     <span>VeriGest · ZapWeave · Iván Carbonell · Padrón (A Coruña) · info@zapweave.com</span>
-    <span>RD 1007/2023 · Orden HAC/1177/2024 · RDL 15/2025 · Servicio técnico, no asesoramiento fiscal ni jurídico</span>
+    <span>Servicio técnico de auditoría y migración · No constituye asesoramiento fiscal ni jurídico · RD 1007/2023 · Orden HAC/1177/2024 · RDL 15/2025</span>
   </div>
 </div>
 
@@ -326,52 +367,51 @@ async function lead(asunto,datos){
 }
 function mailto(s,b){location.href='mailto:'+VG_EMAIL+'?subject='+encodeURIComponent(s)+'&body='+encodeURIComponent(b)}
 
-/* ── MOTOR ── */
 const QS=[
- {id:'nombre',type:'input',label:'INICIO',q:'¿Qué negocio vas a diagnosticar?',help:'Nombre o denominación. Aparecerá en el informe.',ph:'Ej.: Panadería San Roque, S.L.',btn:'Empezar diagnóstico',def:'Negocio sin identificar'},
+ {id:'nombre',type:'input',label:'INICIO',q:'¿Qué negocio vas a diagnosticar?',help:'Nombre o denominación. Aparecerá en el informe.',ph:'Ej.: Panadería San Roque, S.L.',btn:'Empezar',def:'Negocio sin identificar'},
  {id:'tipo',label:'PREGUNTA 1 / 7',q:'¿Qué tipo de contribuyente es?',opts:[
-   {v:'pj',t:'Sociedad / entidad',s:'Impuesto de Sociedades — plazo 01/01/2027'},
+   {v:'pj',t:'Sociedad / entidad',s:'IS — plazo 01/01/2027'},
    {v:'pf',t:'Autónomo / profesional',s:'IRPF — plazo 01/07/2027'}]},
  {id:'territorio',label:'PREGUNTA 2 / 7',q:'¿Dónde tiene su domicilio fiscal?',opts:[
    {v:'comun',t:'Territorio común',s:'Resto de España'},
-   {v:'foral',t:'País Vasco o Navarra',s:'Aplica TicketBAI / normativa foral'}]},
- {id:'sii',label:'PREGUNTA 3 / 7',q:'¿Está acogido al SII?',help:'Suministro Inmediato de Información del IVA. Quien lleva libros por SII queda fuera de Verifactu.',opts:[
+   {v:'foral',t:'País Vasco o Navarra',s:'TicketBAI / normativa foral'}]},
+ {id:'sii',label:'PREGUNTA 3 / 7',q:'¿Está acogido al SII?',help:'Quien lleva los libros de IVA por SII queda fuera de Verifactu.',opts:[
    {v:'no',t:'No',s:'La mayoría de pymes y autónomos'},
-   {v:'si',t:'Sí',s:'Libros de IVA por sede electrónica'},
+   {v:'si',t:'Sí',s:'Libros por sede electrónica'},
    {v:'ns',t:'No lo sé',s:'Se verifica en el expediente'}]},
  {id:'metodo',label:'PREGUNTA 4 / 7',q:'¿Cómo emite sus facturas hoy?',opts:[
    {v:'papel',t:'A mano, en papel',s:'Talonario, sin ordenador'},
    {v:'excel',t:'Word o Excel',s:'Plantilla informática'},
-   {v:'soft',t:'Software de facturación',s:'Programa instalado o en la nube'},
-   {v:'tpv',t:'TPV / caja',s:'Tickets y facturas simplificadas'},
+   {v:'soft',t:'Software de facturación',s:'Instalado o en la nube'},
+   {v:'tpv',t:'TPV / caja',s:'Tickets y simplificadas'},
    {v:'erp',t:'ERP',s:'Sistema integrado'}]},
- {id:'sw',type:'input',label:'PREGUNTA 4B',q:'¿Cómo se llama el programa o TPV?',help:'Tal como aparece en el pie de las facturas o en el menú Ayuda/Acerca de. Si no lo sabes, escribe «no lo sé».',ph:'Ej.: Holded · Factusol 2019 · TPV Glop…',btn:'Continuar',def:'no indicado',skip:a=>!['soft','tpv','erp'].includes(a.metodo)},
- {id:'hom',label:'PREGUNTA 5 / 7',q:'¿El proveedor ha publicado la declaración responsable?',help:'Es la autocertificación del fabricante (art. 13 RD 1007/2023). No existe lista oficial: hay que verificarla versión a versión.',skip:a=>['papel','excel'].includes(a.metodo),opts:[
-   {v:'si',t:'Sí, confirmado',s:'Tenemos el documento'},
+ {id:'sw',type:'input',label:'PREGUNTA 4B',q:'¿Cómo se llama el programa o TPV?',help:'Como aparece en el pie de las facturas o en Ayuda → Acerca de. Si no lo sabes, escribe «no lo sé».',ph:'Ej.: Holded · Factusol 2019 · TPV Glop…',btn:'Continuar',def:'no indicado',skip:a=>!['soft','tpv','erp'].includes(a.metodo)},
+ {id:'hom',label:'PREGUNTA 5 / 7',q:'¿El proveedor ha publicado la declaración responsable?',help:'La autocertificación del fabricante (art. 13 RD 1007/2023). No hay lista oficial: se verifica versión a versión.',skip:a=>['papel','excel'].includes(a.metodo),opts:[
+   {v:'si',t:'Sí, confirmado',s:'Documento localizado'},
    {v:'no',t:'No lo confirma',s:'Sin adaptación declarada'},
    {v:'ns',t:'No lo sé',s:'Sin verificar'}]},
  {id:'vol',label:'PREGUNTA 6 / 7',q:'¿Cuántas facturas o tickets emite al mes?',opts:[
    {v:'bajo',t:'Menos de 20',s:''},{v:'medio',t:'Entre 20 y 200',s:''},{v:'alto',t:'Más de 200',s:'Hostelería, comercio'}]},
  {id:'simp',label:'PREGUNTA 7 / 7',q:'¿Emite tickets (facturas simplificadas) al público?',opts:[
-   {v:'si',t:'Sí',s:'Bares, comercios, peluquerías, talleres…'},
+   {v:'si',t:'Sí',s:'Bares, comercios, peluquerías…'},
    {v:'no',t:'No',s:'Solo factura completa'}]}
 ];
-let ans={},idx=0;
+let ans={},idx=0,esGest=null;
 const tb=document.getElementById('tbody');
 const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 
 function evaluate(a){
   const plazo=a.tipo==='pj'?D_PJ:D_PF;
   const base={pt:fmt(plazo)+(a.tipo==='pj'?' (IS)':' (IRPF)'),d:dias(plazo)};
-  if(a.territorio==='foral')return{...base,niv:'FUERA',sel:'FUERA DE ÁMBITO',tit:'No sujeto a Verifactu: aplica normativa foral (TicketBAI o equivalente).',san:'—',plan:['Verificar el sistema foral correspondiente.','Confirmar que el software cumple la normativa foral.','Cerrar expediente con nota de exclusión y revisión anual.']};
-  if(a.sii==='si')return{...base,niv:'FUERA',sel:'FUERA DE ÁMBITO',tit:'Excluido del RRSIF por adscripción al SII.',san:'—',plan:['Documentar la adscripción efectiva al SII.','Verificar llevanza de libros al día.','Vigilar: si abandona el SII pasa a obligado.']};
-  if(a.metodo==='papel')return{...base,niv:'RIESGO',sel:'EXENTO CON MATICES',tit:'Facturación 100% manual en papel: fuera del reglamento pero posición frágil.',san:'Sin exposición directa mientras no use ningún sistema informático.',plan:['Documentar ausencia total de sistema informático (ni Excel ocasional).','Advertir: cualquier software lo convierte en obligado.','Valorar digitalización voluntaria a software conforme.']};
-  if(a.metodo==='excel')return{...base,niv:'CRITICO',sel:'CRÍTICO',tit:'Word/Excel: sistema informático no adaptable. Migración obligatoria.',san:'Exposición de hasta 50.000 € por ejercicio (art. 201 bis LGT).',plan:['Exportar histórico y conservarlo fuera del sistema nuevo (sin reteclear nada).','Seleccionar software conforme según volumen.','Migrar maestros: clientes, productos, series.','Verificar declaración responsable del proveedor nuevo.','Prueba real: factura test, QR, cotejo en sede AEAT.','Formación (45 min).']};
+  if(a.territorio==='foral')return{...base,niv:'FUERA',sel:'FUERA DE ÁMBITO',tit:'No sujeto a Verifactu: aplica la normativa foral (TicketBAI o equivalente).',san:'—',plan:['Verificar el sistema foral correspondiente.','Confirmar que el software cumple la normativa foral.','Cerrar expediente con nota de exclusión y revisión anual.']};
+  if(a.sii==='si')return{...base,niv:'FUERA',sel:'FUERA DE ÁMBITO',tit:'Excluido del RRSIF por adscripción al SII.',san:'—',plan:['Documentar la adscripción efectiva al SII.','Verificar la llevanza de libros al día.','Vigilar: si abandona el SII pasa a obligado.']};
+  if(a.metodo==='papel')return{...base,niv:'RIESGO',sel:'EXENTO CON MATICES',tit:'La facturación 100% manual en papel queda fuera del reglamento, pero es una posición frágil.',san:'Sin exposición directa mientras no use ningún sistema informático.',plan:['Documentar la ausencia total de sistema informático (ni Excel ocasional).','Advertir: cualquier software lo convierte en obligado.','Valorar digitalización voluntaria a software conforme.']};
+  if(a.metodo==='excel')return{...base,niv:'CRITICO',sel:'CRÍTICO',tit:'Word y Excel son sistemas informáticos no adaptables: necesita migración.',san:'Exposición de hasta 50.000 € por ejercicio (art. 201 bis LGT).',plan:['Exportar el histórico y conservarlo fuera del sistema nuevo (sin reteclear nada).','Seleccionar software conforme según volumen.','Migrar maestros: clientes, productos, series.','Verificar la declaración responsable del proveedor nuevo.','Prueba real: factura test, QR, cotejo en sede AEAT.','Formación (45 min).']};
   const sw=a.sw&&a.sw!=='no indicado'?' («'+a.sw+'»)':'';
-  const ps=['Verificar la declaración responsable del fabricante'+sw+' y que cubre la versión instalada.','Decidir modalidad: VERI*FACTU (remisión inmediata) o no-VERI*FACTU (firma + eventos).',(a.simp==='si'?'Verificar QR en tickets simplificados (30–40 mm) en cada TPV.':'Verificar QR en factura completa (30–40 mm).'),'Probar encadenamiento de registros y registro de eventos.','Cerrar expediente con evidencias (declaración, capturas, factura test, acuse AEAT).'];
-  if(a.hom==='si')return{...base,niv:'ADAPTADO',sel:'ADAPTADO',tit:'El software'+sw+' declara cumplimiento. Verificar que la adaptación es real y elegir modalidad.',san:'Baja, condicionada a declaración veraz y configuración correcta.',plan:ps};
+  const ps=['Verificar la declaración responsable del fabricante'+sw+' y que cubre la versión instalada.','Decidir modalidad: VERI*FACTU (remisión inmediata) o no-VERI*FACTU (firma + eventos).',(a.simp==='si'?'Verificar el QR en tickets simplificados (30–40 mm) en cada TPV.':'Verificar el QR en factura completa (30–40 mm).'),'Probar el encadenamiento de registros y el registro de eventos.','Cerrar expediente con evidencias (declaración, capturas, factura test, acuse AEAT).'];
+  if(a.hom==='si')return{...base,niv:'ADAPTADO',sel:'ADAPTADO',tit:'El software'+sw+' declara cumplimiento: queda verificar que la adaptación es real y elegir modalidad.',san:'Baja, condicionada a declaración veraz y configuración correcta.',plan:ps};
   const crit=a.hom==='no';
-  return{...base,niv:crit?'CRITICO':'RIESGO',sel:crit?'CRÍTICO':'EN RIESGO',tit:crit?'Proveedor'+sw+' sin adaptación confirmada: exigirla por escrito con fecha o migrar ya.':'Conformidad del software'+sw+' sin verificar. El caso más común — y el más fácil de resolver ahora.',san:'Hasta 50.000 € por ejercicio si el sistema no cumple (art. 201 bis LGT).',plan:[crit?'Requerir por escrito compromiso de adaptación con fecha; sin compromiso, migrar.':'Identificar proveedor y versión exacta.',...ps]};
+  return{...base,niv:crit?'CRITICO':'RIESGO',sel:crit?'CRÍTICO':'EN RIESGO',tit:crit?'El proveedor'+sw+' no confirma la adaptación: exigirla por escrito con fecha, o migrar.':'La conformidad del software'+sw+' está sin verificar. Es el caso más común — y el más sencillo de resolver ahora.',san:'Hasta 50.000 € por ejercicio si el sistema no cumple (art. 201 bis LGT).',plan:[crit?'Requerir por escrito un compromiso de adaptación con fecha; sin compromiso, migrar.':'Identificar proveedor y versión exacta.',...ps]};
 }
 
 function render(){
@@ -398,9 +438,7 @@ function render(){
 function si(id,def){const v=(document.getElementById('inp').value||'').trim();ans[id]=v||def;idx++;render()}
 function pick(id,v){ans[id]=v;idx++;render()}
 function back(){idx--;while(idx>0&&QS[idx].skip&&QS[idx].skip(ans))idx--;render()}
-function restart(){ans={};idx=0;render()}
-
-let esGest=null;
+function restart(){ans={};idx=0;esGest=null;render()}
 function setR(g){esGest=g;document.getElementById('r-si').style.borderColor=g?'var(--azul)':'var(--linea)';document.getElementById('r-no').style.borderColor=g?'var(--linea)':'var(--azul)'}
 
 function verdict(){
@@ -413,18 +451,18 @@ function verdict(){
     '<div class="vgrid">'+
     '<div class="kc"><div class="k">Plazo aplicable</div><div class="v">'+r.pt.split(' (')[0]+'</div></div>'+
     '<div class="kc"><div class="k">Días restantes</div><div class="v'+(r.d<300?' red':'')+'">'+r.d+'</div></div>'+
-    '<div class="kc"><div class="k">Exposición</div><div class="v'+(r.san[0]==='H'||r.san[0]==='E'?' red':'')+'" style="font-size:.76rem;line-height:1.4">'+r.san+'</div></div>'+
+    '<div class="kc"><div class="k">Exposición</div><div class="v'+(r.san[0]==='H'||r.san[0]==='E'?' red':'')+'" style="font-size:.74rem;line-height:1.4">'+r.san+'</div></div>'+
     '</div>'+
-    '<div class="plan-wrap"><h4>Plan de actuación</h4><ol>'+r.plan.map(p=>'<li>'+p+'</li>').join('')+'</ol></div>'+
-    '<div class="capt"><div class="ct">Guardar este informe / recibir guía completa</div>'+
-    '<label class="lbl">Email</label><input class="inp" id="d-em" type="email" placeholder="tu@despacho.es" style="max-width:360px;display:block">'+
+    '<div class="pw"><h4>Plan de actuación</h4><ol>'+r.plan.map(p=>'<li>'+p+'</li>').join('')+'</ol></div>'+
+    '<div class="capt"><div class="ct">Guardar este informe / recibir la guía completa</div>'+
+    '<label class="lbl">Email</label><input class="inp" id="d-em" type="email" placeholder="tu@despacho.es" style="max-width:340px;display:block">'+
     '<label class="lbl">¿Eres gestoría o asesoría?</label>'+
-    '<div class="opts" style="grid-template-columns:repeat(2,minmax(110px,160px));margin-top:8px">'+
+    '<div class="opts" style="grid-template-columns:repeat(2,minmax(105px,150px));margin-top:7px">'+
     '<button class="opt" id="r-no" onclick="setR(false)">Soy el negocio</button>'+
     '<button class="opt" id="r-si" onclick="setR(true)">Soy gestoría</button></div>'+
-    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">'+
+    '<div style="display:flex;gap:9px;flex-wrap:wrap;margin-top:12px">'+
     '<button class="btnp" id="d-send" onclick="sendDiag()">Enviar y recibir guía</button>'+
-    '<button class="btnp sec" onclick="printR()">Imprimir / guardar PDF</button></div>'+
+    '<button class="btnp s2" onclick="printR()">Imprimir / PDF</button></div>'+
     '<div class="msg" id="d-msg"></div></div>'+
     '<button class="bk" onclick="restart()">← Diagnosticar otro negocio</button>';
 }
@@ -441,7 +479,7 @@ function printR(){
     '<tr><td>Sistema declarado</td><td>'+esc(ans.sw||({papel:'Manual en papel',excel:'Word / Excel'}[ans.metodo]||'—'))+'</td></tr>'+
     '<tr><td>Exposición a sanción</td><td>'+r.san+'</td></tr>'+
     '<tr><td>Situación detectada</td><td>'+r.tit+'</td></tr></table>'+
-    '<b style="font-size:.9rem">Plan de actuación propuesto</b><ol>'+r.plan.map(p=>'<li>'+p+'</li>').join('')+'</ol>'+
+    '<b style="font-size:.88rem">Plan de actuación propuesto</b><ol>'+r.plan.map(p=>'<li>'+p+'</li>').join('')+'</ol>'+
     '<div class="rfoot">Documento orientativo. No constituye asesoramiento jurídico ni fiscal. Marco: Ley 11/2021 · RD 1007/2023 · Orden HAC/1177/2024 · RDL 15/2025. VeriGest · ZapWeave.</div>';
   window.print();
 }
@@ -480,12 +518,11 @@ async function sendContacto(){
     m.className='msg ok';m.textContent='Recibido. Estimación de cartera en menos de 24 h laborables.';
     b.textContent='Enviado ✓';
   }catch(e2){
-    mailto('Contacto gestoría — '+d,'Despacho: '+d+'\nNombre: '+n+'\nEmail: '+e+'\nTel: '+document.getElementById('f-tel').value+'\nClientes: '+document.getElementById('f-n').value);
+    mailto('Contacto gestoría — '+d,'Despacho: '+d+'\nContacto: '+n+'\nEmail: '+e+'\nTel: '+document.getElementById('f-tel').value+'\nClientes: '+document.getElementById('f-n').value);
     m.className='msg ok';m.textContent='Se ha abierto tu correo para completar el envío.';
-    b.disabled=false;b.textContent='Solicitar estimación de cartera';
+    b.disabled=false;b.textContent='Solicitar estimación';
   }
 }
-
 render();
 </script>
 </body>
