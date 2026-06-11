@@ -1,142 +1,463 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Zapweave — Research AI para YouTubers hispanos</title>
-  <meta name="description" content="Asistente AI local para YouTubers hispanos que adaptan formatos de canales en inglés. Encuentra qué funciona y replícalo en español." />
-  <meta property="og:title" content="Zapweave — Research AI para YouTubers hispanos" />
-  <meta property="og:description" content="Asistente AI local que investiga canales en inglés y te entrega los formatos listos para adaptar al español." />
-  <meta property="og:type" content="website" />
-  <link rel="stylesheet" href="styles.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeriGest — Verifactu resuelto para tu despacho | ZapWeave</title>
+<meta name="description" content="Servicio técnico Verifactu en marca blanca para gestorías y asesorías: diagnóstico de cartera, migración de clientes y verificación con la AEAT. RD 1007/2023.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --verm:#8B2C20; --verm-osc:#6E2015;
+  --tinta:#1A1714; --tinta2:#4A443D;
+  --papel:#F7F5F1; --blanco:#FFF; --linea:#DDD7CE;
+  --ok:#2D6A4F; --ok-bg:#E7F2EC; --warn:#9A6A12; --warn-bg:#F8F0DD;
+  --crit:#8B2C20; --crit-bg:#F6E8E5; --info:#3D5A80; --info-bg:#E8EEF5;
+  --serif:'Cormorant Garamond',serif; --sans:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--papel);color:var(--tinta);line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+button{font-family:inherit;cursor:pointer}
+.wrap{max-width:1040px;margin:0 auto;padding:0 22px}
+/* ===== topbar ===== */
+.top{position:sticky;top:0;z-index:50;background:rgba(247,245,241,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--linea)}
+.top .wrap{display:flex;justify-content:space-between;align-items:center;height:58px}
+.brand{font-family:var(--mono);font-size:.74rem;letter-spacing:.22em;text-transform:uppercase;color:var(--tinta2);text-decoration:none}
+.brand b{color:var(--verm)}
+.top nav{display:flex;gap:20px;font-size:.84rem;font-weight:600}
+.top nav a{text-decoration:none;color:var(--tinta2)}
+.top nav a:hover{color:var(--verm)}
+.top nav a.cta{color:var(--verm)}
+@media(max-width:680px){.top nav a:not(.cta){display:none}}
+/* ===== hero ===== */
+.hero{padding:80px 0 56px}
+.eyebrow{font-family:var(--mono);font-size:.7rem;letter-spacing:.2em;text-transform:uppercase;color:var(--verm);margin-bottom:16px}
+h1{font-family:var(--serif);font-weight:700;font-size:clamp(2.4rem,6vw,4rem);line-height:1.04;letter-spacing:-.01em;max-width:18ch}
+h1 em{font-style:italic;color:var(--verm)}
+.lead{margin-top:22px;font-size:1.08rem;color:var(--tinta2);max-width:58ch}
+.ctas{margin-top:30px;display:flex;gap:14px;flex-wrap:wrap}
+.btn{display:inline-block;font-weight:700;font-size:.94rem;padding:15px 28px;border-radius:8px;border:none;text-decoration:none;transition:.13s;text-align:center}
+.btn:hover{transform:translateY(-2px)}
+.btn-p{background:var(--verm);color:#fff;box-shadow:0 6px 18px rgba(139,44,32,.22)}
+.btn-s{background:transparent;color:var(--tinta);border:1.5px solid var(--tinta)}
+.hero-claims{display:flex;gap:0;margin-top:54px;border-top:1px solid var(--linea);flex-wrap:wrap}
+.claim{padding:20px 30px 4px 0;margin-right:30px;border-right:1px solid var(--linea)}
+.claim:last-child{border-right:none}
+.claim .n{font-family:var(--mono);font-weight:600;font-size:1.35rem}
+.claim .l{font-size:.72rem;color:var(--tinta2);letter-spacing:.05em;text-transform:uppercase;margin-top:3px;max-width:22ch}
+@media(max-width:680px){.claim{border-right:none;width:100%;padding:12px 0;margin:0;border-bottom:1px solid var(--linea)}}
+/* ===== fechas ===== */
+.fechas{background:var(--tinta);color:#fff}
+.fechas .wrap{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+.f{padding:26px 26px;border-right:1px solid rgba(255,255,255,.12)}
+.f:last-child{border-right:none}
+.f .d{font-family:var(--mono);font-weight:600;font-size:1.2rem}
+.f .q{font-size:.78rem;color:#B8B2A8;margin-top:4px}
+.f .c{display:inline-block;margin-top:9px;font-family:var(--mono);font-size:.68rem;font-weight:600;padding:4px 10px;border-radius:3px;background:rgba(139,44,32,.35);color:#F0B9B0}
+@media(max-width:760px){.fechas .wrap{grid-template-columns:1fr}.f{border-right:none;border-bottom:1px solid rgba(255,255,255,.1)}}
+/* ===== secciones ===== */
+section{padding:84px 0}
+.eyeb2{font-family:var(--mono);font-size:.68rem;letter-spacing:.2em;text-transform:uppercase;color:var(--verm);margin-bottom:12px}
+h2{font-family:var(--serif);font-weight:700;font-size:clamp(1.8rem,4vw,2.7rem);line-height:1.1;max-width:26ch}
+.sub{margin-top:14px;color:var(--tinta2);max-width:62ch}
+/* pasos */
+.pasos{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:42px}
+.paso{background:var(--blanco);border:1px solid var(--linea);border-radius:12px;padding:28px 24px;position:relative}
+.paso .num{font-family:var(--mono);font-size:.7rem;font-weight:600;color:var(--verm);letter-spacing:.14em}
+.paso h3{font-family:var(--serif);font-weight:700;font-size:1.35rem;margin:10px 0 8px}
+.paso p{font-size:.9rem;color:var(--tinta2)}
+.paso .precio{margin-top:16px;font-family:var(--mono);font-weight:600;font-size:1.05rem}
+.paso .precio span{font-size:.72rem;color:var(--tinta2);font-weight:400}
+/* ===== herramienta ===== */
+#herramienta{background:var(--blanco);border-top:1px solid var(--linea);border-bottom:1px solid var(--linea)}
+.tool{margin-top:40px;background:var(--papel);border:1px solid var(--linea);border-radius:14px;overflow:hidden;box-shadow:0 12px 38px rgba(26,23,20,.07)}
+.tool-h{display:flex;justify-content:space-between;align-items:center;padding:15px 22px;border-bottom:1px solid var(--linea);background:var(--blanco)}
+.tool-h .t{font-weight:700;font-size:.9rem}
+.tool-h .s{font-family:var(--mono);font-size:.68rem;color:var(--tinta2)}
+.prog{height:3px;background:var(--linea)}.prog>div{height:100%;background:var(--verm);width:0;transition:width .3s}
+.tool-b{padding:30px 22px 36px;min-height:300px}
+.qlab{font-family:var(--mono);font-size:.64rem;letter-spacing:.16em;text-transform:uppercase;color:var(--verm)}
+.qtxt{font-family:var(--serif);font-weight:700;font-size:clamp(1.3rem,2.6vw,1.65rem);margin-top:8px;line-height:1.15}
+.qhlp{font-size:.84rem;color:var(--tinta2);margin-top:8px;max-width:62ch}
+.opts{display:grid;gap:11px;margin-top:24px;grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.opt{text-align:left;background:var(--blanco);border:1.5px solid var(--linea);border-radius:8px;padding:16px;font-size:.92rem;font-weight:600;transition:.12s}
+.opt:hover{border-color:var(--verm);background:#FBF3F1;transform:translateY(-1px)}
+.opt small{display:block;font-weight:400;font-size:.76rem;color:var(--tinta2);margin-top:3px}
+.in{width:100%;padding:13px 14px;font-family:var(--sans);font-size:.95rem;border:1.5px solid var(--linea);border-radius:8px;background:var(--blanco);margin-top:8px}
+.in:focus{border-color:var(--verm);outline:none}
+.lb{display:block;font-weight:600;font-size:.84rem;margin-top:16px}
+.lb span{color:var(--tinta2);font-weight:400}
+.bk{background:none;border:none;font-size:.82rem;font-weight:600;color:var(--tinta2);text-decoration:underline;padding:10px;margin-top:12px}
+.btn-t{font-weight:700;font-size:.92rem;padding:14px 26px;border-radius:8px;border:none;background:var(--verm);color:#fff;transition:.12s;margin-top:20px}
+.btn-t:hover{transform:translateY(-2px)}
+.btn-t:disabled{opacity:.5;cursor:wait;transform:none}
+.btn-o{background:transparent;color:var(--tinta);border:1.5px solid var(--linea)}
+.stamp{display:inline-block;font-weight:800;font-size:1rem;letter-spacing:.05em;padding:11px 18px;border:2.5px solid;border-radius:6px;text-transform:uppercase;transform:rotate(-1.2deg)}
+.st-CRITICO{color:var(--crit);border-color:var(--crit);background:var(--crit-bg)}
+.st-RIESGO{color:var(--warn);border-color:var(--warn);background:var(--warn-bg)}
+.st-ADAPTADO{color:var(--ok);border-color:var(--ok);background:var(--ok-bg)}
+.st-FUERA{color:var(--info);border-color:var(--info);background:var(--info-bg)}
+.vtit{font-family:var(--serif);font-weight:700;font-size:1.4rem;margin-top:18px;line-height:1.2}
+.vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:20px}
+.kc{border:1px solid var(--linea);border-radius:8px;padding:14px;background:var(--blanco)}
+.kc .k{font-family:var(--mono);font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--tinta2)}
+.kc .v{font-family:var(--mono);font-weight:600;font-size:.98rem;margin-top:5px}
+.kc .v.red{color:var(--crit)}
+.plan{margin-top:22px}
+.plan h4{font-size:.78rem;letter-spacing:.04em;text-transform:uppercase;color:var(--tinta2)}
+.plan ol{margin-top:8px;padding-left:0;list-style:none;counter-reset:vp}
+.plan li{counter-increment:vp;display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--linea);font-size:.9rem}
+.plan li::before{content:counter(vp,decimal-leading-zero);font-family:var(--mono);font-weight:600;font-size:.74rem;color:var(--verm);min-width:24px;padding-top:2px}
+.capt{margin-top:26px;background:var(--blanco);border:1px dashed var(--linea);border-radius:10px;padding:20px}
+.capt .t{font-weight:700;font-size:.92rem}
+.msg{margin-top:14px;font-size:.86rem;font-weight:600;display:none;padding:12px 14px;border-radius:8px}
+.msg.ok{display:block;background:var(--ok-bg);color:var(--ok)}
+.msg.err{display:block;background:var(--crit-bg);color:var(--crit)}
+/* ===== porque ahora ===== */
+.hechos{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:40px}
+.hecho{border-left:3px solid var(--verm);padding:4px 0 4px 20px}
+.hecho h3{font-family:var(--serif);font-weight:700;font-size:1.25rem;margin-bottom:6px}
+.hecho p{font-size:.9rem;color:var(--tinta2)}
+/* ===== contacto ===== */
+#contacto{background:var(--tinta);color:#fff}
+#contacto h2,#contacto .sub{color:#fff}
+#contacto .sub{color:#B8B2A8}
+.cform{margin-top:36px;max-width:560px}
+.cform .in{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.25);color:#fff}
+.cform .in::placeholder{color:#8C8579}
+.cform .lb{color:#E9E4DC}
+.foot{padding:36px 0;border-top:1px solid var(--linea);font-size:.72rem;color:var(--tinta2);line-height:1.7}
+/* ===== print informe ===== */
+#informe{display:none}
+@media print{body>*{display:none !important}#informe{display:block !important}}
+.rep{max-width:720px;margin:0 auto;padding:36px 26px;font-family:Georgia,serif;color:#000}
+.rep-h{display:flex;justify-content:space-between;border-bottom:3px solid #000;padding-bottom:14px}
+.rep-h .a{font-weight:bold;font-size:1.15rem}
+.rep-h .b{font-family:var(--mono);font-size:.62rem;text-align:right;color:#444}
+.rep h1{font-family:Georgia,serif;font-size:1.4rem;margin:22px 0 4px;max-width:none}
+.rep .rs{font-size:.8rem;color:#444}
+.rep .rstamp{display:inline-block;font-weight:800;letter-spacing:.04em;padding:9px 16px;border:2.5px solid #000;border-radius:6px;margin:18px 0;text-transform:uppercase;transform:rotate(-1deg)}
+.rep table{width:100%;border-collapse:collapse;font-size:.82rem;margin:14px 0}
+.rep td{border:1px solid #999;padding:8px 10px}
+.rep td:first-child{font-weight:bold;width:36%;background:#F2F2F2}
+.rep ol{margin:8px 0 8px 20px;font-size:.85rem}
+.rep ol li{margin-bottom:7px}
+.rep .rf{margin-top:28px;border-top:1px dashed #999;padding-top:10px;font-family:var(--mono);font-size:.58rem;color:#555}
+</style>
 </head>
 <body>
 
-<header class="site-header">
-  <div class="container">
-    <a class="brand" href="/"><span class="dot"></span> Zapweave</a>
-    <nav class="primary">
-      <a href="/" class="active">Inicio</a>
-      <a href="precios.html">Precios</a>
-      <a href="catalog.html">Catálogo</a>
-      <a href="docs.html">Docs</a>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#"><b>Zap</b>Weave · VeriGest</a>
+    <nav>
+      <a href="#como">Cómo funciona</a>
+      <a href="#herramienta">Diagnóstico</a>
+      <a href="#porque">Por qué ahora</a>
+      <a class="cta" href="#contacto">Hablemos →</a>
     </nav>
   </div>
 </header>
 
-<section class="hero">
-  <div class="container">
-    <span class="eyebrow">Beta abierta · Lista de espera</span>
-    <h1>Para YouTubers hispanos que adaptan <span class="accent">formatos en inglés</span> a su canal en español.</h1>
-    <p class="lead">
-      Zapweave es tu asistente AI local. Investiga canales en inglés, identifica qué hooks,
-      estructuras y miniaturas funcionan, y te entrega un brief listo para que tú adaptes el
-      formato al público hispano. Sin enviar tus ideas a la nube.
-    </p>
-    <div class="cta-row">
-      <a href="#waitlist" class="btn primary">Únete a la lista</a>
-      <a href="docs.html" class="btn secondary">Cómo funciona</a>
+<!-- ================= HERO ================= -->
+<div class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Servicio técnico Verifactu · en marca blanca para gestorías y asesorías</div>
+    <h1>Tu despacho, listo para Verifactu. <em>Tus clientes, migrados.</em></h1>
+    <p class="lead">Verifactu (RD 1007/2023) no es un QR en la factura: es verificar, cliente a cliente, qué programa usa cada uno, si su fabricante ha emitido la declaración responsable, y migrar al que no cumple. Ese trabajo técnico lo hago yo — con tu membrete. Tú mantienes la relación y facturas el servicio a tu cliente.</p>
+    <div class="ctas">
+      <a class="btn btn-p" href="#contacto">Quiero el mapa de mi cartera</a>
+      <a class="btn btn-s" href="#herramienta">Probar el diagnóstico (60 seg)</a>
+    </div>
+    <div class="hero-claims">
+      <div class="claim"><div class="n">3,6 M</div><div class="l">autónomos y pymes obligados</div></div>
+      <div class="claim"><div class="n">50.000 €</div><div class="l">sanción por software no conforme (art. 201 bis LGT)</div></div>
+      <div class="claim"><div class="n">180–350 €</div><div class="l">lo que tu despacho factura por cada cliente adaptado</div></div>
     </div>
   </div>
-</section>
+</div>
 
-<section id="how" class="alt">
-  <div class="container">
-    <h2>Cómo funciona</h2>
-    <p class="subtitle">Tres pasos. Sin curvas de aprendizaje.</p>
-    <div class="steps">
-      <div class="step">
-        <div class="num">1</div>
-        <h3>Le dices a Shinobi qué nicho investigas</h3>
-        <p>Ej.: "canales de productividad en inglés con +500k subs y crecimiento 2025".
-        Shinobi entiende lenguaje natural en español.</p>
-      </div>
-      <div class="step">
-        <div class="num">2</div>
-        <h3>Escanea, transcribe y detecta patrones</h3>
-        <p>Hooks de los primeros 30 segundos, estructura de retención,
-        miniaturas, CTAs y el ritmo de publicación que comparten.</p>
-      </div>
-      <div class="step">
-        <div class="num">3</div>
-        <h3>Te entrega un brief listo para adaptar</h3>
-        <p>Plantilla de guion, ideas de miniatura y checklist para localizar el
-        formato al contexto hispano. Tú decides qué replicar.</p>
-      </div>
-    </div>
+<!-- ================= FECHAS ================= -->
+<div class="fechas">
+  <div class="wrap">
+    <div class="f"><div class="d">Desde 2021</div><div class="q">El software de «doble uso» ya es sancionable hoy (Ley 11/2021)</div><span class="c">VIGENTE</span></div>
+    <div class="f"><div class="d">01 · 01 · 2027</div><div class="q">Sociedades (Impuesto de Sociedades) — RDL 15/2025</div><span class="c" id="c-pj">—</span></div>
+    <div class="f"><div class="d">01 · 07 · 2027</div><div class="q">Autónomos y resto de obligados (IRPF)</div><span class="c" id="c-pf">—</span></div>
   </div>
-</section>
+</div>
 
-<section>
-  <div class="container">
-    <h2>Por qué Zapweave</h2>
-    <p class="subtitle">Diseñado para creadores que prefieren ejecutar a teorizar.</p>
-    <div class="features">
-      <div class="feature">
-        <h3>Local-first</h3>
-        <p>Shinobi corre en tu Windows. Tus ideas, tus búsquedas y tus borradores no
-        se suben a la nube por defecto.</p>
+<!-- ================= COMO FUNCIONA ================= -->
+<section id="como">
+  <div class="wrap">
+    <div class="eyeb2">Cómo funciona</div>
+    <h2>Tres productos. Tu nombre delante, yo detrás.</h2>
+    <p class="sub">Sin software nuevo que aprender en el despacho, sin contratar técnicos. Cada expediente se cierra con evidencias: declaración responsable archivada, factura de prueba, cotejo del QR en la sede de la AEAT.</p>
+    <div class="pasos">
+      <div class="paso">
+        <div class="num">PASO 01</div>
+        <h3>Diagnóstico de cartera</h3>
+        <p>Exporta el listado de clientes que ya tienes en tu programa — del resto me encargo yo. Te entrego el mapa de riesgo completo: quién cumple, quién no, con qué plazo y qué hacer con cada uno. Informe individual con tu membrete, listo para que se lo entregues (y se lo factures) a tu cliente.</p>
+        <div class="precio">desde 290 € <span>/ cartera · 490 € llave en mano</span></div>
       </div>
-      <div class="feature">
-        <h3>Específico para creadores hispanos</h3>
-        <p>Filtros, prompts y plantillas calibrados para el público de habla
-        hispana — no un chatbot genérico traducido.</p>
+      <div class="paso">
+        <div class="num">PASO 02</div>
+        <h3>Migración por expediente</h3>
+        <p>Cada cliente en riesgo, migrado a un programa conforme: alta, importación de sus datos, configuración, prueba real con la AEAT y formación de 45 minutos. Tú lo facturas a 180–350 €; yo cobro tarifa fija por expediente cerrado. Verificación del que ya cumple: 40 €.</p>
+        <div class="precio">90 € <span>/ expediente cerrado</span></div>
       </div>
-      <div class="feature">
-        <h3>Investigación profunda, no resumen superficial</h3>
-        <p>Shinobi ve los videos, transcribe, compara temporadas y encuentra
-        patrones reales — no te entrega tres bullet points.</p>
-      </div>
-      <div class="feature">
-        <h3>Escala con OpenGravity (opcional)</h3>
-        <p>¿Necesitas más caballos? Conecta el motor cloud OpenGravity para
-        ejecutar misiones grandes sin colgar tu PC.</p>
+      <div class="paso">
+        <div class="num">PASO 03</div>
+        <h3>Acompañamiento</h3>
+        <p>El calendario ya se ha movido dos veces. Vigilancia normativa continua, altas de clientes nuevos, incidencias de cumplimiento y re-auditoría anual de la cartera. Tu despacho, siempre al día sin dedicarle una hora.</p>
+        <div class="precio">190 € <span>/ mes por despacho</span></div>
       </div>
     </div>
   </div>
 </section>
 
-<!--
-  TODO social proof:
-  Cuando haya creadores reales usando Zapweave y dispuestos a aparecer,
-  añadir aquí 3-5 testimonios con nombre, canal y métrica concreta
-  (ej. "+18% retención tras adaptar el formato X"). NUNCA inventar.
--->
-
-<section id="waitlist" class="alt">
-  <div class="container">
-    <h2>Lista de espera</h2>
-    <p class="subtitle">
-      Te avisamos cuando abramos cupos de la beta. Sin spam. Te puedes salir
-      con un click.
-    </p>
-    <div class="waitlist">
-      <!--
-        Formspree: reemplaza REPLACE_FORMSPREE_ID por el ID real cuando crees el form
-        gratuito en https://formspree.io. Mientras tanto el form muestra un mailto:
-        para que el usuario pueda contactar igualmente.
-      -->
-      <form action="https://formspree.io/f/REPLACE_FORMSPREE_ID" method="POST">
-        <input type="email" name="email" placeholder="tu@email.com" required />
-        <button type="submit" class="btn primary">Apuntarme</button>
-      </form>
-      <p class="hint">¿Prefieres email directo? <a href="mailto:hola@zapweave.com">hola@zapweave.com</a></p>
+<!-- ================= HERRAMIENTA ================= -->
+<section id="herramienta">
+  <div class="wrap">
+    <div class="eyeb2">La herramienta — pruébala con un cliente real</div>
+    <h2>Diagnostica cualquier negocio en 60 segundos.</h2>
+    <p class="sub">Siete preguntas según el RD 1007/2023, la Orden HAC/1177/2024 y el calendario vigente. Veredicto inmediato con plazo, exposición y plan — e informe imprimible. Es la misma lógica que aplico a carteras enteras.</p>
+    <div class="tool">
+      <div class="tool-h"><span class="t">Auditoría exprés Verifactu</span><span class="s" id="step">Inicio</span></div>
+      <div class="prog"><div id="pbar"></div></div>
+      <div class="tool-b" id="tbody"></div>
     </div>
   </div>
 </section>
 
-<footer class="site-footer">
-  <div class="container">
-    <div>© 2026 Zapweave · <a href="mailto:hola@zapweave.com">hola@zapweave.com</a></div>
-    <div>
-      <a href="precios.html">Precios</a> ·
-      <a href="catalog.html">Catálogo</a> ·
-      <a href="docs.html">Docs</a> ·
-      <a href="build-log.html">Build log</a> ·
-      <a href="audit/">AuditGravity</a>
+<!-- ================= POR QUE AHORA ================= -->
+<section id="porque">
+  <div class="wrap">
+    <div class="eyeb2">Por qué ahora y no en 2027</div>
+    <h2>Tres cosas que no se van a aplazar.</h2>
+    <div class="hechos">
+      <div class="hecho"><h3>Ya es sancionable</h3><p>La prohibición del software de doble uso está vigente desde octubre de 2021 (art. 201 bis LGT): la mera tenencia expone a 50.000 € por ejercicio. El aplazamiento a 2027 no suspendió nada de esto.</p></div>
+      <div class="hecho"><h3>Los fabricantes ya están obligados</h3><p>Desde el 29 de julio de 2025 solo puede comercializarse software conforme. Lo que tus clientes tienen instalado de antes, nadie lo ha verificado — y no existe lista oficial: cada fabricante se autocertifica.</p></div>
+      <div class="hecho"><h3>2026 es la ventana</h3><p>Cuando toda España migre a la vez, los proveedores no darán abasto. Las carteras que se adapten con calma este año evitarán el embudo — y el despacho que lo lidere se queda la facturación.</p></div>
     </div>
   </div>
-</footer>
+</section>
 
+<!-- ================= CONTACTO ================= -->
+<section id="contacto">
+  <div class="wrap">
+    <div class="eyeb2" style="color:#F0B9B0">Hablemos</div>
+    <h2>Te enseño cómo funciona en 15 minutos.</h2>
+    <p class="sub">Cuéntame cuántos clientes lleva tu despacho y te preparo una estimación de tu cartera: cuántos expedientes, qué facturación supone para vosotros y por dónde empezar. Sin compromiso.</p>
+    <div class="cform">
+      <label class="lb">Despacho</label><input class="in" id="f-despacho" placeholder="Asesoría Ejemplo, S.L.">
+      <label class="lb">Nombre</label><input class="in" id="f-nombre" placeholder="Nombre y apellidos">
+      <label class="lb">Email</label><input class="in" id="f-email" type="email" placeholder="contacto@despacho.es">
+      <label class="lb">Teléfono <span>(opcional)</span></label><input class="in" id="f-tel" placeholder="600 000 000">
+      <label class="lb">¿Cuántos clientes lleváis, aproximadamente? <span>(opcional)</span></label><input class="in" id="f-clientes" placeholder="p. ej. 180">
+      <button class="btn-t" id="f-send" onclick="sendContacto()">Quiero la estimación de mi cartera</button>
+      <div class="msg" id="f-msg"></div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap foot">
+  VeriGest es un servicio de ZapWeave · Iván Carbonell · Padrón (A Coruña) · Servicio técnico de auditoría de sistemas de facturación y migración de datos; no constituye asesoramiento fiscal ni jurídico. Marco normativo: Ley 11/2021 · art. 201 bis LGT · RD 1007/2023 · Orden HAC/1177/2024 · RD 254/2025 · RDL 15/2025. Calendario vigente: 01/01/2027 (IS) · 01/07/2027 (IRPF). El diagnóstico online es orientativo: cada expediente se valida individualmente. Protección de datos: los datos enviados se usan exclusivamente para atender tu solicitud.
+</div>
+
+<div id="informe"><div class="rep" id="rep"></div></div>
+
+<script>
+/* ====== CONFIG — lo único que tienes que tocar ======
+   1) Pon tu email real abajo.
+   2) El primer envío del formulario te llegará como "activación" de FormSubmit:
+      ábrelo y confirma. Desde ese momento, cada lead llega a tu bandeja. Gratis. */
+const VG_EMAIL = "calycharlie@gmail.com";
+const VG_GESTORIA = new URLSearchParams(location.search).get('g') || '';
+
+/* ====== fechas ====== */
+const HOY=new Date(), D_PJ=new Date(2027,0,1), D_PF=new Date(2027,6,1);
+const dias=d=>Math.max(0,Math.ceil((d-HOY)/864e5));
+const fmt=d=>d.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'});
+document.getElementById('c-pj').textContent='QUEDAN '+dias(D_PJ)+' DÍAS';
+document.getElementById('c-pf').textContent='QUEDAN '+dias(D_PF)+' DÍAS';
+
+/* ====== envío de leads (FormSubmit AJAX, sin servidor propio) ====== */
+async function lead(asunto, datos){
+  const r=await fetch('https://formsubmit.co/ajax/'+VG_EMAIL,{
+    method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+    body:JSON.stringify({_subject:asunto,_template:'table',gestoria_origen:VG_GESTORIA||'(directo)',...datos})});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
+}
+function mailtoFallback(asunto,cuerpo){
+  location.href='mailto:'+VG_EMAIL+'?subject='+encodeURIComponent(asunto)+'&body='+encodeURIComponent(cuerpo);
+}
+
+/* ====== motor de diagnóstico ====== */
+const QS=[
+ {id:'nombre',type:'input',label:'Inicio',q:'¿Qué negocio vas a diagnosticar?',help:'Nombre o denominación. Aparecerá en el informe.',placeholder:'Ej.: Panadería San Roque, S.L.',btn:'Empezar diagnóstico',def:'Negocio sin identificar'},
+ {id:'tipo',label:'Pregunta 1 de 7',q:'¿Qué tipo de contribuyente es?',opts:[
+   {v:'pj',t:'Sociedad / entidad',s:'Impuesto de Sociedades — plazo 01/01/2027'},
+   {v:'pf',t:'Autónomo / profesional',s:'IRPF — plazo 01/07/2027'}]},
+ {id:'territorio',label:'Pregunta 2 de 7',q:'¿Dónde tiene su domicilio fiscal?',opts:[
+   {v:'comun',t:'Territorio común',s:'Resto de España'},
+   {v:'foral',t:'País Vasco o Navarra',s:'Aplica TicketBAI / normativa foral'}]},
+ {id:'sii',label:'Pregunta 3 de 7',q:'¿Está acogido al SII?',help:'Suministro Inmediato de Información del IVA: grandes empresas, grupos de IVA y REDEME. Quien lleva libros por SII queda fuera de Verifactu.',opts:[
+   {v:'no',t:'No',s:'La mayoría de pymes y autónomos'},
+   {v:'si',t:'Sí',s:'Libros de IVA por sede electrónica'},
+   {v:'ns',t:'No lo sé',s:'Se verifica en el expediente'}]},
+ {id:'metodo',label:'Pregunta 4 de 7',q:'¿Cómo emite sus facturas hoy?',opts:[
+   {v:'papel',t:'A mano, en papel',s:'Talonario, sin ordenador'},
+   {v:'excel',t:'Word o Excel',s:'Plantilla informática'},
+   {v:'soft',t:'Software de facturación',s:'Programa instalado o en la nube'},
+   {v:'tpv',t:'TPV / caja',s:'Tickets y facturas simplificadas'},
+   {v:'erp',t:'ERP',s:'Sistema integrado'}]},
+ {id:'software_nombre',type:'input',label:'Pregunta 4b',q:'¿Cómo se llama el programa o TPV?',help:'Tal y como aparece en pantalla o en el pie de las facturas (y versión, si la sabes). Si no lo sabes, escribe «no lo sé».',placeholder:'Ej.: Holded · Factusol 2019 · TPV Glop…',btn:'Continuar',def:'no indicado',skip:a=>!['soft','tpv','erp'].includes(a.metodo)},
+ {id:'homologado',label:'Pregunta 5 de 7',q:'¿El proveedor ha emitido la declaración responsable de adaptación?',help:'Es la autocertificación del fabricante (art. 13 RD 1007/2023). No existe lista oficial: hay que verificarla versión a versión.',skip:a=>['papel','excel'].includes(a.metodo),opts:[
+   {v:'si',t:'Sí, confirmado',s:'Tenemos el documento'},
+   {v:'no',t:'No',s:'El proveedor no lo confirma'},
+   {v:'ns',t:'No lo sé',s:'Nadie lo ha verificado'}]},
+ {id:'volumen',label:'Pregunta 6 de 7',q:'¿Cuántas facturas o tickets emite al mes?',opts:[
+   {v:'bajo',t:'Menos de 20',s:''},{v:'medio',t:'Entre 20 y 200',s:''},{v:'alto',t:'Más de 200',s:'Hostelería, comercio'}]},
+ {id:'simplificadas',label:'Pregunta 7 de 7',q:'¿Emite tickets (facturas simplificadas) al público?',opts:[
+   {v:'si',t:'Sí',s:'Bares, comercios, peluquerías, talleres…'},
+   {v:'no',t:'No',s:'Solo factura completa'}]}
+];
+let ans={},idx=0,esGestoria=null;
+const tb=document.getElementById('tbody');
+const esc=s=>String(s).replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+
+function evaluate(a){
+  const plazo=a.tipo==='pj'?D_PJ:D_PF;
+  const base={plazoTxt:fmt(plazo)+(a.tipo==='pj'?' (Impuesto de Sociedades)':' (IRPF)'),dias:dias(plazo)};
+  if(a.territorio==='foral')return{...base,nivel:'FUERA',sello:'FUERA DE ÁMBITO',titulo:'No está sujeto a Verifactu: aplica la normativa foral (TicketBAI o equivalente).',sancion:'—',plan:['Verificar situación en el sistema foral correspondiente.','Confirmar que el software cumple la normativa foral.','Cerrar expediente con nota de exclusión y revisión anual.']};
+  if(a.sii==='si')return{...base,nivel:'FUERA',sello:'FUERA DE ÁMBITO',titulo:'Queda fuera del reglamento Verifactu por estar acogido al SII.',sancion:'—',plan:['Documentar la adscripción efectiva al SII.','Verificar llevanza de libros al día.','Vigilar: si abandona el SII pasa a obligado.']};
+  if(a.metodo==='papel')return{...base,nivel:'RIESGO',sello:'EXENTO CON MATICES',titulo:'La facturación 100% manual en papel queda fuera del reglamento — posición legal pero frágil.',sancion:'Sin exposición directa mientras no use ningún sistema informático de facturación.',plan:['Documentar que no existe ningún sistema informático (ni Excel ocasional).','Advertir: cualquier uso de software lo convierte en obligado.','Valorar digitalización voluntaria a software conforme.']};
+  if(a.metodo==='excel')return{...base,nivel:'CRITICO',sello:'CRÍTICO',titulo:'Word y Excel son sistemas informáticos no adaptables: sin registros encadenados ni huella. Necesita migración completa.',sancion:'Exposición de hasta 50.000 € por ejercicio según interpretación (art. 201 bis LGT) y, en todo caso, sanción proporcional del art. 201 LGT.',plan:['Inventariar plantillas y exportar histórico (se conserva fuera, nunca se reteclea).','Seleccionar software conforme según volumen.','Migrar maestros (clientes, productos, series).','Verificar la declaración responsable del proveedor.','Prueba real: factura test, QR y cotejo en sede AEAT.','Formación del cliente (45 minutos).']};
+  const sw=a.software_nombre&&a.software_nombre!=='no indicado'?' («'+a.software_nombre+'»)':'';
+  const planSoft=['Verificar la declaración responsable del fabricante'+sw+' y que cubre la versión instalada.','Decidir modalidad: VERI*FACTU (remisión inmediata) o no-VERI*FACTU (firma + eventos).',(a.simplificadas==='si'?'Verificar QR en tickets simplificados (30–40 mm) en cada TPV.':'Verificar QR en factura completa (30–40 mm).'),'Probar encadenamiento de registros y registro de eventos.','Cerrar expediente con evidencias (declaración, capturas, factura test, acuse de la AEAT).'];
+  if(a.homologado==='si')return{...base,nivel:'ADAPTADO',sello:'ADAPTADO',titulo:'El software'+sw+' declara cumplimiento. Falta verificar que la adaptación es real y elegir modalidad.',sancion:'Baja, condicionada a declaración veraz y configuración correcta.',plan:planSoft};
+  const crit=a.homologado==='no';
+  return{...base,nivel:crit?'CRITICO':'RIESGO',sello:crit?'CRÍTICO':'EN RIESGO',titulo:crit?'El proveedor'+sw+' no confirma la adaptación: hay que exigirla por escrito con fecha o migrar ya.':'Nadie ha verificado si el software'+sw+' cumple. Es el caso más común — y el más fácil de resolver actuando ahora.',sancion:'Hasta 50.000 € por ejercicio si el sistema no cumple los requisitos (art. 201 bis LGT).',plan:[crit?'Requerir por escrito compromiso de adaptación con fecha; sin compromiso, migrar.':'Identificar proveedor y versión exacta del software.',...planSoft]};
+}
+
+function render(){
+  while(idx<QS.length&&QS[idx].skip&&QS[idx].skip(ans))idx++;
+  if(idx>=QS.length)return verdict();
+  const q=QS[idx];
+  document.getElementById('pbar').style.width=(idx/QS.length*100)+'%';
+  document.getElementById('step').textContent=q.label;
+  if(q.type==='input'){
+    tb.innerHTML='<div class="qlab">'+q.label+'</div><div class="qtxt">'+q.q+'</div><div class="qhlp">'+(q.help||'')+'</div>'+
+      '<input class="in" id="inp" placeholder="'+(q.placeholder||'')+'" maxlength="80" style="max-width:420px">'+
+      '<br><button class="btn-t" onclick="saveInput(\''+q.id+'\',\''+(q.def||'')+'\')">'+(q.btn||'Continuar')+'</button>';
+    const el=document.getElementById('inp');
+    el.addEventListener('keydown',e=>{if(e.key==='Enter')saveInput(q.id,q.def||'')});el.focus();
+    return;
+  }
+  let h='<div class="qlab">'+q.label+'</div><div class="qtxt">'+q.q+'</div>';
+  if(q.help)h+='<div class="qhlp">'+q.help+'</div>';
+  h+='<div class="opts">';
+  q.opts.forEach(o=>{h+='<button class="opt" onclick="pick(\''+q.id+'\',\''+o.v+'\')">'+o.t+(o.s?'<small>'+o.s+'</small>':'')+'</button>'});
+  h+='</div>';
+  if(idx>1)h+='<button class="bk" onclick="back()">← Anterior</button>';
+  tb.innerHTML=h;
+}
+function saveInput(id,def){const v=document.getElementById('inp').value.trim();ans[id]=v||def||'';idx++;render()}
+function pick(id,v){ans[id]=v;idx++;render()}
+function back(){idx--;while(idx>0&&QS[idx].skip&&QS[idx].skip(ans))idx--;render()}
+function restart(){ans={};idx=0;esGestoria=null;render()}
+
+function verdict(){
+  const r=evaluate(ans);ans._r=r;
+  document.getElementById('pbar').style.width='100%';
+  document.getElementById('step').textContent='Veredicto';
+  tb.innerHTML=
+   '<span class="stamp st-'+r.nivel+'">'+r.sello+'</span>'+
+   '<div class="vtit">'+esc(ans.nombre)+': '+r.titulo+'</div>'+
+   '<div class="vgrid">'+
+   '<div class="kc"><div class="k">Plazo aplicable</div><div class="v">'+r.plazoTxt.split(' (')[0]+'</div></div>'+
+   '<div class="kc"><div class="k">Días restantes</div><div class="v'+(r.dias<300?' red':'')+'">'+r.dias+' días</div></div>'+
+   '<div class="kc"><div class="k">Exposición</div><div class="v'+((r.sancion[0]==='H'||r.sancion[0]==='E')?' red':'')+'" style="font-size:.8rem;line-height:1.4">'+r.sancion+'</div></div>'+
+   '</div>'+
+   '<div class="plan"><h4>Plan de actuación</h4><ol>'+r.plan.map(p=>'<li>'+p+'</li>').join('')+'</ol></div>'+
+   '<div class="capt"><div class="t">Guarda este informe y recibe la guía «Verifactu sin sustos»</div>'+
+   '<label class="lb">Tu email</label><input class="in" id="d-email" type="email" placeholder="tu@negocio.es" style="max-width:380px">'+
+   '<label class="lb">¿Eres gestoría?</label>'+
+   '<div class="opts" style="grid-template-columns:repeat(2,minmax(120px,180px))">'+
+   '<button class="opt" id="r-no" onclick="setRol(false)">Soy el negocio</button>'+
+   '<button class="opt" id="r-si" onclick="setRol(true)">Soy gestoría</button></div>'+
+   '<button class="btn-t" id="d-send" onclick="sendDiag()">Enviar y descargar informe</button> '+
+   '<button class="btn-t btn-o" onclick="printRep()">Solo imprimir / guardar PDF</button>'+
+   '<div class="msg" id="d-msg"></div></div>'+
+   '<button class="bk" onclick="restart()">Diagnosticar otro negocio</button>';
+}
+function setRol(g){esGestoria=g;
+  document.getElementById('r-si').style.borderColor=g?'var(--verm)':'var(--linea)';
+  document.getElementById('r-no').style.borderColor=g?'var(--linea)':'var(--verm)';}
+
+function printRep(){
+  const r=ans._r;
+  document.getElementById('rep').innerHTML=
+  '<div class="rep-h"><div class="a">INFORME DE SITUACIÓN VERIFACTU</div><div class="b">Fecha: '+fmt(HOY)+'<br>VeriGest · ZapWeave · zapweave.com</div></div>'+
+  '<h1>'+esc(ans.nombre)+'</h1><div class="rs">Diagnóstico conforme al RD 1007/2023, Orden HAC/1177/2024 y calendario del RDL 15/2025</div>'+
+  '<div class="rstamp">'+r.sello+'</div>'+
+  '<table><tr><td>Plazo legal aplicable</td><td>'+r.plazoTxt+'</td></tr>'+
+  '<tr><td>Días restantes</td><td>'+r.dias+' días</td></tr>'+
+  '<tr><td>Sistema declarado</td><td>'+esc(ans.software_nombre||({papel:'Facturación manual en papel',excel:'Word / Excel'}[ans.metodo]||'—'))+'</td></tr>'+
+  '<tr><td>Exposición a sanción</td><td>'+r.sancion+'</td></tr>'+
+  '<tr><td>Situación detectada</td><td>'+r.titulo+'</td></tr></table>'+
+  '<h1 style="font-size:1rem">Plan de actuación propuesto</h1><ol>'+r.plan.map(p=>'<li>'+p+'</li>').join('')+'</ol>'+
+  '<div class="rf">Documento orientativo, no constituye asesoramiento jurídico ni fiscal. Cada expediente se valida individualmente. Marco: Ley 11/2021 · RD 1007/2023 · Orden HAC/1177/2024 · RDL 15/2025.</div>';
+  window.print();
+}
+
+async function sendDiag(){
+  const email=(document.getElementById('d-email').value||'').trim();
+  const m=document.getElementById('d-msg');
+  if(!/.+@.+\..+/.test(email)){m.className='msg err';m.textContent='Escribe un email válido (o usa «Solo imprimir»).';return;}
+  const b=document.getElementById('d-send');b.disabled=true;b.textContent='Enviando…';
+  const r=ans._r;
+  const datos={tipo_lead:esGestoria?'GESTORÍA ⭐':'negocio final',email,negocio:ans.nombre,
+    veredicto:r.sello,plazo:r.plazoTxt,programa:ans.software_nombre||ans.metodo,
+    respuestas:JSON.stringify({...ans,_r:undefined})};
+  try{
+    await lead('Diagnóstico VeriGest — '+ans.nombre+' ['+r.sello+']',datos);
+    m.className='msg ok';m.textContent='Recibido. Te contacto en menos de 24 h laborables con el informe y la guía.';
+    b.textContent='Enviado ✓';printRep();
+  }catch(e){
+    mailtoFallback('Diagnóstico VeriGest — '+ans.nombre,'Veredicto: '+r.sello+'\nEmail: '+email+'\nDatos: '+datos.respuestas);
+    m.className='msg ok';m.textContent='Se ha abierto tu correo para completar el envío.';
+    b.disabled=false;b.textContent='Enviar y descargar informe';
+  }
+}
+
+/* ====== contacto gestorías ====== */
+async function sendContacto(){
+  const m=document.getElementById('f-msg');
+  const despacho=document.getElementById('f-despacho').value.trim(),
+        nombre=document.getElementById('f-nombre').value.trim(),
+        email=document.getElementById('f-email').value.trim();
+  if(!despacho||!nombre||!/.+@.+\..+/.test(email)){m.className='msg err';m.textContent='Completa despacho, nombre y un email válido.';return;}
+  const b=document.getElementById('f-send');b.disabled=true;b.textContent='Enviando…';
+  const datos={tipo_lead:'GESTORÍA ⭐⭐ (contacto directo)',despacho,nombre,email,
+    telefono:document.getElementById('f-tel').value.trim(),
+    clientes_aprox:document.getElementById('f-clientes').value.trim()};
+  try{
+    await lead('CONTACTO GESTORÍA — '+despacho,datos);
+    m.className='msg ok';m.textContent='Recibido. Te contacto en menos de 24 h laborables con la estimación de tu cartera.';
+    b.textContent='Enviado ✓';
+  }catch(e){
+    mailtoFallback('Contacto gestoría — '+despacho,'Despacho: '+despacho+'\nNombre: '+nombre+'\nEmail: '+email+'\nTel: '+datos.telefono+'\nClientes: '+datos.clientes_aprox);
+    m.className='msg ok';m.textContent='Se ha abierto tu correo para completar el envío.';
+    b.disabled=false;b.textContent='Quiero la estimación de mi cartera';
+  }
+}
+
+render();
+</script>
 </body>
 </html>
