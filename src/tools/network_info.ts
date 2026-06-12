@@ -1,39 +1,37 @@
 /**
- * Network Info — interfaces, IPs, default gateway. Read-only.
+ * Network Info — interfaces, IPs, MAC. Read-only.
+ *
+ * Implementación NATIVA (`os.networkInterfaces()`). NO lanza PowerShell
+ * ni `Get-NetAdapter`/`Get-NetIPAddress`: enumerar adaptadores de red vía
+ * un proceso hijo, encadenado con consultas de SO y procesos, es justo el
+ * patrón que el ATC del antivirus marca como recon. `os` lee lo mismo
+ * en-proceso. (Se pierden `status`/`linkSpeed`, que no aporta Node nativo.)
  */
+import os from 'node:os';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
-import { runPowerShell, tryParseJson } from './_powershell.js';
 
 const tool: Tool = {
   name: 'network_info',
-  description: 'List Windows network adapters with name, status, IPv4 address and MAC. Read-only.',
+  description: 'List Windows network adapters with name, IPv4 address, netmask and MAC. Read-only.',
   parameters: { type: 'object', properties: {}, required: [] },
 
   async execute(): Promise<ToolResult> {
-    // `LinkSpeed` puede venir como string ("1 Gbps") o número según driver;
-    // lo devolvemos como string para evitar errores de cast.
-    const script =
-      `Get-NetAdapter | Where-Object { $_.Status -ne 'Disabled' } ` +
-      `| ForEach-Object { ` +
-      `  $ipv4 = (Get-NetIPAddress -InterfaceIndex $_.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty IPAddress); ` +
-      `  [PSCustomObject]@{ ` +
-      `    name = $_.Name; ` +
-      `    status = [string]$_.Status; ` +
-      `    mac = $_.MacAddress; ` +
-      `    ipv4 = $ipv4; ` +
-      `    linkSpeed = [string]$_.LinkSpeed ` +
-      `  } ` +
-      `} | ConvertTo-Json -Compress`;
-    const r = await runPowerShell(script);
-    if (!r.success) {
-      return { success: false, output: '', error: r.stderr || `PowerShell exited ${r.exitCode}` };
+    const ifaces = os.networkInterfaces();
+    const out: Array<Record<string, unknown>> = [];
+    for (const [name, addrs] of Object.entries(ifaces)) {
+      if (!addrs) continue;
+      // `family` es 'IPv4' (string) en Node moderno; algunas versiones usan 4.
+      const v4 = addrs.find((a) => a.family === 'IPv4' || (a.family as unknown) === 4);
+      if (!v4) continue;
+      out.push({
+        name,
+        ipv4: v4.address,
+        netmask: v4.netmask,
+        mac: v4.mac,
+        internal: v4.internal,       // true = loopback / virtual interna
+      });
     }
-    const parsed = tryParseJson(r.stdout);
-    if (parsed == null) {
-      return { success: true, output: '[]' };
-    }
-    const arr = Array.isArray(parsed) ? parsed : [parsed];
-    return { success: true, output: JSON.stringify(arr) };
+    return { success: true, output: JSON.stringify(out) };
   },
 };
 
