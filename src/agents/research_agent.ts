@@ -29,12 +29,17 @@ export interface ResearchOptions {
  * que un browser atascado NO cuelgue al agente indefinidamente — si expira,
  * se devuelve [] y ResearchAgent reporta "INSUFFICIENT EVIDENCE" con limpieza.
  */
+/** Timeout de la búsqueda web interna (red de seguridad si el browser se atasca). */
+function searchTimeoutMs(): number {
+  return Number(process.env.SHINOBI_RESEARCH_SEARCH_TIMEOUT_MS) || 30_000;
+}
+
 async function defaultWebSearch(query: string): Promise<WebResult[]> {
   const mod = await import('../tools/web_search.js');
   const res = await Promise.race([
     mod.default.execute({ query }),
     new Promise<{ success: boolean; output: string }>(r =>
-      setTimeout(() => r({ success: false, output: '' }), 90_000)),
+      setTimeout(() => r({ success: false, output: '' }), searchTimeoutMs())),
   ]);
   const text = res.success && typeof res.output === 'string' ? res.output : '';
   if (!text) return [];
@@ -90,8 +95,21 @@ export class ResearchAgent extends SpecialistAgent {
     // Caja de herramientas (contrato del Bloque 1) — falla limpio si se sale.
     this.assertToolAllowed('web_search');
 
+    // ── Freno de PRODUCCIÓN (red de seguridad) ──────────────────────────────
+    // Wall-clock global: una investigación sana cierra en pocos minutos; si se
+    // pasa de presupuesto, se devuelve lo que haya (no se cuelga). Es el límite
+    // que dejamos en producción para CUALQUIER research, no un calibrado de GAIA.
+    const budgetMs = Number(process.env.SHINOBI_RESEARCH_BUDGET_MS) || 90_000;
+    const llmTimeoutMs = Number(process.env.SHINOBI_RESEARCH_LLM_TIMEOUT_MS) || 45_000;
+    const deadline = Date.now() + budgetMs;
+    const remaining = () => deadline - Date.now();
+    const TIMEOUT = Symbol('timeout');
+    const withTimeout = <T>(p: Promise<T>, ms: number): Promise<T | typeof TIMEOUT> =>
+      Promise.race([p, new Promise<typeof TIMEOUT>(r => setTimeout(() => r(TIMEOUT), Math.max(0, ms)))]);
+
     const searchFn = opts.searchFn ?? defaultWebSearch;
-    const results = (await searchFn(q)).filter(r => r && typeof r.url === 'string' && /^https?:\/\//.test(r.url));
+    const searched = await withTimeout(searchFn(q), remaining());
+    const results = (searched === TIMEOUT ? [] : searched).filter(r => r && typeof r.url === 'string' && /^https?:\/\//.test(r.url));
 
     const sources: ResearchSource[] = [];
     const seen = new Set<string>();
@@ -127,21 +145,38 @@ export class ResearchAgent extends SpecialistAgent {
       `- Every finding must be grounded in the results above and cite its source as [n].\n` +
       `- Do NOT invent sources, URLs, or facts not present in the results.`;
 
-    const ask = async (extra = ''): Promise<unknown> =>
-      agentLLM().chat(
-        [
-          { role: 'system', content: this.promptMadre() + (extra ? '\n\n' + extra : '') },
-          { role: 'user', content: user },
-        ],
-        { temperature: 0.2 },
+    const ask = async (extra = ''): Promise<unknown | typeof TIMEOUT> =>
+      withTimeout(
+        agentLLM().chat(
+          [
+            { role: 'system', content: this.promptMadre() + (extra ? '\n\n' + extra : '') },
+            { role: 'user', content: user },
+          ],
+          { temperature: 0.2 },
+        ),
+        Math.min(remaining(), llmTimeoutMs),
       );
 
-    let parsed = parseSynthesis(await ask());
-    if (!parsed.ok) {
-      parsed = parseSynthesis(await ask(`Your previous reply was invalid: ${parsed.error}. Return strictly valid JSON now.`));
+    // Síntesis acotada por el budget: 1 intento + 1 reintento SOLO si queda
+    // presupuesto. Si se agota (TIMEOUT/sin tiempo), se devuelven las fuentes
+    // ya halladas — nunca se cuelga ni se pierde el trabajo.
+    const first = await ask();
+    let parsed = first === TIMEOUT ? { ok: false as const, error: 'budget agotado en síntesis' } : parseSynthesis(first);
+    if (!parsed.ok && remaining() > 3_000) {
+      const retry = await ask(`Your previous reply was invalid: ${parsed.error}. Return strictly valid JSON now.`);
+      parsed = retry === TIMEOUT ? { ok: false as const, error: 'budget agotado en reintento' } : parseSynthesis(retry);
     }
+
     if (!parsed.ok) {
-      throw new Error(`ResearchAgent.produce: el LLM no produjo una síntesis válida (${parsed.error}).`);
+      // Devuelve lo que tiene: las fuentes verificables ya encontradas. El
+      // agente externo puede leerlas directamente. valid:false pero CON fuentes.
+      return {
+        valid: false,
+        answer: `PARTIAL: síntesis incompleta (${parsed.error}). Fuentes recopiladas abajo.`,
+        findings: [],
+        sources,
+        confidence: 'Presupuesto de research agotado antes de sintetizar; solo fuentes.',
+      };
     }
 
     return {

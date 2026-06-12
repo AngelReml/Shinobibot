@@ -1,3 +1,5 @@
+// STT local con whisper.cpp — transcripción offline envolviendo el binario whisper-cli del operador.
+// Sin red ni tokens; requiere modelo ggml-*.bin vía SHINOBI_WHISPERCPP_MODEL.
 /**
  * Whisper.cpp local STT provider (Sprint 3.7).
  *

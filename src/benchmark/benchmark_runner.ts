@@ -1,3 +1,5 @@
+// Benchmark Runner — suite comparativa de 20 tareas con scoring objetivo sin LLM.
+// Evalúa Shinobi vs Hermes vs OpenClaw (o cualquier agente que implemente AgentAdapter).
 /**
  * Benchmark Runner — suite comparativa de 20 tareas con scoring
  * objetivo para evaluar Shinobi vs Hermes vs OpenClaw (o cualquier

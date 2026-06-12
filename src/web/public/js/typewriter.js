@@ -1,12 +1,17 @@
-// typewriter.js — Bloque 8.3+ (wow pack)
+// typewriter.js — Bloque 8.5
 //
 // Revela texto HTML carácter a carácter sin destruir su estructura.
 // Walka el DOM, envuelve cada char de cada text-node en <span class="tw-char">,
-// y asigna animation-delay escalonado. Los <pre> se tratan como bloque atómico
-// (fade-in del bloque entero) — el código necesita ser legible íntegro.
+// y los enciende con un bucle requestAnimationFrame DETERMINISTA.
 //
-// Total cap: maxTotal ms — para respuestas largas el ritmo se acelera sin
-// perder la sensación de inscripción.
+// Por qué rAF y no animation-delay por CSS: con cientos de animaciones
+// escalonadas Chrome puede saltarse ventanas de delay enteras (observado
+// en real: chars con delay 1–4s nunca aplicaban su fill). El bucle rAF
+// enciende cada char cuando le toca por reloj — inmune a ese quirk, y
+// además es el canon (Tabla 13): lineal, sin fade por carácter. La tinta
+// toca el papel en seco.
+//
+// Los <pre> se tratan como bloque atómico — el código se lee íntegro.
 //
 // API: window.Typewriter.reveal(rootEl, opts?) → totalDurationMs
 //   opts.charDuration  — ms por carácter base (default 22)
@@ -27,7 +32,6 @@
     const events = [];
 
     function walk(node) {
-      // Recorrer los hijos directos en orden
       const children = Array.from(node.childNodes);
       for (const child of children) {
         if (child.nodeType === Node.TEXT_NODE) {
@@ -45,7 +49,7 @@
         } else if (child.nodeType === Node.ELEMENT_NODE) {
           const tag = child.tagName;
           if (tag === 'PRE') {
-            // Bloque atómico: no recursamos. Fade in del PRE entero.
+            // Bloque atómico: no recursamos. El bloque entra entero.
             child.classList.add('tw-block');
             events.push({ type: 'block', el: child });
           } else {
@@ -66,11 +70,33 @@
     const targetTotal = Math.min(naive, maxTotal);
     const stride = units > 0 ? targetTotal / units : 0;
 
+    // Momento de encendido de cada evento (ms desde el inicio).
     let cursorUnits = 0;
     for (const ev of events) {
-      ev.el.style.animationDelay = `${cursorUnits * stride}ms`;
+      ev.at = cursorUnits * stride;
       cursorUnits += ev.type === 'block' ? blockCost : 1;
     }
+
+    // Bucle de inscripción: enciende todo lo que ya tocó por reloj.
+    const t0 = performance.now();
+    let next = 0;
+    function tick(now) {
+      const elapsed = now - t0;
+      while (next < events.length && events[next].at <= elapsed) {
+        events[next].el.classList.add('on');
+        next++;
+      }
+      if (next < events.length) {
+        requestAnimationFrame(tick);
+      }
+    }
+    requestAnimationFrame(tick);
+
+    // Red de seguridad: pase lo que pase (pestaña en background, GC,
+    // throttling), a targetTotal+100ms TODO queda visible.
+    setTimeout(() => {
+      for (const ev of events) ev.el.classList.add('on');
+    }, targetTotal + 100);
 
     return targetTotal;
   }

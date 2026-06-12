@@ -1,3 +1,5 @@
+// Self-Debug — convierte cada fallo de tool en un diagnostic report estructurado y accionable.
+// Causas raíz con confianza + fixes sugeridos + correlación con audit.jsonl; heurística, LLM opcional.
 /**
  * Self-Debug — cuando una tool falla, en vez de dejar al humano descifrar
  * el stack trace, Shinobi produce un *diagnostic report* estructurado:
@@ -60,6 +62,20 @@ interface ErrorPattern {
 }
 
 const ERROR_PATTERNS: ErrorPattern[] = [
+  {
+    // FIX (batería 2026-06-10): errores de codificación de la consola Windows
+    // (cp1252) al imprimir Unicode/emojis. El agente tendía a arreglarlos
+    // carácter a carácter (editar→reejecutar por cada emoji), un anti-patrón
+    // de SÍNTOMA. Aquí le damos la causa RAÍZ y el arreglo de una sola vez.
+    pattern: /unicodeencodeerror|'charmap' codec|codec can't encode|cp1252|charmap_encode/i,
+    cause: 'La consola de Windows (cp1252) no puede imprimir caracteres Unicode/emoji. Es un problema de CODIFICACIÓN DE SALIDA, no de cada carácter por separado.',
+    confidence: 0.9,
+    fix: {
+      action: 'Fijar la codificación de salida UNA vez (causa raíz), no editar carácter a carácter',
+      destructive: false,
+      detail: 'Al inicio del script: `import sys; sys.stdout.reconfigure(encoding="utf-8")` (Python 3.7+), o ejecuta con `PYTHONIOENCODING=utf-8`. NO quites los emojis uno a uno: arregla la codificación de raíz.',
+    },
+  },
   {
     pattern: /enoent|no such file|file not found|cannot find module/i,
     cause: 'Recurso no existe en el filesystem o el path es incorrecto.',
@@ -192,14 +208,14 @@ export function diagnoseError(input: DebugInput): DiagnosticReport {
 
   if (hypotheses.length === 0) {
     hypotheses.push({
-      cause: 'Causa no clasificada por heurística — revisar stack trace manualmente.',
+      cause: 'Causa no clasificada por heurística — busca la CAUSA RAÍZ, no el primer síntoma visible.',
       confidence: 0.2,
       evidence: (input.error || '').slice(0, 200),
     });
     fixes.push({
-      action: 'Inspeccionar manualmente y registrar nuevo patrón',
+      action: 'Identificar la causa raíz antes de reintentar',
       destructive: false,
-      detail: 'Si el patrón es recurrente, añádelo a ERROR_PATTERNS en src/selfdebug/self_debug.ts.',
+      detail: 'Lee el stack trace entero y pregúntate qué condición SUBYACENTE lo provoca. Si el mismo tipo de error puede repetirse (codificación, formato, permisos, estado), arréglalo DE RAÍZ una sola vez en vez de parchear el primer síntoma y reintentar en bucle.',
     });
   }
 

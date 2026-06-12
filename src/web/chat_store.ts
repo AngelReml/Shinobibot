@@ -193,4 +193,58 @@ export class ChatStore {
       'SELECT * FROM web_chat_messages WHERE conversation_id = ? ORDER BY ts ASC LIMIT ?'
     ).all(conversationId, limit) as ChatRow[];
   }
+
+  /**
+   * Bloque 8.6 — búsqueda global DENTRO del contenido de los mensajes (no
+   * solo títulos). Devuelve, por conversación que tenga algún match, el
+   * título y un fragmento (snippet) del primer mensaje coincidente con el
+   * término resaltable. Inspirado en el overlay de búsqueda de Odysseus,
+   * traducido a la marca: el rastro se busca, no se esconde.
+   */
+  searchMessages(query: string, limit: number = 40): Array<{
+    conversationId: string;
+    title: string;
+    role: string;
+    snippet: string;
+    matchOffset: number;
+    ts: string;
+  }> {
+    const q = query.trim();
+    if (!q) return [];
+    const like = `%${q.replace(/[%_]/g, (m) => '\\' + m)}%`;
+    // Un match por conversación (el más reciente), con el título unido.
+    const rows = this.db.prepare(`
+      SELECT m.conversation_id AS conversationId, m.role AS role,
+             m.content AS content, m.ts AS ts,
+             COALESCE(c.title, 'Conversación') AS title
+      FROM web_chat_messages m
+      LEFT JOIN conversations c ON c.id = m.conversation_id
+      WHERE m.conversation_id IS NOT NULL
+        AND m.content LIKE ? ESCAPE '\\'
+      ORDER BY m.ts DESC
+      LIMIT 400
+    `).all(like) as Array<{ conversationId: string; role: string; content: string; ts: string; title: string }>;
+
+    const seen = new Set<string>();
+    const out: Array<{ conversationId: string; title: string; role: string; snippet: string; matchOffset: number; ts: string }> = [];
+    const needle = q.toLowerCase();
+    for (const r of rows) {
+      if (seen.has(r.conversationId)) continue;
+      seen.add(r.conversationId);
+      const content = r.content || '';
+      const idx = content.toLowerCase().indexOf(needle);
+      const start = Math.max(0, idx - 40);
+      const snippet = (start > 0 ? '…' : '') + content.slice(start, idx + needle.length + 80).trim() + (content.length > idx + needle.length + 80 ? '…' : '');
+      out.push({
+        conversationId: r.conversationId,
+        title: r.title,
+        role: r.role,
+        snippet,
+        matchOffset: idx - start + (start > 0 ? 1 : 0),
+        ts: r.ts,
+      });
+      if (out.length >= limit) break;
+    }
+    return out;
+  }
 }

@@ -1,44 +1,65 @@
 /* src/web/public/styles/tokens.css
  *
- * Bloque 8.3 — Dos paletas: Hiru (día) y Yoru (noche).
- * Reemplazan a sumi/kintsugi/aurora/bushido del 8.1. Los colores vienen
- * del DESIGN.md de Stitch (variante Hiru de Material 3).
+ * Bloque 8.5 — Paleta CANÓNICA del Manual de Marca de Shinobi (§5, Tabla 9).
+ * Sustituye a la variante Stitch del 8.3. Los seis roles del manual son ley;
+ * el resto de variables se DERIVAN de ellos y se documentan aquí.
  *
- * Los nombres de variables se preservan para que layout.css, chat.css,
- * app.js y el resto de la app no necesiten cambios de selector.
+ * Regla 90/9/1 (§5.2): ≈90% papel, ≈9% tinta, ≈1% bermellón.
+ * El bermellón solo aparece donde el agente ha actuado o está actuando (§4).
+ *
+ * Yoru es el modo nativo de Shinobi (§5.3): default en primera ejecución.
+ * Los nombres de variables se preservan para no tocar selectores aguas abajo.
  */
 
-/* ─── HIRU — día, papel washi crudo ─────────────────────────────────────── */
+/* ─── HIRU — día, papel washi crudo (canon Tabla 9) ─────────────────────── */
 [data-theme="hiru"] {
-  --bg: #fff8f6;
-  --bg-elev: #fff0ee;
-  --bg-overlay: #fee9e6;
-  --text-primary: #241917;
-  --text-secondary: #57423e;
-  --text-muted: #8a716d;
-  --accent: #6b150c;            /* primary — vermellón profundo */
-  --accent-hover: #82261b;
-  --accent-soft: #8b2c20;       /* primary-container — filete del agente */
-  --border: #ddc0bb;
-  --border-active: #8a716d;
+  --bg: #F2ECE4;                /* canon --bg — papel washi */
+  --bg-elev: #EBE4D8;           /* canon --elevated — sidebar, paneles */
+  --bg-overlay: #E4DBCB;        /* derivado: un pliegue más profundo del papel */
+  --text-primary: #2C2C2C;      /* canon --text — tinta */
+  --text-secondary: #6B6358;    /* derivado: tinta a media carga */
+  --text-muted: #9E9589;        /* canon --muted — tinta diluida */
+  --accent: #8B2C20;            /* canon --accent — bermellón: solo huella y rastro */
+  --accent-hover: #9C3A2D;      /* derivado: bermellón al levantar el pincel */
+  --accent-soft: #8B2C20;       /* filete del agente — mismo bermellón */
+  --border: #C8BFA8;            /* canon --border — el pliegue del papel */
+  --border-active: #9E9589;     /* derivado: pliegue marcado */
+  --ink-strong: #141008;        /* noche cerrada (§2.2): tinta más oscura, sin rojo */
+  --error: #141008;             /* alias legado — el error en Shinobi es tinta, no rojo */
+  --paper-rgb: 242, 236, 228;   /* para velos de niebla coherentes con el papel */
   /* Filtro para recolorear el ensō PNG sobre fondo claro:
      invert(0%) deja el ensō negro original visible. */
   --enso-invert: 0%;
 }
 
-/* ─── YORU — noche, tierra quemada ──────────────────────────────────────── */
+/* ─── YORU — noche, el modo nativo de la selva (canon Tabla 9) ──────────── */
 [data-theme="yoru"] {
-  --bg: #1a1612;
-  --bg-elev: #221d18;
-  --bg-overlay: #2a241e;
-  --text-primary: #e8e0d0;
-  --text-secondary: #b8ad9a;
-  --text-muted: #8a7e6c;
-  --accent: #c84134;            /* vermellón más vivo para contraste oscuro */
-  --accent-hover: #d8554a;
-  --accent-soft: #c84134;       /* mismo accent para filete */
-  --border: #3a3328;
-  --border-active: #5a4f3f;
+  --bg: #1A1612;                /* canon --bg — cuaderno a oscuras */
+  --bg-elev: #221D18;           /* canon --elevated */
+  --bg-overlay: #2A241E;        /* derivado: capa más honda de la noche */
+  --text-primary: #E8E0D0;      /* canon --text — tinta clara sobre papel nocturno */
+  --text-secondary: #A89C88;    /* derivado: media carga */
+  --text-muted: #6B6158;        /* canon --muted — tinta diluida */
+  --accent: #C84134;            /* canon --accent — bermellón vivo para la noche */
+  --accent-hover: #D8554A;      /* derivado */
+  --accent-soft: #C84134;       /* filete del agente */
+  --border: #3A3328;            /* canon --border */
+  --border-active: #5A4F3F;     /* derivado */
+  --ink-strong: #F5EFE2;        /* noche cerrada: la tinta se cierra, sube el contraste */
+  --error: #F5EFE2;             /* alias legado — sin rojo histérico (§6, Tabla 8) */
+  --paper-rgb: 26, 22, 18;
   /* invert(100%) → ensō blanco sobre fondo oscuro */
   --enso-invert: 100%;
+}
+
+/* ─── CLIMA (§2.2) — el estado emocional de la interfaz ──────────────────
+ * No es un tema: emerge del estado real del sistema. app.js pone
+ * data-clima en <body>. La niebla (aprobación pendiente) baja medio tono
+ * el contraste de todo salvo el candado, que queda nítido. */
+body[data-clima="niebla"] .dojo {
+  filter: contrast(0.92) brightness(0.96) saturate(0.85);
+  transition: filter 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+body .dojo {
+  transition: filter 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }

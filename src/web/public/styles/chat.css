@@ -1,8 +1,9 @@
-/* chat.css — Bloque 8.2
- * Mensajes sin burbujas. Solo tipografía + espacio + un fino filete que
- * aparece dibujado de arriba abajo en mensajes del agente.
+/* chat.css — Bloque 8.5
+ * Mensajes sin burbujas. Tipografía + espacio + el filete bermellón que
+ * firma cada salida del agente (300 ms, Tabla 13).
  *
  * Filosofía: el papel es el bg, el texto es la tinta. Sin contenedores.
+ * El bermellón solo donde el agente actuó (§4). Errores en voz baja (§6).
  */
 
 .chat {
@@ -24,19 +25,14 @@
   z-index: 1;
   opacity: 0.05;
   mix-blend-mode: multiply;
+  transition: opacity 0.6s ease;
 }
 [data-theme="yoru"] .washi-noise {
   opacity: 0.07;
   mix-blend-mode: screen;
 }
 
-/* ─── Marca de agua del ensō ─────────────────────────────────────────────
- * Bloque 8.2 fix — <img> directa con filter para adaptar al tema. Sin
- * mask-image (la versión anterior fallaba en Chrome real).
- *
- * Pintado al fondo, sin interferir con scroll/click. Se desvanece cuando
- * hay mensajes (.chat.has-content).
- */
+/* ─── Marca de agua del ensō (4% en calma, §7.3) ───────────────────────── */
 .enso-watermark {
   position: absolute;
   top: 50%;
@@ -46,14 +42,14 @@
   height: auto;
   transform: translate(-50%, -50%);
   filter: brightness(0) saturate(100%) invert(var(--enso-invert, 100%));
-  opacity: 0.06;
+  opacity: 0.04;
   pointer-events: none;
   z-index: 0;
   user-select: none;
   transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), filter 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .chat.has-content .enso-watermark {
-  opacity: 0.03;
+  opacity: 0.025;
 }
 /* La marca de agua respira — escala 1 → 1.02 muy lentamente. */
 .enso-watermark {
@@ -63,22 +59,24 @@
   animation: enso-breathe-quiet 32s ease-in-out infinite;
 }
 @keyframes enso-breathe {
-  0%, 100% { transform: translate(-50%, -50%) scale(1);     opacity: 0.06; }
-  50%      { transform: translate(-50%, -50%) scale(1.02);  opacity: 0.04; }
+  0%, 100% { transform: translate(-50%, -50%) scale(1);     opacity: 0.04; }
+  50%      { transform: translate(-50%, -50%) scale(1.02);  opacity: 0.028; }
 }
 @keyframes enso-breathe-quiet {
-  0%, 100% { transform: translate(-50%, -50%) scale(1);     opacity: 0.03;  }
-  50%      { transform: translate(-50%, -50%) scale(1.015); opacity: 0.018; }
+  0%, 100% { transform: translate(-50%, -50%) scale(1);     opacity: 0.025; }
+  50%      { transform: translate(-50%, -50%) scale(1.015); opacity: 0.016; }
 }
 
-/* ─── Typewriter del agente: cada char/bloque fade-in en orden ─────────── */
-.tw-char, .tw-block {
-  opacity: 0;
-  animation: tw-fade 200ms ease-out forwards;
-}
-@keyframes tw-fade { to { opacity: 1; } }
+/* ─── Typewriter del agente — el pincel que avanza ──────────────────────
+ * Canon Tabla 13: lineal, sin fade por carácter. typewriter.js enciende
+ * cada char por reloj (rAF) añadiendo .on — sin animation-delay frágil.
+ * La tinta toca el papel en seco; los bloques <pre> entran íntegros. */
+.tw-char { opacity: 0; }
+.tw-char.on { opacity: 1; }
+.tw-block { opacity: 0; transition: opacity 180ms ease-out; }
+.tw-block.on { opacity: 1; }
 
-/* Cursor que sigue al typewriter, removido al terminar el texto */
+/* Cursor que sigue al pincel, removido al terminar */
 .typing-cursor {
   display: inline-block;
   width: 2px;
@@ -93,7 +91,7 @@
   50%, 100% { opacity: 0; }
 }
 
-/* ─── Hanko 忍 (sello al final de cada mensaje del agente) ──────────────── */
+/* ─── Hanko 忍 (sello al final de cada salida del agente) ───────────────── */
 .hanko-wrap {
   text-align: right;
   margin-top: 16px;
@@ -107,19 +105,19 @@
   transform-origin: center;
   opacity: 0;
 }
+/* El sello se asienta como tinta: presión y reposo, sin rebote. */
 .hanko.animated {
-  animation: hanko-stamp 0.5s ease-out forwards;
+  animation: hanko-stamp 0.4s ease-out forwards;
   animation-delay: var(--hanko-delay, 0ms);
 }
 .hanko.static { opacity: 0.92; }
 @keyframes hanko-stamp {
-  0%   { opacity: 0; transform: scale(1.4) rotate(-8deg); }
-  60%  { opacity: 1; transform: scale(0.94) rotate(3deg); }
-  100% { opacity: 0.92; transform: scale(1) rotate(0); }
+  0%   { opacity: 0;    transform: scale(1.12); }
+  100% { opacity: 0.92; transform: scale(1); }
 }
-/* Hover sobre el hanko → rotación lenta 360°. Pequeño fidget. */
+/* Hanko vivo (Tabla 19): rotación 360° en hover, 600 ms. */
 .hanko {
-  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  transition: transform 0.6s ease-in-out, opacity 0.3s ease;
 }
 .hanko-wrap:hover .hanko {
   opacity: 1;
@@ -127,7 +125,7 @@
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   EASTER EGGS — mecánicas ocultas
+   MECÁNICAS NATIVAS (§10) — la gramática de la selva
    ════════════════════════════════════════════════════════════════════ */
 
 /* ─── /zen mode ──────────────────────────────────────────────────────── */
@@ -160,7 +158,7 @@ body.sensei {
 .sensei-kanji {
   position: absolute;
   top: -10vh;
-  font-family: 'Cormorant Garamond', 'EB Garamond', serif;
+  font-family: 'Cormorant Garamond', serif;
   color: #d4af37;
   text-shadow: 0 0 14px rgba(212, 175, 55, 0.35);
   animation: kanji-fall linear forwards;
@@ -173,7 +171,7 @@ body.sensei {
   100% { transform: translateY(115vh) rotate(20deg); opacity: 0; }
 }
 
-/* ─── Inactividad → dojo-quiet ──────────────────────────────────────── */
+/* ─── Inactividad → dojo-quiet (la sala te observa) ─────────────────── */
 body.dojo-quiet::before {
   content: '';
   position: fixed;
@@ -194,25 +192,76 @@ body.dojo-quiet::before {
 }
 body.dojo-quiet .enso-watermark {
   animation-duration: 14s !important;
-  opacity: 0.09 !important;
+  opacity: 0.07 !important;
 }
 
 /* ─── Haiku detection en el composer ────────────────────────────────── */
 #composer.haiku-mode {
-  font-family: 'Cormorant Garamond', 'EB Garamond', serif;
+  font-family: 'Cormorant Garamond', serif;
   font-style: italic;
   font-size: 1.45rem;
   text-align: center;
   letter-spacing: 0.025em;
   line-height: 1.55;
-  /* Transición específica — evita janks de height/width que también se
-     transicionarían con `all`. */
   transition: font-size 0.4s cubic-bezier(0.4, 0, 0.2, 1),
               letter-spacing 0.4s cubic-bezier(0.4, 0, 0.2, 1),
               line-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ─── Cheat sheet (Ctrl+/) ──────────────────────────────────────────── */
+/* ─── Comandos con / en JetBrains Mono (Tabla 22) ───────────────────── */
+#composer.slash-mode {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
+}
+
+/* ─── Paleta de comandos — el pergamino que emerge al teclear "/" ────── */
+.cmd-palette {
+  max-width: 800px;
+  margin: 0 auto 8px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+.cmd-palette[hidden] { display: none; }
+.cmd-item {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.cmd-item:hover, .cmd-item.selected {
+  background: var(--bg-overlay);
+}
+.cmd-item.selected {
+  box-shadow: inset 2px 0 0 var(--text-secondary);
+}
+.cmd-item .cmd-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  min-width: 110px;
+}
+.cmd-item .cmd-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cmd-palette .cmd-empty {
+  padding: 10px 16px;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* ─── Cheat sheet — el pergamino (Ctrl+/) ───────────────────────────── */
 #cheat-modal {
   position: fixed;
   inset: 0;
@@ -229,22 +278,31 @@ body.dojo-quiet .enso-watermark {
 .cheat-paper {
   background: var(--bg);
   border: 1px solid var(--border);
-  padding: 32px 42px 26px;
-  max-width: 500px;
-  width: 90%;
+  padding: 30px 40px 24px;
+  max-width: 560px;
+  width: 92%;
+  max-height: 84vh;
+  overflow-y: auto;
   transform: translateY(20px);
   transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
 }
 #cheat-modal.open .cheat-paper { transform: translateY(0); }
 .cheat-title {
-  font-family: 'Cormorant Garamond', 'EB Garamond', serif;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 1.45rem;
   font-style: italic;
   color: var(--accent);
-  margin-bottom: 22px;
+  margin-bottom: 18px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
   letter-spacing: 0.02em;
+}
+.cheat-section {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 1rem;
+  color: var(--text-secondary);
+  padding: 14px 0 4px;
 }
 .cheat-table {
   width: 100%;
@@ -252,17 +310,18 @@ body.dojo-quiet .enso-watermark {
   font-size: 0.92rem;
 }
 .cheat-table td {
-  padding: 7px 10px;
-  vertical-align: middle;
+  padding: 6px 10px;
+  vertical-align: baseline;
 }
 .cheat-table td:first-child {
   text-align: right;
   color: var(--text-secondary);
   white-space: nowrap;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.84rem;
+  font-size: 0.82rem;
+  width: 38%;
 }
-.cheat-table td:last-child { color: var(--text-primary); }
+.cheat-table td:last-child { color: var(--text-primary); font-size: 0.86rem; }
 .cheat-table kbd {
   font-family: 'JetBrains Mono', monospace;
   background: var(--bg-elev);
@@ -281,7 +340,7 @@ body.dojo-quiet .enso-watermark {
 }
 .cheat-table .cheat-spacer {
   text-align: center;
-  padding-top: 20px;
+  padding-top: 18px;
   color: var(--text-muted);
   font-style: italic;
   font-family: 'Cormorant Garamond', serif;
@@ -291,7 +350,7 @@ body.dojo-quiet .enso-watermark {
   text-align: center;
   font-size: 0.72rem;
   color: var(--text-muted);
-  margin-top: 22px;
+  margin-top: 20px;
   font-family: 'JetBrains Mono', monospace;
   letter-spacing: 0.04em;
 }
@@ -306,7 +365,7 @@ body.dojo-quiet .enso-watermark {
 }
 #cheat-trigger:hover { opacity: 1; }
 
-/* ─── Egg toast — inscripción centrada ──────────────────────────────── */
+/* ─── Inscripción de mecánica (§10.2) — kanji centrado, se disuelve ──── */
 #egg-toast-stack {
   position: fixed;
   top: 28%;
@@ -332,14 +391,13 @@ body.dojo-quiet .enso-watermark {
   transform: translateY(-18px);
   opacity: 0;
   transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18);
 }
 .egg-toast.show {
   transform: translateY(0);
   opacity: 1;
 }
 .egg-kanji {
-  font-family: 'Cormorant Garamond', 'EB Garamond', serif;
+  font-family: 'Cormorant Garamond', serif;
   font-size: 2.6rem;
   color: var(--accent);
   line-height: 1;
@@ -347,7 +405,7 @@ body.dojo-quiet .enso-watermark {
   font-weight: 500;
 }
 .egg-text {
-  font-family: 'Cormorant Garamond', 'EB Garamond', serif;
+  font-family: 'Cormorant Garamond', serif;
   font-style: italic;
   font-size: 0.98rem;
   color: var(--text-primary);
@@ -355,7 +413,7 @@ body.dojo-quiet .enso-watermark {
   letter-spacing: 0.01em;
 }
 
-/* ─── Empty state (frase + cursor parpadeante) ──────────────────────────── */
+/* ─── Estado vacío (§7.3) ───────────────────────────────────────────────── */
 
 .chat-empty {
   position: relative;
@@ -388,7 +446,6 @@ body.dojo-quiet .enso-watermark {
   margin-left: 4px;
   vertical-align: text-bottom;
   animation: blink 1.1s steps(2, end) infinite;
-  border-radius: 1px;
 }
 @keyframes blink {
   0%, 49% { opacity: 0.95; }
@@ -441,8 +498,8 @@ body.dojo-quiet .enso-watermark {
 .msg.agent .body {
   color: var(--text-primary);
 }
-/* Filete vertical del agente — duración dinámica via --filete-duration
-   (set inline por finalizeAgent para sincronizar con el typewriter). */
+/* Filete bermellón — la firma del agente. 300 ms canon (Tabla 13),
+ * dibujado de arriba abajo ANTES del texto. */
 .msg.agent::before {
   content: '';
   position: absolute;
@@ -450,9 +507,8 @@ body.dojo-quiet .enso-watermark {
   top: 0;
   width: 2px;
   height: 0;
-  background: var(--accent);
-  border-radius: 1px;
-  animation: drawDown var(--filete-duration, 300ms) cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  background: var(--accent-soft);
+  animation: drawDown 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 .msg.agent.no-anim::before {
   height: 100%;
@@ -463,13 +519,17 @@ body.dojo-quiet .enso-watermark {
   to   { height: 100%; }
 }
 
+/* El error habla en voz baja (§6, Tabla 8): tinta, cursiva, sin rojo. */
 .msg.system {
   color: var(--text-muted);
   font-style: italic;
   font-size: 0.9rem;
 }
+.msg.system.cerrado .body {
+  color: var(--ink-strong);
+}
 
-/* Pending agent (esperando respuesta) — dot blink artesanal */
+/* Pendiente (lluvia fina, §2.2) — una gota que respira, sin spinner. */
 .msg.agent.pending .body::after {
   content: '';
   display: inline-block;
@@ -479,14 +539,14 @@ body.dojo-quiet .enso-watermark {
   background: var(--accent);
   margin-left: 6px;
   vertical-align: middle;
-  animation: pulse 1.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation: gota-respira 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
-@keyframes pulse {
-  0%, 100% { opacity: 0.3; transform: scale(0.8); }
-  50%      { opacity: 1.0; transform: scale(1.0); }
+@keyframes gota-respira {
+  0%, 100% { opacity: 0.35; transform: scale(0.92); }
+  50%      { opacity: 0.9;  transform: scale(1.04); }
 }
 
-/* ─── Thinking accordion ────────────────────────────────────────────────── */
+/* ─── Rastro plegado del mensaje (razonamiento) ─────────────────────────── */
 
 .msg .thinking-toggle {
   display: inline-flex;
@@ -511,7 +571,6 @@ body.dojo-quiet .enso-watermark {
   padding: 10px 14px;
   background: var(--bg-elev);
   border-left: 2px solid var(--border);
-  border-radius: 0 6px 6px 0;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.78rem;
   color: var(--text-muted);
@@ -522,17 +581,40 @@ body.dojo-quiet .enso-watermark {
 }
 .msg .thinking-body.hidden { display: none; }
 
+/* Plan del modelo ([🧠]) — la intención, en cursiva serif antes del trabajo. */
+.msg .plan-line {
+  display: block;
+  margin: 10px 0 2px;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  border-left: 2px solid var(--border);
+  padding-left: 10px;
+}
+
+.msg .tool-pill-row { margin-top: 10px; }
 .msg .tool-pill {
   display: inline-block;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.72rem;
-  background: var(--bg-overlay);
+  background: transparent;
   border: 1px solid var(--border);
   padding: 2px 8px;
-  border-radius: 10px;
   color: var(--text-secondary);
   margin: 0 4px 4px 0;
   letter-spacing: 0.04em;
+  transition: color 0.5s ease, border-color 0.5s ease;
+}
+/* La herramienta terminó: el trazo se seca. */
+.msg .tool-pill.seco {
+  color: var(--text-muted);
+  border-color: var(--border);
+  opacity: 0.7;
+}
+.msg .tool-pill.cerrado {
+  color: var(--ink-strong);
+  font-style: italic;
 }
 
 /* ─── Markdown rendering ───────────────────────────────────────────────── */
@@ -549,13 +631,11 @@ body.dojo-quiet .enso-watermark {
   background: var(--bg-elev);
   border: 1px solid var(--border);
   padding: 1px 6px;
-  border-radius: 4px;
   color: var(--text-primary);
 }
 .msg .body pre {
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 8px;
   padding: 12px 14px;
   margin: 12px 0;
   overflow-x: auto;
@@ -608,43 +688,25 @@ body.dojo-quiet .enso-watermark {
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--border);
-  border-radius: 0;
   padding: 6px 2px 10px;
   position: relative;
   transition: border-color 0.3s ease;
 }
-/* Pincel bermellón que crece desde el centro al hacer focus. */
+/* Trazo de tinta que crece desde el centro al hacer focus. Tinta, no
+ * bermellón: escribir aún no es actuar (Tabla 8). */
 .input-shell::after {
   content: '';
   position: absolute;
   left: 50%;
   bottom: -1px;
   width: 0;
-  height: 2px;
-  background: var(--accent);
+  height: 1.5px;
+  background: var(--text-secondary);
   transform: translateX(-50%);
   transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   pointer-events: none;
 }
 .input-shell:focus-within::after { width: 100%; }
-.input-glyph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-.input-glyph:hover {
-  background: var(--bg-overlay);
-  opacity: 1;
-}
 #composer {
   flex: 1;
   background: transparent;
@@ -662,26 +724,28 @@ body.dojo-quiet .enso-watermark {
 #composer::placeholder {
   color: var(--text-muted);
 }
+/* Enviar: tinta, sin fondo (Tabla 25 — el único botón con fondo es el
+ * de aprobación irreversible). */
 .send-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 34px;
   height: 34px;
-  border-radius: 8px;
-  background: var(--accent);
-  color: var(--bg);
+  background: transparent;
+  color: var(--text-secondary);
   border: none;
   cursor: pointer;
   flex-shrink: 0;
-  transition: opacity 0.16s ease, transform 0.16s ease;
+  transition: color 0.16s ease, opacity 0.16s ease;
 }
 .send-btn:disabled {
   opacity: 0.25;
   cursor: default;
 }
 .send-btn:not(:disabled):hover {
-  transform: translateY(-1px);
+  color: var(--text-primary);
+  background: var(--bg-overlay);
 }
 .input-hint {
   max-width: 760px;
@@ -694,7 +758,7 @@ body.dojo-quiet .enso-watermark {
   opacity: 0.7;
 }
 
-/* ─── Ask modal (Bloque 1 preservado) ──────────────────────────────────── */
+/* ─── Modales: pregunta y candado ──────────────────────────────────────── */
 
 .modal-backdrop {
   position: fixed;
@@ -704,19 +768,21 @@ body.dojo-quiet .enso-watermark {
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  backdrop-filter: blur(2px);
 }
 .modal-backdrop[hidden] { display: none; }
+/* La niebla (§11.2): el mundo pierde nitidez; el candado queda nítido. */
+.modal-backdrop.niebla-backdrop {
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2.5px) saturate(0.8);
+}
 .modal {
   background: var(--bg-elev);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  border: 1px solid var(--border-active);
   width: 90%;
-  max-width: 480px;
-  padding: 22px 24px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  max-width: 500px;
+  padding: 24px 26px;
 }
-.modal h3 { margin: 0 0 12px; font-size: 1.1rem; }
+.modal h3 { margin: 0 0 12px; font-size: 1.15rem; }
 .ask-question {
   color: var(--text-secondary);
   margin-bottom: 14px;
@@ -727,35 +793,69 @@ body.dojo-quiet .enso-watermark {
   width: 100%;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 7px;
   color: var(--text-primary);
   padding: 9px 11px;
   font-size: 0.95rem;
   outline: none;
 }
-#ask-input:focus { border-color: var(--accent); }
+#ask-input:focus { border-color: var(--border-active); }
 .modal-actions {
-  margin-top: 16px;
+  margin-top: 18px;
   display: flex;
   justify-content: flex-end;
   gap: 8px;
 }
 .modal-actions button {
   padding: 7px 14px;
-  border-radius: 7px;
   font-size: 0.88rem;
   border: 1px solid var(--border);
   background: transparent;
   color: var(--text-primary);
   cursor: pointer;
 }
+.modal-actions button:hover {
+  border-color: var(--border-active);
+  background: var(--bg-overlay);
+}
+/* La única excepción: aprobación irreversible, bermellón pleno (Tabla 7). */
 .modal-actions button.accent {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--bg);
 }
+.modal-actions button.accent:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
 
-/* ─── Toast stack (Bloque 3/5 preservado) ──────────────────────────────── */
+/* El candado: pausa sin urgencia. Sin parpadeos, sin contador, sin rojo. */
+.modal.candado .candado-glyph {
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--text-secondary);
+  font-size: 1.05em;
+}
+.candado-sub {
+  color: var(--text-secondary);
+  margin: 0 0 14px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+.candado-rastro {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--text-secondary);
+  padding: 12px 14px;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--text-primary);
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* ─── Toasts de sistema (skills / documentos) ──────────────────────────── */
 
 .toast-stack {
   position: fixed;
@@ -773,12 +873,11 @@ body.dojo-quiet .enso-watermark {
   border: 1px solid var(--border-active);
   border-left: 3px solid var(--accent);
   padding: 12px 14px;
-  border-radius: 8px;
   font-size: 0.86rem;
   color: var(--text-secondary);
   pointer-events: auto;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
   animation: toastIn 0.28s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  transition: opacity 0.4s ease;
 }
 .toast .toast-title {
   font-weight: 600;
@@ -796,47 +895,42 @@ body.dojo-quiet .enso-watermark {
   to   { opacity: 1; transform: translateX(0); }
 }
 
-/* ─── Split-Brain Interceptors (Experimentos 1, 2 y 3) ────────────────── */
+/* ─── Alertas split-brain (Exp 1/3) — recoloreadas a canon, sin rojo ──── */
 
-/* Neon pulse for status chip (Exp 2) */
 .neon-pulse {
   animation: neonPulseAnim 300ms ease-out forwards;
 }
 @keyframes neonPulseAnim {
-  0%   { text-shadow: 0 0 0 transparent; color: inherit; }
-  50%  { text-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent); color: var(--accent); }
-  100% { text-shadow: 0 0 0 transparent; color: inherit; }
+  0%   { opacity: 1; }
+  50%  { opacity: 0.55; }
+  100% { opacity: 1; }
 }
 
-/* Split brain alert base */
 .split-brain-alert {
   margin: 16px 0;
   padding: 14px 18px;
-  border-radius: 8px;
   background: var(--bg-overlay);
-  border: 1px solid var(--outline-variant, var(--border));
+  border: 1px solid var(--border);
   color: var(--text-primary);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-/* Exp 1: Injector alert */
 .injector-alert {
-  border-left: 3px solid #e53e3e;
-  background: rgba(229, 62, 62, 0.05);
+  border-left: 3px solid var(--ink-strong);
+  background: var(--bg-elev);
   flex-direction: row;
   align-items: flex-start;
   gap: 12px;
 }
 .injector-alert svg {
-  color: #e53e3e;
+  color: var(--ink-strong);
   flex-shrink: 0;
   margin-top: 2px;
 }
 .injector-alert .alert-title {
-  color: #e53e3e;
+  color: var(--ink-strong);
   font-weight: 600;
   margin-bottom: 4px;
 }
@@ -845,16 +939,15 @@ body.dojo-quiet .enso-watermark {
   color: var(--text-secondary);
 }
 
-/* Exp 3: L3 Conciliation Card */
 .l3-alert {
-  border: 1px solid var(--accent);
+  border: 1px solid var(--border-active);
   background: var(--bg-elev);
 }
 .l3-alert .alert-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--accent);
+  color: var(--text-secondary);
   font-weight: 600;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.85rem;
@@ -875,16 +968,415 @@ body.dojo-quiet .enso-watermark {
   justify-content: flex-end;
 }
 .l3-alert .alert-btn {
-  background: var(--accent);
-  color: var(--bg);
-  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-active);
   padding: 6px 12px;
-  border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: background 0.2s;
 }
 .l3-alert .alert-btn:hover {
-  opacity: 0.8;
+  background: var(--bg-overlay);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UX PLAN — Fases 0-2 (PLAN_UX_NO_TECNICO.md)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── M2 + M4: Acciones por mensaje (copiar · retomar) ──────────────────── */
+.msg {
+  /* Necesario para posicionar .msg-actions con position:absolute */
+  position: relative;
+}
+.msg-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+.msg:hover .msg-actions,
+.msg:focus-within .msg-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.msg-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+.msg-action-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+  background: var(--bg-elev);
+}
+.msg-action-btn.copied {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+/* ─── M3: Botón copiar en bloques de código ─────────────────────────────── */
+.msg .body .pre-wrapper {
+  position: relative;
+  margin: 12px 0;
+}
+.msg .body .pre-wrapper pre {
+  margin: 0;
+}
+.copy-code-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 7px;
+  letter-spacing: 0.03em;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  z-index: 1;
+}
+.pre-wrapper:hover .copy-code-btn {
+  opacity: 1;
+}
+.copy-code-btn.copied {
+  color: var(--accent);
+  border-color: var(--accent-soft);
+  opacity: 1;
+}
+
+/* ─── M5: Composer ocupado ──────────────────────────────────────────────── */
+/* El placeholder cambia vía JS; el estado visual se refuerza aquí. */
+#composer[data-busy="true"] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ─── M6: Misiones de ejemplo en el dojo vacío ──────────────────────────── */
+.chat-empty {
+  flex-direction: column;
+  gap: 32px;
+}
+.dojo-ejemplos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 600px;
+  opacity: 0;
+  animation: fade-in-up 0.6s 0.4s ease forwards;
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.dojo-ej {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  text-align: left;
+  line-height: 1.4;
+}
+.dojo-ej:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
+
+/* ─── M7: Error humanizado ──────────────────────────────────────────────── */
+.error-human-msg {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+.error-detail-toggle {
+  display: inline;
+  margin-left: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  text-decoration: underline dotted;
+  vertical-align: middle;
+}
+.error-detail-toggle:hover {
+  color: var(--text-secondary);
+}
+.error-detail-raw {
+  margin-top: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  border-left: 2px solid var(--border);
+  padding-left: 10px;
+  line-height: 1.5;
+}
+.error-detail-raw.hidden { display: none; }
+
+/* ─── A1: Panel de habilidades (⟡ drawer) ──────────────────────────────── */
+.skills-chip-row {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 2px 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 0;
+}
+.skills-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 2px 9px;
+  letter-spacing: 0.03em;
+  background: transparent;
+  animation: chip-emerge 0.2s ease;
+  white-space: nowrap;
+}
+@keyframes chip-emerge {
+  from { opacity: 0; transform: translateY(3px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.skills-chip .chip-glyph {
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
+/* Panel drawer de habilidades */
+.skills-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 90;
+}
+.skills-panel {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, 96vw);
+  max-height: 60vh;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  z-index: 91;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: panel-slide-up 0.22s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes panel-slide-up {
+  from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+  to   { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+.skills-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.skills-panel-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+}
+.skills-panel-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+.skills-panel-close:hover { color: var(--text-primary); }
+.skills-panel-body {
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.skill-card {
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.skill-card:hover {
+  border-color: var(--text-muted);
+  background: var(--bg);
+}
+.skill-card-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--accent);
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.skill-card-desc {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.skill-card-keywords {
+  margin-top: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+
+/* Botón ⟡ en la input bar */
+.skills-trigger-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+  font-size: 1rem;
+  transition: color 0.15s ease;
+  line-height: 1;
+  align-self: flex-end;
+  padding-bottom: 11px;
+}
+.skills-trigger-btn:hover {
+  color: var(--accent);
+}
+.skills-trigger-btn.active {
+  color: var(--accent);
+}
+
+/* ─── A2: Rastro en dos capas ────────────────────────────────────────────── */
+.trazo-human {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  padding: 2px 0;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.trazo-human .trazo-dur {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+.trazo-human .trazo-status {
+  font-size: 0.7rem;
+}
+.trazo-human.seco { color: var(--text-muted); }
+.trazo-human.cerrado { color: var(--ink-strong); font-style: italic; }
+
+/* ─── A3: Candado legible ────────────────────────────────────────────────── */
+.candado-intent {
+  font-family: 'Inter', sans-serif;
+  font-size: 0.92rem;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+.candado-intent strong {
+  color: var(--text-primary);
+}
+.candado-rastro-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  display: block;
+}
+
+/* ─── A4: Tour de primera vez ────────────────────────────────────────────── */
+.tour-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 80px;
+  pointer-events: none;
+}
+.tour-backdrop[hidden] { display: none; }
+.tour-card {
+  pointer-events: auto;
+  position: relative;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  padding: 28px 32px 24px;
+  width: min(480px, calc(100vw - 48px));
+  animation: tour-rise 0.28s ease;
+}
+@keyframes tour-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.tour-skip {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  opacity: 0.5;
+}
+.tour-skip:hover { opacity: 1; }
+.tour-step-indicator {
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.tour-title {
+  font-size: 1.4rem;
+  margin: 0 0 12px;
+}
+.tour-body {
+  color: var(--text-secondary);
+  line-height: 1.65;
+  margin: 0 0 20px;
+}
+.tour-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.tour-next {
+  min-width: 120px;
 }

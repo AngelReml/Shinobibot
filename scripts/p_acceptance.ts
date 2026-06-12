@@ -20,12 +20,12 @@ function log(p: PResult) { results.push(p); console.log(`\n[${p.id}] ${p.status}
 function fileText(p: string): string { try { return fs.readFileSync(p, 'utf-8'); } catch { return ''; } }
 
 async function p2() {
-  console.log('═══ P2 — /read OpenGravity ═══');
-  const r = await runRead('C:\\Users\\angel\\Desktop\\OpenGravity', { label: 'p2_opengravity' });
+  console.log('═══ P2 — /read Shinobi ═══');
+  const r = await runRead('C:\\Users\\angel\\Desktop\\shinobibot', { label: 'p2_shinobi' });
   if (!r.ok) return log({ id: 'P2', status: 'FAIL', note: 'runRead failed' });
   const report = JSON.parse(fileText(path.join(r.missionDir, 'report.json')));
   const summary = JSON.stringify(report).toLowerCase();
-  const knownConcepts = ['kernel', 'agent', 'mission', 'opengravity'];
+  const knownConcepts = ['agent', 'mission', 'shinobi', 'orchestrator'];
   const found = knownConcepts.filter((c) => summary.includes(c));
   log({ id: 'P2', status: found.length >= 2 ? 'PASS' : 'FAIL', note: `mentions [${found.join(',')}], dur=${(r.durationMs / 1000).toFixed(1)}s, mission=${path.basename(r.missionDir)}` });
 }

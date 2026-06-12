@@ -1,17 +1,12 @@
 /* src/web/public/styles/base.css
  *
- * Bloque 8.1 — reset minimalista + tipografía base + transición global.
+ * Bloque 8.5 — reset minimalista + tipografía canon + utilidades propias.
+ * Sustituye al CDN de Tailwind (300KB de script para cuatro clases): las
+ * utilidades que el markup usa se definen aquí, a mano, sobre las tres
+ * tipografías canon del manual: Cormorant Garamond · Inter · JetBrains Mono.
  *
- * Las páginas que importan este archivo (theme-preview.html en 8.1, e
- * index.html en el futuro Bloque 8.2) deben:
- *   1. Cargar Google Fonts con <link preconnect + stylesheet>
- *      (las 3 familias: Inter, "Cormorant Garamond", "JetBrains Mono")
- *   2. Cargar tokens.css ANTES de este archivo
- *   3. Cargar este archivo ANTES de los CSS específicos del componente
- *   4. Poner data-theme en <html> (theme.js init() lo hace)
- *
- * index.html (Bloque 1, vigente) NO carga este archivo — sigue con su
- * estilo inline hasta el Bloque 8.2.
+ * Orden de carga: tokens.css ANTES de este archivo; este ANTES de los CSS
+ * de componente. data-theme en <html> lo pone el inline script pre-paint.
  */
 
 /* ─── Reset minimalista ──────────────────────────────────────────────────── */
@@ -47,18 +42,35 @@ body {
     color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ─── Utilidades canon (reemplazo del Tailwind CDN) ─────────────────────── */
+.font-display-poetic {
+  font-family: 'Cormorant Garamond', 'Georgia', 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+}
+.font-body-sm {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.font-code-ui {
+  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.italic { font-style: italic; }
+
 .serif {
   font-family: 'Cormorant Garamond', 'Georgia', 'Times New Roman', serif;
   font-weight: 500;
   letter-spacing: 0.01em;
 }
-
 .mono {
   font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Consolas, "Cascadia Mono", "Liberation Mono", Menlo, monospace;
   font-feature-settings: "calt" 1, "liga" 1;
 }
 
-/* ─── Heredan del tema activo ────────────────────────────────────────────── */
+/* ─── Jerarquía heredada ─────────────────────────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Cormorant Garamond', 'Georgia', serif;
   font-weight: 500;
@@ -90,13 +102,11 @@ code {
   background: var(--bg-elev);
   color: var(--text-primary);
   padding: 0.15em 0.4em;
-  border-radius: 4px;
   border: 1px solid var(--border);
 }
 pre {
   background: var(--bg-elev);
   border: 1px solid var(--border);
-  border-radius: 8px;
   padding: 1em 1.25em;
   overflow-x: auto;
   color: var(--text-primary);
@@ -107,14 +117,16 @@ pre code {
   padding: 0;
 }
 
+/* ─── Botones canon ──────────────────────────────────────────────────────
+ * Manual Tabla 25: sin botones con fondo. La ÚNICA excepción es .accent —
+ * el botón de aprobación irreversible (§4.1/§11), bermellón pleno. */
 button {
   font-family: inherit;
   cursor: pointer;
   border: 1px solid var(--border);
-  background: var(--bg-elev);
+  background: transparent;
   color: var(--text-primary);
   padding: 0.6em 1.2em;
-  border-radius: 6px;
   transition:
     background-color 0.2s ease,
     border-color 0.2s ease,
@@ -133,8 +145,59 @@ button.accent:hover {
   background: var(--accent-hover);
   border-color: var(--accent-hover);
 }
+/* Acción primaria NO irreversible: tinta plena, sin fondo. */
+button.primary-ink {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+button.primary-ink:hover {
+  background: var(--bg-overlay);
+}
 
 ::selection {
   background: var(--accent);
   color: var(--bg);
+}
+
+/* ─── ANTESALA (§7.2) — la puerta del dojo ───────────────────────────────
+ * Fase 1 negro · 2 aparición 1.2s · 3 presencia 1.5s · 4 disolución 0.8s ·
+ * 5 el dojo emerge 0.6s. Sin sonido. El timing vive aquí; el gating por
+ * sesión, en el inline script del index. */
+#antesala {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#antesala[hidden] { display: none; }
+.antesala-enso {
+  width: 320px;
+  height: 320px;
+  object-fit: contain;
+  /* El ensō en blanco sobre el negro, como manda el canon. */
+  filter: brightness(0) invert(1);
+  opacity: 0;
+  animation: antesala-enso 3.5s linear forwards;
+}
+@keyframes antesala-enso {
+  /* 0–1.2s aparición (34.3%) · hasta 2.7s presencia (77.1%) · hasta 3.5s disolución */
+  0%      { opacity: 0; }
+  34.3%   { opacity: 1; }
+  77.1%   { opacity: 1; }
+  100%    { opacity: 0; }
+}
+body.en-antesala #chat-app,
+body.en-antesala .washi-noise {
+  opacity: 0;
+}
+body.dojo-emerge #chat-app {
+  animation: dojo-emerge 0.6s ease-out forwards;
+}
+@keyframes dojo-emerge {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }

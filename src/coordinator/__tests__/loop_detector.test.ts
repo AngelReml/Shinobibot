@@ -67,6 +67,49 @@ describe('LoopDetector — capa de args', () => {
   });
 });
 
+describe('LoopDetector — capa 1 RESULT-AWARE (FIX 2026-06-10)', () => {
+  it('mismos args con resultados DISTINTOS no abortan (progreso: editar-reejecutar)', () => {
+    const d = new LoopDetector();
+    // run_command con el mismo comando, pero el fichero cambia entre intentos
+    // → resultado distinto cada vez. No es un bucle: el agente progresa.
+    const a1 = d.recordCallAttempt('run_command', { cmd: 'python x.py' });
+    expect(a1.abort).toBe(false);
+    d.recordCallResult('run_command', 'error: linea 40 emoji', a1.hash);
+    const a2 = d.recordCallAttempt('run_command', { cmd: 'python x.py' });
+    expect(a2.abort).toBe(false); // antes abortaba aquí (falso positivo)
+    d.recordCallResult('run_command', 'error: linea 55 otro emoji', a2.hash);
+    const a3 = d.recordCallAttempt('run_command', { cmd: 'python x.py' });
+    expect(a3.abort).toBe(false);
+  });
+
+  it('mismos args con el MISMO resultado repetido sí abortan (bucle real)', () => {
+    const d = new LoopDetector();
+    const a1 = d.recordCallAttempt('browser_observe', {});
+    expect(a1.abort).toBe(false);
+    d.recordCallResult('browser_observe', 'ReferenceError: __name is not defined', a1.hash);
+    const a2 = d.recordCallAttempt('browser_observe', {});
+    expect(a2.abort).toBe(false); // se le da una segunda oportunidad
+    d.recordCallResult('browser_observe', 'ReferenceError: __name is not defined', a2.hash);
+    // mismo resultado 2 veces seguidas → racha = 2 = maxRepeatArgs → aborta
+    const a3 = d.recordCallAttempt('browser_observe', {});
+    expect(a3.abort).toBe(true);
+    expect(a3.reason).toBe('args_repeated_no_progress');
+  });
+
+  it('tope duro: aunque los resultados varíen, no permite intentos infinitos', () => {
+    const d = new LoopDetector({ maxRepeatArgsHard: 4 });
+    for (let i = 0; i < 3; i++) {
+      const a = d.recordCallAttempt('t', { x: 1 });
+      expect(a.abort).toBe(false);
+      d.recordCallResult('t', `resultado distinto ${i}`, a.hash);
+    }
+    // 4º intento alcanza el tope duro
+    const last = d.recordCallAttempt('t', { x: 1 });
+    expect(last.abort).toBe(true);
+    expect(last.reason).toBe('args_repeated_hard_cap');
+  });
+});
+
 describe('LoopDetector — capa semántica', () => {
   it('3 outputs indistinguibles abortan con LOOP_NO_PROGRESS', () => {
     const d = new LoopDetector();

@@ -29,7 +29,7 @@ export class IntentRouter {
       handler: () => 
         'Puedes interactuar conmigo usando lenguaje natural para tareas de código, búsqueda o documentos.\n' +
         'También tienes comandos directos disponibles:\n' +
-        '  - `/status` para verificar el estado del OpenGravity Kernel.\n' +
+        '  - `/status` para ver el estado del agente.\n' +
         '  - `/swarm` para ver el estado de la cola Kanban y sub-agentes.\n' +
         '  - `/model <nombre>` para fijar el modelo de IA.\n' +
         '  - `/approval [on|smart|off]` para configurar la confirmación de herramientas.'

@@ -18,7 +18,6 @@ import { exec } from 'child_process';
 import * as path from 'path';
 import { loadConfig } from '../src/runtime/first_run_wizard.js';
 import { acquireLock, formatLockedError } from '../src/runtime/process_lock.js';
-import { KernelClient } from '../src/bridge/kernel_client.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
 import { skillManager } from '../src/skills/skill_manager.js';
 import { curatedMemory } from '../src/memory/curated_memory.js';
@@ -120,13 +119,6 @@ function openBrowser(url: string): void {
 
 // ─── Boot ───────────────────────────────────────────────────────────────────
 
-async function checkKernel(): Promise<boolean> {
-  const online = await KernelClient.isOnline();
-  if (online) console.log('🟢 OpenGravity Kernel: ONLINE');
-  else console.log('🟡 OpenGravity Kernel: OFFLINE (using local mode)');
-  return online;
-}
-
 async function main() {
   // FAIL 3 — single-instance lock. CLI y Web son mutuamente exclusivos.
   const lock = acquireLock('shinobi-web');
@@ -151,8 +143,6 @@ async function main() {
   // existe, arrancamos igualmente con la pantalla de onboarding.
   const cfg = loadConfig();
   if (cfg) {
-    process.env.OPENGRAVITY_URL = cfg.opengravity_url;
-    process.env.SHINOBI_API_KEY = cfg.opengravity_api_key;
     process.env.SHINOBI_LANGUAGE = cfg.language;
     process.env.SHINOBI_MEMORY_PATH = cfg.memory_path;
     if (cfg.provider) process.env.SHINOBI_PROVIDER = cfg.provider;
@@ -168,7 +158,6 @@ async function main() {
   }
 
   console.log('--- SHINOBIBOT WEB ---');
-  await checkKernel();
 
   // Reload approved skills on boot, same as the CLI.
   try {

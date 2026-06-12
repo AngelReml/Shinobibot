@@ -23,8 +23,8 @@ const probes: Probe[] = [
 async function main() {
   const config = loadConfig();
   if (!config) { console.error('[D016] No Shinobi config'); process.exit(2); }
-  const baseUrl = (config.opengravity_url || 'http://localhost:9900').replace(/\/+$/, '');
-  const apiKey = config.opengravity_api_key || '';
+  const baseUrl = (process.env.SHINOBI_ROUTER_URL || 'http://localhost:9900').replace(/\/+$/, '');
+  const apiKey = config.provider_key || '';
   if (!apiKey) { console.error('[D016] No API key in config'); process.exit(2); }
 
   console.log(`[D016] base=${baseUrl} key.len=${apiKey.length}\n`);

@@ -48,8 +48,7 @@ export function saveConfig(cfg: TelemetryConfig): void {
 }
 
 export function defaultEndpoint(): string {
-  const base = process.env.OPENGRAVITY_URL ?? 'http://localhost:9900';
-  return base.replace(/\/$/, '') + '/v1/telemetry/event';
+  return process.env.SHINOBI_TELEMETRY_ENDPOINT ?? '';
 }
 
 export function ensureConfigInitialized(opts: { optedIn: boolean; install_version?: string } = { optedIn: false }): TelemetryConfig {

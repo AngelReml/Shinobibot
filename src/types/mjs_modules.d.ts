@@ -1,3 +1,5 @@
+// Tipos ambientales del repo — contrato mínimo de las skills .mjs cargadas dinámicamente.
+// default.execute(args) → { success, output?, error? }; evita TS7016 en los import('*.mjs').
 /**
  * Declaración ambiental para skills .mjs cargadas dinámicamente
  * (skills/desktop/*, skills/composite/*). Sin esto, cada `import('….mjs')`

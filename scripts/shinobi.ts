@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Shinobi CLI v5 - Connected to OpenGravity Kernel
+ * Shinobi CLI v5
  */
 
 import * as fs from 'fs';
@@ -9,7 +9,6 @@ import { TaskQueueStore } from '../src/persistence/task_queue.js';
 import * as readline from 'readline';
 import { ShinobiOrchestrator } from '../src/coordinator/orchestrator.js';
 import { handleSlashCommand } from '../src/coordinator/slash_commands.js';
-import { KernelClient } from '../src/bridge/kernel_client.js';
 import { IntentRouter } from '../src/dispatch/intent_router.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
 import { skillManager } from '../src/skills/skill_manager.js';
@@ -31,17 +30,6 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 config({ path: resolve(__dirname, '../.env') });
-
-async function checkKernel(): Promise<boolean> {
-  const online = await KernelClient.isOnline();
-  if (online) {
-    console.log('🟢 OpenGravity Kernel: ONLINE');
-  } else {
-    console.log('🟡 OpenGravity Kernel: OFFLINE (using local mode)');
-    console.log('   To enable kernel: run "kernel.cmd" in OpenGravity folder');
-  }
-  return online;
-}
 
 async function maybeRunOneShotCommand(): Promise<boolean> {
   const argv = process.argv.slice(2);
@@ -145,8 +133,6 @@ async function maybeRunOneShotCommand(): Promise<boolean> {
       console.error('No Shinobi config found. Run `shinobi` once interactively to onboard before launching daemon.');
       process.exit(2);
     }
-    process.env.OPENGRAVITY_URL = cfg.opengravity_url;
-    process.env.SHINOBI_API_KEY = cfg.opengravity_api_key;
     process.env.SHINOBI_LANGUAGE = cfg.language;
     process.env.SHINOBI_MEMORY_PATH = cfg.memory_path;
 
@@ -242,18 +228,16 @@ async function main() {
   if (!config) {
     config = await runFirstRunWizard();
   }
-  process.env.OPENGRAVITY_URL = config.opengravity_url;
-  process.env.SHINOBI_API_KEY = config.opengravity_api_key;
   process.env.SHINOBI_LANGUAGE = config.language;
   process.env.SHINOBI_MEMORY_PATH = config.memory_path;
 
-  console.log('\n--- SHINOBIBOT CLI V5 (KERNEL CONNECTED) ---');
+  console.log('\n--- SHINOBIBOT CLI V5 ---');
   console.log('Escribe tu orden o "exit" para salir.');
   console.log('Comandos especiales:');
   console.log('  /mode local  - Forzar modo local');
   console.log('  /mode kernel - Forzar modo kernel');
   console.log('  /mode auto   - Modo automático (default)');
-  console.log('  /status      - Ver estado del kernel');
+  console.log('  /status      - Ver estado del agente');
   console.log('  /model       - Ver o cambiar modelo LLM (/model <nombre> | auto | list)');
   console.log('  /tier        - Forzar tier (/tier fast | balanced | reasoning | auto)');
   console.log('  /memory      - Gestionar memoria (/memory recall <q> | store <txt> | stats | forget <id>)');
@@ -294,7 +278,6 @@ async function main() {
 
   const residentLoop = new ResidentLoop();
 
-  await checkKernel();
 
   // A5 — surface any pending upstream notice + start 24h watcher in the background.
   try {
@@ -315,7 +298,7 @@ async function main() {
     } catch { /* silent */ }
   })();
 
-  // Auto-reload previously approved skills (executable .mjs from OpenGravity)
+  // Auto-reload previously approved skills
   try {
     const r = await SkillLoader.reloadAllApproved();
     if (r.loaded > 0) console.log(`[Shinobi] Cargadas ${r.loaded} skill(s) ejecutables aprobadas previamente.`);

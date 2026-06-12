@@ -1,5 +1,5 @@
 // D.4 — MissionLedger: hash chain SHA256 de cada mision completada.
-// Replica el patron del forensic ledger de OpenGravity. Convierte a Shinobi
+// Forensic ledger de misiones. Convierte a Shinobi
 // en un sistema auditable con cadena criptografica intacta.
 //
 // Storage: ledger/chain.jsonl (append-only, una linea por entry).

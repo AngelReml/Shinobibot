@@ -16,7 +16,10 @@
 (function () {
   const STORAGE_KEY = 'shinobi.theme';
   const VALID = new Set(['hiru', 'yoru']);
-  const DEFAULT = 'hiru';
+  // Manual de Marca §5.3 — Yoru es el modo nativo de Shinobi: default en
+  // primera ejecución. El detector horario solo SUGIERE (no impone) Hiru
+  // de día; la preferencia guardada del operador manda siempre.
+  const DEFAULT = 'yoru';
 
   // Mapeo de las paletas del 8.1 (que algún usuario tenga aún en localStorage)
   // a las dos del 8.3. Sin esto el theme volvería al default cada reload.

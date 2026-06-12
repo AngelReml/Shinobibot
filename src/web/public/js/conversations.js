@@ -13,9 +13,30 @@
   'use strict';
 
   const ACTIVE_KEY = 'shinobi.activeConv';
+  const HUELLA_KEY = 'shinobi.huellas'; // {convId: ts} — misiones con trabajo terminado
   let conversations = [];        // {id, title, created_at, last_active}[]
   let activeId = null;
   const listeners = { change: [], select: [] };
+
+  // ─── Huella (Manual Tabla 7): punto bermellón junto a la misión con
+  // trabajo real terminado. Persistida en localStorage. ───────────────────
+  function loadHuellas() {
+    try { return JSON.parse(localStorage.getItem(HUELLA_KEY) || '{}') || {}; }
+    catch { return {}; }
+  }
+  function setHuella(id) {
+    if (!id) return;
+    try {
+      const h = loadHuellas();
+      h[id] = Date.now();
+      localStorage.setItem(HUELLA_KEY, JSON.stringify(h));
+    } catch { /* sin memoria */ }
+    const el = document.querySelector(`#conv-list .conv-item[data-id="${CSS.escape(id)}"]`);
+    if (el) el.classList.add('con-huella');
+  }
+  function hasHuella(id) {
+    return !!loadHuellas()[id];
+  }
 
   function emit(evt, payload) {
     for (const cb of listeners[evt] || []) {
@@ -159,15 +180,21 @@
 
   function renderItem(c) {
     const el = document.createElement('div');
-    el.className = 'conv-item' + (c.id === activeId ? ' active' : '');
+    el.className = 'conv-item'
+      + (c.id === activeId ? ' active' : '')
+      + (hasHuella(c.id) ? ' con-huella' : '');
     el.dataset.id = c.id;
     el.innerHTML = `
+      <span class="huella" aria-hidden="true" title="Misión con trabajo terminado"></span>
       <span class="conv-title-line" data-role="title"></span>
       <span class="conv-actions">
+        <button class="icon-btn" data-action="export" title="Exportar a Markdown" aria-label="Exportar">
+          <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path d="M8 2 L8 10 M5 7 L8 10 L11 7 M3 13 L13 13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
         <button class="icon-btn" data-action="rename" title="Renombrar" aria-label="Renombrar">
           <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path d="M11 2 L14 5 L5 14 L2 14 L2 11 Z" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
         </button>
-        <button class="icon-btn" data-action="delete" title="Borrar" aria-label="Borrar">
+        <button class="icon-btn" data-action="delete" title="Desterrar" aria-label="Desterrar">
           <svg viewBox="0 0 16 16" width="11" height="11" aria-hidden="true"><path d="M3 4 L13 4 M5 4 L5 13 L11 13 L11 4 M6 7 L6 11 M10 7 L10 11 M6 4 L6 2 L10 2 L10 4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
         </button>
       </span>
@@ -178,17 +205,58 @@
       if (btn) {
         ev.stopPropagation();
         const action = btn.dataset.action;
-        if (action === 'rename') {
-          const next = prompt('Nuevo título:', c.title);
-          if (next && next.trim()) rename(c.id, next.trim());
+        if (action === 'export') {
+          exportConversation(c.id, c.title);
+        } else if (action === 'rename') {
+          window.ShinobiDialog.prompt({
+            title: 'Renombrar misión',
+            message: 'El nuevo título de esta misión:',
+            value: c.title,
+            okText: 'Renombrar',
+          }).then((next) => {
+            if (next && next.trim()) rename(c.id, next.trim());
+          });
         } else if (action === 'delete') {
-          if (confirm(`¿Borrar "${c.title}"? Los mensajes se perderán.`)) remove(c.id);
+          window.ShinobiDialog.confirm({
+            title: 'Desterrar la misión',
+            message: `"${c.title}" y todo su rastro se perderán. La selva no podrá recordarla.`,
+            okText: 'Desterrar',
+            cancelText: 'Conservar',
+            danger: true,
+          }).then((yes) => { if (yes) remove(c.id); });
         }
         return;
       }
       setActive(c.id);
     });
     return el;
+  }
+
+  // ─── Export a Markdown (el rastro de la misión, portable) ─────────────
+  async function exportConversation(id, title) {
+    try {
+      const r = await fetch(`/api/conversations/${encodeURIComponent(id)}/messages`);
+      const data = await r.json();
+      const msgs = Array.isArray(data.messages) ? data.messages : [];
+      const lines = [`# ${title || 'Misión'}`, '', `> Rastro exportado · ${new Date().toLocaleString()}`, ''];
+      for (const m of msgs) {
+        const who = m.role === 'agent' ? 'Shinobi' : m.role === 'user' ? 'Operador' : 'Sistema';
+        lines.push(`## ${who}`, '', String(m.content || ''), '');
+      }
+      lines.push('—', '忍 *an agent that works in silence*');
+      const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const safe = (title || 'mision').replace(/[^\p{L}\p{N}\-_ ]/gu, '').trim().slice(0, 50) || 'mision';
+      a.href = url;
+      a.download = `${safe}.md`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {
+      console.error('[convs] export failed', e);
+    }
   }
 
   // ─── Búsqueda en cliente ──────────────────────────────────────────────
@@ -241,18 +309,12 @@
     document.getElementById('new-conv-btn')?.addEventListener('click', () => create());
     document.getElementById('new-conv-mini')?.addEventListener('click', () => create());
 
-    // Ctrl/Cmd+K → focus search
-    document.addEventListener('keydown', (ev) => {
-      if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k') {
-        ev.preventDefault();
-        searchInput?.focus();
-        searchInput?.select();
-      }
-    });
+    // Ctrl/Cmd+K → búsqueda global (search.js). El input del sidebar sigue
+    // filtrando títulos al teclear; la búsqueda profunda vive en el overlay.
   }
 
   window.ShinobiConvs = {
     init, refresh, getActive, setActive, create, rename, remove,
-    applyAutoTitle, onChange, onSelect,
+    applyAutoTitle, onChange, onSelect, setHuella, hasHuella,
   };
 })();

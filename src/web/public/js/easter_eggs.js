@@ -164,18 +164,32 @@
   }
 
   // ════════════════════════════════════════════════════════════════════
-  // 7 clicks en logo → shu-ha-ri
+  // 7 clicks en el hanko → shu-ha-ri (§10.1 — el dojo que recuerda)
+  // El nivel mostrado NO es aleatorio: depende del camino del operador.
+  // app.js incrementa 'shinobi.misiones' con cada misión terminada; los
+  // umbrales viven aquí (el manual manda que existan tres etapas y que
+  // jamás se muestren como gamificación: sin barras, sin puntos).
   // ════════════════════════════════════════════════════════════════════
+  const PRINCIPLES = [
+    { kanji: '守', name: 'Shu', desc: 'Primero la forma. La libertad sin forma es ruido.' },
+    { kanji: '破', name: 'Ha',  desc: 'Conoce la regla tan bien que sepas dónde cede.' },
+    { kanji: '離', name: 'Ri',  desc: 'Ya no hay forma. Hay camino.' },
+  ];
+  function missionCount() {
+    try { return parseInt(localStorage.getItem('shinobi.misiones') || '0', 10) || 0; }
+    catch { return 0; }
+  }
+  function currentStage() {
+    const n = missionCount();
+    if (n >= 60) return PRINCIPLES[2]; // Ri — enjambre y camino propio
+    if (n >= 10) return PRINCIPLES[1]; // Ha — la regla ya cede
+    return PRINCIPLES[0];              // Shu — obedecer la forma
+  }
   function setupLogoEgg() {
-    const logo = document.querySelector('.brand-shinobi-img');
+    const logo = document.querySelector('.brand-hanko') || document.querySelector('.brand-shinobi-img');
     if (!logo) return;
     let clicks = 0;
     let timer = null;
-    const PRINCIPLES = [
-      { kanji: '守', name: 'Shu',  desc: 'Mantén la forma. Sigue al maestro hasta absorberlo.' },
-      { kanji: '破', name: 'Ha',   desc: 'Rompe la forma. Encuentra tus propios límites.' },
-      { kanji: '離', name: 'Ri',   desc: 'Separa la forma. Trasciende. La técnica desaparece.' },
-    ];
     logo.style.cursor = 'pointer';
     logo.addEventListener('click', (e) => {
       e.preventDefault();
@@ -184,7 +198,7 @@
       timer = setTimeout(() => { clicks = 0; }, 1500);
       if (clicks === 7) {
         clicks = 0;
-        const p = PRINCIPLES[Math.floor(Math.random() * PRINCIPLES.length)];
+        const p = currentStage();
         showEggToast(p.kanji, `${p.name} — ${p.desc}`);
       }
     });
@@ -223,23 +237,38 @@
     }
   }
 
+  // Comandos del backend — app.js los inyecta tras leer /api/commands.
+  let SCROLL_COMMANDS = [];
+  function setCommands(list) {
+    if (Array.isArray(list)) SCROLL_COMMANDS = list;
+  }
+
   function toggleCheatSheet() {
     const existing = document.getElementById('cheat-modal');
     if (existing) { closeCheatSheet(existing); return; }
     const modal = document.createElement('div');
     modal.id = 'cheat-modal';
+    // El pergamino lista TODOS los atajos y comandos (Tabla 19): el
+    // conocimiento está a un gesto, no en un menú.
+    const cmdRows = SCROLL_COMMANDS
+      .filter(c => c.cmd !== '/zen')
+      .map(c => `<tr><td><code>${escapeHtml(c.cmd)}</code></td><td>${escapeHtml(c.desc || '')}</td></tr>`)
+      .join('');
     modal.innerHTML = `
       <div class="cheat-paper">
-        <div class="cheat-title">巻物 · Atajos del dojo</div>
+        <div class="cheat-title">巻物 · El pergamino del dojo</div>
         <table class="cheat-table">
           <tbody>
+            <tr><td colspan="2" class="cheat-section">gestos</td></tr>
             <tr><td><kbd>Enter</kbd></td><td>enviar</td></tr>
             <tr><td><kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>nueva línea</td></tr>
+            <tr><td><kbd>/</kbd></td><td>paleta de comandos</td></tr>
             <tr><td><kbd>Ctrl</kbd>+<kbd>.</kbd></td><td>modo concentración</td></tr>
-            <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>buscar conversaciones</td></tr>
-            <tr><td><kbd>Ctrl</kbd>+<kbd>/</kbd></td><td>esta hoja</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>K</kbd></td><td>buscar misiones</td></tr>
+            <tr><td><kbd>Ctrl</kbd>+<kbd>/</kbd></td><td>este pergamino</td></tr>
+            <tr><td>doble-clic título</td><td>renombrar misión</td></tr>
             <tr><td><code>/zen</code></td><td>modo zen — <kbd>Esc</kbd> para salir</td></tr>
-            <tr><td>doble-clic título</td><td>renombrar conversación</td></tr>
+            ${cmdRows ? `<tr><td colspan="2" class="cheat-section">comandos del agente</td></tr>${cmdRows}` : ''}
             <tr><td class="cheat-spacer" colspan="2">— y algunas cosas que vale más descubrir —</td></tr>
           </tbody>
         </table>
@@ -285,6 +314,13 @@
     }, 4500);
   }
 
+  // Util mínima para el pergamino (los comandos vienen del backend).
+  function escapeHtml(s) {
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
   // Expose para que app.js consulte el kanji activo del hanko (sensei mode).
   // También sirve como sanity check de "easter_eggs.js cargó": abre DevTools
   // Console y escribe `ShinobiEggs.loaded` — debe devolver true.
@@ -294,5 +330,8 @@
     currentHankoKanji() { return senseiActive ? '師' : '忍'; },
     openCheatSheet() { toggleCheatSheet(); },
     triggerSensei() { enterSenseiMode(); },
+    setCommands,
+    currentStage,
+    missionCount,
   };
 })();

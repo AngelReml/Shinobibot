@@ -114,6 +114,20 @@ function formatElements(elements: ElementRef[]): string {
  * Observa la pestaña activa. `withScreenshot` añade un jpeg reducido en base64.
  */
 export async function snapshot(page: Page, withScreenshot = false): Promise<Snapshot> {
+  // FIX (batería 2026-06-10): el bundler (esbuild/tsup keepNames) envuelve las
+  // funciones nombradas (`collectInteractiveElements` y sus helpers internos
+  // `isVisible`/`roleOf`/`labelOf`) en `__name(fn, "nombre")` para preservar
+  // `.name`. Al serializar la función a la página vía page.evaluate, esas
+  // llamadas a `__name` viajan en el string pero el helper NO existe en el
+  // contexto de la página → `ReferenceError: __name is not defined` y
+  // browser_observe quedaba completamente roto. Inyectamos un `__name`
+  // identidad en la página ANTES de evaluar. La arrow anónima inline de abajo
+  // NO la envuelve el bundler (solo nombra funciones con nombre), así que esta
+  // inyección es segura y no recae en el mismo bug.
+  await page.evaluate(() => {
+    const g = globalThis as any;
+    if (typeof g.__name !== 'function') g.__name = (fn: any) => fn;
+  });
   const elements = (await page.evaluate(collectInteractiveElements)) as ElementRef[];
   const url = page.url();
   const title = await page.title().catch(() => '');

@@ -40,6 +40,19 @@ export class KageSession {
     let ctx: BrowserContext | undefined = contexts[0];
     if (!ctx) ctx = await this.browser.newContext();
 
+    // FIX (batería 2026-06-10): inyecta un `__name` identidad en CADA documento
+    // que cargue este contexto, de forma que cualquier page.evaluate del
+    // subsistema (observer/actor/verifier) que serialice funciones nombradas
+    // envueltas por el bundler no reviente con "ReferenceError: __name is not
+    // defined". addInitScript cubre navegaciones futuras; observer.ts además lo
+    // inyecta inline para la página ya cargada. Best-effort: si falla, seguimos.
+    try {
+      await ctx.addInitScript(() => {
+        const g = globalThis as any;
+        if (typeof g.__name !== 'function') g.__name = (fn: any) => fn;
+      });
+    } catch { /* contexto sin soporte: observer.ts tiene el fallback inline */ }
+
     const pages = ctx.pages();
     this.page = pages.length > 0 ? pages[pages.length - 1] : await ctx.newPage();
 

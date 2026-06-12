@@ -27,7 +27,7 @@
 import { classifyComplexity, type ComplexityTier, type ComplexityResult } from './query_complexity.js';
 
 export interface ModelChoice {
-  provider: string;   // 'groq' | 'openai' | 'anthropic' | 'openrouter' | 'opengravity'
+  provider: string;   // 'groq' | 'openai' | 'anthropic' | 'openrouter'
   model: string;      // identificador en el provider
 }
 

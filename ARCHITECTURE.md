@@ -191,6 +191,45 @@ complejidad de gestionar claves.
 
 ---
 
+## Endurecimiento de la capa de ejecución (2026-06-10)
+
+Cinco arreglos a la fontanería del bucle agéntico, hallados midiendo misiones
+reales contra el agente vivo y verificados en vivo:
+
+- **Normalización de model-ID por proveedor** (`src/providers/model_id.ts`).
+  El failover pasaba el model-ID crudo a cualquier cliente donde cayera; un
+  override estilo OpenRouter (`openai/gpt-4o`) llegaba al cliente directo de
+  OpenAI y daba "invalid model ID". `normalizeModelId()` quita el prefijo propio
+  y degrada al default del proveedor si el prefijo es ajeno. Los clientes
+  directos (openai/groq/anthropic) la usan; OpenRouter no (sus IDs sí van
+  prefijados).
+- **Adaptador Anthropic con `tool_calls`** (`src/providers/anthropic_client.ts`).
+  Un mensaje `assistant` con `tool_calls` en formato OpenAI hacía que Anthropic
+  rechazara la petición ("Extra inputs are not permitted"). `splitSystemAndMessages`
+  ahora traduce ese mensaje a bloques de contenido nativos (`tool_use`) y limpia
+  los campos OpenAI-only (`refusal`, `annotations`) que Groq también rechazaba
+  (`sanitizeOpenAiMessages`). Resultado medido: Anthropic pasó de fallar siempre
+  a servir como fallback real.
+- **Contexto por conversación** (`src/coordinator/orchestrator.ts` +
+  `src/db/context_builder.ts`). El historial del agente era un singleton global
+  de sesión; una misión nueva arrastraba el contexto de la anterior (un "ping"
+  pedía ~30k tokens y reventaba el TPM de los proveedores). `setConversation(id)`
+  da a cada conversación su propio `memory-conv-<id>.json` persistente; el WebChat
+  lo invoca por conversación. Medido: 30k → 14k tokens en conversación nueva.
+- **Loop detector consciente del resultado** (`src/coordinator/loop_detector.ts`,
+  capa 1). Antes abortaba al 2º intento con args idénticos, matando ciclos
+  legítimos de editar-y-reejecutar o refinar-búsqueda. Ahora aborta solo cuando
+  los MISMOS args producen el MISMO resultado N veces (racha sin progreso), con
+  un tope duro de seguridad; si el resultado varía (el agente cambió el mundo),
+  deja progresar. La ruta "ciega" sin resultados conserva el comportamiento
+  original (tests intactos).
+- **`browser_observe` arreglado** (`src/browser/observer.ts`, `session.ts`). El
+  bundler (esbuild/tsup keepNames) envolvía las funciones nombradas serializadas
+  a la página en `__name(...)`, helper inexistente en el contexto del navegador
+  → `ReferenceError`. Se inyecta un `__name` identidad antes del `page.evaluate`
+  y en `addInitScript` de la sesión. El mapa de elementos interactivos (base para
+  rellenar formularios y pulsar) vuelve a funcionar.
+
 ## Lo que NO está hecho (deuda conocida)
 
 - `src/memory/memory_store.ts` y `src/persistence/missions_recurrent.ts` tienen

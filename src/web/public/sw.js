@@ -3,7 +3,7 @@
 // (que es la ruta crítica con el orquestador) ni las llamadas a /api/* —
 // esas siempre deben ir al server real.
 
-const CACHE_NAME = 'shinobi-shell-v2';
+const CACHE_NAME = 'shinobi-shell-v4'; // v4: Bloque 8.6 — settings, modelo, búsqueda, diálogos
 // Assets que cambian con cada deploy: siempre network-first.
 const NETWORK_FIRST_ASSETS = new Set([
   '/',
@@ -14,6 +14,9 @@ const NETWORK_FIRST_ASSETS = new Set([
   '/js/markdown.js',
   '/js/conversations.js',
   '/js/easter_eggs.js',
+  '/js/dialog.js',
+  '/js/settings.js',
+  '/js/search.js',
 ]);
 
 // Assets verdaderamente estáticos: cache-first está bien.
@@ -22,6 +25,7 @@ const CACHE_FIRST_ASSETS = new Set([
   '/styles/base.css',
   '/styles/layout.css',
   '/styles/chat.css',
+  '/styles/settings.css',
   '/assets/shinobi-mark.png',
   '/manifest.webmanifest',
 ]);

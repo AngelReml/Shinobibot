@@ -1,13 +1,13 @@
 {
   "name": "Shinobi",
   "short_name": "Shinobi",
-  "description": "Agente autónomo Windows-native con loop detector v2, committee voting y skills firmadas.",
+  "description": "An agent that works in silence. Extensión de ti mismo: todo local, todo tuyo.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0c0a08",
-  "theme_color": "#6b150c",
+  "background_color": "#000000",
+  "theme_color": "#1a1612",
   "lang": "es",
   "icons": [
     {

@@ -18,6 +18,13 @@ const webSearchTool: Tool = {
   },
 
   async execute(args: { query: string }): Promise<ToolResult> {
+    // Navegación configurable. Default producción: networkidle/45s (espera a SPAs).
+    // En benchmark (SHINOBI_NAV_WAIT=domcontentloaded, timeout corto) cada página
+    // carga rápido — networkidle casi nunca se alcanza (ads) y consume 45s/página,
+    // disparando el timeout de tarea. Mantiene un fallback a domcontentloaded.
+    const NAV_WAIT = (process.env.SHINOBI_NAV_WAIT as 'networkidle' | 'domcontentloaded' | 'load') || 'networkidle';
+    const NAV_TIMEOUT = Number(process.env.SHINOBI_NAV_TIMEOUT_MS) || 45000;
+    const NAV_SETTLE = Number(process.env.SHINOBI_NAV_SETTLE_MS) || 2000;
     try {
       const browser = await connectOrLaunchCDP();
       const allContexts = browser.contexts();
@@ -43,14 +50,14 @@ const webSearchTool: Tool = {
 
         if (page) {
           // SPA-aware: networkidle espera a que los frameworks terminen de pintar
-          await page.goto(fullUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
+          await page.goto(fullUrl, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT }).catch(() =>
             page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
           );
           isNewPage = false;
         } else {
           page = await ctx.newPage();
           isNewPage = true;
-          await page.goto(fullUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
+          await page.goto(fullUrl, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT }).catch(() =>
             page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
           );
         }
@@ -62,7 +69,7 @@ const webSearchTool: Tool = {
           await page.waitForSelector('[data-id], .docs-title-widget, .notebook-content', { timeout: 15000 }).catch(() => {});
         } else {
           // Fallback genérico: espera corta para SPAs arbitrarias
-          await page.waitForTimeout(2000);
+          await page.waitForTimeout(NAV_SETTLE);
         }
         const title = await page.title();
         const finalUrl = page.url();
@@ -115,37 +122,82 @@ const webSearchTool: Tool = {
           const ctx = allContexts[0] || await browser.newContext();
           page = await ctx.newPage();
           isNewPage = true;
-          await page.goto(`https://${targetDomain}`, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
+          await page.goto(`https://${targetDomain}`, { waitUntil: NAV_WAIT, timeout: NAV_TIMEOUT }).catch(() =>
             page.goto(`https://${targetDomain}`, { waitUntil: 'domcontentloaded', timeout: 30000 })
           );
           if (/youtube\.com/i.test(targetDomain)) {
             await page.waitForSelector('ytd-rich-grid-media, #contents, ytd-video-renderer', { timeout: 15000 }).catch(() => {});
           } else {
-            await page.waitForTimeout(2000);
+            await page.waitForTimeout(NAV_SETTLE);
           }
           const title = await page.title();
           stdout = `Navigated to: https://${targetDomain}\nPage title: ${title}`;
         }
       } else {
-        // Bing search
         const ctx = allContexts[0] || await browser.newContext();
         page = await ctx.newPage();
         isNewPage = true;
         const cleanQuery = args.query.replace(/busca\s+(en\s+google\s+)?|search\s+(for\s+)?/gi, '').trim();
-        await page.goto(`https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}`, { waitUntil: 'networkidle', timeout: 30000 }).catch(() =>
-          page.goto(`https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}`, { waitUntil: 'domcontentloaded', timeout: 30000 })
-        );
-        await page.waitForSelector('h2 a', { timeout: 10000 }).catch(() => {});
 
-        const results: { title: string; link: string }[] = await page.evaluate(() => {
-          return Array.from(document.querySelectorAll('h2 a')).slice(0, 5).map(a => ({
-            title: (a as HTMLElement).innerText.trim(),
-            link: (a as HTMLAnchorElement).href,
-          }));
-        });
+        // Motor de búsqueda configurable. Bing (default) scrapea bien en un
+        // navegador real, pero en HEADLESS sirve una página anti-bot degradada
+        // (sin resultados). DuckDuckGo HTML (html.duckduckgo.com, sin JS) sí
+        // funciona headless. SHINOBI_SEARCH_ENGINE=ddg lo activa (lo usa la cata).
+        const engine = (process.env.SHINOBI_SEARCH_ENGINE || 'bing').toLowerCase();
 
-        stdout = `Search results for "${cleanQuery}":\n\n` +
-          results.map((r, i) => `${i + 1}. ${r.title}\n   ${r.link}`).join('\n\n');
+        if (engine === 'ddg' || engine === 'duckduckgo') {
+          await page.goto(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(cleanQuery)}`, { waitUntil: 'domcontentloaded', timeout: 30000 }).catch(() => {});
+          await page.waitForSelector('a.result__a', { timeout: 10000 }).catch(() => {});
+          const results: { title: string; link: string }[] = await page.evaluate(() => {
+            return Array.from(document.querySelectorAll('div.result')).slice(0, 6).map((d) => {
+              const a = d.querySelector('a.result__a') as HTMLAnchorElement | null;
+              const sn = d.querySelector('.result__snippet') as HTMLElement | null;
+              return { title: a ? a.innerText.trim() : '', link: a ? a.href : '', snippet: sn ? sn.innerText.trim() : '' };
+            }).filter((r) => r.title);
+          }) as any;
+          stdout = `Search results for "${cleanQuery}" (DuckDuckGo):\n\n` +
+            results.map((r: any, i: number) => `${i + 1}. ${r.title}\n   ${r.link}${r.snippet ? `\n   ${r.snippet}` : ''}`).join('\n\n');
+        } else {
+          // Bing (navegador real)
+          await page.goto(`https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}`, { waitUntil: 'networkidle', timeout: 30000 }).catch(() =>
+            page.goto(`https://www.bing.com/search?q=${encodeURIComponent(cleanQuery)}`, { waitUntil: 'domcontentloaded', timeout: 30000 })
+          );
+          await page.waitForSelector('h2 a', { timeout: 10000 }).catch(() => {});
+          // FIX (batería 2026-06-10): antes solo devolvíamos título+link, sin
+          // descripción. El agente no podía juzgar la relevancia y declaraba
+          // "no relevante" sin abrir nada (medido con tau-bench). Extraemos
+          // también el snippet por resultado (.b_caption p / .b_algoSlug) para
+          // que pueda decidir qué abrir.
+          const results: { title: string; link: string; snippet: string }[] = await page.evaluate(() => {
+            const items = Array.from(document.querySelectorAll('li.b_algo')).slice(0, 5);
+            const out = items.map((li) => {
+              const a = li.querySelector('h2 a') as HTMLAnchorElement | null;
+              const cap = li.querySelector('.b_caption p, .b_algoSlug, p') as HTMLElement | null;
+              return {
+                title: a ? a.innerText.trim() : '',
+                link: a ? a.href : '',
+                snippet: cap ? cap.innerText.trim().slice(0, 300) : '',
+              };
+            }).filter((r) => r.title && r.link);
+            // Fallback al selector antiguo si la maquetación de Bing cambió.
+            if (out.length === 0) {
+              return Array.from(document.querySelectorAll('h2 a')).slice(0, 5).map((a) => ({
+                title: (a as HTMLElement).innerText.trim(),
+                link: (a as HTMLAnchorElement).href,
+                snippet: '',
+              }));
+            }
+            return out;
+          }) as any;
+          stdout = `Search results for "${cleanQuery}":\n\n` +
+            results.map((r: any, i: number) => `${i + 1}. ${r.title}\n   ${r.link}${r.snippet ? `\n   ${r.snippet}` : ''}`).join('\n\n');
+        }
+        // Hint: el agente puede LEER cualquier resultado llamando web_search con
+        // su URL (el path isFullUrl extrae la página entera). Sin esto, tendía a
+        // re-buscar en bucle en vez de abrir el primer resultado prometedor.
+        if (stdout) {
+          stdout += `\n\n[sugerencia] Para leer el contenido de un resultado, llama web_search de nuevo con su URL exacta.`;
+        }
         if (isNewPage && page) await page.close();
       }
 

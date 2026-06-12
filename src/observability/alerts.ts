@@ -1,3 +1,5 @@
+// Reglas de alerta configurables que disparan webhooks al cruzar umbrales de eventos o métricas.
+// Anti-spam por cooldown; con metrics.ts y admin_dashboard.ts forma la capa de observabilidad.
 /**
  * Alerts — reglas configurables que disparan webhooks (Slack, Discord,
  * etc.) cuando ciertos eventos del agente cruzan un umbral. Sprint 2.4.

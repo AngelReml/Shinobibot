@@ -1,218 +1,252 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="yoru">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Shinobi — Bienvenido</title>
+<meta name="theme-color" content="#1A1612">
+<title>Shinobi — La puerta del dojo</title>
+<link rel="icon" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='1' y='1' width='30' height='30' fill='%238B2C20'/%3E%3Ctext x='16' y='24' font-family='serif' font-size='22' font-weight='700' fill='%23F2ECE4' text-anchor='middle'%3E忍%3C/text%3E%3C/svg%3E" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
+  /* La puerta del dojo — paleta canónica Yoru (Manual §5, Tabla 9).
+   * Antes de cruzar, Shinobi necesita una sola cosa: un proveedor.
+   * Voz §6: poco y preciso. Sin emojis, sin urgencia, sin promesas. */
   :root {
-    --bg: #0f1116;
-    --bg-elev: #1a1d24;
-    --bg-elev-2: #232730;
-    --border: #2d323d;
-    --text: #e8e9ec;
-    --text-dim: #9aa0aa;
-    --accent: #8ab4ff;
-    --accent-strong: #6aa1ff;
-    --free: #4ade80;
-    --premium: #f0c674;
-    --error: #f87171;
-    --ok: #4ade80;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    --mono: ui-monospace, SFMono-Regular, Consolas, "Cascadia Mono", "Liberation Mono", Menlo, monospace;
+    --bg: #1A1612;
+    --bg-elev: #221D18;
+    --bg-overlay: #2A241E;
+    --text: #E8E0D0;
+    --text-secondary: #A89C88;
+    --muted: #6B6158;
+    --accent: #C84134;
+    --border: #3A3328;
+    --border-active: #5A4F3F;
+    --ink-strong: #F5EFE2;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; padding: 0; min-height: 100vh; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; }
-  body { display: flex; align-items: center; justify-content: center; padding: 32px 16px; }
+  html, body { margin: 0; padding: 0; min-height: 100vh; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 16px;
+  }
 
-  .container {
-    max-width: 640px;
-    width: 100%;
+  .container { max-width: 560px; width: 100%; }
+
+  .puerta-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  .hanko {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px; height: 44px;
+    background: var(--accent);
+    color: var(--bg);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 30px;
+    font-weight: 700;
+    flex-shrink: 0;
+    user-select: none;
   }
   h1 {
-    font-size: 28px;
-    margin: 0 0 8px;
-    color: var(--text);
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: 30px;
+    margin: 0;
+    letter-spacing: 0.01em;
+  }
+  .claim {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--muted);
+    margin: 0 0 30px;
+    font-size: 15px;
   }
   .lead {
-    color: var(--text-dim);
-    margin: 0 0 28px;
-    font-size: 15px;
+    color: var(--text-secondary);
+    margin: 0 0 26px;
+    font-size: 14.5px;
   }
 
   .card {
     background: var(--bg-elev);
     border: 1px solid var(--border);
-    border-radius: 12px;
     padding: 20px 22px;
     margin-bottom: 16px;
   }
-  .card.free { border-left: 3px solid var(--free); }
-  .card.premium { border-left: 3px solid var(--premium); }
   .card-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-dim);
+    letter-spacing: 0.12em;
+    color: var(--muted);
     margin-bottom: 12px;
-    font-weight: 600;
+    font-weight: 500;
   }
-  .card.free .card-header { color: var(--free); }
-  .card.premium .card-header { color: var(--premium); }
-
-  .provider-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 4px;
-  }
-  .provider-row a {
-    color: var(--accent);
-    text-decoration: none;
-    font-weight: 600;
-  }
-  .provider-row a:hover { color: var(--accent-strong); text-decoration: underline; }
-  .provider-tagline {
-    color: var(--text-dim);
-    font-size: 12.5px;
-    margin: 0 0 14px;
-  }
-
-  label.field {
-    display: block;
-    margin-bottom: 10px;
-  }
-  label.field .label-text {
-    display: block;
-    font-size: 11.5px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
-  }
-  input[type="password"], input[type="text"], select {
-    width: 100%;
-    background: var(--bg-elev-2);
+  .provider-row { margin-bottom: 2px; }
+  .provider-row a, .premium-providers-list a {
     color: var(--text);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    font-family: var(--mono);
-    font-size: 13px;
-    outline: none;
-    transition: border-color 0.15s;
+    text-decoration: none;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border-active);
+    transition: border-color 0.2s ease, color 0.2s ease;
   }
-  select { font-family: var(--sans); }
-  input:focus, select:focus { border-color: var(--accent); }
-  input::placeholder { color: #555a66; }
-
-  button.connect {
-    background: var(--accent);
-    color: #0b0d12;
-    border: none;
-    border-radius: 8px;
-    padding: 10px 18px;
-    font-weight: 700;
-    cursor: pointer;
-    font-size: 13.5px;
-    margin-top: 6px;
-    transition: opacity 0.15s, background 0.15s;
+  .provider-row a:hover, .premium-providers-list a:hover {
+    color: var(--ink-strong);
+    border-bottom-color: var(--text-secondary);
   }
-  button.connect:hover:not(:disabled) { background: var(--accent-strong); }
-  button.connect:disabled { opacity: 0.5; cursor: wait; }
-
-  .msg {
-    margin-top: 10px;
+  .provider-tagline {
+    color: var(--muted);
     font-size: 12.5px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    display: none;
+    margin: 4px 0 14px;
   }
-  .msg.error { display: block; background: rgba(248, 113, 113, 0.1); color: var(--error); border: 1px solid rgba(248, 113, 113, 0.3); }
-  .msg.success { display: block; background: rgba(74, 222, 128, 0.1); color: var(--ok); border: 1px solid rgba(74, 222, 128, 0.3); }
-  .msg.info { display: block; background: rgba(138, 180, 255, 0.1); color: var(--accent); border: 1px solid rgba(138, 180, 255, 0.3); }
-
   .premium-providers-list {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px 16px;
+    gap: 8px 18px;
     margin-bottom: 14px;
-  }
-  /* Bloque 7.1 — los links premium quedaron huérfanos sin color en v7
-     y caían al default `-webkit-link` (azul oscuro), ilegible sobre el
-     fondo. Mismo tratamiento que .provider-row a para coherencia. */
-  .premium-providers-list a {
-    font-size: 12.5px;
-    color: var(--accent);            /* #8ab4ff — ratio ~6.5:1 contra --bg-elev, pasa AA */
-    text-decoration: none;
-    font-weight: 600;
-  }
-  .premium-providers-list a:hover {
-    color: var(--accent-strong);      /* #6aa1ff — más brillante en hover */
-    text-decoration: underline;
+    font-size: 13px;
   }
 
-  .skip-row {
-    text-align: center;
-    margin-top: 18px;
+  label.field { display: block; margin-bottom: 10px; }
+  label.field .label-text {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 5px;
   }
+  input[type="password"], input[type="text"], select {
+    width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s ease;
+  }
+  select { font-family: 'Inter', sans-serif; }
+  input:focus, select:focus { border-color: var(--border-active); }
+  input::placeholder { color: var(--muted); opacity: 0.7; }
+
+  /* Conectar un proveedor ES una acción real del operador sobre el agente:
+   * el único paso irreversible de esta pantalla merece la tinta plena. */
+  button.connect {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--text-secondary);
+    padding: 10px 18px;
+    font-weight: 500;
+    cursor: pointer;
+    font-size: 13.5px;
+    margin-top: 6px;
+    font-family: 'Inter', sans-serif;
+    transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  }
+  button.connect:hover:not(:disabled) { background: var(--bg-overlay); border-color: var(--ink-strong); }
+  button.connect:disabled { opacity: 0.45; cursor: wait; }
+
+  /* Mensajes en voz baja (§6): tinta, nunca rojo histérico ni verde fiesta. */
+  .msg {
+    margin-top: 10px;
+    font-size: 12.5px;
+    padding: 8px 11px;
+    display: none;
+    line-height: 1.5;
+  }
+  .msg.error   { display: block; color: var(--ink-strong); border-left: 2px solid var(--ink-strong); background: var(--bg-overlay); font-style: italic; }
+  .msg.success { display: block; color: var(--text); border-left: 2px solid var(--accent); background: var(--bg-overlay); }
+  .msg.info    { display: block; color: var(--text-secondary); border-left: 2px solid var(--border-active); background: var(--bg-overlay); }
+
+  .skip-row { text-align: center; margin-top: 20px; }
   .skip-link {
-    color: var(--text-dim);
+    color: var(--muted);
     text-decoration: none;
     font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.03em;
   }
-  .skip-link:hover { color: var(--text); text-decoration: underline; }
+  .skip-link:hover { color: var(--text-secondary); }
+
+  .voto {
+    margin-top: 30px;
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13.5px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
 </style>
 </head>
 <body>
   <div class="container">
-    <h1>Bienvenido a Shinobi</h1>
-    <p class="lead">Para empezar necesitas una API key. Elige tu provider:</p>
+    <div class="puerta-header">
+      <span class="hanko" aria-hidden="true">忍</span>
+      <h1>Shinobi</h1>
+    </div>
+    <p class="claim">an agent that works in silence</p>
+    <p class="lead">Para cruzar la puerta, Shinobi necesita un proveedor de modelo. La key se guarda en tu máquina y no sale de ella.</p>
 
-    <div class="card free" id="card-groq">
-      <div class="card-header">🚀 Gratis — Recomendado para empezar</div>
+    <div class="card" id="card-groq">
+      <div class="card-header">vía rápida · gratis</div>
       <div class="provider-row">
         <a href="https://console.groq.com/keys" target="_blank" rel="noopener">Groq (Llama) →</a>
       </div>
-      <p class="provider-tagline">Llama rápido y gratis. Suficiente para uso normal.</p>
+      <p class="provider-tagline">Rápido y sin coste. Suficiente para el trabajo diario.</p>
       <label class="field">
-        <span class="label-text">Pega tu key aquí (gsk_…)</span>
+        <span class="label-text">tu key (gsk_…)</span>
         <input id="groq-key" type="password" placeholder="gsk_xxxxxxxxxxxxxxxxxxxx" autocomplete="off">
       </label>
-      <button class="connect" data-provider="groq">Conectar y empezar</button>
+      <button class="connect" data-provider="groq">Conectar y entrar</button>
       <div class="msg" id="groq-msg"></div>
     </div>
 
-    <div class="card premium" id="card-premium">
-      <div class="card-header">💎 Premium — Más capacidad</div>
+    <div class="card" id="card-premium">
+      <div class="card-header">vía profunda · más capacidad</div>
       <div class="premium-providers-list">
-        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI (GPT-4) →</a>
-        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic (Claude) →</a>
-        <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter (todos) →</a>
+        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">OpenAI →</a>
+        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">Anthropic →</a>
+        <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter →</a>
       </div>
       <label class="field">
-        <span class="label-text">Provider</span>
+        <span class="label-text">proveedor</span>
         <select id="premium-provider">
           <option value="anthropic">Anthropic (Claude)</option>
-          <option value="openai">OpenAI (GPT-4)</option>
+          <option value="openai">OpenAI (GPT)</option>
           <option value="openrouter">OpenRouter (todos)</option>
         </select>
       </label>
       <label class="field">
-        <span class="label-text">Pega tu key aquí</span>
+        <span class="label-text">tu key</span>
         <input id="premium-key" type="password" placeholder="sk-ant-… / sk-… / sk-or-…" autocomplete="off">
       </label>
-      <button class="connect" data-provider="premium">Conectar y empezar</button>
+      <button class="connect" data-provider="premium">Conectar y entrar</button>
       <div class="msg" id="premium-msg"></div>
     </div>
 
     <div class="skip-row">
-      <a href="#" class="skip-link" id="skip-link">Ya tengo config (skip)</a>
+      <a href="#" class="skip-link" id="skip-link">ya tengo config previa →</a>
       <div class="msg" id="skip-msg" style="margin-top: 10px; text-align: left;"></div>
     </div>
+
+    <p class="voto">Todo local, todo tuyo.<br>La memoria, los skills y las sesiones te pertenecen.</p>
   </div>
 
 <script>
@@ -230,11 +264,11 @@
 
   async function attemptConnect(provider, key, msgId, btn) {
     if (!key || !key.trim()) {
-      showMsg(msgId, 'error', 'Pega tu key antes de continuar.');
+      showMsg(msgId, 'error', 'Falta la key. Pégala antes de continuar.');
       return;
     }
     btn.disabled = true;
-    showMsg(msgId, 'info', '⏳ Validando key con el provider…');
+    showMsg(msgId, 'info', 'Validando la key con el proveedor…');
     try {
       const r = await fetch('/api/onboarding', {
         method: 'POST',
@@ -243,14 +277,14 @@
       });
       const data = await r.json();
       if (r.ok && data.ok) {
-        showMsg(msgId, 'success', '✓ Key válida. Configurando Shinobi…');
+        showMsg(msgId, 'success', 'Key válida. El dojo se abre.');
         setTimeout(() => { window.location.href = '/'; }, 600);
       } else {
-        showMsg(msgId, 'error', data.error || 'Validación falló.');
+        showMsg(msgId, 'error', data.error || 'La validación falló. Revisa la key y vuelve a intentarlo.');
         btn.disabled = false;
       }
     } catch (e) {
-      showMsg(msgId, 'error', 'Error de red: ' + (e.message || e));
+      showMsg(msgId, 'error', 'Sin red hacia el server local. Causa probable: el proceso de Shinobi no responde. ' + (e.message || e));
       btn.disabled = false;
     }
   }
@@ -269,20 +303,18 @@
     });
   });
 
-  // Bloque 7.1 — skip ahora usa mensaje inline (no alert), loguea en
-  // console para DevTools, y muestra feedback visible incluso si la API
-  // responde 400 (config previa ausente/inválida).
+  // Skip: mensaje inline (no alert) + log en console para DevTools.
   document.getElementById('skip-link').addEventListener('click', async (e) => {
     e.preventDefault();
     clearMsg('skip-msg');
-    showMsg('skip-msg', 'info', '⏳ Buscando config previa…');
+    showMsg('skip-msg', 'info', 'Buscando config previa…');
     try {
       const r = await fetch('/api/onboarding/skip', { method: 'POST' });
       let data = null;
-      try { data = await r.json(); } catch { /* response not JSON */ }
+      try { data = await r.json(); } catch { /* not JSON */ }
       console.log('[onboarding-skip] response:', r.status, data);
       if (r.ok && data && data.ok) {
-        showMsg('skip-msg', 'success', '✓ Config encontrada. Cargando Shinobi…');
+        showMsg('skip-msg', 'success', 'Config encontrada. El dojo se abre.');
         setTimeout(() => { window.location.href = '/'; }, 500);
       } else {
         const errMsg = (data && data.error) ||
@@ -291,11 +323,11 @@
       }
     } catch (err) {
       console.error('[onboarding-skip] fetch failed:', err);
-      showMsg('skip-msg', 'error', 'Error de red: ' + (err.message || err));
+      showMsg('skip-msg', 'error', 'Sin red hacia el server local: ' + (err.message || err));
     }
   });
 
-  // Enter en el campo de Groq → click el botón
+  // Enter en el campo → click en su botón
   document.getElementById('groq-key').addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); document.querySelector('button.connect[data-provider="groq"]').click(); }
   });

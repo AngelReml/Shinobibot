@@ -16,7 +16,6 @@
 
 import axios from 'axios';
 import { ShinobiOrchestrator } from './orchestrator.js';
-import { KernelClient } from '../bridge/kernel_client.js';
 import { SkillLoader } from '../skills/skill_loader.js';
 import { skillManager } from '../skills/skill_manager.js';
 import { curatedMemory } from '../memory/curated_memory.js';
@@ -27,6 +26,37 @@ import {
   getApprovalMode,
   type ApprovalMode,
 } from '../security/approval.js';
+
+/**
+ * Bloque 8.5 — Registro DESCRIPTIVO de los comandos que handleSlashCommand
+ * reconoce. Fuente única para la UI (paleta "/" + pergamino Ctrl+/ vía
+ * GET /api/commands). Si añades un comando abajo, añádelo aquí: la regla
+ * del repo es que la UI no hardcodea capacidades — las lee de aquí.
+ */
+export interface SlashCommandInfo {
+  cmd: string;
+  desc: string;
+}
+export const SLASH_COMMANDS: SlashCommandInfo[] = [
+  { cmd: '/status', desc: 'Estado del agente: modo y modelo activo' },
+  { cmd: '/model', desc: 'Ver o cambiar el modelo (auto · list · <nombre>)' },
+  { cmd: '/memory', desc: 'Memoria: recall · store · stats · forget · user · env · snapshot' },
+  { cmd: '/skill', desc: 'Skills: list · approve · list-approved · install · reload' },
+  { cmd: '/doc', desc: 'Generar documento: word · pdf · excel · markdown · auto' },
+  { cmd: '/learn', desc: 'Aprender de una ruta o URL' },
+  { cmd: '/read', desc: 'Leer un repo o carpeta: --budget · --deep · --query' },
+  { cmd: '/replay', desc: 'Resumen de misiones del audit log' },
+  { cmd: '/ledger', desc: 'Cadena de misiones firmada: verify · export' },
+  { cmd: '/committee', desc: 'Comité de validación sobre un informe' },
+  { cmd: '/improvements', desc: 'Propuestas de mejora del comité' },
+  { cmd: '/apply', desc: 'Aplicar una propuesta por id' },
+  { cmd: '/self', desc: 'Auto-informe del agente (--diff · --budget)' },
+  { cmd: '/approval', desc: 'Candado de aprobaciones: on · smart · off' },
+  { cmd: '/resident', desc: 'Tareas residentes: start · stop · add · enable · logs' },
+  { cmd: '/sentinel', desc: 'Vigilancia tecnológica: watch · ask · deep · digest' },
+  { cmd: '/notify', desc: 'Notificaciones n8n: set · unset · test' },
+  { cmd: '/record', desc: 'Grabar la sesión con OBS: start · stop' },
+];
 
 export interface SlashContext {
   /**
@@ -40,17 +70,6 @@ export interface SlashContext {
    * readline.question; the web wires it to a WS request/response round-trip.
    */
   ask: (question: string) => Promise<string>;
-}
-
-async function checkKernelStatus(): Promise<boolean> {
-  const online = await KernelClient.isOnline();
-  if (online) {
-    console.log('🟢 OpenGravity Kernel: ONLINE');
-  } else {
-    console.log('🟡 OpenGravity Kernel: OFFLINE (using local mode)');
-    console.log('   To enable kernel: run "kernel.cmd" in OpenGravity folder');
-  }
-  return online;
 }
 
 export async function handleSlashCommand(input: string, ctx: SlashContext): Promise<boolean> {
@@ -81,20 +100,8 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
     return true;
   }
 
-  // /mode local|kernel|auto
-  if (trimmed.startsWith('/mode ')) {
-    const mode = trimmed.split(' ')[1] as 'local' | 'kernel' | 'auto';
-    if (['local', 'kernel', 'auto'].includes(mode)) {
-      ShinobiOrchestrator.setMode(mode);
-    } else {
-      console.log('Modos válidos: local, kernel, auto');
-    }
-    return true;
-  }
-
   // /status — accept any trailing args/whitespace (bug fix FAIL 2).
   if (trimmed === '/status' || trimmed.startsWith('/status ')) {
-    await checkKernelStatus();
     return true;
   }
 
@@ -264,30 +271,22 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
     const sub = parts[1];
 
     if (sub === 'list') {
-      const baseUrl = process.env.OPENGRAVITY_URL || 'http://localhost:9900';
-      const apiKey = process.env.SHINOBI_API_KEY || '';
-      try {
-        const r = await axios.get(`${baseUrl}/v1/skills/list`, { headers: { 'X-Shinobi-Key': apiKey } });
-        const list = JSON.parse(r.data.output);
-        console.log(`\n${list.length} skill(s):`);
-        for (const s of list) {
-          console.log(`  - ${s.id} | ${s.name} | status=${s.status} | ${s.description.substring(0, 60)}`);
-        }
-      } catch (e: any) { console.log('Error:', e.message); }
+      const sm = skillManager();
+      const pending = sm.listPending();
+      const { SkillLoader } = await import('../skills/skill_loader.js');
+      const mjs = SkillLoader.listApprovedFiles();
+      console.log(`
+${pending.length} pending skill(s):`);
+      pending.forEach((s: any) => console.log(`  - ${s.id} | ${s.name}`));
+      console.log(`${mjs.length} approved executable skill(s): ${mjs.join(', ') || 'none'}`);
       return true;
     }
 
     if (sub === 'approve' && parts[2]) {
-      // Bloque 3: try local SKILL.md pending first, then fall back to the
-      // OpenGravity executable-skill flow. Both id namespaces coexist.
+      // Bloque 3: approve local SKILL.md pending skill.
       const id = parts[2];
       const local = skillManager().approve(id);
-      if (local.ok) {
-        console.log(`✓ ${local.message}`);
-        return true;
-      }
-      const result = await SkillLoader.approveAndLoad(id);
-      console.log(result.success ? `✓ ${result.message}` : `✗ ${result.message}`);
+      console.log(local.ok ? `✓ ${local.message}` : `✗ ${local.message}`);
       return true;
     }
 

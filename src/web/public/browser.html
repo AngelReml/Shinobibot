@@ -1,71 +1,134 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="yoru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Shinobi · Panel de Navegador</title>
+  <meta name="theme-color" content="#1A1612">
+  <title>Shinobi · Kage</title>
+  <link rel="icon" href="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='1' y='1' width='30' height='30' fill='%238B2C20'/%3E%3Ctext x='16' y='24' font-family='serif' font-size='22' font-weight='700' fill='%23F2ECE4' text-anchor='middle'%3E忍%3C/text%3E%3C/svg%3E" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,400&family=Inter:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap">
   <style>
-    :root { color-scheme: dark; }
+    /* Kage — la sombra: lo que ve el navegador del agente, en vivo.
+     * Paleta canónica Yoru. El estado se comunica por tono, no por alarma
+     * (§2.2): sin pills verdes/rojas, sin emojis. El consentimiento es el
+     * candado (§11): niebla alrededor, candado nítido. */
+    :root {
+      --bg: #1A1612; --bg-elev: #221D18; --bg-overlay: #2A241E;
+      --text: #E8E0D0; --text-secondary: #A89C88; --muted: #6B6158;
+      --accent: #C84134; --border: #3A3328; --border-active: #5A4F3F;
+      --ink-strong: #F5EFE2;
+    }
     * { box-sizing: border-box; }
     body {
-      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background: #0d1117; color: #e6edf3; display: flex; flex-direction: column; height: 100vh;
+      margin: 0;
+      font-family: 'Inter', -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; flex-direction: column; height: 100vh;
     }
     header {
-      padding: 10px 16px; background: #161b22; border-bottom: 1px solid #30363d;
+      padding: 10px 16px; background: var(--bg-elev);
+      border-bottom: 1px solid var(--border);
       display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     }
-    header h1 { font-size: 15px; margin: 0; font-weight: 600; }
-    .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #21262d; border: 1px solid #30363d; }
-    .pill.live { background: #1f6f3f; border-color: #2ea043; }
-    .pill.idle { background: #5a1e1e; border-color: #b62324; }
-    .pill.lock { background: #6e4a00; border-color: #b8860b; }
-    #stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 12px; }
-    #frame { max-width: 100%; max-height: 100%; border: 1px solid #30363d; border-radius: 8px; box-shadow: 0 8px 30px rgba(0,0,0,.5); background:#000; }
-    #placeholder { color: #7d8590; text-align: center; font-size: 14px; line-height: 1.6; }
+    header .hanko {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; background: var(--accent); color: var(--bg);
+      font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 700;
+      flex-shrink: 0; user-select: none;
+    }
+    header h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 17px; margin: 0; font-weight: 500; letter-spacing: 0.02em;
+    }
+    .chip {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; padding: 2px 8px;
+      border: 1px solid var(--border); color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+    .chip.vivo { color: var(--text); border-color: var(--border-active); }
+    .chip.lock { color: var(--text-secondary); }
+    #stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 14px; }
+    #frame { max-width: 100%; max-height: 100%; border: 1px solid var(--border); background: #000; }
+    #placeholder {
+      color: var(--muted); text-align: center; font-size: 14px; line-height: 1.7;
+      font-family: 'Cormorant Garamond', serif; font-style: italic;
+    }
+    #placeholder code {
+      font-family: 'JetBrains Mono', monospace; font-style: normal; font-size: 12px;
+      color: var(--text-secondary);
+    }
+    /* El candado: niebla alrededor, la decisión nítida. */
     #consent {
-      position: fixed; inset: 0; background: rgba(0,0,0,.75); display: none;
-      align-items: center; justify-content: center; z-index: 50;
+      position: fixed; inset: 0; background: rgba(0,0,0,.5);
+      backdrop-filter: blur(2.5px) saturate(0.8);
+      display: none; align-items: center; justify-content: center; z-index: 50;
     }
     #consent .card {
-      background: #161b22; border: 1px solid #b8860b; border-radius: 12px; padding: 20px 22px;
-      max-width: 520px; width: calc(100% - 40px); box-shadow: 0 10px 40px rgba(0,0,0,.6);
+      background: var(--bg-elev); border: 1px solid var(--border-active);
+      padding: 22px 24px; max-width: 520px; width: calc(100% - 40px);
     }
-    #consent h2 { margin: 0 0 10px; font-size: 16px; }
-    #consent pre { white-space: pre-wrap; font-size: 13px; color: #c9d1d9; background:#0d1117; padding:10px; border-radius:8px; border:1px solid #30363d; }
+    #consent h2 {
+      margin: 0 0 6px; font-size: 18px; font-weight: 500;
+      font-family: 'Cormorant Garamond', serif;
+    }
+    #consent .sub { margin: 0 0 12px; font-size: 13px; color: var(--text-secondary); }
+    #consent pre {
+      white-space: pre-wrap; word-break: break-word;
+      font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+      color: var(--text); background: var(--bg);
+      padding: 12px; border: 1px solid var(--border);
+      border-left: 2px solid var(--text-secondary);
+      max-height: 40vh; overflow-y: auto;
+    }
     #consent .row { display: flex; gap: 10px; margin-top: 14px; justify-content: flex-end; }
-    button { font: inherit; padding: 8px 16px; border-radius: 8px; border: 1px solid #30363d; cursor: pointer; background:#21262d; color:#e6edf3; }
-    button.approve { background: #238636; border-color: #2ea043; }
-    button.deny { background: #b62324; border-color: #da3633; }
-    footer { padding: 6px 16px; font-size: 11px; color: #7d8590; border-top: 1px solid #30363d; background:#161b22; }
+    button {
+      font: inherit; padding: 8px 16px; cursor: pointer;
+      border: 1px solid var(--border); background: transparent; color: var(--text);
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+    button:hover { background: var(--bg-overlay); border-color: var(--border-active); }
+    /* Aprobar lo irreversible: el único botón con fondo (Tabla 7). */
+    button.approve { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+    button.approve:hover { background: #D8554A; border-color: #D8554A; }
+    footer {
+      padding: 6px 16px; font-size: 11px; color: var(--muted);
+      border-top: 1px solid var(--border); background: var(--bg-elev);
+      font-family: 'JetBrains Mono', monospace; letter-spacing: 0.03em;
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>🥷 Panel de Navegador</h1>
-    <span id="status" class="pill idle">desconectado</span>
-    <span id="lock" class="pill" style="display:none">🔒 entrada bloqueada</span>
-    <span id="fps" class="pill">— fps</span>
+    <span class="hanko" aria-hidden="true">忍</span>
+    <h1>Kage · lo que ve el agente</h1>
+    <span id="status" class="chip">en silencio</span>
+    <span id="lock" class="chip lock" style="display:none">entrada bloqueada</span>
+    <span id="fps" class="chip" style="display:none">— fps</span>
     <span style="flex:1"></span>
-    <span class="pill">Solo lectura · tus clics aquí no llegan al navegador</span>
+    <span class="chip">solo lectura — tus clics no cruzan</span>
   </header>
 
   <div id="stage">
     <div id="placeholder">
-      Esperando frames del navegador…<br />
-      Pídele a Shinobi que abra una web (p. ej. <em>"abre ejemplo.com"</em>) y activa el screencast.
+      La sombra aún no se mueve.<br />
+      Pide a Shinobi que abra una web y el cristal se encenderá.<br />
+      <code>"abre ejemplo.com y dime qué ves"</code>
     </div>
-    <img id="frame" alt="screencast" style="display:none" />
+    <img id="frame" alt="Lo que ve el navegador de Shinobi" style="display:none" />
   </div>
 
-  <footer id="foot">Conectando al WebSocket…</footer>
+  <footer id="foot">Conectando…</footer>
 
   <div id="consent">
     <div class="card">
-      <h2>⚠️ Permiso requerido</h2>
+      <h2>El candado se ha cerrado</h2>
+      <p class="sub">Kage pide cruzar una puerta sensible. La misión espera tu palabra.</p>
       <pre id="consent-text"></pre>
       <div class="row">
-        <button class="deny" id="btn-deny">Denegar</button>
+        <button class="deny" id="btn-deny">Rechazar</button>
         <button class="approve" id="btn-approve">Aprobar</button>
       </div>
     </div>
@@ -75,9 +138,9 @@
     (function () {
       var img = document.getElementById('frame');
       var ph = document.getElementById('placeholder');
-      var statusPill = document.getElementById('status');
-      var lockPill = document.getElementById('lock');
-      var fpsPill = document.getElementById('fps');
+      var statusChip = document.getElementById('status');
+      var lockChip = document.getElementById('lock');
+      var fpsChip = document.getElementById('fps');
       var foot = document.getElementById('foot');
       var consent = document.getElementById('consent');
       var consentText = document.getElementById('consent-text');
@@ -93,11 +156,11 @@
         var ws = new WebSocket(wsURL());
         ws.onopen = function () {
           foot.textContent = 'Conectado. Escuchando frames y eventos.';
-          statusPill.textContent = 'conectado'; statusPill.className = 'pill';
+          statusChip.textContent = 'vigilando'; statusChip.className = 'chip';
         };
         ws.onclose = function () {
           foot.textContent = 'Desconectado. Reintentando en 2s…';
-          statusPill.textContent = 'desconectado'; statusPill.className = 'pill idle';
+          statusChip.textContent = 'sin conexión'; statusChip.className = 'chip';
           setTimeout(connect, 2000);
         };
         ws.onmessage = function (ev) {
@@ -107,16 +170,17 @@
           if (msg.type === 'browser_frame' && msg.dataB64) {
             img.src = 'data:image/jpeg;base64,' + msg.dataB64;
             img.style.display = 'block'; ph.style.display = 'none';
-            statusPill.textContent = 'EN VIVO'; statusPill.className = 'pill live';
+            statusChip.textContent = 'en vivo'; statusChip.className = 'chip vivo';
+            fpsChip.style.display = '';
             frames++;
             var now = Date.now();
             if (now - lastFpsTs >= 1000) {
-              fpsPill.textContent = frames + ' fps'; frames = 0; lastFpsTs = now;
+              fpsChip.textContent = frames + ' fps'; frames = 0; lastFpsTs = now;
             }
           }
 
-          if (msg.type === 'plan' && msg.text) { foot.textContent = '🧠 ' + msg.text; }
-          if (msg.type === 'tool_call' && msg.name) { foot.textContent = '🔨 ' + msg.name; }
+          if (msg.type === 'plan' && msg.text) { foot.textContent = 'plan · ' + msg.text; }
+          if (msg.type === 'tool_call' && msg.name) { foot.textContent = 'tool · ' + msg.name; }
 
           if (msg.type === 'approval_request' && msg.kind === 'browser_consent') {
             pendingReqId = msg.requestId;

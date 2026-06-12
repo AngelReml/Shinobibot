@@ -1,10 +1,10 @@
 // src/cloud/openrouter_fallback.ts
 //
-// FAIL 1 (Bloque 1, validación física): cuando el OpenGravity gateway está
+// FAIL 1 (Bloque 1, validación física): cuando el gateway cloud está
 // caído, el orchestrator necesita un transporte alternativo para sobrevivir.
 // Este módulo habla directamente con OpenRouter (compatible con la API de
 // chat completions de OpenAI) y devuelve la misma envoltura `CloudResponse`
-// que `OpenGravityClient.invokeLLM` para que el orchestrator no necesite
+// que el cliente del gateway cloud para que el orchestrator no necesite
 // distinguir entre los dos caminos.
 
 import axios from 'axios';
@@ -40,7 +40,7 @@ export async function invokeLLMViaOpenRouter(payload: LLMChatPayload): Promise<C
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
-          'X-Title': 'Shinobi (OpenGravity fallback)',
+          'X-Title': 'Shinobi (OpenRouter direct)',
         },
         timeout: 60000,
       }

@@ -34,6 +34,7 @@ export default defineConfig({
       'src/multiuser/__tests__/**/*.test.ts',
       'src/a2a/__tests__/**/*.test.ts',
       'src/benchmark/__tests__/**/*.test.ts',
+      'src/gaia/__tests__/**/*.test.ts',
       'src/sandbox/__tests__/**/*.test.ts',
       'src/sandbox/browser_sandbox/__tests__/**/*.test.ts',
       'src/skills/__tests__/**/*.test.ts',

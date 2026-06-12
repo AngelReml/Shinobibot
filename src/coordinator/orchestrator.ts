@@ -1,3 +1,5 @@
+// Orquestador del bucle LLM-tool (ShinobiOrchestrator): ejecuta tools, compacta contexto y audita.
+// Integra failover multi-proveedor, loop detector, approval gate, memoria y skills en cada turno.
 import OpenAI from 'openai';
 import { invokeLLM as routedInvokeLLM, currentProvider } from '../providers/provider_router.js';
 import { route } from './model_router.js';
@@ -42,10 +44,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 dotenv.config({ path: resolve(__dirname, '../../.env'), override: true });
 
-export type ExecutionMode = 'local' | 'kernel' | 'auto';
-
 export class ShinobiOrchestrator {
-  private static mode: ExecutionMode = 'kernel';
   private static memory = sharedMemory();
   private static contextBuilder = new ContextBuilder();
   private static openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -70,19 +69,32 @@ export class ShinobiOrchestrator {
   static setModel(model: string | undefined) { this.activeModel = model; }
   static getModel(): string { return this.activeModel || 'default'; }
 
-  static setMode(mode: ExecutionMode) {
-    this.mode = mode;
-    console.log(`[Shinobi] Mode set to: ${mode}`);
-  }
-
-  private static buildModeHint(): string | null {
-    if (this.mode === 'local') {
-      return 'You are operating in LOCAL mode. The OpenGravity Kernel is unavailable. Use only local tools to accomplish the task.';
+  // Bloque 7.1 — aislamiento de contexto POR CONVERSACIÓN.
+  //
+  // Bug raíz medido (2026-06-10): el historial del agente (Memory) era un
+  // singleton global de sesión; una misión nueva arrastraba el contexto de la
+  // anterior (un simple "ping" pedía 30k tokens), reventando el TPM de los
+  // proveedores en cada llamada. El WebChat YA separa conversaciones; faltaba
+  // que el orchestrator escribiera/leyera la suya. setConversation hace swap de
+  // memory + contextBuilder a un fichero por conversación (persistente: volver
+  // a una conversación recupera su contexto). El orchestrator serializa
+  // (busy flag + mutex), así que el swap entre mensajes es seguro.
+  private static conversationId = 'default';
+  static setConversation(id: string): void {
+    const conv = (id && id.trim()) ? id.trim() : 'default';
+    if (conv === this.conversationId) return;
+    this.conversationId = conv;
+    if (conv === 'default') {
+      this.memory = sharedMemory();
+      this.contextBuilder = new ContextBuilder();
+    } else {
+      const safe = conv.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 64);
+      const p = `./memory-conv-${safe}.json`;
+      this.memory = sharedMemory(p);
+      this.contextBuilder = new ContextBuilder(p);
     }
-    if (this.mode === 'kernel') {
-      return 'You are operating in KERNEL mode. When a task is complex, research-heavy, or requires isolated execution, prefer delegating to the OpenGravity Kernel using start_kernel_mission. For simple file reads or listings, local tools are still fine.';
-    }
-    return null;
+    this._turnsSinceMemory = 0;
+    this._itersSinceSkill = 0;
   }
 
   /**
@@ -278,11 +290,6 @@ export class ShinobiOrchestrator {
       }
     } catch (e) { console.error('[skill-manager] context build failed:', (e as Error).message); }
 
-    const modeHint = this.buildModeHint();
-    if (modeHint) {
-      currentMessages = [{ role: 'system', content: modeHint }, ...currentMessages];
-    }
-
     // FASE 2 cabo C / FASE 1 — directiva de delegación a SpecialistAgents,
     // dirigida por keywords. Sin esto el orchestrator resolvía investigación /
     // documentos / gráficos con tools sueltas en vez de delegar al especialista.
@@ -303,9 +310,7 @@ export class ShinobiOrchestrator {
       }
     } catch (e) { console.error('[soul] persona inject failed:', (e as Error).message); }
     const allTools = getAllTools();
-    const availableTools = this.mode === 'local'
-      ? allTools.filter(t => t.name !== 'start_kernel_mission')
-      : allTools;
+    const availableTools = allTools;
 
     // Modo deferred-tools (opt-in SHINOBI_DEFERRED_TOOLS=1): en vez de anunciar
     // las ~46 tools cada turno, se anuncia un núcleo + tool_search; el agente
@@ -515,7 +520,7 @@ export class ShinobiOrchestrator {
           try { recordToolPattern(toolSequence); } catch { /* best-effort */ }
           return {
             verdict: 'VALID_AGENT',
-            mode: this.mode,
+            mode: 'local',
             response: responseMessage.content,
           };
         }
@@ -579,7 +584,7 @@ export class ShinobiOrchestrator {
             });
             return {
               verdict: attemptCheck.verdict ?? 'LOOP_DETECTED',
-              mode: this.mode,
+              mode: 'local',
               response: message,
               tool: functionName,
               args: functionArgs,
@@ -698,8 +703,11 @@ export class ShinobiOrchestrator {
             });
 
             // Capa 2 (output) — tras ejecutar. Detecta no-progress aunque los
-            // args sean distintos en cada intento.
-            const resultCheck = loopDetector.recordCallResult(functionName, toolResultStr);
+            // args sean distintos en cada intento. Pasamos attemptCheck.hash
+            // para que la capa 1 result-aware sepa si los MISMOS args están
+            // produciendo el MISMO resultado (bucle real) o resultados que
+            // cambian (progreso legítimo: edición de fichero, navegación…).
+            const resultCheck = loopDetector.recordCallResult(functionName, toolResultStr, attemptCheck.hash);
             if (resultCheck.abort) {
               const message =
                 `He detectado que estoy repitiendo acciones sin que el resultado ` +
@@ -715,7 +723,7 @@ export class ShinobiOrchestrator {
               });
               return {
                 verdict: resultCheck.verdict ?? 'LOOP_NO_PROGRESS',
-                mode: this.mode,
+                mode: 'local',
                 response: message,
                 tool: functionName,
                 args: functionArgs,
@@ -748,7 +756,7 @@ export class ShinobiOrchestrator {
               });
               return {
                 verdict: failCheck.verdict ?? 'LOOP_SAME_FAILURE',
-                mode: this.mode,
+                mode: 'local',
                 response: message,
                 tool: functionName,
                 args: functionArgs,
@@ -832,7 +840,7 @@ export class ShinobiOrchestrator {
               `progreso: ${pr.reason}). Paro y pido tu ayuda para cambiar de enfoque.`;
             console.log(`  [⛔] ${pr.verdict} (judge=${progressTracker.judgeId()}, score=${pr.latestScore.toFixed(2)})`);
             await this.memory.addMessage({ role: 'assistant', content: message });
-            return { verdict: pr.verdict ?? 'NO_SEMANTIC_PROGRESS', mode: this.mode, response: message };
+            return { verdict: pr.verdict ?? 'NO_SEMANTIC_PROGRESS', mode: 'local', response: message };
           }
         }
 
@@ -887,7 +895,6 @@ export function calculateCost(provider: string, model: string, usage: { prompt_t
     inputRate = 2.00;
     outputRate = 8.00;
   } else {
-    // default/opengravity
     inputRate = 1.00;
     outputRate = 4.00;
   }

@@ -1,3 +1,5 @@
+// Cola de tareas persistente en SQLite (better-sqlite3, WAL) con buffer de progreso y flush 200ms.
+// Con missions_recurrent.ts forma la capa de persistencia; DB en %APPDATA%/Shinobi/tasks.db.
 import { createRequire } from 'node:module';
 const requireFn = createRequire(typeof __filename !== 'undefined' ? __filename : import.meta.url);
 const Database = requireFn('better-sqlite3');

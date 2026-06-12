@@ -1,3 +1,5 @@
+// Hot-plug de plugins como tools nativas — transforma ESM→CJS y evalúa en sandbox isolated-vm.
+// Registro/desregistro dinámico en el tool_registry, con watch del fichero del plugin.
 // src/plugins/hot_plug_registry.ts
 
 import * as fs from 'fs';

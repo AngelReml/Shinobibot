@@ -1,3 +1,5 @@
+// State Backup — backup/restore del estado de Shinobi (config, memoria, skills, audit redactado).
+// Prepara un staging dir que el operador empuja a su repo GitHub privado; sin push automático.
 /**
  * State Backup — backup/restore del estado completo de Shinobi a un repo
  * GitHub privado del usuario. Sprint 3.8 (parte 2).

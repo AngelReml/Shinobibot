@@ -1,30 +1,38 @@
+// skill_list.ts — lista skills locales (Fase 2, extirpación OG 2026-06-12)
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
-import axios from 'axios';
+import { skillManager } from '../skills/skill_manager.js';
+import { SkillLoader } from '../skills/skill_loader.js';
 
 const skillListTool: Tool = {
   name: 'skill_list',
-  description: 'Lists skills available in the OpenGravity catalog (private to this Shinobi + public). Use this BEFORE asking to generate a new skill — maybe one already exists.',
+  description: 'Lists locally available skills (pending + approved). Use this BEFORE requesting a new skill — one may already exist.',
   parameters: {
     type: 'object',
     properties: {
-      status: { type: 'string', enum: ['unverified', 'verified', 'promoted', 'rejected'], description: 'Optional filter by status' }
-    }
+      status: { type: 'string', enum: ['pending', 'approved', 'all'], description: 'Filter by status (default: all)' }
+    },
+    required: []
   },
-  async execute(args: { status?: string }): Promise<ToolResult> {
-    try {
-      const baseUrl = process.env.OPENGRAVITY_URL || 'http://localhost:9900';
-      const apiKey = process.env.SHINOBI_API_KEY || '';
-      const params = args.status ? `?status=${args.status}` : '';
-      const r = await axios.get(`${baseUrl}/v1/skills/list${params}`, {
-        headers: { 'X-Shinobi-Key': apiKey },
-        timeout: 10000
-      });
-      if (!r.data.success) return { success: false, output: '', error: r.data.error || 'list failed' };
-      return { success: true, output: r.data.output };
-    } catch (e: any) {
-      return { success: false, output: '', error: `skill_list error: ${e.message}` };
+  async execute(args: Record<string, unknown>): Promise<ToolResult> {
+    const status = String(args.status ?? 'all');
+    const sm = skillManager();
+    const pending = status !== 'approved' ? sm.listPending() : [];
+    const approved = status !== 'pending' ? sm.loadApproved() : { count: 0 };
+    const mjs = status !== 'pending' ? SkillLoader.listApprovedFiles() : [];
+    const lines: string[] = [];
+    if (pending.length) {
+      lines.push(`${pending.length} pending skill(s):`);
+      pending.forEach((s: any) => lines.push(`  - ${s.id} | ${s.name} | ${(s.description || '').slice(0, 60)}`));
     }
+    if ((approved as any).count) {
+      lines.push(`${(approved as any).count} approved markdown skill(s)`);
+    }
+    if (mjs.length) {
+      lines.push(`${mjs.length} approved executable skill(s): ${mjs.join(', ')}`);
+    }
+    if (!lines.length) lines.push('No local skills found.');
+    return { success: true, output: lines.join('\n') };
   }
 };
+
 registerTool(skillListTool);
-export default skillListTool;

@@ -1,8 +1,7 @@
 // src/providers/provider_router.ts
 //
 // Bloque 7 — entrypoint único para el orchestrator. Dispatch al cliente
-// correcto según `SHINOBI_PROVIDER` env. Default `opengravity` para
-// back-compat con instalaciones legacy.
+// correcto según `SHINOBI_PROVIDER` env. Default `anthropic`.
 //
 // Failover cross-provider (TIER S #2):
 //   Cada llamada construye una cadena ordenada de providers a probar. Si el
@@ -11,18 +10,17 @@
 //   `fatal_payload` (400 por schema/tool/format) corta la cadena, porque
 //   rotar daría el mismo error.
 //
-//   Cadena por defecto: `[currentProvider, opengravity, openrouter, groq,
-//   anthropic, openai]` sin duplicados. Configurable con
+//   Cadena por defecto: `[currentProvider, openrouter, groq, anthropic, openai]`
+//   sin duplicados. Configurable con
 //   `SHINOBI_FAILOVER_CHAIN` (CSV).
 //
 //   Anti-loop: cada provider se prueba MAX 1 vez por invocación.
 
-import { OpenGravityClient } from '../cloud/opengravity_client.js';
-import { invokeLLMViaOpenRouter, isConnectionError } from '../cloud/openrouter_fallback.js';
 import { groqClient } from './groq_client.js';
 import { openaiClient } from './openai_client.js';
 import { anthropicClient } from './anthropic_client.js';
 import { openrouterClient } from './openrouter_client.js';
+import { EXTRA_CLIENTS, EXTRA_PROVIDERS, isProviderConfigured } from './registry.js';
 import {
   buildFailoverChain,
   classifyProviderError,
@@ -46,51 +44,43 @@ export function failoverCooldown(): FailoverCooldown {
   return _cooldown;
 }
 
-const CLIENTS: Record<Exclude<ProviderName, 'opengravity'>, ProviderClient> = {
+// Roster: los 4 clientes originales + el registro declarativo (Bloque 7.2:
+// glm/gemini/deepseek/huggingface/local). Keyed por string para no exigir
+// exhaustividad sobre la unión ampliada.
+const CLIENTS: Record<string, ProviderClient> = {
   groq: groqClient,
   openai: openaiClient,
   anthropic: anthropicClient,
   openrouter: openrouterClient,
+  ...EXTRA_CLIENTS,
 };
 
 export function getClient(name: ProviderName): ProviderClient | null {
-  if (name === 'opengravity') return null;
   return CLIENTS[name] ?? null;
 }
 
 export function getAllUserFacingClients(): ProviderClient[] {
-  // Orden para la UI: free first (Groq), después premium.
-  return [groqClient, anthropicClient, openaiClient, openrouterClient];
+  // Orden para la UI: los 4 base primero, luego el registro extra. La UI marca
+  // con isProviderConfigured() cuáles están listos vs cuáles piden key.
+  return [groqClient, anthropicClient, openaiClient, openrouterClient, ...EXTRA_PROVIDERS];
 }
+
+/** Expuesto para la UI: ¿este proveedor está configurado (key/endpoint)? */
+export { isProviderConfigured };
 
 export function currentProvider(): ProviderName {
   const p = (process.env.SHINOBI_PROVIDER || '').toLowerCase();
-  if (p === 'groq' || p === 'openai' || p === 'anthropic' || p === 'openrouter') return p;
-  return 'opengravity';
+  if (p in CLIENTS) return p as ProviderName;
+  return 'anthropic';
 }
 
 /**
- * Llama al provider indicado, sin failover. Encapsula la rama legacy
- * opengravity (con su fallback intrínseco a OpenRouter directo cuando hay
- * connection error en el gateway).
+ * Llama al provider indicado, sin failover.
  */
 async function invokeSingleProvider(
   provider: ProviderName,
   payload: LLMChatPayload,
 ): Promise<CloudResponse> {
-  if (provider === 'opengravity') {
-    // Legacy path: OpenGravity primario + OpenRouter fallback (Bloque 1.1).
-    // Se mantiene para no romper instalaciones que dependen del gateway.
-    let result = await OpenGravityClient.invokeLLM(payload);
-    if (!result.success && isConnectionError(result.error)) {
-      console.log('[Shinobi] OpenGravity gateway offline, using OpenRouter direct fallback');
-      result = await invokeLLMViaOpenRouter(payload);
-      if (result.success) console.log('[Shinobi] OpenRouter fallback OK.');
-      else console.log(`[Shinobi] OpenRouter fallback failed: ${result.error}`);
-    }
-    return result;
-  }
-
   const client = CLIENTS[provider];
   if (!client) {
     return { success: false, output: '', error: `Unknown provider '${provider}'.` };

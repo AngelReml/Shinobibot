@@ -7,18 +7,17 @@ const SHINOBI_DIR = path.join(process.env.APPDATA || os.homedir(), 'Shinobi');
 const CONFIG_FILE = path.join(SHINOBI_DIR, 'config.json');
 
 export interface ShinobiConfig {
-  opengravity_api_key: string;
-  opengravity_url: string;
   language: 'es' | 'en';
   memory_path: string;
   onboarded_at: string;
   version: string;
-  // Bloque 7 — onboarding web universal. Todos opcionales para back-compat
-  // con configs legacy que sólo tienen los campos OpenGravity. Si están
-  // presentes, `provider_router` los respeta.
-  provider?: 'groq' | 'openai' | 'anthropic' | 'openrouter' | 'opengravity';
+  // Bloque 7 — onboarding web universal.
+  provider?: 'groq' | 'openai' | 'anthropic' | 'openrouter';
   provider_key?: string;
   model_default?: string;
+  // Back-compat: campos legacy presentes en configs antiguas (ignorados en runtime)
+  opengravity_api_key?: string;
+  opengravity_url?: string;
 }
 
 /**
@@ -40,8 +39,6 @@ export function saveConfig(cfg: ShinobiConfig): void {
 export function reloadConfig(): ShinobiConfig | null {
   const cfg = loadConfig();
   if (!cfg) return null;
-  process.env.OPENGRAVITY_URL = cfg.opengravity_url || '';
-  process.env.SHINOBI_API_KEY = cfg.opengravity_api_key || '';
   process.env.SHINOBI_LANGUAGE = cfg.language || 'es';
   process.env.SHINOBI_MEMORY_PATH = cfg.memory_path || '';
   if (cfg.provider) process.env.SHINOBI_PROVIDER = cfg.provider;
@@ -139,17 +136,13 @@ export async function runFirstRunWizard(): Promise<ShinobiConfig> {
   // 2. API key
   console.log('');
   if (lang === 'es') {
-    console.log('Para usar Shinobi necesitas una API key de OpenGravity.');
-    console.log('Si no tienes una, contacta con el creador o solicítala en zapweave.com');
+    console.log('Configura tu proveedor LLM (Anthropic, OpenAI, Groq, etc.).');
+    console.log('Puedes introducir la API key ahora o configurarla después con /config.');
   } else {
-    console.log('To use Shinobi you need an OpenGravity API key.');
-    console.log('If you do not have one, contact the maker or request at zapweave.com');
+    console.log('Configure your LLM provider (Anthropic, OpenAI, Groq, etc.).');
+    console.log('You can enter the API key now or configure it later with /config.');
   }
-  let apiKey = '';
-  while (!apiKey || apiKey.length < 5) {
-    apiKey = await reader.ask(lang === 'es' ? 'API key: ' : 'API key: ');
-    if (!apiKey || apiKey.length < 5) console.log(lang === 'es' ? '  Clave inválida.' : '  Invalid key.');
-  }
+  const apiKey = (await reader.ask(lang === 'es' ? 'API key (o Enter para después): ' : 'API key (or Enter to skip): ')).trim();
 
   // 3. Memory path
   console.log('');
@@ -173,12 +166,11 @@ export async function runFirstRunWizard(): Promise<ShinobiConfig> {
   reader.close();
 
   const config: ShinobiConfig = {
-    opengravity_api_key: apiKey,
-    opengravity_url: process.env.OPENGRAVITY_URL || 'http://localhost:9900',
     language: lang as 'es' | 'en',
     memory_path: memoryPath,
     onboarded_at: new Date().toISOString(),
-    version: '0.1.0'
+    version: '1.0.0',
+    ...(apiKey ? { provider_key: apiKey } : {}),
   };
 
   fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), { encoding: 'utf-8', mode: 0o600 });

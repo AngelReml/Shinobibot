@@ -1,6 +1,6 @@
 // scripts/run_one.ts — runner HEADLESS de UNA tarea para lanzadores externos.
 //
-// Lo invoca un orquestador (p. ej. el run_bench.py de OpenGravity) como
+// Lo invoca el runner del benchmark como
 // subproceso para correr shinobi sobre un prompt y obtener un resultado
 // estandarizado + métricas + un PAQUETE DE PROVENANCE FIRMADO. Escribe el JSON a
 // --out (no a stdout, que shinobi llena de logs).
@@ -26,6 +26,17 @@ function arg(name: string, def?: string): string | undefined {
 const has = (name: string) => process.argv.includes(`--${name}`);
 
 async function main() {
+  // Bench routing pin (igual que scripts/gaia/shinobi_oneshot.ts): un solo
+  // provider/modelo (OpenRouter/glm), sin failover ni model_router. Se fija
+  // aquí (post-import) para ganar a cualquier dotenv override:true.
+  if (process.env.SHINOBI_BENCH === '1') {
+    process.env.SHINOBI_PROVIDER = 'openrouter';
+    process.env.SHINOBI_FAILOVER_CHAIN = 'openrouter';
+    process.env.SHINOBI_MODEL_ROUTER = '0';
+    process.env.SHINOBI_MODEL_DEFAULT = process.env.GAIA_MODEL || 'z-ai/glm-4.7-flash';
+    if (!process.env.SHINOBI_MAX_ITERATIONS) process.env.SHINOBI_MAX_ITERATIONS = '20';
+  }
+
   let prompt = arg('prompt');
   if (!prompt) { try { prompt = fs.readFileSync(0, 'utf-8').trim(); } catch { /* */ } }
   if (!prompt) { console.error('run_one: falta --prompt (o stdin)'); process.exit(2); }

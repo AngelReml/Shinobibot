@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-12T10:20:51.420Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-12T12:21:23.884Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (131 cambios)
-- **Ultimo commit:** db473f3 docs: arquitectura del benchmark — OpenGravity es el lanzador (run_one + adaptador)
-- **Tamano:** 313 ficheros de codigo (44875 LOC), 113 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (169 cambios)
+- **Ultimo commit:** d032f93 fix(tools): info de sistema/red/disco con APIs nativas de Node (os/fs.statfs) en vez de WMI/PowerShell
+- **Tamano:** 313 ficheros de codigo (44417 LOC), 113 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -28,7 +28,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/backup/` | 1 | State Backup — backup/restore del estado de Shinobi (config, memoria, skills, audit redactado). |
 | `src/bench/` | 13 | Barrel del harness de benchmark (FASE 1) — runner, tasks, adapters, report y results. |
 | `src/benchmark/` | 1 | Benchmark Runner — suite comparativa de 20 tareas con scoring objetivo sin LLM. |
-| `src/bridge/` | 1 | Cliente HTTP del kernel de OpenGravity: health-check, arranque y espera/estado de misiones. |
+| `src/bridge/` | 1 | kernel_client.ts — EXTIRPADO (Fase 1, 2026-06-12) |
 | `src/browser/` | 7 | Mejora 1: observación por mapa de elementos con ref estable. |
 | `src/channels/` | 13 | CAPA DE CONFIANZA de canales — pairing + identidad firmada. |
 | `src/cloud/` | 4 | Pool de credenciales API multi-proveedor — rotación de keys y cuarentena 1h tras rate-limit. |
@@ -50,7 +50,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/memory/` | 27 | Bloque 4 — Memoria persistente curada al estilo Hermes. |
 | `src/migration/` | 1 | A4 — `shinobi import hermes` implementation. |
 | `src/multiuser/` | 2 | Multi-user — un único runtime sirve a varios usuarios con memoria, soul y permisos aislados. |
-| `src/notifications/` | 1 | Notifier — alertas operacionales (misiones fallidas, loops) vía workflow externo de OpenGravity. |
+| `src/notifications/` | 1 | Notifier — alertas operacionales (misiones fallidas, loops) vía webhook directo. |
 | `src/observability/` | 3 | Reglas de alerta configurables que disparan webhooks al cruzar umbrales de eventos o métricas. |
 | `src/persistence/` | 2 | Cola de tareas persistente en SQLite (better-sqlite3, WAL) con buffer de progreso y flush 200ms. |
 | `src/plugins/` | 3 | Hot-plug de plugins como tools nativas — transforma ESM→CJS y evalúa en sandbox isolated-vm. |

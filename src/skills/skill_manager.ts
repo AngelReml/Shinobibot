@@ -22,7 +22,7 @@
 //      bloque para inyectar como system message en el orchestrator.
 //
 // Cohabitación: SkillLoader (src/skills/skill_loader.ts) sigue gestionando
-// .mjs ejecutables que vienen de OpenGravity. SkillManager gestiona SKILL.md
+// .mjs ejecutables aprobadas localmente (.mjs). SkillManager gestiona SKILL.md
 // (prompts) generados localmente. Ambos coexisten sin pisarse.
 
 import * as fs from 'fs';

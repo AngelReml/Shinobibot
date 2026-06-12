@@ -1,4 +1,6 @@
-import { OpenGravityClient } from '../cloud/opengravity_client.js';
+// Notifier — alertas operacionales (misiones fallidas, loops) vía webhook directo.
+// Silenciado por defecto: solo envía con SHINOBI_NOTIFY_ENABLED=1; si no, loguea a stdout.
+// Usa fetch directo a SHINOBI_NOTIFY_WEBHOOK.
 
 export interface NotificationPayload {
   level: 'info' | 'warning' | 'error';
@@ -9,32 +11,29 @@ export interface NotificationPayload {
 
 /**
  * Notifier — emite alertas operacionales (misiones fallidas, loops
- * críticos, etc.) hacia un workflow externo de OpenGravity.
+ * críticos, etc.) hacia un webhook HTTP configurable.
  *
- * **Silenciado por defecto** (Sprint 2.5, decisión del operador 2026-05-15):
- * tras un incidente en el que el resident_loop disparaba un email por
- * cada 3 fallos consecutivos de una misión recurrente y saturaba la
- * bandeja del usuario, el notifier solo invoca el workflow externo
- * cuando `SHINOBI_NOTIFY_ENABLED=1` está explícito.
+ * **Silenciado por defecto**: solo invoca el webhook cuando
+ * `SHINOBI_NOTIFY_ENABLED=1` está explícito en el entorno.
+ *
+ * El destino se configura con `SHINOBI_NOTIFY_WEBHOOK=https://…` o
+ * con `setWorkflow(url)` (back-compat).
  *
  * Si el notifier está silenciado, `send()`:
  *   - Loguea a stdout con prefijo `[Notifier:muted]`.
  *   - Devuelve `{ success: true, muted: true }` para no interrumpir
  *     callers que verifican `success`.
- *
- * Compatibilidad:
- *   - `setWorkflow(id)` sigue funcionando (back-compat con `/notify`).
- *   - Para reactivar emails: `SHINOBI_NOTIFY_ENABLED=1` en `.env`.
  */
 export class Notifier {
-  private static workflowId: string | null = null; // configurable via /notify setup
+  private static webhookUrl: string | null = null; // configurable via /notify setup
 
+  /** Back-compat: acepta una URL de webhook (antes era un workflow ID de OG). */
   public static setWorkflow(id: string | null): void {
-    this.workflowId = id;
+    this.webhookUrl = id;
   }
 
   public static getWorkflow(): string | null {
-    return this.workflowId;
+    return this.webhookUrl;
   }
 
   /** True si el operador activó explícitamente el envío externo. */
@@ -43,26 +42,34 @@ export class Notifier {
   }
 
   public static async send(payload: NotificationPayload): Promise<{ success: boolean; error?: string; muted?: boolean }> {
-    // Silenciado por defecto: SOLO loguea, NO invoca workflow externo.
+    // Silenciado por defecto: SOLO loguea, NO invoca webhook externo.
     if (!this.isEnabled()) {
       console.log(`[Notifier:muted] ${payload.level.toUpperCase()}: ${payload.title} — ${payload.body.substring(0, 200)}`);
       return { success: true, muted: true };
     }
-    if (!this.workflowId) {
-      console.log(`[Notifier] (no workflow set) ${payload.level.toUpperCase()}: ${payload.title} — ${payload.body.substring(0, 200)}`);
+
+    const target = this.webhookUrl ?? process.env.SHINOBI_NOTIFY_WEBHOOK ?? null;
+    if (!target) {
+      console.log(`[Notifier] (no webhook set) ${payload.level.toUpperCase()}: ${payload.title} — ${payload.body.substring(0, 200)}`);
       return { success: true };
     }
+
     try {
-      const r = await OpenGravityClient.invokeWorkflow(this.workflowId, {
-        level: payload.level,
-        title: payload.title,
-        body: payload.body,
-        context: payload.context,
-        timestamp: new Date().toISOString()
+      const res = await fetch(target, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          level: payload.level,
+          title: payload.title,
+          body: payload.body,
+          context: payload.context,
+          timestamp: new Date().toISOString()
+        })
       });
-      if (!r.success) {
-        console.log(`[Notifier] failed to deliver: ${r.error}`);
-        return { success: false, error: r.error };
+      if (!res.ok) {
+        const msg = `HTTP ${res.status}`;
+        console.log(`[Notifier] failed to deliver: ${msg}`);
+        return { success: false, error: msg };
       }
       return { success: true };
     } catch (e: any) {

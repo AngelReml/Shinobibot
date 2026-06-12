@@ -16,7 +16,7 @@ import './browser_click_position.js';
 import './browser_observe.js';
 import './browser_act.js';
 import './browser_session.js';
-import './cloud_mission.js'; // The new tool to bridge with OpenGravity Cloud
+import './cloud_mission.js'; // EXTIRPADO — stub vacío
 import './web_search_with_warmup.js';
 import './clean_extract.js';
 import './generate_document.js';
@@ -38,6 +38,8 @@ import './synthesize_skill.js';
 import './run_swarm.js';
 // Team: subagentes que mutan ficheros EN PARALELO, aislados por worktree+contexto.
 import './run_team.js';
+// Enjambre orquestado por DAG (cerebro de swarm-ide portado sobre el team de Shinobi).
+import './run_swarm_orchestrated.js';
 // E3: audit como sustrato — trust-scores por herramienta desde audit.jsonl.
 import './trust_report.js';
 // MCP: conecta servidores externos y registra sus tools como nativas.

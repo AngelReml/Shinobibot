@@ -1,3 +1,5 @@
+// Seguridad de pantalla (B9) — zonas prohibidas y blacklist dura de hotkeys destructivos.
+// En utils/ junto a permissions.ts, vision_client.ts y kill_switch.ts (utilidades transversales).
 /**
  * Screen safety (B9):
  *  - forbidden zones: taskbar, system tray, UAC dialog area, /Windows /System32 windows

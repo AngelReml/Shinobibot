@@ -1,3 +1,5 @@
+// Soul (Alma) — personalidad configurable del agente: tono, identidad y persona prompt vía soul.md.
+// Se inyecta como mensaje system al inicio del turno sin reemplazar el system prompt principal.
 /**
  * Soul (Alma) — módulo de personalidad configurable del agente.
  * Sprint 3.6.
