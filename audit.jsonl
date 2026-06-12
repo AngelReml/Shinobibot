@@ -1263,3 +1263,4 @@
 {"kind":"failover","ts":"2026-06-12T10:24:14.868Z","from":"openrouter","to":"groq","reason":"rate limit"}
 {"kind":"failover","ts":"2026-06-12T10:24:14.970Z","from":"groq","to":"anthropic","reason":"error desconocido"}
 {"kind":"failover","ts":"2026-06-12T12:24:16.657Z","from":"openai","to":"groq","reason":"rate limit"}
+{"kind":"failover","ts":"2026-06-12T13:19:27.973Z","from":"openai","to":"groq","reason":"rate limit"}
