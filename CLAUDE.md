@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-12T13:22:47.711Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-12T13:40:54.574Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (3 cambios)
-- **Ultimo commit:** d252125 test: alinea 4 tests al contrato post-extirpacion + fix scratch dir
-- **Tamano:** 313 ficheros de codigo (44417 LOC), 113 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (13 cambios)
+- **Ultimo commit:** daa9143 docs: regenera pulso CLAUDE.md/AGENTS.md
+- **Tamano:** 311 ficheros de codigo (44389 LOC), 113 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -28,10 +28,9 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/backup/` | 1 | State Backup — backup/restore del estado de Shinobi (config, memoria, skills, audit redactado). |
 | `src/bench/` | 13 | Barrel del harness de benchmark (FASE 1) — runner, tasks, adapters, report y results. |
 | `src/benchmark/` | 1 | Benchmark Runner — suite comparativa de 20 tareas con scoring objetivo sin LLM. |
-| `src/bridge/` | 1 | kernel_client.ts — EXTIRPADO (Fase 1, 2026-06-12) |
 | `src/browser/` | 7 | Mejora 1: observación por mapa de elementos con ref estable. |
 | `src/channels/` | 13 | CAPA DE CONFIANZA de canales — pairing + identidad firmada. |
-| `src/cloud/` | 4 | Pool de credenciales API multi-proveedor — rotación de keys y cuarentena 1h tras rate-limit. |
+| `src/cloud/` | 3 | Pool de credenciales API multi-proveedor — rotación de keys y cuarentena 1h tras rate-limit. |
 | `src/committee/` | 8 | Habilidad B.2 — Comité de validación. |
 | `src/constants/` | 1 | Prompt de sistema base del agente (SYSTEM_PROMPT): identidad, regla tool-first y protocolos. |
 | `src/context/` | 5 | Context Compactor — compactación heurística del historial bajo presupuesto de tokens, sin LLM. |

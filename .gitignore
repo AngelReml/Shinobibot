@@ -118,6 +118,15 @@ bench-results.json
 # Scratch / dev sandbox — no versionar
 scratch/
 
+# === Artefactos de runtime (Audit 2026-06-12) — no versionar ===
+# *.db ya está ignorado arriba; los side-files de SQLite WAL no lo estaban.
+*.db-shm
+*.db-wal
+shinobi.lock
+logs/
+memory-conv-*.json
+skills/.usage.json
+
 # Cache del reader (deep_descent) — generado, no versionar
 .shinobi-reader-cache/
 **/.shinobi-reader-cache/
