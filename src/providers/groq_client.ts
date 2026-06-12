@@ -6,6 +6,7 @@
 import axios from 'axios';
 import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
 import type { KeyValidation, ProviderClient } from './types.js';
+import { normalizeModelId, sanitizeOpenAiMessages } from './model_id.js';
 
 const BASE_URL = 'https://api.groq.com/openai/v1';
 const DEFAULT_MODEL = 'llama-3.3-70b-versatile';
@@ -22,14 +23,11 @@ export const groqClient: ProviderClient = {
     // y daba 401 (hallazgo de la auditoría 2026-05-16).
     const key = process.env.GROQ_API_KEY || process.env.SHINOBI_PROVIDER_KEY;
     if (!key) return { success: false, output: '', error: 'Groq: define GROQ_API_KEY (o SHINOBI_PROVIDER_KEY).' };
-    const model = payload.model || process.env.SHINOBI_MODEL_DEFAULT || DEFAULT_MODEL;
-    const messages = payload.messages.map((m: any) => {
-      if (m.annotations !== undefined) {
-        const { annotations: _annotations, ...clean } = m;
-        return clean;
-      }
-      return m;
-    });
+    // Normaliza el ID: groq/llama… → llama…; prefijo ajeno → default propio.
+    const model = normalizeModelId(payload.model || process.env.SHINOBI_MODEL_DEFAULT, 'groq', DEFAULT_MODEL);
+    // Whitelist de campos: Groq rechaza `refusal`, `annotations` y otros extras
+    // que OpenAI emite en sus respuestas ("property 'refusal' is unsupported").
+    const messages = sanitizeOpenAiMessages(payload.messages);
     try {
       const resp = await axios.post(`${BASE_URL}/chat/completions`, {
         model,

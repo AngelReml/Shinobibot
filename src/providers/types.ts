@@ -4,7 +4,13 @@
 
 import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
 
-export type ProviderName = 'groq' | 'openai' | 'anthropic' | 'openrouter' | 'opengravity';
+// Bloque 7.2 — roster ampliado (absorbido de swarm-ide). Los 4 originales +
+// proveedores OpenAI-compatibles añadidos como datos (glm/gemini/deepseek/
+// huggingface) + 'local' para cualquier endpoint OpenAI-compatible (Ollama,
+// LM Studio, llama.cpp, vLLM).
+export type ProviderName =
+  | 'groq' | 'openai' | 'anthropic' | 'openrouter'
+  | 'glm' | 'gemini' | 'deepseek' | 'huggingface' | 'local';
 
 export interface KeyValidation {
   ok: boolean;

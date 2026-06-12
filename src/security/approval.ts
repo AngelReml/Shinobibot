@@ -1,3 +1,5 @@
+// D-017 — gate selectivo de aprobación: modos on/smart/critical/off (default critical).
+// Solo frena la clase crítica (credenciales, secreto→.env, ToS, gasto); persiste en config.json.
 /**
  * D-017 — Approval system inspired by industry-standard agent permission models.
  *

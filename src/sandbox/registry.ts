@@ -1,3 +1,5 @@
+// Registro singleton de backends de ejecución de comandos: local, docker, ssh, e2b y mock.
+// Selección por SHINOBI_RUN_BACKEND (default local); sin fallback silencioso si falta config.
 /**
  * Sandbox registry — singleton que mantiene la lista de backends de
  * ejecución de comandos disponibles (local, docker, ssh, e2b, mock).

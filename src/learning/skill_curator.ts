@@ -1,3 +1,5 @@
+// Fase 6 del bucle de aprendizaje — el Curator (Motor 2): mantiene sana la colección de skills.
+// Archiva por staleness sin LLM y recomienda consolidaciones a REPORT.md; nunca borra solo.
 /**
  * Fase 6 del bucle de aprendizaje — el Curator (Motor 2).
  *

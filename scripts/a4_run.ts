@@ -5,7 +5,7 @@ import * as path from 'path';
 import { runRead } from '../src/reader/cli.js';
 
 const TARGETS = [
-  { label: 'opengravity', name: 'OpenGravity', path: 'C:\\Users\\angel\\Desktop\\OpenGravity' },
+
   { label: 'execa', name: 'execa', path: 'C:\\Users\\angel\\Desktop\\test_repos\\execa' },
 ];
 

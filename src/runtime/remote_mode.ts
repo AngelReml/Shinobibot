@@ -1,3 +1,6 @@
+// Remote Mode (Sprint 3.5) — Shinobi desplegado en un VPS vía SSH+Docker; las tools corren allí.
+// No toca la máquina local: genera Dockerfile/scripts e instrucciones; health check cada 30s.
+// Parte del runtime residente (resident_loop, mission_scheduler, resource_governor, wizard).
 /**
  * Remote Mode — Sprint 3.5.
  *
@@ -143,7 +146,7 @@ export function generateArtifacts(target: RemoteTarget, opts: { image?: string; 
   const envTemplate = [
     '# .env.remote — secrets del kernel Shinobi en VPS.',
     '# El operador rellena los que vaya a usar; los demás quedan vacíos.',
-    'SHINOBI_PROVIDER=opengravity',
+    'SHINOBI_PROVIDER=anthropic',
     'OPENROUTER_API_KEY=',
     'OPENAI_API_KEY=',
     'ANTHROPIC_API_KEY=',

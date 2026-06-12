@@ -3,7 +3,7 @@
  * rotar al siguiente en la cadena.
  *
  * Diferencia clave vs OpenClaw (retry-limit + failover-policy) y vs el
- * comportamiento legacy de Shinobi (opengravity → openrouter solo en
+ * comportamiento legacy de Shinobi (gateway cloud → openrouter solo en
  * connection error): aquí la cadena es **configurable** y la decisión de
  * rotar se basa en una **clasificación explícita** del error, no en regex
  * ad-hoc dentro del router.
@@ -111,12 +111,12 @@ export function shouldFailover(klass: ErrorClass): boolean {
  *
  *   - Si el usuario define `SHINOBI_FAILOVER_CHAIN` (CSV) la usamos tal cual.
  *   - Si no, default sensato: `current` primero, luego el resto en orden
- *     `[opengravity, openrouter, groq, anthropic, openai]` (skip duplicado).
+ *     `[openrouter, groq, anthropic, openai]` (skip duplicado).
  *
  * Sin duplicados; preserva el orden.
  */
 export function buildFailoverChain(current: ProviderName, envChain?: string): ProviderName[] {
-  const valid: ProviderName[] = ['groq', 'openai', 'anthropic', 'openrouter', 'opengravity'];
+  const valid: ProviderName[] = ['groq', 'openai', 'anthropic', 'openrouter', 'glm', 'gemini', 'deepseek', 'huggingface', 'local'];
 
   if (envChain && envChain.trim()) {
     const parsed = envChain
@@ -141,7 +141,9 @@ export function buildFailoverChain(current: ProviderName, envChain?: string): Pr
     return out.length > 0 ? out : [current];
   }
 
-  const defaultOrder: ProviderName[] = ['opengravity', 'openrouter', 'groq', 'anthropic', 'openai'];
+  // Bloque 7.2 — los proveedores extra van al final como red de failover: solo
+  // se prueban si la cadena principal se agota, y se saltan en silencio sin key.
+  const defaultOrder: ProviderName[] = ['openrouter', 'groq', 'anthropic', 'openai', 'gemini', 'deepseek', 'glm', 'huggingface'];
   const seen = new Set<ProviderName>();
   const chain: ProviderName[] = [];
   for (const p of [current, ...defaultOrder]) {

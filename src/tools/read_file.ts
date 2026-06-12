@@ -53,10 +53,13 @@ const readFileTool: Tool = {
       };
     }
 
-    // Full-file read: if the content would exceed the tool output cap, return a
-    // truncated view with line-aware boundaries and an explicit hint so the LLM
-    // can request specific sections without guessing.
-    const fullOutput = `File: ${filePath} (${lines.length} lines)\n${content}`;
+    // Full-file read: numeramos cada línea (estilo `N: `) igual que los modos
+    // rango y truncado. Sin esto, una lectura completa devolvía contenido crudo
+    // y el agente no podía citar números de línea reales (medido en la batería
+    // 2026-06-10: pegaba el código correcto pero inventaba la línea). El número
+    // es barato y se gana precisión de citado.
+    const numbered = lines.map((l, i) => `${i + 1}: ${l}`).join('\n');
+    const fullOutput = `File: ${filePath} (${lines.length} lines)\n${numbered}`;
     if (fullOutput.length > TOOL_OUTPUT_MAX_CHARS) {
       // Reserve ~60 % of budget for the head, ~15 % for the tail.
       const headBudget = Math.floor(TOOL_OUTPUT_MAX_CHARS * 0.6);

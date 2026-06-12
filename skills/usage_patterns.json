@@ -201,6 +201,213 @@
       "proposed": false,
       "firstSeenAt": "2026-05-19T16:46:08.592Z",
       "lastSeenAt": "2026-05-19T16:46:08.592Z"
+    },
+    {
+      "signature": "research_agent_run→research_agent_run→research_agent_run",
+      "tools": [
+        "research_agent_run",
+        "research_agent_run",
+        "research_agent_run"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-19T23:07:02.611Z",
+      "lastSeenAt": "2026-05-19T23:07:02.611Z"
+    },
+    {
+      "signature": "web_search→write_file→web_search→browser_click",
+      "tools": [
+        "web_search",
+        "write_file",
+        "web_search",
+        "browser_click"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-19T23:31:25.823Z",
+      "lastSeenAt": "2026-05-19T23:31:25.823Z"
+    },
+    {
+      "signature": "browser_click→start_cloud_mission",
+      "tools": [
+        "browser_click",
+        "start_cloud_mission"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-19T23:46:10.347Z",
+      "lastSeenAt": "2026-05-19T23:46:10.347Z"
+    },
+    {
+      "signature": "web_search→write_file→web_search→browser_click→clipboard_write→screen_act→screen_act",
+      "tools": [
+        "web_search",
+        "write_file",
+        "web_search",
+        "browser_click",
+        "clipboard_write",
+        "screen_act",
+        "screen_act"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-20T05:15:14.108Z",
+      "lastSeenAt": "2026-05-20T05:15:14.108Z"
+    },
+    {
+      "signature": "start_cloud_mission→web_search",
+      "tools": [
+        "start_cloud_mission",
+        "web_search"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-20T06:01:34.797Z",
+      "lastSeenAt": "2026-05-20T06:01:34.797Z"
+    },
+    {
+      "signature": "web_search→browser_click→browser_click→browser_click",
+      "tools": [
+        "web_search",
+        "browser_click",
+        "browser_click",
+        "browser_click"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-20T06:06:55.434Z",
+      "lastSeenAt": "2026-05-20T06:06:55.434Z"
+    },
+    {
+      "signature": "read_file→list_dir→read_file",
+      "tools": [
+        "read_file",
+        "list_dir",
+        "read_file"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-20T06:34:56.577Z",
+      "lastSeenAt": "2026-05-20T06:34:56.577Z"
+    },
+    {
+      "signature": "research_agent_run→research_agent_run→research_agent_run→research_agent_run→research_agent_run",
+      "tools": [
+        "research_agent_run",
+        "research_agent_run",
+        "research_agent_run",
+        "research_agent_run",
+        "research_agent_run"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-20T07:22:31.921Z",
+      "lastSeenAt": "2026-05-20T07:22:31.921Z"
+    },
+    {
+      "signature": "run_command→run_command→run_command→run_command→run_command→run_command→run_command",
+      "tools": [
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command",
+        "run_command"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-22T08:15:04.837Z",
+      "lastSeenAt": "2026-05-22T08:15:04.837Z"
+    },
+    {
+      "signature": "search_files→search_files→search_files→search_files",
+      "tools": [
+        "search_files",
+        "search_files",
+        "search_files",
+        "search_files"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-05-22T08:17:39.828Z",
+      "lastSeenAt": "2026-05-22T08:17:39.828Z"
+    },
+    {
+      "signature": "tool_search→run_command",
+      "tools": [
+        "tool_search",
+        "run_command"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-06-08T07:02:43.755Z",
+      "lastSeenAt": "2026-06-08T07:02:43.755Z"
+    },
+    {
+      "signature": "research_agent_run→web_search→web_search→web_search→browser_session→browser_session→web_search",
+      "tools": [
+        "research_agent_run",
+        "web_search",
+        "web_search",
+        "web_search",
+        "browser_session",
+        "browser_session",
+        "web_search"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-06-08T17:09:08.185Z",
+      "lastSeenAt": "2026-06-08T17:09:08.185Z"
+    },
+    {
+      "signature": "browser_session→browser_observe→clean_extract",
+      "tools": [
+        "browser_session",
+        "browser_observe",
+        "clean_extract"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-06-10T10:34:37.571Z",
+      "lastSeenAt": "2026-06-10T10:34:37.571Z"
+    },
+    {
+      "signature": "write_file→run_command",
+      "tools": [
+        "write_file",
+        "run_command"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-06-10T11:15:54.911Z",
+      "lastSeenAt": "2026-06-10T11:15:54.911Z"
+    },
+    {
+      "signature": "browser_session→network_info→browser_session→browser_session→browser_observe",
+      "tools": [
+        "browser_session",
+        "network_info",
+        "browser_session",
+        "browser_session",
+        "browser_observe"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-06-10T11:19:51.537Z",
+      "lastSeenAt": "2026-06-10T11:19:51.537Z"
+    },
+    {
+      "signature": "system_info→disk_usage→network_info",
+      "tools": [
+        "system_info",
+        "disk_usage",
+        "network_info"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-06-12T10:24:18.005Z",
+      "lastSeenAt": "2026-06-12T10:24:18.005Z"
     }
   ]
 }

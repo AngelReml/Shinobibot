@@ -77,7 +77,7 @@ const MEMORY_TEMPLATE = `# Notas del entorno
 §
 
 # Errores conocidos y workarounds
-(ej. "OpenGravity gateway puede caer — fallback OpenRouter activo")
+(ej. "gateway cloud puede caer — fallback OpenRouter activo")
 `;
 
 // ─── Snapshot block render ──────────────────────────────────────────────────

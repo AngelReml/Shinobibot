@@ -29,14 +29,14 @@ import { fileURLToPath } from 'url';
 import { randomUUID } from 'crypto';
 
 import { ShinobiOrchestrator } from '../coordinator/orchestrator.js';
-import { handleSlashCommand } from '../coordinator/slash_commands.js';
+import { handleSlashCommand, SLASH_COMMANDS } from '../coordinator/slash_commands.js';
 import { runExclusive } from '../coordinator/orchestrator_mutex.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
-import { KernelClient } from '../bridge/kernel_client.js';
-import { setSkillEventListener } from '../skills/skill_manager.js';
+import { setSkillEventListener, skillManager } from '../skills/skill_manager.js';
 import { setDocumentEventListener, shouldOfferDocument, offerDocument } from '../documents/factory.js';
 import { loadConfig, saveConfig, reloadConfig, type ShinobiConfig } from '../runtime/first_run_wizard.js';
-import { getClient, currentProvider, invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
+import { getClient, getAllUserFacingClients, currentProvider, invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
+import { EXTRA_MODEL_SUGGESTIONS } from '../providers/registry.js';
 import { tokenBudget } from '../context/token_budget.js';
 import { toolEvents } from '../coordinator/tool_events.js';
 import { setBrowserConsentAsker } from '../browser/consent.js';
@@ -45,7 +45,9 @@ import {
   ensureApprovalModeInitialized,
   setApprovalAsker,
   getApprovalMode,
+  setApprovalMode,
   type Approval,
+  type ApprovalMode,
 } from '../security/approval.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -54,6 +56,15 @@ const __dirname = path.dirname(__filename);
 // ChatStore extraído a src/web/chat_store.ts (Bloque 6) para reusarlo desde
 // el gateway HTTP + Telegram sin duplicar el código de persistencia.
 import { ChatStore } from './chat_store.js';
+
+// A1 — tipos para el endpoint /api/skills
+interface SkillEntry {
+  id: string;
+  name: string;
+  description: string;
+  trigger_keywords: string[];
+  source: 'native' | 'skill';
+}
 
 function stringifyArgs(args: any[]): string {
   return args.map(a => {
@@ -69,10 +80,10 @@ function stringifyArgs(args: any[]): string {
  * usuario queda atrapado en un bucle de onboarding (FIX-001).
  */
 function isConfigUsable(cfg: any): boolean {
-  return !!(
-    (cfg?.provider && cfg?.provider_key) ||           // provider Bloque 7 configurado
-    (cfg?.opengravity_api_key && cfg?.opengravity_url) // o config legacy OpenGravity
-  );
+  // Extirpación OG (D-extirpación, 2026-06-12): la rama legacy
+  // opengravity_api_key ya NO cuenta como config usable — OpenGravity no
+  // provee LLM. Una config solo-OG debe ir a onboarding, no al dojo roto.
+  return !!(cfg?.provider && cfg?.provider_key);
 }
 
 export interface StartWebServerOptions {
@@ -89,6 +100,24 @@ export interface StartWebServerOptions {
  * Llamado tras el 3er mensaje del usuario. No bloquea el WS; emite
  * `conversation_title_updated` cuando termina.
  */
+// Títulos por defecto que el auto-generador puede sobreescribir (M1).
+const AUTO_TITLE_DEFAULTS = new Set([
+  'Conversación nueva',
+  'Conversación',
+  'Conversación inicial',
+]);
+
+/** Fallback heurístico: primeras ~6 palabras del primer mensaje del usuario. */
+function heuristicTitle(seeds: string[]): string {
+  const first = (seeds[0] ?? '').trim();
+  if (!first) return '';
+  const words = first.replace(/\s+/g, ' ').split(' ');
+  let title = words.slice(0, 6).join(' ');
+  if (words.length > 6) title = title + '…';
+  if (title.length > 60) title = title.slice(0, 57).trim() + '…';
+  return title;
+}
+
 async function maybeGenerateAutoTitle(
   store: ChatStore,
   conversationId: string,
@@ -98,9 +127,9 @@ async function maybeGenerateAutoTitle(
     const conv = store.getConversation(conversationId);
     if (!conv) return;
     // No autorrenombrar si el usuario ya lo personalizó.
-    if (conv.title !== 'Conversación nueva') return;
+    if (!AUTO_TITLE_DEFAULTS.has(conv.title)) return;
     const count = store.countUserMessages(conversationId);
-    if (count !== 3) return; // exactamente al 3er mensaje
+    if (count < 1) return; // al menos un mensaje
     const seeds = store.firstUserMessages(conversationId, 3);
     if (seeds.length === 0) return;
     const numbered = seeds.map((s, i) => `${i + 1}. ${s.slice(0, 240)}`).join('\n');
@@ -112,20 +141,28 @@ async function maybeGenerateAutoTitle(
       temperature: 0.3,
       max_tokens: 30,
     });
+    let title = '';
     if (!result.success) {
-      console.log(`[auto-title] LLM failed: ${result.error}`);
-      return;
+      // Fallback heurístico: primeras palabras del primer mensaje (sin LLM).
+      title = heuristicTitle(seeds);
+      console.log(`[auto-title] LLM failed, using heuristic: '${title}' (error: ${result.error})`);
+    } else {
+      let raw = '';
+      try {
+        const parsed = JSON.parse(result.output);
+        raw = String(parsed?.content ?? parsed?.message?.content ?? parsed?.text ?? '').trim();
+      } catch { raw = String(result.output ?? '').trim(); }
+      // Saneo: 1 línea, sin comillas, recortado.
+      title = raw.split(/\r?\n/)[0].trim();
+      title = title.replace(/^[“”'`]+|[“”'`]+$/g, '').replace(/[.!?…]+$/g, '').trim();
+      if (title.length > 60) title = title.slice(0, 57).trim() + '…';
+      // Si el LLM devuelve vacío, fallback heurístico.
+      if (!title) {
+        title = heuristicTitle(seeds);
+        console.log(`[auto-title] LLM returned empty, using heuristic: '${title}'`);
+      }
     }
-    let raw = '';
-    try {
-      const parsed = JSON.parse(result.output);
-      raw = String(parsed?.content ?? parsed?.message?.content ?? parsed?.text ?? '').trim();
-    } catch { raw = String(result.output ?? '').trim(); }
-    // Saneo: 1 línea, sin comillas, recortado.
-    let title = raw.split(/\r?\n/)[0].trim();
-    title = title.replace(/^["“'`]+|["”'`]+$/g, '').replace(/[.!?…]+$/g, '').trim();
-    if (title.length > 60) title = title.slice(0, 57).trim() + '…';
-    if (!title) { console.log('[auto-title] empty title after sanitization'); return; }
+    if (!title) { console.log('[auto-title] no title generated'); return; }
     store.updateTitle(conversationId, title);
     console.log(`[auto-title] '${conversationId}' → '${title}'`);
     broadcast({ type: 'conversation_title_updated', conversationId, title });
@@ -197,8 +234,8 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
       // Construye config — preserva campos legacy si existían.
       const prev = loadConfig();
       const newCfg: ShinobiConfig = {
-        opengravity_api_key: prev?.opengravity_api_key || '',
-        opengravity_url: prev?.opengravity_url || '',
+        opengravity_api_key: prev?.opengravity_api_key ?? '',
+        opengravity_url: prev?.opengravity_url ?? '',
         language: prev?.language || 'es',
         memory_path: prev?.memory_path || path.join(process.env.APPDATA || process.env.HOME || '', 'Shinobi', 'memory'),
         onboarded_at: prev?.onboarded_at || new Date().toISOString(),
@@ -219,7 +256,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   app.post('/api/onboarding/skip', (_req, res) => {
     const cfg = loadConfig();
     if (!cfg || !isConfigUsable(cfg)) {
-      res.status(400).json({ ok: false, error: 'config incompleta: falta provider_key o opengravity_api_key' });
+      res.status(400).json({ ok: false, error: 'config incompleta: falta provider_key' });
       return;
     }
     // Asegura que process.env refleja la config legacy presente.
@@ -293,12 +330,143 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     });
   });
 
+  // Bloque 8.5 — La UI lee las capacidades del backend, no las inventa:
+  // paleta de comandos "/" y pergamino (Ctrl+/) consumen este endpoint.
+  app.get('/api/commands', (_req, res) => {
+    res.json({ commands: SLASH_COMMANDS });
+  });
+
+  // ─── Bloque 8.6 — Settings, modelos y búsqueda ─────────────────────────
+  // Inspirado en la organización de Odysseus (panel de settings + gestor de
+  // proveedores + selector de modelo + búsqueda global), traducido a la marca.
+  // La UI lee/escribe el estado real del agente; nada hardcodeado.
+
+  // Proveedores configurables (Bloque 7) + el activo. Reusa el registro real.
+  app.get('/api/providers', (_req, res) => {
+    const cur = currentProvider();
+    const providers = getAllUserFacingClients().map((c) => ({
+      name: c.name,
+      label: c.label(),
+      defaultModel: c.defaultModel(),
+      signupUrl: c.signupUrl(),
+      active: c.name === cur,
+    }));
+    res.json({ providers, current: cur });
+  });
+
+  // Modelos sugeridos para el selector. Override manual = bypassea el router.
+  // 'auto' (model undefined) deja decidir al router por tier. Incluye los
+  // modelos del registro extra (Bloque 7.2): glm/gemini/deepseek/hf + local.
+  app.get('/api/models', (_req, res) => {
+    const localModel = process.env.SHINOBI_LOCAL_MODEL;
+    res.json({
+      active: ShinobiOrchestrator.getModel(),
+      models: [
+        { id: 'auto', label: 'Auto — el router decide por tier', tier: '—' },
+        { id: 'gpt-4o-mini', label: 'GPT-4o mini', tier: 'fast' },
+        { id: 'gpt-4o', label: 'GPT-4o', tier: 'balanced' },
+        { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', tier: 'balanced' },
+        ...EXTRA_MODEL_SUGGESTIONS,
+        ...(localModel ? [{ id: localModel, label: `Local · ${localModel}`, tier: 'local' }] : []),
+      ],
+    });
+  });
+
+  // Cambiar modelo en caliente. 'auto'/'' → setModel(undefined).
+  app.post('/api/model', (req, res) => {
+    const model = typeof req.body?.model === 'string' ? req.body.model.trim() : '';
+    ShinobiOrchestrator.setModel(model && model !== 'auto' ? model : undefined);
+    res.json({ ok: true, active: ShinobiOrchestrator.getModel() });
+  });
+
+  // Cambiar modo del candado (§11). El gate persiste en config.json.
+  app.post('/api/approval', (req, res) => {
+    const mode = String(req.body?.mode || '').toLowerCase();
+    if (!['on', 'smart', 'critical', 'off'].includes(mode)) {
+      res.status(400).json({ ok: false, error: 'modo inválido (on|smart|critical|off)' });
+      return;
+    }
+    setApprovalMode(mode as ApprovalMode);
+    res.json({ ok: true, approval: getApprovalMode() });
+  });
+
+  // Probar una key SIN guardarla (el gestor de proveedores). Para guardar se
+  // usa POST /api/onboarding, que valida y persiste.
+  app.post('/api/providers/test', async (req, res) => {
+    const provider = String(req.body?.provider || '').toLowerCase();
+    const key = typeof req.body?.key === 'string' ? req.body.key.trim() : '';
+    if (!provider || !key) {
+      res.status(400).json({ ok: false, error: 'provider y key requeridos' });
+      return;
+    }
+    const client = getClient(provider as any);
+    if (!client) {
+      res.status(400).json({ ok: false, error: `provider desconocido: ${provider}` });
+      return;
+    }
+    try {
+      const v = await client.validateKey(key);
+      res.json({ ok: v.ok, error: v.error, status: v.status });
+    } catch (e: any) {
+      res.status(500).json({ ok: false, error: e?.message ?? String(e) });
+    }
+  });
+
+  // Búsqueda global DENTRO del contenido de los mensajes (no solo títulos).
+  app.get('/api/search', (req, res) => {
+    const q = String(req.query.q || '').trim();
+    if (!q) { res.json({ query: '', results: [] }); return; }
+    res.json({ query: q, results: store.searchMessages(q, 40) });
+  });
+
+  // A1 — Habilidades visibles: expone skills aprobadas + capacidades nativas
+  // para que la UI muestre chips en el composer y un panel ⟡.
+  app.get('/api/skills', (_req, res) => {
+    const sm = skillManager();
+
+    // Capacidades nativas troncales (curadas a mano, A1 del plan).
+    const NATIVE: SkillEntry[] = [
+      { id: 'native-files', name: 'Archivos y carpetas', description: 'Leer, escribir, mover, borrar, listar archivos y carpetas en tu máquina.', trigger_keywords: ['archivo', 'carpeta', 'fichero', 'directorio', 'organizar', 'mover', 'renombrar', 'borrar', 'crear'], source: 'native' },
+      { id: 'native-shell', name: 'Comandos del sistema', description: 'Ejecutar comandos en la terminal de Windows (PowerShell / cmd).', trigger_keywords: ['comando', 'terminal', 'powershell', 'ejecutar', 'script', 'instalar', 'consola'], source: 'native' },
+      { id: 'native-browser', name: 'Navegador web (Kage)', description: 'Abrir páginas web, hacer clic, rellenar formularios, extraer información.', trigger_keywords: ['web', 'navegador', 'página', 'url', 'buscar', 'abrir', 'chrome', 'formulario', 'scraping'], source: 'native' },
+      { id: 'native-documents', name: 'Documentos (Word · PDF · Excel)', description: 'Generar y editar documentos Word, PDF, Excel y Markdown.', trigger_keywords: ['word', 'pdf', 'excel', 'documento', 'informe', 'tabla', 'markdown', 'generar'], source: 'native' },
+      { id: 'native-memory', name: 'Memoria persistente', description: 'Guardar y recuperar información entre sesiones (/memory store · recall).', trigger_keywords: ['memoria', 'recordar', 'guardar', 'olvida', 'aprender', 'recall'], source: 'native' },
+      { id: 'native-sentinel', name: 'Sentinel — vigilancia web', description: 'Vigilar páginas web y canales; avisar cuando hay cambios relevantes.', trigger_keywords: ['vigilar', 'monitorear', 'avisar', 'alerta', 'sentinel', 'cambio', 'seguimiento'], source: 'native' },
+    ];
+
+    // Skills aprobadas del manager. loadApproved() relee skills/approved/ y
+    // refresca el índice in-memory (barato: pocos ficheros .skill.md). El
+    // array `approved` es privado en SkillManagerImpl — lectura via cast.
+    // TODO honesto: exponer listApproved() público en skill_manager y
+    // eliminar este cast (anotado en DECISIONES.md).
+    const approvedSkills: SkillEntry[] = [];
+    try {
+      const result = sm.loadApproved();
+      if (result.count > 0) {
+        const smAny = sm as any;
+        if (Array.isArray(smAny.approved)) {
+          for (const s of smAny.approved) {
+            approvedSkills.push({
+              id: String(s.id || ''),
+              name: String(s.frontmatter?.name || s.id || ''),
+              description: String(s.frontmatter?.description || ''),
+              trigger_keywords: Array.isArray(s.frontmatter?.trigger_keywords)
+                ? s.frontmatter.trigger_keywords.map(String)
+                : [],
+              source: 'skill',
+            });
+          }
+        }
+      }
+    } catch { /* si falla, solo mostramos las nativas */ }
+
+    res.json({ skills: [...NATIVE, ...approvedSkills] });
+  });
+
   app.get('/api/status', async (_req, res) => {
-    const kernelOnline = await KernelClient.isOnline();
     res.json({
       model: ShinobiOrchestrator.getModel(),
-      kernelOnline,
-      mode: (ShinobiOrchestrator as any).mode ?? 'kernel',
+      mode: 'local',
       approval: getApprovalMode(),
     });
   });
@@ -396,7 +564,10 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
       const requestId = randomUUID();
       pendingApprovals.set(requestId, resolve);
       if (process.env.SHINOBI_DEBUG === '1') console.log(`[DIAG-SERVER] [${new Date().toISOString()}] Emitiendo approval_request a ${allClients.size} cliente(s).`);
-      broadcastAll({ type: 'approval_request', promptText, requestId });
+      // A3 — extraer nombre de tool del promptText para que la UI muestre descripción legible.
+      const toolMatch = promptText.match(/Acción que requiere tu permiso:\s*"([^"]+)"/);
+      const tool = toolMatch ? toolMatch[1] : null;
+      broadcastAll({ type: 'approval_request', promptText, requestId, tool });
     });
   });
 
@@ -514,6 +685,10 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
 
       store.ensureConversation(conversationId, 'Conversación nueva');
       store.addInConversation(conversationId, 'user', text, null);
+      // Bloque 7.1 — aísla el contexto del agente por conversación. Sin esto el
+      // historial era global y cada misión arrastraba el contexto de la anterior
+      // (un "ping" pedía 30k tokens y reventaba el TPM de los proveedores).
+      ShinobiOrchestrator.setConversation(conversationId);
       ws.send(JSON.stringify({ type: 'thinking_start' }));
 
       // Mutex global del orchestrator: serializa esta petición WebChat con
@@ -585,7 +760,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
           ws.send(JSON.stringify({
             type: 'final',
             response: finalResponse,
-            mode: (ShinobiOrchestrator as any).mode ?? 'kernel',
+            mode: 'local', // D4 extirpación: constante un release, luego se retira
             model: ShinobiOrchestrator.getModel(),
             conversationId,
           }));

@@ -36,6 +36,7 @@
     "tui": "tsx scripts/shinobi-tui.tsx",
     "bench": "tsx scripts/benchmarks/run.ts",
     "bench:compare": "tsx scripts/bench.ts",
+    "bench:agentic": "tsx scripts/bench_s_agentic.ts",
     "build:exe": "tsx scripts/build_exe.ts"
   },
   "keywords": [],

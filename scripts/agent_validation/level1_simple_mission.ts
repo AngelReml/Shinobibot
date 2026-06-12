@@ -7,8 +7,7 @@ const MISSION = 'Lista las primeras 5 criptomonedas del top ranking de CoinGecko
 
 async function main() {
   const startTime = Date.now();
-  console.log(`[AGENT-E2E-L1] Setting mode to local`);
-  ShinobiOrchestrator.setMode('local');
+  // mode is always local (setMode removed)
   
   console.log(`[AGENT-E2E-L1] Mission: ${MISSION}`);
   console.log(`[AGENT-E2E-L1] Invoking orchestrator...`);

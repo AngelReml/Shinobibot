@@ -10,6 +10,7 @@
 import axios from 'axios';
 import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
 import type { KeyValidation, ProviderClient } from './types.js';
+import { normalizeModelId } from './model_id.js';
 
 const BASE_URL = 'https://api.anthropic.com/v1';
 const DEFAULT_MODEL = 'claude-haiku-4-5';
@@ -28,6 +29,13 @@ function splitSystemAndMessages(messages: any[]): { system: string; rest: any[] 
   const rest: any[] = [];
   let pendingToolResults: any[] = [];
 
+  const flushToolResults = () => {
+    if (pendingToolResults.length > 0) {
+      rest.push({ role: 'user', content: pendingToolResults });
+      pendingToolResults = [];
+    }
+  };
+
   for (const m of messages) {
     if (m.role === 'system') {
       const txt = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
@@ -38,17 +46,32 @@ function splitSystemAndMessages(messages: any[]): { system: string; rest: any[] 
         tool_use_id: m.tool_call_id,
         content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
       });
-    } else {
-      if (pendingToolResults.length > 0) {
-        rest.push({ role: 'user', content: pendingToolResults });
-        pendingToolResults = [];
+    } else if (m.role === 'assistant' && Array.isArray(m.tool_calls) && m.tool_calls.length > 0) {
+      // FIX (2026-06-10): un assistant con tool_calls en formato OpenAI rompía
+      // Anthropic ("messages.X.tool_calls: Extra inputs are not permitted").
+      // Se traduce a bloques de contenido nativos: texto + tool_use.
+      flushToolResults();
+      const blocks: any[] = [];
+      const text = typeof m.content === 'string' ? m.content : '';
+      if (text.trim()) blocks.push({ type: 'text', text });
+      for (const tc of m.tool_calls) {
+        let input: any = {};
+        try {
+          const raw = tc.function?.arguments;
+          input = typeof raw === 'string' ? JSON.parse(raw || '{}') : (raw ?? {});
+        } catch { input = {}; }
+        blocks.push({ type: 'tool_use', id: tc.id, name: tc.function?.name, input });
       }
-      rest.push(m);
+      rest.push({ role: 'assistant', content: blocks });
+    } else {
+      // Mensaje normal (user/assistant texto). Solo role+content; nada de
+      // campos OpenAI-only (refusal, annotations, name, tool_call_id…).
+      flushToolResults();
+      const content = typeof m.content === 'string' ? m.content : (m.content ?? '');
+      rest.push({ role: m.role, content });
     }
   }
-  if (pendingToolResults.length > 0) {
-    rest.push({ role: 'user', content: pendingToolResults });
-  }
+  flushToolResults();
   return { system: systemParts.join('\n\n'), rest };
 }
 
@@ -83,7 +106,7 @@ export const anthropicClient: ProviderClient = {
     // Key específica primero, fallback a la genérica (failover cross-provider).
     const key = process.env.ANTHROPIC_API_KEY || process.env.SHINOBI_PROVIDER_KEY;
     if (!key) return { success: false, output: '', error: 'Anthropic: define ANTHROPIC_API_KEY (o SHINOBI_PROVIDER_KEY).' };
-    const model = payload.model || process.env.SHINOBI_MODEL_DEFAULT || DEFAULT_MODEL;
+    const model = normalizeModelId(payload.model || process.env.SHINOBI_MODEL_DEFAULT, 'anthropic', DEFAULT_MODEL);
     const { system, rest } = splitSystemAndMessages(payload.messages);
 
     // Anthropic requiere max_tokens explícito.

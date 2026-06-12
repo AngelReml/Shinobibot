@@ -9,6 +9,17 @@ if git diff --cached --name-only | grep -qE '(^|/)\.env$'; then
   exit 1
 fi
 
+# Regenerar contexto vivo y sumarlo al commit (best-effort: avisa, NO bloquea).
+# ESTADO.md <- estado.mjs | AGENTS.md + CLAUDE.md <- context.mjs
+# Va ANTES del scan de claves para que lo regenerado tambien se escanee.
+if command -v node >/dev/null 2>&1; then
+  node estado.mjs --no-tests >/dev/null 2>&1 || echo "aviso: estado.mjs fallo; el commit sigue" >&2
+  node context.mjs >/dev/null 2>&1 || echo "aviso: context.mjs fallo; el commit sigue" >&2
+  git add ESTADO.md AGENTS.md CLAUDE.md 2>/dev/null
+else
+  echo "aviso: node no esta en PATH; ESTADO/AGENTS/CLAUDE sin regenerar" >&2
+fi
+
 # Patrones de claves conocidas (Groq, OpenAI, OpenRouter, Anthropic, Mem0, etc.)
 PATTERN='gsk_[A-Za-z0-9]{20,}|sk-proj-[A-Za-z0-9_-]{20,}|sk-or-[A-Za-z0-9_-]{20,}|sk-ant-[A-Za-z0-9_-]{20,}|m0-[A-Za-z0-9_-]{16,}|sm_[A-Za-z0-9_-]{16,}|mat_[A-Za-z0-9_-]{16,}'
 

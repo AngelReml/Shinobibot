@@ -71,11 +71,15 @@ export function sanitizeToolSequence(history: any[]): any[] {
 export class ContextBuilder {
   private memory: Memory;
 
-  constructor() {
+  constructor(filePath?: string) {
     // Instancia compartida: la cadena de escritura de Memory es por-instancia;
     // usar el singleton evita el lost-update C7 entre ContextBuilder y el
     // orchestrator, que escriben el mismo memory.json.
-    this.memory = sharedMemory();
+    //
+    // Bloque 7.1 — filePath opcional para aislar el contexto por conversación
+    // (cada conversación del WebChat tiene su propio memory-conv-<id>.json).
+    // Sin filePath = ./memory.json (CLI, back-compat).
+    this.memory = filePath ? sharedMemory(filePath) : sharedMemory();
   }
 
   async buildMessages(userInput: string): Promise<any[]> {

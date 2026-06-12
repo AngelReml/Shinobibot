@@ -1,3 +1,5 @@
+// Historial de chat persistente (memory.json) — caché L1, escritura atómica y cola anti lost-update.
+// Junto a context_builder.ts forma la capa db/ de historial y contexto de sesión.
 import fs from 'fs';
 import path from 'path';
 import { L1Cache } from '../memory/l1_cache.js';

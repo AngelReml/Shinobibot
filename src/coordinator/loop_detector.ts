@@ -126,6 +126,12 @@ export interface LoopDetectorConfig {
   /** Repeticiones del mismo hash de args que disparan abort (default 2). */
   maxRepeatArgs?: number;
   /**
+   * Tope DURO de intentos con los mismos args cuando los resultados SÍ varían
+   * (hay progreso aparente). Backstop de seguridad para que ni siquiera un
+   * bucle "que progresa superficialmente" sea infinito (default 6).
+   */
+  maxRepeatArgsHard?: number;
+  /**
    * Outputs indistinguibles (mismo fingerprint reducido para la misma tool)
    * que disparan abort (default 3).
    */
@@ -159,6 +165,7 @@ export interface LoopCheckResult {
 
 const DEFAULTS: Required<LoopDetectorConfig> = {
   maxRepeatArgs: 2,
+  maxRepeatArgsHard: 6,
   maxSameOutput: 3,
   maxSameFailureMode: 3,
   failureWindowSize: 6,
@@ -212,6 +219,20 @@ export class LoopDetector {
   private readonly argsCounts = new Map<string, number>();
   /** Map<toolName + ':' + fingerprint, count>. */
   private readonly outputCounts = new Map<string, number>();
+  /**
+   * Capa 1 result-aware (FIX 2026-06-10). Por args-hash:
+   *  - argsResultCount: cuántas veces se OBSERVÓ un resultado para esos args.
+   *  - argsLastResultFp: fingerprint del último resultado observado.
+   *  - argsSameResultStreak: cuántas veces seguidas esos args dieron el MISMO
+   *    resultado (señal de bucle real sin progreso).
+   * Permiten distinguir "reintento idéntico que no avanza" (abortar) de
+   * "mismos args pero el mundo cambió entre llamadas: edité un fichero, navegué"
+   * (progreso → permitir). Sin esto, el detector mataba ciclos legítimos de
+   * editar-y-reejecutar (M3) y de refinar-búsqueda (M5).
+   */
+  private readonly argsResultCount = new Map<string, number>();
+  private readonly argsLastResultFp = new Map<string, string>();
+  private readonly argsSameResultStreak = new Map<string, number>();
   /** Capa 3: contador acumulativo por modo de fallo (NUNCA se resetea). */
   private readonly failureModeTotals = new Map<FailureMode, number>();
   /**
@@ -232,15 +253,31 @@ export class LoopDetector {
   recordCallAttempt(toolName: string, args: unknown): LoopCheckResult {
     const hash = sha256(toolName + JSON.stringify(args));
     const prev = this.argsCounts.get(hash) ?? 0;
-    if (prev >= this.cfg.maxRepeatArgs - 1) {
-      // Ya hubo (maxRepeatArgs - 1) intentos previos; este sería el N-ésimo.
-      return {
-        abort: true,
-        verdict: 'LOOP_DETECTED',
-        reason: 'args_repeated',
-        hash,
-      };
+    const resultsSeen = this.argsResultCount.get(hash) ?? 0;
+
+    if (resultsSeen === 0) {
+      // Ruta CIEGA (sin señal de resultado observada para estos args).
+      // Comportamiento original e intacto: el N-ésimo intento idéntico aborta.
+      // Cubre el caso "el agente reintenta lo mismo sin haber visto aún un
+      // resultado" y preserva los tests de la capa 1.
+      if (prev >= this.cfg.maxRepeatArgs - 1) {
+        return { abort: true, verdict: 'LOOP_DETECTED', reason: 'args_repeated', hash };
+      }
+    } else {
+      // Ruta RESULT-AWARE: ya observamos ≥1 resultado para estos args.
+      //  a) Si los MISMOS args dieron el MISMO resultado `maxRepeatArgs` veces
+      //     seguidas → bucle real sin progreso → abortar.
+      //  b) Si los resultados VARÍAN (progreso: el agente cambió el mundo entre
+      //     llamadas), se permite, hasta un tope DURO de seguridad.
+      const streak = this.argsSameResultStreak.get(hash) ?? 0;
+      if (streak >= this.cfg.maxRepeatArgs) {
+        return { abort: true, verdict: 'LOOP_DETECTED', reason: 'args_repeated_no_progress', hash };
+      }
+      if (prev >= this.cfg.maxRepeatArgsHard - 1) {
+        return { abort: true, verdict: 'LOOP_DETECTED', reason: 'args_repeated_hard_cap', hash };
+      }
     }
+
     this.argsCounts.set(hash, prev + 1);
     return { abort: false, hash };
   }
@@ -251,8 +288,24 @@ export class LoopDetector {
    *
    * Se ignora si el output es vacío (no genera señal útil).
    */
-  recordCallResult(toolName: string, output: unknown): LoopCheckResult {
+  recordCallResult(toolName: string, output: unknown, argsHash?: string): LoopCheckResult {
     const fp = reduceOutputForFingerprint(output, this.cfg.fingerprintLength);
+
+    // Capa 1 result-aware: actualiza la racha de "mismo resultado" por args-hash.
+    // Usa el MISMO fingerprint normalizado que la capa 2, así un cambio
+    // superficial (timestamp, path) NO cuenta como progreso. Solo con señal
+    // real (fp no vacío) y si el orchestrator nos pasó el hash de los args.
+    if (argsHash && fp) {
+      this.argsResultCount.set(argsHash, (this.argsResultCount.get(argsHash) ?? 0) + 1);
+      const last = this.argsLastResultFp.get(argsHash);
+      if (last !== undefined && last === fp) {
+        this.argsSameResultStreak.set(argsHash, (this.argsSameResultStreak.get(argsHash) ?? 1) + 1);
+      } else {
+        this.argsSameResultStreak.set(argsHash, 1);
+      }
+      this.argsLastResultFp.set(argsHash, fp);
+    }
+
     if (!fp) return { abort: false };
     const key = toolName + ':' + sha256(fp);
     const prev = this.outputCounts.get(key) ?? 0;

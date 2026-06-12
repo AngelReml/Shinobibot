@@ -23,7 +23,7 @@ export interface TuiProps {
   budget?: number;
 }
 
-export function Tui({ provider = 'opengravity', budget = 32000 }: TuiProps) {
+export function Tui({ provider = process.env.SHINOBI_PROVIDER || '—', budget = 32000 }: TuiProps) {
   const app = useApp();
 
   useInput((_input, key) => {

@@ -1,3 +1,5 @@
+// A2A — protocolo Agent-to-Agent: otro agente invoca capacidades de este Shinobi.
+// Envelope JSON v1 con discovery (agent_card), auth HMAC y traceId por llamada.
 /**
  * A2A Protocol — Agent-to-Agent. Permite que OTRO agente (Shinobi o
  * cualquier sistema compatible) invoque capacidades de este Shinobi de

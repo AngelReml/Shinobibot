@@ -1,3 +1,5 @@
+// Multi-user — un único runtime sirve a varios usuarios con memoria, soul y permisos aislados.
+// Registry persistido en users.json; roles owner/collaborator/guest y userDir por usuario.
 /**
  * Multi-user — un único runtime de Shinobi sirve a varios usuarios con
  * memoria, soul y permisos aislados por user.

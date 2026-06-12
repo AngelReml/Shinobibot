@@ -1,3 +1,5 @@
+// Pool de credenciales API multi-proveedor — rotación de keys y cuarentena 1h tras rate-limit.
+// interruptibleApiCall añade reintentos con rotación y timeout duro sobre axios (capa cloud).
 import axios, { AxiosRequestConfig } from 'axios';
 
 export class CredentialPool {
@@ -15,8 +17,7 @@ export class CredentialPool {
       if (!value) continue;
       
       let provider = '';
-      if (key.match(/^OPENGRAVITY_KEY_\d+$/) || key === 'SHINOBI_API_KEY') provider = 'opengravity';
-      else if (key.match(/^OPENROUTER_KEY_\d+$/) || key === 'OPENROUTER_API_KEY') provider = 'openrouter';
+      if (key.match(/^OPENROUTER_KEY_\d+$/) || key === 'OPENROUTER_API_KEY') provider = 'openrouter';
       else if (key.match(/^ANTHROPIC_KEY_\d+$/) || key === 'ANTHROPIC_API_KEY') provider = 'anthropic';
       else if (key.match(/^OPENAI_KEY_\d+$/) || key === 'OPENAI_API_KEY') provider = 'openai';
       else if (key.match(/^GROQ_KEY_\d+$/) || key === 'GROQ_API_KEY') provider = 'groq';

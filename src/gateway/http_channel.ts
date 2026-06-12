@@ -55,7 +55,7 @@ export function createHttpChannelRouter(opts: HttpChannelOptions): Router {
       opts.chatStore.add(sessionId, 'agent', response, null);
       res.json({
         response,
-        mode: (ShinobiOrchestrator as any).mode ?? 'kernel',
+        mode: 'local',
         model: ShinobiOrchestrator.getModel(),
         sessionId,
       });

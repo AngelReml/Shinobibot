@@ -52,8 +52,8 @@ describe('shouldFailover', () => {
 
 describe('buildFailoverChain', () => {
   it('default: current al frente y sin duplicados', () => {
-    const c = buildFailoverChain('opengravity');
-    expect(c[0]).toBe('opengravity');
+    const c = buildFailoverChain('anthropic');
+    expect(c[0]).toBe('anthropic');
     expect(new Set(c).size).toBe(c.length);
     expect(c).toContain('openrouter');
     expect(c).toContain('groq');

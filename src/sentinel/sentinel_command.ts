@@ -1,3 +1,5 @@
+// Sentinel — slash command /sentinel: watch de fuentes, ask semántico, propuestas, council y digest.
+// Dependencias pesadas (LLM, memoria) se inyectan vía SentinelDeps para tests sin red.
 /**
  * Sentinel — handler del slash command `/sentinel`.
  *

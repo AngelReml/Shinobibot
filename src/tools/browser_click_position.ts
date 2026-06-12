@@ -28,8 +28,10 @@ const browserClickPositionTool: Tool = {
 
   async execute(args: { css_selector: string; index?: number; url_contains?: string; wait_after_ms?: number }): Promise<ToolResult> {
     try {
-      const { chromium } = await import('playwright');
-      const browser = await chromium.connectOverCDP('http://localhost:9222');
+      // Usa el helper central (respeta SHINOBI_BROWSER_CDP_URL: sandbox/headless
+      // dedicado) en vez de hardcodear localhost:9222.
+      const { connectOrLaunchCDP } = await import('./browser_cdp.js');
+      const browser = await connectOrLaunchCDP();
       const contexts = browser.contexts();
       const allPages = contexts.flatMap(c => c.pages());
 

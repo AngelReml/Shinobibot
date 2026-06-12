@@ -1,3 +1,5 @@
+// Context Compactor — compactación heurística del historial bajo presupuesto de tokens, sin LLM.
+// Preserva system, último input y N turnos finales; el modo LLM vive en llm_compactor.ts.
 /**
  * Context Compactor — reduce el tamaño del array de messages antes de
  * enviarlo al LLM cuando excede un umbral de tokens.

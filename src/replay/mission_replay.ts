@@ -1,3 +1,5 @@
+// Mission Replay — reconstruye y opcionalmente re-ejecuta (dry-run) una sesión desde audit.jsonl.
+// Modos: timeline, summarize y dryRunReplay con executor inyectable.
 /**
  * Mission Replay — reconstruye y opcionalmente re-ejecuta una sesión de
  * Shinobi a partir de audit.jsonl.

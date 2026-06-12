@@ -25,8 +25,8 @@ async function main() {
   if (!fs.existsSync(cfgPath)) {
     fs.mkdirSync(SHINOBI_DIR, { recursive: true });
     fs.writeFileSync(cfgPath, JSON.stringify({
-      opengravity_api_key: 'sk_dev_master',
-      opengravity_url: 'http://localhost:9900',
+      provider: 'anthropic' as const,
+      provider_key: 'sk_dev_master',
       language: 'es',
       memory_path: path.join(SHINOBI_DIR, 'memory'),
       onboarded_at: new Date().toISOString(),
