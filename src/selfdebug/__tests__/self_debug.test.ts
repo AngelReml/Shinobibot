@@ -82,7 +82,8 @@ describe('diagnoseError — patrones conocidos', () => {
       error: 'Something totally unrecognized exploded internally.',
     });
     expect(r.rootCauseHypotheses[0].confidence).toBeLessThan(0.5);
-    expect(r.fixSuggestions[0].action).toMatch(/inspeccionar/i);
+    // El fallback actual sugiere identificar la causa raíz (anti-loop), no "inspeccionar".
+    expect(r.fixSuggestions[0].action).toMatch(/causa raíz/i);
   });
 });
 

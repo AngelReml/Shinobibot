@@ -1262,3 +1262,4 @@
 {"kind":"tool_call","ts":"2026-06-12T10:24:14.787Z","tool":"network_info","argsHash":"44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a","argsPreview":"{}","success":true,"durationMs":6}
 {"kind":"failover","ts":"2026-06-12T10:24:14.868Z","from":"openrouter","to":"groq","reason":"rate limit"}
 {"kind":"failover","ts":"2026-06-12T10:24:14.970Z","from":"groq","to":"anthropic","reason":"error desconocido"}
+{"kind":"failover","ts":"2026-06-12T12:24:16.657Z","from":"openai","to":"groq","reason":"rate limit"}

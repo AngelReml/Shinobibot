@@ -39,7 +39,8 @@ describe('IntentRouter', () => {
     const res2 = await IntentRouter.route('ayuda');
     expect(res2.matched).toBe(true);
     expect(res2.intentName).toBe('help');
-    expect(res2.response).toContain('`/status` para verificar');
+    // Texto post-extirpación OG: ya no cita "el estado del OpenGravity Kernel".
+    expect(res2.response).toContain('`/status` para ver el estado');
 
     const res3 = await IntentRouter.route('cÓmo estÁs?');
     expect(res3.matched).toBe(true);

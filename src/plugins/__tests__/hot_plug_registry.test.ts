@@ -8,6 +8,8 @@ import { HotPlugRegistry } from '../hot_plug_registry.js';
 import { getTool } from '../../tools/tool_registry.js';
 
 describe('HotPlugRegistry', () => {
+  // scratch/ no está versionado: crearlo si falta o mkdtemp lanza ENOENT.
+  fs.mkdirSync(path.join(process.cwd(), 'scratch'), { recursive: true });
   const tmpDir = fs.mkdtempSync(path.join(process.cwd(), 'scratch', 'test-plugins-'));
 
   afterEach(() => {
