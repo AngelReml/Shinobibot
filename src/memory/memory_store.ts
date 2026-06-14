@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { MemoryEntry, RecallQuery, RecallResult, MemoryStoreOptions } from './types.js';
 import { EmbeddingProvider } from './embedding_provider.js';
+import type { MemoryProvenance } from '../integrity/provenance.js';
 
 export class MemoryStore {
   private db: BetterSqlite3.Database;
@@ -36,7 +37,8 @@ export class MemoryStore {
         access_count INTEGER NOT NULL DEFAULT 0,
         importance REAL NOT NULL DEFAULT 0.5,
         embedding TEXT,
-        source TEXT
+        source TEXT,
+        provenance TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
       CREATE INDEX IF NOT EXISTS idx_memories_last_accessed ON memories(last_accessed_at DESC);
@@ -52,9 +54,16 @@ export class MemoryStore {
       CREATE INDEX IF NOT EXISTS idx_recall_memory ON recall_log(memory_id);
       CREATE INDEX IF NOT EXISTS idx_recall_timestamp ON recall_log(timestamp DESC);
     `);
+    // FASE C / 11.3 — additive provenance column. Idempotent migration for DBs
+    // created before this column existed (CREATE TABLE above already has it for
+    // fresh DBs; ALTER only runs on legacy DBs missing it).
+    const cols = this.db.prepare(`PRAGMA table_info(memories)`).all() as Array<{ name: string }>;
+    if (!cols.some((c) => c.name === 'provenance')) {
+      this.db.exec(`ALTER TABLE memories ADD COLUMN provenance TEXT`);
+    }
   }
 
-  public async store(content: string, options: { category?: string; tags?: string[]; importance?: number; source?: string } = {}): Promise<MemoryEntry> {
+  public async store(content: string, options: { category?: string; tags?: string[]; importance?: number; source?: string; provenance?: MemoryProvenance } = {}): Promise<MemoryEntry> {
     const id = crypto.randomBytes(8).toString('hex');
     const now = new Date().toISOString();
     const embedding = await EmbeddingProvider.embed(content);
@@ -68,16 +77,18 @@ export class MemoryStore {
       access_count: 0,
       importance: options.importance ?? 0.5,
       embedding,
-      source: options.source
+      source: options.source,
+      provenance: options.provenance
     };
 
     this.db.prepare(`
-      INSERT INTO memories (id, content, category, tags, created_at, last_accessed_at, access_count, importance, embedding, source)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO memories (id, content, category, tags, created_at, last_accessed_at, access_count, importance, embedding, source, provenance)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       entry.id, entry.content, entry.category, JSON.stringify(entry.tags),
       entry.created_at, entry.last_accessed_at, entry.access_count, entry.importance,
-      JSON.stringify(entry.embedding), entry.source || null
+      JSON.stringify(entry.embedding), entry.source || null,
+      entry.provenance ? JSON.stringify(entry.provenance) : null
     );
 
     return entry;
@@ -109,7 +120,8 @@ export class MemoryStore {
         access_count: row.access_count,
         importance: row.importance,
         embedding: row.embedding ? JSON.parse(row.embedding) : undefined,
-        source: row.source
+        source: row.source,
+        provenance: row.provenance ? JSON.parse(row.provenance) : undefined
       };
 
       let score = 0;
@@ -191,7 +203,9 @@ export class MemoryStore {
     for (const raw of entries) {
       const text = (raw || '').trim();
       if (!text) continue;
-      await this.store(text, { category: 'curated', source: 'memory/MEMORY.md' });
+      // Curated MEMORY.md is the trusted, signed-by-the-operator vault → SYSTEM
+      // origin (policy-authoritative). Channel + seq 0 (present at boot).
+      await this.store(text, { category: 'curated', source: 'memory/MEMORY.md', provenance: { origin: 'SYSTEM', channel: 'curated_markdown', session_seq: 0 } });
       indexed++;
     }
     return indexed;

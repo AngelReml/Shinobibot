@@ -8,6 +8,7 @@
 
 import { verifyCsvCertificate, hashArtifactFile } from './csv_verify.js';
 import { classifyEffect, effectWithin } from './effects.js';
+import { policyAuthority } from './provenance.js';
 import type { CheckResult, IntegrityStep, PostActionInput } from './types.js';
 
 /**
@@ -56,6 +57,51 @@ export function check11_2(step: IntegrityStep): CheckResult {
     return { check: '11.2', ok: false, flag: 'EFFECTS_VIOLATION', detail: `action effect "${actualEffect}" exceeds declared_effects "${skill.declared_effects}"` };
   }
   return { check: '11.2', ok: true, detail: `tool declared + effect "${actualEffect}" ⊆ "${skill.declared_effects}"` };
+}
+
+// Heuristic policy-domain phrases (the soft, prose side of 11.3 — labelled).
+const POLICY_PHRASES = [
+  /no cap/i, /unlimited/i, /sin tope/i, /limit(s)? (lifted|raised|removed|waived)/i,
+  /l[íi]mite (especial|sin tope|elevado|anulad)/i, /2fa (verified|ok|pre-?approved)/i,
+  /pre-?approved/i, /override/i, /authoriz(ed|ation) (granted|by the)/i,
+];
+
+/** Does a context item carry a claim in the policy domain? Structural (key match)
+ *  is deterministic; phrase match is heuristic (labelled). */
+function carriesPolicyClaim(content: unknown, keys: string[]): { claim: boolean; mode: 'structural' | 'heuristic' } {
+  if (content && typeof content === 'object' && !Array.isArray(content)) {
+    for (const k of Object.keys(content as Record<string, unknown>)) if (keys.includes(k)) return { claim: true, mode: 'structural' };
+  }
+  const s = (typeof content === 'string' ? content : JSON.stringify(content ?? '')).toLowerCase();
+  for (const k of keys) if (k && s.includes(k.toLowerCase())) return { claim: true, mode: 'structural' };
+  if (POLICY_PHRASES.some((re) => re.test(s))) return { claim: true, mode: 'heuristic' };
+  return { claim: false, mode: 'structural' };
+}
+
+/**
+ * 11.3 — Memory provenance / poisoning (pre-action, cross-step). Fires iff ALL
+ * (CONTRACT §11.3): the action is a PRIVILEGED decision; the decision context
+ * has a non-authoritative item carrying a policy-domain claim; honoring it would
+ * relax the signed policy (signed says deny); and the action is consistent with
+ * honoring it (it authorizes). A non-authoritative item used merely as DATA does
+ * NOT fire — only when it is used as AUTHORITY overriding policy.
+ */
+export function check11_3(step: IntegrityStep): CheckResult {
+  if (!step.privileged) return { check: '11.3', ok: true, detail: 'not a privileged decision — nothing to enforce' };
+  const conflict = step.signed_policy_outcome === 'deny' && step.action_outcome === 'authorize';
+  const keys = step.policy_domain_keys ?? [];
+  const items = step.memory_context ?? [];
+  const offenders = items
+    .map((it) => ({ it, c: carriesPolicyClaim(it.content, keys) }))
+    .filter((x) => !policyAuthority(x.it.provenance?.origin) && x.c.claim);
+  if (conflict && offenders.length > 0) {
+    const o = offenders[0];
+    return {
+      check: '11.3', ok: false, flag: 'MEMORY_POISON',
+      detail: `privileged authorize overrides the signed deny, driven by a non-authoritative ${o.it.provenance.origin} item (channel ${o.it.provenance.channel}, seq ${o.it.provenance.session_seq}, ${o.c.mode}) carrying a policy-domain claim — DATA used as AUTHORITY`,
+    };
+  }
+  return { check: '11.3', ok: true, detail: conflict ? 'authorize-over-deny but no non-authoritative policy claim drives it' : 'no policy conflict, or untrusted item used only as data' };
 }
 
 /**

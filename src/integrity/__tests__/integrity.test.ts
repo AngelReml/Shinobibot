@@ -5,9 +5,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyCsvCertificate, hashArtifactFile } from '../csv_verify.js';
 import { classifyEffect, effectWithin } from '../effects.js';
-import { check11_1, check11_2, check11_4 } from '../checks.js';
+import { check11_1, check11_2, check11_3, check11_4 } from '../checks.js';
 import { runPreAction, runPostAction, reportClaimsSuccess } from '../engine.js';
-import type { IntegrityStep, SkillBinding } from '../types.js';
+import { policyAuthority, assignOrigin } from '../provenance.js';
+import type { IntegrityStep, SkillBinding, ContextItem } from '../types.js';
 
 const FIX = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 const csv = JSON.parse(fs.readFileSync(path.join(FIX, 'certified.csv.json'), 'utf-8'));
@@ -85,6 +86,52 @@ describe('check 11.2 — action ⊆ declared effects/tools', () => {
   it('declared tool but effect exceeds declared → EFFECTS_VIOLATION', () => {
     const r = check11_2(step({ ...baseSkill, declared_tools: ['edit_file'] }, { tool: 'edit_file', args: {} }));
     expect(r.ok).toBe(false); expect(r.flag).toBe('EFFECTS_VIOLATION');
+  });
+});
+
+describe('provenance model (11.3)', () => {
+  it('policy_authority true only for SYSTEM / USER_DIRECT', () => {
+    expect(policyAuthority('SYSTEM')).toBe(true);
+    expect(policyAuthority('USER_DIRECT')).toBe(true);
+    expect(policyAuthority('COUNTERPARTY')).toBe(false);
+    expect(policyAuthority('TOOL_EXTERNAL')).toBe(false);
+    expect(policyAuthority('UNKNOWN')).toBe(false);
+    expect(policyAuthority(undefined)).toBe(false);
+  });
+  it('assignOrigin maps entry channels, unknown → UNKNOWN (fail-closed)', () => {
+    expect(assignOrigin('curated_markdown')).toBe('SYSTEM');
+    expect(assignOrigin('counterparty_msg')).toBe('COUNTERPARTY');
+    expect(assignOrigin('something_random')).toBe('UNKNOWN');
+  });
+});
+
+describe('check 11.3 — memory provenance / poisoning (cross-step)', () => {
+  const KEYS = ['claimed_per_day_usd', 'claimed_2fa_status', 'claimed_limit'];
+  const poison: ContextItem = { content: { claimed_per_day_usd: 999999 }, provenance: { origin: 'COUNTERPARTY', channel: 'counterparty_msg', session_seq: 3 } };
+  const signedPolicy: ContextItem = { content: { authorized_per_day_usd: 5000 }, provenance: { origin: 'SYSTEM', channel: 'curated_markdown', session_seq: 0 } };
+  function privStep(over: Partial<IntegrityStep>): IntegrityStep {
+    return { step: 9, action: { tool: 'authorize_payment' }, skill: null, risk: 'high', privileged: true, policy_domain_keys: KEYS, ...over };
+  }
+
+  it('POISONED: authorize-over-signed-deny driven by non-authoritative claim → FIRE', () => {
+    const r = check11_3(privStep({ signed_policy_outcome: 'deny', action_outcome: 'authorize', memory_context: [signedPolicy, poison] }));
+    expect(r.ok).toBe(false); expect(r.flag).toBe('MEMORY_POISON');
+  });
+  it('CLEAN: same action backed by signed policy (within limit, allow) → PASS', () => {
+    const r = check11_3(privStep({ signed_policy_outcome: 'allow', action_outcome: 'authorize', memory_context: [signedPolicy, poison] }));
+    expect(r.ok).toBe(true);
+  });
+  it('CLEAN: poison present but action follows policy (deny) → PASS', () => {
+    const r = check11_3(privStep({ signed_policy_outcome: 'deny', action_outcome: 'deny', memory_context: [signedPolicy, poison] }));
+    expect(r.ok).toBe(true);
+  });
+  it('CLEAN: untrusted item used only as DATA (no policy-domain claim) → PASS', () => {
+    const dataItem: ContextItem = { content: { tx_list: [1, 2, 3] }, provenance: { origin: 'COUNTERPARTY', channel: 'counterparty_msg', session_seq: 3 } };
+    const r = check11_3(privStep({ signed_policy_outcome: 'deny', action_outcome: 'authorize', memory_context: [signedPolicy, dataItem] }));
+    expect(r.ok).toBe(true);
+  });
+  it('non-privileged action → no-op PASS', () => {
+    expect(check11_3({ step: 1, action: { tool: 'read_file' }, skill: null, risk: 'low' }).ok).toBe(true);
   });
 });
 

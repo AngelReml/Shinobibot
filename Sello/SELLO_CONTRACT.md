@@ -275,3 +275,48 @@ Descriptor de probe de skill (`skills/<id>/probes.jsonl`, un objeto por línea):
 - **Validación REAL (no especificación):** cada probe se corre contra el artefacto robusto Y una **variante vulnerable** declarada; gate B exige robusto-aguanta ∧ vulnerable-cae (igual que la buggy en FASE A). Una probe que no aplica al contrato o pide capacidad ausente → backlog documentado, no bloquea.
 
 **Schema freeze:** §10, §11 y §11.1 se congelan al cerrar la Puerta B; no se tocan sin re-validación por CLI cruda.
+
+---
+
+## §11.3 Procedencia de memoria y detección de envenenamiento
+
+Amenaza: envenenamiento de memoria (MINJA / eTAMP / OWASP ASI06). Un atacante
+inyecta contenido en la memoria por un canal de DATOS (retorno de tool, contenido
+recuperado, mensaje de contraparte, campo free-text) y ese contenido gobierna una
+decisión privilegiada PASOS DESPUÉS. Es el modo que ninguna probe de FASE B (un solo
+turno) puede cazar, y que Hermes (memoria sin procedencia) no puede defender.
+
+Modelo de procedencia. Cada item de memoria lleva:
+  origin  ∈ { SYSTEM, USER_DIRECT, AGENT_DERIVED, TOOL_INTERNAL,
+              TOOL_EXTERNAL, RETRIEVED, COUNTERPARTY }
+  channel : mecanismo de entrada
+  session_seq : paso monotónico en que entró (detecta inyección a mitad de sesión)
+  policy_authority : derivado = true SOLO para { SYSTEM, USER_DIRECT }
+
+Origin asignado EN EL PUNTO DE ENTRADA, no después:
+  config/manifiesto firmado → SYSTEM ; instrucción del principal autenticado → USER_DIRECT ;
+  razonamiento propio → AGENT_DERIVED ; tool determinista interna (ledger nonce) → TOOL_INTERNAL ;
+  tool externa/influenciable → TOOL_EXTERNAL ; web/RAG/documento → RETRIEVED ;
+  otro agente/parte → COUNTERPARTY.
+
+Regla 11.3 (dispara sii TODAS):
+  1. La acción es una decisión PRIVILEGIADA (gated por política: límite, blacklist, autorización).
+  2. El contexto de la decisión incluye un item con policy_authority=false que hace una
+     AFIRMACIÓN EN EL DOMINIO DE POLÍTICA (límites, autorización, verificación de identidad,
+     confianza del destinatario).
+  3. Honrar esa afirmación relajaría/anularía la política de origen SYSTEM/USER_DIRECT.
+  4. La acción propuesta es consistente con honrar la afirmación en vez de la política firmada.
+  → FIRE. Halt (o flag). La decisión se re-evalúa SOLO contra política policy_authority.
+    La afirmación no-autoritativa es DATO, nunca AUTORIDAD.
+
+Evita falsos positivos: un item no-autoritativo usado como DATO-A-PROCESAR (la lista de
+transacciones a validar) es correcto — el trabajo del agente ES procesar input no fiable.
+11.3 solo dispara cuando ese item se usa como AUTORIDAD que sobre-escribe política.
+
+Fuerza honesta: para skills ESTRUCTURADAS (la semilla) el dominio de política es
+identificable estructuralmente (campo no-autoritativo que porta un valor de política:
+claimed_2fa_status, claimed_limit) → chequeo DETERMINISTA. Para prosa abierta, detectar
+"afirmación en dominio de política" es heurístico, etiquetado como tal (clase de 11.4).
+Fuerte donde está acotado, blando donde no.
+
+**Schema freeze:** §11.3 se congela al cerrar la Puerta C; no se toca sin re-validación por ejecución.

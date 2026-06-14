@@ -1,3 +1,5 @@
+import type { MemoryProvenance } from '../integrity/provenance.js';
+
 export interface MemoryEntry {
   id: string;
   content: string;
@@ -9,6 +11,9 @@ export interface MemoryEntry {
   importance: number;
   embedding?: number[];
   source?: string;
+  // FASE C / 11.3 — additive. Where this item came from (origin/channel/seq).
+  // Absent = legacy item → treated as UNKNOWN (non-authoritative, fail-closed).
+  provenance?: MemoryProvenance;
 }
 
 export interface RecallQuery {

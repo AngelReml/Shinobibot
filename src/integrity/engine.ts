@@ -12,7 +12,7 @@
  * no checks yet.
  */
 
-import { check11_1, check11_2, check11_4 } from './checks.js';
+import { check11_1, check11_2, check11_3, check11_4 } from './checks.js';
 import type { CheckResult, IntegrityStep, IntegrityFlag, IntegrityVerdict, PostActionInput } from './types.js';
 
 export type IntegrityMode = 'off' | 'flag' | 'enforce';
@@ -29,7 +29,7 @@ export function integrityEnabled(): boolean {
 /** Run the C1 pre-action checks and decide proceed/flag/halt. */
 export function runPreAction(step: IntegrityStep): IntegrityVerdict {
   const t0 = performance.now();
-  const checks: CheckResult[] = [check11_1(step), check11_2(step)];
+  const checks: CheckResult[] = [check11_1(step), check11_2(step), check11_3(step)];
   const durationMs = performance.now() - t0;
 
   const failed = checks.filter((c) => !c.ok);

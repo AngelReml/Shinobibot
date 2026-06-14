@@ -20,6 +20,7 @@ export default defineConfig({
       'src/memory/__tests__/providers.test.ts',
       'src/memory/__tests__/l1_cache.test.ts',
       'src/memory/__tests__/contradiction_filter.test.ts',
+      'src/memory/__tests__/provenance.test.ts',
       'src/memory/dreaming/__tests__/**/*.test.ts',
       'src/observability/__tests__/**/*.test.ts',
       'src/memory/embedding_providers/__tests__/**/*.test.ts',
