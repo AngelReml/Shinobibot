@@ -21,8 +21,11 @@ import { canonicalHash } from '../core/ledger/canonical.ts';
 import { PATHS } from '../core/paths.ts';
 import { certifySkill } from '../skill/runner.ts';
 import {
-  type SkillCSV, verifyCSVSignature, csvEnvHash, aggregateVerdict,
+  type SkillCSV, verifyCSVSignature, csvEnvHash, aggregateClean, computeCsvVerdict,
 } from '../skill/csv.ts';
+import { loadManifest } from '../skill/manifest.ts';
+import { loadBank } from '../harness/bank.ts';
+import { loadProbes, runProbe, expectedShiftVerdict } from '../skill/probe_runner.ts';
 
 function usage(): never {
   console.error(`sello — pure behavioral verifier (PoBI)
@@ -41,6 +44,10 @@ usage:
                                              evidence + env + profile recompute
   sello skill-replay <skill-dir> [artifact]  re-certify and check the verdict +
                                              profile are deterministic vs the last CSV
+  sello skill-probe <skill-dir> <vuln>       FASE B: run the skill's probes against
+                                             the robust (declared) artifact AND a
+                                             vulnerable variant <vuln>; print the
+                                             robust-holds vs vulnerable-falls table
 `);
   process.exit(2);
 }
@@ -183,12 +190,13 @@ function cmdSkillVerify(args: string[]): number {
     if (!chainMember) reasons.push('this_hash not found in skill ledger (CSV not chained)');
   }
 
-  // 5) profile recompute from cases must match the embedded profile + verdict.
-  const agg = aggregateVerdict(csv.cases);
+  // 5) profile recompute from cases (+ robustness gate) must match stored profile + verdict.
+  const clean = aggregateClean(csv.cases);
   const p = csv.profile.correctness_clean;
-  const profileOk = agg.pass === p.pass && agg.total === p.total && agg.pass_rate === p.pass_rate && agg.verdict === csv.verdict;
+  const recomputedVerdict = computeCsvVerdict(clean, csv.profile.robustness);
+  const profileOk = clean.pass === p.pass && clean.total === p.total && clean.pass_rate === p.pass_rate && recomputedVerdict === csv.verdict;
   if (!profileOk) {
-    reasons.push(`profile mismatch: recomputed {pass:${agg.pass}, total:${agg.total}, verdict:${agg.verdict}} vs stored {pass:${p.pass}, total:${p.total}, verdict:${csv.verdict}}`);
+    reasons.push(`profile mismatch: recomputed {pass:${clean.pass}, total:${clean.total}, verdict:${recomputedVerdict}} vs stored {pass:${p.pass}, total:${p.total}, verdict:${csv.verdict}}`);
   }
 
   const ok = sig.ok && evidenceOk && envOk && chain.ok && chainMember && profileOk;
@@ -242,6 +250,52 @@ async function cmdSkillReplay(args: string[]): Promise<number> {
   return sameVerdict && sameProfile ? 0 : 1;
 }
 
+async function cmdSkillProbe(args: string[]): Promise<number> {
+  const [dir, vuln] = args;
+  if (!dir || !vuln) usage();
+  const robust = loadManifest(dir);                 // declared (robust) artifact
+  const vulnerable = loadManifest(dir, vuln);        // variant under test
+  const bank = loadBank(robust.bankPath);
+  const probes = loadProbes(dir);
+  if (probes.length === 0) { console.error(`skill-probe: no probes.jsonl in ${dir}`); return 2; }
+  const evidence = new EvidenceStore(PATHS.evidenceDir);
+  const robustCmd = `node ${robust.artifactPath}`;
+  const vulnCmd = `node ${vulnerable.artifactPath}`;
+
+  const rows: any[] = [];
+  let aDiscriminate = 0, aTotal = 0, bDetected = 0, bTotal = 0;
+  for (const probe of probes) {
+    const expected = expectedShiftVerdict(probe.expected_shift);
+    const rRun = await runProbe(bank, probe, robustCmd, evidence);
+    const vRun = await runProbe(bank, probe, vulnCmd, evidence);
+    if (probe.plane === 'A') {
+      aTotal++;
+      const robustHolds = rRun.verdict === 'PASS';
+      const vulnFalls = vRun.verdict === expected;
+      const discriminates = robustHolds && vulnFalls;
+      if (discriminates) aDiscriminate++;
+      rows.push({ id: probe.id, class: probe.class, plane: 'A', op: probe.mutation.op, target: probe.target_case, robust: rRun.verdict, vulnerable: vRun.verdict, expected, robust_holds: robustHolds, vulnerable_falls: vulnFalls, discriminates });
+    } else {
+      bTotal++;
+      const detected = rRun.verdict === expected;       // envelope is subject-agnostic
+      if (detected) bDetected++;
+      rows.push({ id: probe.id, class: probe.class, plane: 'B', op: probe.mutation.op, target: probe.target_case, robust: rRun.verdict, vulnerable: vRun.verdict, expected, detected });
+    }
+  }
+
+  const out = {
+    skill_id: robust.manifest.skill_id,
+    robust_artifact: robust.artifactHash,
+    vulnerable_artifact: vulnerable.artifactHash,
+    plane_a: { discriminate: aDiscriminate, total: aTotal },
+    plane_b: { detected: bDetected, total: bTotal },
+    rows,
+    gate_b_ok: aDiscriminate === aTotal && bDetected === bTotal,
+  };
+  process.stdout.write(JSON.stringify(out, null, 2) + '\n');
+  return out.gate_b_ok ? 0 : 1;
+}
+
 async function main(): Promise<number> {
   const [cmd, ...rest] = process.argv.slice(2);
   switch (cmd) {
@@ -251,6 +305,7 @@ async function main(): Promise<number> {
     case 'skill-cert': return cmdSkillCert(rest);
     case 'skill-verify': return cmdSkillVerify(rest);
     case 'skill-replay': return cmdSkillReplay(rest);
+    case 'skill-probe': return cmdSkillProbe(rest);
     default: usage();
   }
 }

@@ -26,9 +26,10 @@ import { HARNESS_VERSION } from '../core/verdict/pobi.ts';
 import { PATHS, ADAPTER_TIMEOUT_MS } from '../core/paths.ts';
 import { loadManifest, type LoadedSkill } from './manifest.ts';
 import {
-  CSV_VERSION, type SkillCSV, type SkillCase,
-  csvEnvHash, aggregateVerdict, signCSV,
+  CSV_VERSION, type SkillCSV, type SkillCase, type RobustnessProfile,
+  csvEnvHash, aggregateClean, computeCsvVerdict, signCSV,
 } from './csv.ts';
+import { loadProbes, buildRobustnessProfile } from './probe_runner.ts';
 
 export interface CertifyResult {
   csv: SkillCSV;
@@ -81,7 +82,15 @@ export async function certifySkill(skillDir: string, artifactOverride?: string):
     });
   }
 
-  const agg = aggregateVerdict(cases);
+  const clean = aggregateClean(cases);
+
+  // ── FASE B: if the skill declares probes, measure robustness of THIS artifact ─
+  const probes = loadProbes(skill.dir);
+  let robustness: RobustnessProfile | null = null;
+  if (probes.length > 0) {
+    robustness = await buildRobustnessProfile(bank, probes, command, evidence);
+  }
+
   const tsIso = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
   const bankRaw = fs.readFileSync(skill.bankPath, 'utf-8');
 
@@ -95,14 +104,14 @@ export async function certifySkill(skillDir: string, artifactOverride?: string):
       skill_artifact_hash: skill.artifactHash,
     },
     declared: { tools: skill.manifest.declared_tools, effects: skill.manifest.declared_effects },
-    conditions: { mode: 'clean', probes: [] },
+    conditions: { mode: robustness ? 'perturbed' : 'clean', probes: probes.map((p) => p.id) },
     bank: { bank_hash: `sha256:${canonicalHash(bankRaw)}`, case_count: cases.length },
     cases,
     profile: {
-      correctness_clean: { pass: agg.pass, total: agg.total, pass_rate: agg.pass_rate },
-      robustness: null,
+      correctness_clean: { pass: clean.pass, total: clean.total, pass_rate: clean.pass_rate },
+      robustness,
     },
-    verdict: agg.verdict,
+    verdict: computeCsvVerdict(clean, robustness),
     execution: { ts: tsIso, harness_version: HARNESS_VERSION, env_hash: csvEnvHash() },
     provenance: {
       manifest_ref: path.relative(process.cwd(), path.join(skill.dir, 'manifest.json')),
