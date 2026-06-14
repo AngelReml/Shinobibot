@@ -1,0 +1,27 @@
+{
+  "name": "sello",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sello — pure behavioral verifier (PoBI). NOT an agent. Emits signed, hash-chained verdicts.",
+  "bin": {
+    "sello": "src/cli/sello.ts"
+  },
+  "scripts": {
+    "sello": "tsx src/cli/sello.ts",
+    "extract:bank": "tsx scripts/extract_bank.ts",
+    "extract:expansion": "tsx scripts/extract_expansion.ts",
+    "compute:oracles": "tsx scripts/compute_oracles.ts",
+    "gen:manifest": "tsx scripts/gen_manifest.ts",
+    "gen:catalog": "tsx scripts/gen_prompt_catalog.ts",
+    "regression": "tsx scripts/regression.ts",
+    "probes": "tsx scripts/run_probes.ts",
+    "typecheck": "tsc --noEmit",
+    "setup:hooks": "git config core.hooksPath .githooks"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.21",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

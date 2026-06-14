@@ -1,0 +1,44 @@
+#!/bin/sh
+# Sello pre-commit secret-scan. Blocks the commit if staged content looks like
+# a secret. Zero deps (POSIX sh + git). Runs on the STAGED blobs, not the tree.
+set -eu
+
+fail=0
+note() { printf '  ✖ %s\n' "$1" >&2; fail=1; }
+
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+[ -z "$staged" ] && exit 0
+
+for f in $staged; do
+  case "$f" in
+    *.example|.env.example) continue ;;
+  esac
+
+  # 1) Files that must never be committed.
+  case "$f" in
+    .env|.env.*|*.pem|*.key|keys/*)
+      note "blocked path (secret material): $f" ; continue ;;
+  esac
+
+  # Only scan text blobs we can read from the index.
+  blob=$(git show ":$f" 2>/dev/null || true)
+  [ -z "$blob" ] && continue
+
+  # 2) Content patterns.
+  if printf '%s' "$blob" | grep -qE 'BEGIN (RSA |EC |OPENSSH |PGP |)PRIVATE KEY'; then
+    note "private key material in $f"
+  fi
+  if printf '%s' "$blob" | grep -qE 'sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|xox[baprs]-[A-Za-z0-9-]{10,}'; then
+    note "API token pattern in $f"
+  fi
+  if printf '%s' "$blob" | grep -qE '(api[_-]?key|secret|password|passwd)[[:space:]]*[:=][[:space:]]*["'"'"']?[A-Za-z0-9/_+-]{16,}'; then
+    note "hardcoded credential assignment in $f"
+  fi
+done
+
+if [ "$fail" -ne 0 ]; then
+  printf '\n[sello pre-commit] secret-scan FAILED — commit aborted.\n' >&2
+  printf 'Remove the secret or, if it is a false positive, commit with --no-verify (discouraged).\n' >&2
+  exit 1
+fi
+exit 0
