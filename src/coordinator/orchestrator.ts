@@ -23,6 +23,9 @@ import { LoopDetector, loopDetectorConfigFromEnv, failureModeAdvice } from './lo
 import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import { isDestructive, requestApproval, registerApprovedPath } from '../security/approval.js';
+import { integrityEnabled, runPreAction } from '../integrity/engine.js';
+import { stepForToolCall } from '../integrity/registry.js';
+import type { ToolResult } from '../tools/tool_registry.js';
 import { shadowDispatchEnabled, shadowClassifyAndRecord } from '../dispatch/shadow_recorder.js';
 import { refinerShadowEnabled, refineShadowForTask } from '../refiner/refiner_shadow.js';
 import { diagnoseError } from '../selfdebug/self_debug.js';
@@ -659,8 +662,24 @@ export class ShinobiOrchestrator {
             // aprobación manual explícita en el chat).
             registerApprovedPath(functionName, functionArgs);
             const t0 = Date.now();
-            toolEvents().emitToolStarted({ tool: functionName, args: functionArgs });
-            const result = await tool.execute(functionArgs);
+            // FASE C / C1 — capa de integridad en runtime (Capa 2). ADITIVA y
+            // gated por SHINOBI_INTEGRITY (off|flag|enforce; default off → no-op).
+            // Chequeos pre-acción 11.1 (CSV válido) + 11.2 (acción ⊆ efectos
+            // declarados). En 'enforce' (o alto riesgo) una violación HALTA: la
+            // tool no se ejecuta y el rechazo vuelve como result (el loop no se
+            // rompe, igual que el approval gate). `result` queda SIEMPRE definido.
+            let result: ToolResult;
+            const integ = integrityEnabled() ? runPreAction(stepForToolCall(functionName, functionArgs)) : null;
+            if (integ && !integ.ok) {
+              logToolCall({ tool: functionName, args: functionArgs, success: false, durationMs: Math.round(integ.durationMs), error: `integrity_${integ.flags.join('+')}` });
+              console.log(`  [🛡] integridad ${integ.action}: ${integ.flags.join(', ')} (${integ.durationMs.toFixed(2)}ms)`);
+            }
+            if (integ && integ.action === 'halt') {
+              result = { success: false, output: '', error: `Integridad: violación ${integ.flags.join('+')} — acción "${functionName}" NO ejecutada. ${integ.checks.filter((c) => !c.ok).map((c) => c.detail).join('; ')}` };
+            } else {
+              toolEvents().emitToolStarted({ tool: functionName, args: functionArgs });
+              result = await tool.execute(functionArgs);
+            }
             const durationMs = Date.now() - t0;
             toolResultStr = JSON.stringify(result);
             if (result.success) {

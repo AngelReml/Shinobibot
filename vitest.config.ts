@@ -58,6 +58,7 @@ export default defineConfig({
       'src/lsp/__tests__/**/*.test.ts',
       'src/bench/__tests__/**/*.test.ts',
       'src/agents/__tests__/**/*.test.ts',
+      'src/integrity/__tests__/**/*.test.ts',
       'src/__tests__/stress/**/*.test.ts',
     ],
     exclude: ['node_modules', 'dist', 'scratch', 'test_*.ts'],

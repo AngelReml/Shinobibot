@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-14T13:10:01.795Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-14T13:32:07.649Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (16 cambios)
-- **Ultimo commit:** 7d427da feat(sello): FASE A — verificador de skills + primer CSV (payment.authorize.v1)
-- **Tamano:** 311 ficheros de codigo (44395 LOC), 113 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (22 cambios)
+- **Ultimo commit:** d9cb707 feat(sello): FASE B — perfil de robustez en el CSV (probes §6.2 sobre la skill)
+- **Tamano:** 317 ficheros de codigo (44760 LOC), 114 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -41,6 +41,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/evaluation/` | 1 | FASE 0 del encargo "Refinador de prompts" — Promptfoo como juez objetivo |
 | `src/gaia/` | 1 | Scorer OFICIAL de GAIA — port fiel y VALIDADO del `question_scorer` del |
 | `src/gateway/` | 6 | Bloque 6 — orchestrator de canales del gateway externo. |
+| `src/integrity/` | 6 | _(anade un banner de cabecera)_ |
 | `src/knowledge/` | 2 | Habilidad C.1 — /learn <ruta_o_url> |
 | `src/learning/` | 5 | Fase 6 del bucle de aprendizaje — el Curator (Motor 2): mantiene sana la colección de skills. |
 | `src/ledger/` | 1 | D.4 — MissionLedger: hash chain SHA256 de cada mision completada. |
