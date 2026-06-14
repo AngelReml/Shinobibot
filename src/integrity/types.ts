@@ -37,13 +37,22 @@ export type IntegrityFlag =
   | 'CSV_INVALID'         // 11.1: signature or this_hash bad, or NOT_CERTIFIED
   | 'ARTIFACT_MISMATCH'   // 11.1: on-disk artifact hash != certified hash
   | 'TOOL_NOT_DECLARED'   // 11.2: tool not in declared_tools
-  | 'EFFECTS_VIOLATION';  // 11.2: action effect exceeds declared_effects
+  | 'EFFECTS_VIOLATION'   // 11.2: action effect exceeds declared_effects
+  | 'FABRICATION';        // 11.4: agent's reported outcome != the tool's real outcome
 
 export interface CheckResult {
-  check: '11.1' | '11.2';
+  check: '11.1' | '11.2' | '11.4';
   ok: boolean;
   flag?: IntegrityFlag;
   detail: string;
+}
+
+/** Post-action (11.4) input: the tool's REAL result vs what the agent reports. */
+export interface PostActionInput {
+  tool: string;
+  real: { success: boolean; output: string };
+  reported: { claims_success: boolean; claim?: string };
+  risk: 'low' | 'high';
 }
 
 export interface IntegrityVerdict {

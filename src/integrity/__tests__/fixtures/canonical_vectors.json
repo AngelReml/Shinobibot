@@ -1,0 +1,68 @@
+[
+  {
+    "input": {
+      "z": 1,
+      "a": 2,
+      "m": {
+        "y": [
+          3,
+          2,
+          1
+        ],
+        "b": "x"
+      }
+    },
+    "sello_sha256": "cb9fe1acceabc6af24a4ad091d96364c97c471e4cedac586107d775eaa0402a8"
+  },
+  {
+    "input": {
+      "nested": {
+        "deep": {
+          "arr": [
+            {
+              "k": 2,
+              "a": 1
+            },
+            {
+              "a": 3,
+              "k": 4
+            }
+          ]
+        }
+      },
+      "unicode": "ñ→€✓",
+      "num": 3184.2
+    },
+    "sello_sha256": "64a48ae4f9f15d7ad3619e963289b124bb3c6bc02bdede510da6a0c8765fbe67"
+  },
+  {
+    "input": {
+      "authorize": false,
+      "reason_code": "EXCEEDS_DAILY",
+      "remaining_daily_after_tx_usd": 800
+    },
+    "sello_sha256": "d263551d11fdc95d7d91f63ef2a3c0d5dd1f4d3d4ebc5def0772f870c06027d5"
+  },
+  {
+    "input": [
+      {
+        "b": 1,
+        "a": 2
+      },
+      {
+        "d": 4,
+        "c": 3
+      }
+    ],
+    "sello_sha256": "25dd33626f81a785caad07e2e155e5ecb805b14bfb85d08bcf51970dad90e6a4"
+  },
+  {
+    "input": {
+      "empty": {},
+      "nul": null,
+      "bool": true,
+      "neg": -0.5
+    },
+    "sello_sha256": "9eba86d1d645d3eec291d9e007d34e704daf49f4468d2dc7f0de6b770cc20f6e"
+  }
+]

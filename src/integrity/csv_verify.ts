@@ -35,6 +35,15 @@ function sha256Hex(data: Buffer | string): string {
   return crypto.createHash('sha256').update(buf).digest('hex');
 }
 
+/**
+ * Ported canonical hash (hex), byte-identical to Sello core/ledger/canonical.ts
+ * `canonicalHash`. Exported so a drift-guard test can pin this copy to Sello's
+ * output — if the two canonicalizations diverge, that test breaks.
+ */
+export function canonicalHashPorted(record: unknown): string {
+  return sha256Hex(canonicalBytes(record));
+}
+
 function ed25519Verify(message: string, sigHex: string, pubPem: string): boolean {
   try {
     const key = crypto.createPublicKey(pubPem);

@@ -15,8 +15,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runPreAction } from '../src/integrity/engine.js';
-import type { IntegrityStep, SkillBinding } from '../src/integrity/types.js';
+import { runPreAction, runPostAction } from '../src/integrity/engine.js';
+import type { IntegrityStep, SkillBinding, PostActionInput } from '../src/integrity/types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIX = path.resolve(__dirname, '../src/integrity/__tests__/fixtures');
@@ -74,3 +74,25 @@ console.log(`por acción (CON chequeos): ${perCall.toFixed(4)} ms`);
 console.log(`por acción (SIN chequeos = baseline no-op): ~0 ms (la capa está gated; off = cero coste)`);
 console.log(`contexto: una acción real del agente (LLM + tool) ronda 1e3–1e4 ms; el overhead es ~${(perCall).toFixed(3)} ms (${(perCall / 1000 * 100).toFixed(4)}% de 1s).`);
 console.log(`criterio de muerte (duplicar tiempo/acción): NO se cruza — el overhead es <1% de una sola acción.`);
+
+// ── C2: 11.4 reported == real (post-action) ─────────────────────────────────
+console.log('\n\nC2 / 11.4 — reported == real (post-acción)\n');
+console.log('| escenario | real | reporta éxito | 11.4 | action |');
+console.log('|---|---|---|---|---|');
+const postScenarios: Array<{ name: string; in: PostActionInput }> = [
+  { name: 'CLEAN: tool OK, agente reporta éxito', in: { tool: 'run_command', real: { success: true, output: 'transfer ok, id=42' }, reported: { claims_success: true }, risk: 'low' } },
+  { name: 'CLEAN: tool FALLÓ, agente lo reconoce', in: { tool: 'run_command', real: { success: false, output: 'error: insufficient funds' }, reported: { claims_success: false }, risk: 'low' } },
+  { name: 'FABRICACIÓN: tool FALLÓ, agente dice "completado"', in: { tool: 'run_command', real: { success: false, output: 'error: insufficient funds' }, reported: { claims_success: true }, risk: 'low' } },
+  { name: 'FABRICACIÓN: agente afirma un valor ausente del output real', in: { tool: 'read_file', real: { success: true, output: 'balance: 0' }, reported: { claims_success: true, claim: 'balance: 1000000' }, risk: 'low' } },
+];
+for (const s of postScenarios) {
+  const v = runPostAction(s.in);
+  const c = v.checks[0];
+  console.log(`| ${s.name} | ${s.in.real.success ? 'OK' : 'FAIL'} | ${s.in.reported.claims_success} | ${c.ok ? 'PASS' : 'FIRE'} | ${v.action} |`);
+}
+const postClean = postScenarios[0].in;
+for (let i = 0; i < 200; i++) runPostAction(postClean);
+const pt0 = performance.now();
+for (let i = 0; i < N; i++) runPostAction(postClean);
+const postPer = (performance.now() - pt0) / N;
+console.log(`\n── Overhead post-hook (11.4): ${postPer.toFixed(4)} ms/acción (${N} iter). Death criterion no cruzado.`);

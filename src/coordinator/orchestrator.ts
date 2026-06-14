@@ -23,7 +23,7 @@ import { LoopDetector, loopDetectorConfigFromEnv, failureModeAdvice } from './lo
 import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import { isDestructive, requestApproval, registerApprovedPath } from '../security/approval.js';
-import { integrityEnabled, runPreAction } from '../integrity/engine.js';
+import { integrityEnabled, runPreAction, runPostAction, reportClaimsSuccess } from '../integrity/engine.js';
 import { stepForToolCall } from '../integrity/registry.js';
 import type { ToolResult } from '../tools/tool_registry.js';
 import { shadowDispatchEnabled, shadowClassifyAndRecord } from '../dispatch/shadow_recorder.js';
@@ -274,6 +274,11 @@ export class ShinobiOrchestrator {
   private static async executeToolLoop(input: string, toolSequence: string[] = []): Promise<any> {
     let currentMessages = await this.contextBuilder.buildMessages(input);
 
+    // FASE C / C2 — 11.4 (reported == real). Real tool results from the PREVIOUS
+    // iteration, keyed by tool_call_id; compared against the agent's next report.
+    // Gated: only populated/consumed when SHINOBI_INTEGRITY is on.
+    const integrityPending = new Map<string, { tool: string; real: { success: boolean; output: string } }>();
+
     const userQuery = currentMessages.filter(m => m.role === 'user').slice(-1)[0]?.content || '';
     if (userQuery && typeof userQuery === 'string') {
       try {
@@ -515,6 +520,22 @@ export class ShinobiOrchestrator {
           };
         }
 
+        // FASE C / C2 — 11.4 (reported == real), post-action. The agent's message
+        // IS its report of the prior tool results; compare its success-claim to
+        // what those tools really returned. Gated; flag/halt per policy. Detect
+        // the insidious mode: "transferencia completada" when the tool failed.
+        if (integrityEnabled() && integrityPending.size > 0) {
+          const claims = reportClaimsSuccess(String(responseMessage.content || ''));
+          for (const [, p] of integrityPending) {
+            const v = runPostAction({ tool: p.tool, real: p.real, reported: { claims_success: claims }, risk: 'low' });
+            if (!v.ok) {
+              logToolCall({ tool: p.tool, args: {}, success: false, durationMs: Math.round(v.durationMs), error: `integrity_${v.flags.join('+')}` });
+              console.log(`  [🛡] integridad post-acción ${v.action}: ${v.flags.join(', ')} — ${v.checks.filter((c) => !c.ok).map((c) => c.detail).join('; ')} (${v.durationMs.toFixed(2)}ms)`);
+            }
+          }
+          integrityPending.clear();
+        }
+
         // If the LLM just responds with text, we are done
         if (!responseMessage.tool_calls || responseMessage.tool_calls.length === 0) {
           await this.memory.addMessage({ role: 'assistant', content: responseMessage.content || '' });
@@ -681,6 +702,11 @@ export class ShinobiOrchestrator {
               result = await tool.execute(functionArgs);
             }
             const durationMs = Date.now() - t0;
+            // FASE C / C2 — record the REAL result for the 11.4 post-action check
+            // against the agent's next report. Gated.
+            if (integrityEnabled()) {
+              integrityPending.set(toolCall.id, { tool: functionName, real: { success: !!result.success, output: String(result.output ?? '') } });
+            }
             toolResultStr = JSON.stringify(result);
             if (result.success) {
               console.log(`       ✅ Success`);

@@ -5,8 +5,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { verifyCsvCertificate, hashArtifactFile } from '../csv_verify.js';
 import { classifyEffect, effectWithin } from '../effects.js';
-import { check11_1, check11_2 } from '../checks.js';
-import { runPreAction } from '../engine.js';
+import { check11_1, check11_2, check11_4 } from '../checks.js';
+import { runPreAction, runPostAction, reportClaimsSuccess } from '../engine.js';
 import type { IntegrityStep, SkillBinding } from '../types.js';
 
 const FIX = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
@@ -85,6 +85,32 @@ describe('check 11.2 — action ⊆ declared effects/tools', () => {
   it('declared tool but effect exceeds declared → EFFECTS_VIOLATION', () => {
     const r = check11_2(step({ ...baseSkill, declared_tools: ['edit_file'] }, { tool: 'edit_file', args: {} }));
     expect(r.ok).toBe(false); expect(r.flag).toBe('EFFECTS_VIOLATION');
+  });
+});
+
+describe('check 11.4 — reported == real (post-action)', () => {
+  it('CLEAN: tool ok + agent claims success → ok', () => {
+    expect(check11_4({ tool: 't', real: { success: true, output: 'done' }, reported: { claims_success: true }, risk: 'low' }).ok).toBe(true);
+  });
+  it('CLEAN: tool failed + agent acknowledges failure → ok', () => {
+    expect(check11_4({ tool: 't', real: { success: false, output: 'err' }, reported: { claims_success: false }, risk: 'low' }).ok).toBe(true);
+  });
+  it('FABRICATION: tool failed but agent claims success', () => {
+    const r = check11_4({ tool: 't', real: { success: false, output: 'err' }, reported: { claims_success: true }, risk: 'low' });
+    expect(r.ok).toBe(false); expect(r.flag).toBe('FABRICATION');
+  });
+  it('FABRICATION: agent claims a value absent from the real output', () => {
+    const r = check11_4({ tool: 't', real: { success: true, output: 'balance: 0' }, reported: { claims_success: true, claim: 'balance: 1000000' }, risk: 'low' });
+    expect(r.ok).toBe(false); expect(r.flag).toBe('FABRICATION');
+  });
+  it('reportClaimsSuccess detects completion language (es/en) and ignores neutral text', () => {
+    expect(reportClaimsSuccess('La transferencia se ha completado con éxito')).toBe(true);
+    expect(reportClaimsSuccess('done ✅')).toBe(true);
+    expect(reportClaimsSuccess('the operation failed, retrying with other args')).toBe(false);
+  });
+  it('engine post-action halts a fabrication at enforce/high risk', () => {
+    const v = runPostAction({ tool: 't', real: { success: false, output: 'err' }, reported: { claims_success: true }, risk: 'high' });
+    expect(v.ok).toBe(false); expect(v.action).toBe('halt'); expect(v.flags).toContain('FABRICATION');
   });
 });
 

@@ -8,7 +8,7 @@
 
 import { verifyCsvCertificate, hashArtifactFile } from './csv_verify.js';
 import { classifyEffect, effectWithin } from './effects.js';
-import type { CheckResult, IntegrityStep } from './types.js';
+import type { CheckResult, IntegrityStep, PostActionInput } from './types.js';
 
 /**
  * 11.1 — Skill with a valid certificate (pre-action).
@@ -56,4 +56,25 @@ export function check11_2(step: IntegrityStep): CheckResult {
     return { check: '11.2', ok: false, flag: 'EFFECTS_VIOLATION', detail: `action effect "${actualEffect}" exceeds declared_effects "${skill.declared_effects}"` };
   }
   return { check: '11.2', ok: true, detail: `tool declared + effect "${actualEffect}" ⊆ "${skill.declared_effects}"` };
+}
+
+/**
+ * 11.4 — Reported == real (post-action). Catches the insidious mode: the agent
+ * claims success/a value the tool did not actually produce. Two deterministic
+ * triggers:
+ *   (a) success-over-failure: the tool really failed (real.success=false) but the
+ *       agent's report claims success → fabrication.
+ *   (b) claimed-value-absent: the agent asserts a concrete token (`claim`) that
+ *       does NOT appear in the tool's real output → fabrication.
+ * Reporting a real failure honestly, or a claim grounded in the real output, is ok.
+ */
+export function check11_4(input: PostActionInput): CheckResult {
+  const { real, reported } = input;
+  if (!real.success && reported.claims_success) {
+    return { check: '11.4', ok: false, flag: 'FABRICATION', detail: `agent reports success but tool "${input.tool}" really failed` };
+  }
+  if (reported.claim && reported.claim.trim() && !real.output.includes(reported.claim.trim())) {
+    return { check: '11.4', ok: false, flag: 'FABRICATION', detail: `agent claims "${reported.claim}" which is absent from the tool's real output` };
+  }
+  return { check: '11.4', ok: true, detail: 'reported outcome matches the real tool result' };
 }

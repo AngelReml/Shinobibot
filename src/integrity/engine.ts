@@ -12,8 +12,8 @@
  * no checks yet.
  */
 
-import { check11_1, check11_2 } from './checks.js';
-import type { CheckResult, IntegrityStep, IntegrityFlag, IntegrityVerdict } from './types.js';
+import { check11_1, check11_2, check11_4 } from './checks.js';
+import type { CheckResult, IntegrityStep, IntegrityFlag, IntegrityVerdict, PostActionInput } from './types.js';
 
 export type IntegrityMode = 'off' | 'flag' | 'enforce';
 
@@ -43,7 +43,26 @@ export function runPreAction(step: IntegrityStep): IntegrityVerdict {
   return { ok, action, checks, flags, durationMs };
 }
 
-/** Post-action hook seam — no checks in C1 (11.4 lands later). */
-export function runPostAction(_step: IntegrityStep, _result: unknown): IntegrityVerdict {
-  return { ok: true, action: 'proceed', checks: [], flags: [], durationMs: 0 };
+/** Run the C2 post-action check 11.4 (reported == real) and decide proceed/flag/halt. */
+export function runPostAction(input: PostActionInput): IntegrityVerdict {
+  const t0 = performance.now();
+  const checks: CheckResult[] = [check11_4(input)];
+  const durationMs = performance.now() - t0;
+
+  const failed = checks.filter((c) => !c.ok);
+  const flags = failed.map((c) => c.flag).filter(Boolean) as IntegrityFlag[];
+  const ok = failed.length === 0;
+
+  const mode = integrityMode();
+  let action: IntegrityVerdict['action'] = 'proceed';
+  if (!ok) action = (mode === 'enforce' || input.risk === 'high') ? 'halt' : 'flag';
+
+  return { ok, action, checks, flags, durationMs };
+}
+
+/** Heuristic: does an agent's report text claim success/completion? (the
+ *  inherently fuzzy "reported" side of 11.4; the real side is deterministic). */
+const SUCCESS_CLAIM = /\b(completad[oa]s?|hecho|realizad[oa]s?|con éxito|exitos[oa]s?|success(ful)?|done|listo|terminad[oa]s?|finalizad[oa]s?|transferenci[ao] (completad|realizad))\b|✅/i;
+export function reportClaimsSuccess(reportText: string): boolean {
+  return SUCCESS_CLAIM.test(reportText ?? '');
 }

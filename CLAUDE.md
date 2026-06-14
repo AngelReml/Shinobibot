@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-14T13:32:07.649Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-14T13:52:56.832Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (22 cambios)
-- **Ultimo commit:** d9cb707 feat(sello): FASE B — perfil de robustez en el CSV (probes §6.2 sobre la skill)
-- **Tamano:** 317 ficheros de codigo (44760 LOC), 114 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (18 cambios)
+- **Ultimo commit:** be83fe0 feat(integrity): FASE C / C1 — capa de integridad en runtime (hook + 11.1 + 11.2)
+- **Tamano:** 317 ficheros de codigo (44844 LOC), 115 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
