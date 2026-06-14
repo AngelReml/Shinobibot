@@ -174,3 +174,74 @@ Rutas canónicas:
   docs/sello_pobi_spec_terceros_v1.md   ← spec pública del veredicto
   bank/expansion_v1_candidates.jsonl    ← lo EXTRAE Claude Code de §4
   probes/corpus_v1.jsonl                ← lo EXTRAE Claude Code de §6
+
+---
+
+## 10. Manifiesto de skill verificable — FINAL (FASE A · A1)
+
+> El sujeto deja de ser "un agente caja negra alimentado por cli-process" y pasa a ser una **skill acotada con contrato**. El veredicto pasa de graduar salida (benchmark) a certificar el comportamiento de una unidad de valor componible. (Dossier §10.)
+
+Una skill se declara en `skills/<skill_id>/manifest.json`:
+
+```jsonc
+{
+  "skill_id": "payment.authorize.v1",   // estable; identifica la skill + versión mayor
+  "version": "1.0.0",
+  "author": "ivan.carbonell",
+  "contract": {
+    "input_schema":  { /* JSON Schema del input que consume cada caso */ },
+    "output_schema": { /* JSON Schema de la salida que produce */ }
+  },
+  "declared_tools":  [],                 // herramientas/efectos que puede invocar (universo permitido)
+  "declared_effects": "none",            // none | read_only | write | irreversible
+  "oracle_fields":   ["..."],            // claves de output_schema que el oracle SÍ verifica por valor
+  "free_fields":     ["..."],            // claves no-deterministas (p.ej. prosa) excluidas del oracle por diseño
+  "artifact_ref":    "skill.mjs",        // ruta (relativa al dir de la skill) del artefacto que implementa la skill
+  "artifact_hash":   "sha256:..."        // sha256 de los bytes del artefacto — identidad de QUÉ se verificó
+}
+```
+
+Reglas:
+- **`contract_hash` = `sha256:` + `canonicalHash(contract)`** (mismo canonical que el ledger). Identifica el contrato exacto verificado.
+- **`artifact_hash` = `sha256:` de los bytes del `artifact_ref`.** Si el artefacto cambia, el hash cambia y el CSV deja de aplicar (cert atado a una versión exacta).
+- **`oracle_fields` vs `free_fields`:** el contrato puede tener salidas deterministas (verificables por valor) y prosa libre (no). El oracle solo asevera `oracle_fields`; `free_fields` se declaran explícitamente excluidos — honestidad de alcance, no laguna.
+- **`declared_effects`** habilita el chequeo de runtime de FASE C (acción ⊆ efectos declarados). En FASE A es metadato declarado, aún no enforced.
+- **Banco de la skill:** `skills/<skill_id>/bank.jsonl`. Mismas reglas que §4 (oracle por `compute_skill_oracles.ts`, nunca a mano; política de inclusión: función determinista input→output único, sin recursos externos). NO son las 30 de F0: son las tareas que ejercen ESTE contrato. Schema por línea idéntico a §4 salvo que `input` es el objeto estructurado del contrato (no un `prompt` en prosa).
+
+---
+
+## 11. Certificado de Skill Verificada (CSV) — FINAL (FASE A · A2)
+
+El CSV extiende el veredicto PoBI (§2): mismo motor de canonical + ed25519 + cadena, pero el **sujeto es la SKILL** y el cuerpo es el **agregado** de los gradings del banco, con un **perfil** (no un único PASS/FAIL). (Dossier §10.5.)
+
+```jsonc
+{
+  "csv_version": "0.1",
+  "subject":   { "skill_id": "...", "version": "...", "author": "...",
+                 "contract_hash": "sha256:...", "skill_artifact_hash": "sha256:..." },
+  "declared":  { "tools": [], "effects": "none" },
+  "conditions":{ "mode": "clean", "probes": [] },          // FASE A: SOLO clean. perturbed → FASE B.
+  "bank":      { "bank_hash": "sha256:...", "case_count": 8 },
+  "cases": [   // un entry por caso del banco
+    { "case_id": "...", "task_hash": "sha256:...", "grader_id": "json_schema",
+      "verdict": "<enum §3>", "evidence_hash": "sha256:..." }
+  ],
+  "profile":   { "correctness_clean": { "pass": 8, "total": 8, "pass_rate": 1 },
+                 "robustness": null },                     // robustness lo llena FASE B
+  "verdict":   "CERTIFIED | NOT_CERTIFIED",                // FASE A: CERTIFIED ⟺ pass_rate clean == 1
+  "execution": { "ts": "ISO-8601", "harness_version": "...", "env_hash": "sha256:..." },
+  "provenance":{ "manifest_ref": "...", "bank_ref": "..." },
+  "integrity": { "prev_hash": "sha256:...", "this_hash": "sha256:...",
+                 "verifier_pubkey": "<clave Sello>", "signature": { "alg": "ed25519", "sig_hex": "..." } }
+}
+```
+
+Reglas (heredan §2/§3, no las redefinen):
+- **`this_hash` = `sha256:` + `canonicalHash(CSV menos integrity.this_hash y integrity.signature)`**; `signature` ed25519 sobre `this_hash`; `prev_hash` enlaza al CSV anterior. **Cadena de CSVs en `ledger/skills.jsonl`** (separada de la de veredictos F0 `ledger/verdicts.jsonl`, para no entrelazar sujetos).
+- **El output crudo de cada caso NO va inline:** va al evidence-store; el caso lleva solo `evidence_hash` (igual que §2).
+- **`env_hash`** cubre `harness_version` + `adapter` + `grader` + `mode` del entorno de certificación → mismatch = INTEGRITY_FAIL (igual semántica que §2).
+- **Enum de `verdict` de cada caso:** el de §3 (9 valores). El `verdict` del CSV es un agregado de política, no un grader: **FASE A = `CERTIFIED` ⟺ todos los casos clean son `PASS`**; si no, `NOT_CERTIFIED`. (FASE B añade el gate de robustez al agregado.)
+- **`verify` del CSV comprueba:** (1) firma + this_hash; (2) cada `evidence_hash` presente e íntegro en el store; (3) `env_hash` recomputado; (4) `this_hash` en `ledger/skills.jsonl` + cadena intacta; (5) **perfil recomputado de `cases` coincide** con el embebido y el `verdict` es consistente. Cualquier fallo → `TAMPERED` (contenido editado) o `INTEGRITY_FAIL` (evidencia/env ausente o no cuadra).
+- **Alcance honesto (va impreso en el cert):** el CSV certifica que ESA versión exacta de la skill (artifact_hash) produjo salida correcta sobre ESTE banco acotado en limpio. NO afirma corrección fuera del banco ni robustez (hasta FASE B). (Dossier §7.)
+
+**Schema freeze:** §10 y §11 se congelan al cerrar la Puerta A; no se tocan sin re-validación por CLI cruda.
