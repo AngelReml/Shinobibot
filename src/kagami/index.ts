@@ -8,6 +8,7 @@ export * from './types.js';
 export { calibrate, biasLabel, evaluate, type Prediction } from './calibration/calibrate.js';
 export { classifyCapability, FrontierMap } from './frontier/map.js';
 export { recordExam, masteryDemonstrated, type MasteryThreshold } from './learn/mastery.js';
+export { startSession, addWay, recordSessionExam, assessSession, waysCovered, FIVE_WAYS } from './learn/session.js';
 export { secretCrack, detectRegressions, untestedModuleCrack, invariantCracks, vulnerableDepCrack, resetCrackSeq, type Invariant } from './guard/cracks.js';
 export { buildSnapshot, healthTrend, crackBurden, type SweepInputs } from './guard/guard.js';
 export { buildSelfVoice, attachSelfVoice, type SelfVoiceInputs } from './voice.js';

@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T12:26:48.498Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T12:29:30.575Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -14,8 +14,8 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 
 ## Pulso (vivo)
 - **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (19 cambios)
-- **Ultimo commit:** b5c77c9 feat(kagami): K-02 store idempotente + K-03 adaptadores ENGANCHE
-- **Tamano:** 398 ficheros de codigo (50236 LOC), 143 de test
+- **Ultimo commit:** 7f78605 feat(kagami): K-07/K-08 — bancos oráculo + corrida con confianza declarada
+- **Tamano:** 399 ficheros de codigo (50297 LOC), 144 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -43,7 +43,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/gaia/` | 1 | Scorer OFICIAL de GAIA — port fiel y VALIDADO del `question_scorer` del |
 | `src/gateway/` | 6 | Bloque 6 — orchestrator de canales del gateway externo. |
 | `src/integrity/` | 7 | _(anade un banner de cabecera)_ |
-| `src/kagami/` | 12 | _(anade un banner de cabecera)_ |
+| `src/kagami/` | 13 | _(anade un banner de cabecera)_ |
 | `src/kagemusha/` | 16 | _(anade un banner de cabecera)_ |
 | `src/kangeiko/` | 11 | _(anade un banner de cabecera)_ |
 | `src/knowledge/` | 2 | Habilidad C.1 — /learn <ruta_o_url> |
