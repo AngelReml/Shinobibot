@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T13:55:15.050Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T14:00:59.807Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,8 +13,8 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (21 cambios)
-- **Ultimo commit:** 97fe55d feat(dojo): scaffolds de demo de los 4 prompts wow (C-22/K-17/M-16/S-15)
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (18 cambios)
+- **Ultimo commit:** 53860a8 feat(tenshu): TS-04 — SPA local del puente de mando (Bloque 8), gated
 - **Tamano:** 423 ficheros de codigo (51706 LOC), 162 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
