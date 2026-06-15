@@ -9,3 +9,6 @@ export { classifyReversibility, executionPolicy, mayExecute, type ExecutionPolic
 export { parseCliHelp, type CliSurface, type CliFlag, type CliSubcommand } from './surface/cli_parser.js';
 export { PatternBook, curveIsDescending } from './curve/patternbook.js';
 export { DirCageSandbox, runTrial, type RevertibleSandbox, type CageExecutor, type CageOptions } from './sandbox/revertible.js';
+export { selectTarget, chooseVia, type Target } from './target.js';
+export { explore, orderByValue, type ExploreBudget } from './explore/explorer.js';
+export { induceModel } from './model/induce.js';
