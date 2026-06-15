@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T14:52:33.439Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T14:59:06.084Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -14,7 +14,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 
 ## Pulso (vivo)
 - **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (2 cambios)
-- **Ultimo commit:** b85f679 docs(dossiers): incorpora los dossiers del Dojo + Kaname (procedencia de la construcción)
+- **Ultimo commit:** 3b73c12 docs: regenera pulso (árbol limpio tras commitear/ignorar los 19 cambios)
 - **Tamano:** 434 ficheros de codigo (52394 LOC), 167 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
