@@ -9,3 +9,4 @@ export { buildPlan, renderPlan, type StepSpec } from './plan.js';
 export { checkFeasibility, type FeasibilityResult } from './feasibility.js';
 export { approvalsNeeded, unapproved } from './approval.js';
 export { runPlan, assertNoFabrication, type ExecuteDeps } from './execute.js';
+export { makeRealExecutor, type SkillInvoker, type SkillInvocation, type RealExecDeps, type RealExecutor } from './runtime.js';
