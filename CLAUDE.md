@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T12:29:30.575Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T12:33:30.033Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (19 cambios)
-- **Ultimo commit:** 7f78605 feat(kagami): K-07/K-08 — bancos oráculo + corrida con confianza declarada
-- **Tamano:** 399 ficheros de codigo (50297 LOC), 144 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (17 cambios)
+- **Ultimo commit:** 3a8468f feat(kagami): K-10 — LearningSession sobre las cinco vías
+- **Tamano:** 399 ficheros de codigo (50297 LOC), 145 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
