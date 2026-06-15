@@ -35,7 +35,7 @@ import { ResidentLoop } from '../runtime/resident_loop.js';
 import { setSkillEventListener, skillManager } from '../skills/skill_manager.js';
 import { setDocumentEventListener, shouldOfferDocument, offerDocument } from '../documents/factory.js';
 import { loadConfig, saveConfig, reloadConfig, type ShinobiConfig } from '../runtime/first_run_wizard.js';
-import { getClient, getAllUserFacingClients, currentProvider, invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
+import { getClient, getAllUserFacingClients, currentProvider, isProviderConfigured, invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import { EXTRA_MODEL_SUGGESTIONS } from '../providers/registry.js';
 import { tokenBudget } from '../context/token_budget.js';
 import { toolEvents } from '../coordinator/tool_events.js';
@@ -80,10 +80,16 @@ function stringifyArgs(args: any[]): string {
  * usuario queda atrapado en un bucle de onboarding (FIX-001).
  */
 function isConfigUsable(cfg: any): boolean {
-  // Extirpación OG (D-extirpación, 2026-06-12): la rama legacy
-  // opengravity_api_key ya NO cuenta como config usable — OpenGravity no
-  // provee LLM. Una config solo-OG debe ir a onboarding, no al dojo roto.
-  return !!(cfg?.provider && cfg?.provider_key);
+  // Hay credencial usable si:
+  //   (a) el onboarding web guardó provider+key en config.json, O
+  //   (b) CUALQUIER provider tiene key vía entorno (.env / env vars) — el
+  //       camino real de los operadores veteranos (GROQ_API_KEY, etc.).
+  // FIX-002 (2026-06-12): la primera versión post-extirpación solo miraba (a)
+  // y mandaba a onboarding a usuarios con todas sus keys en .env.
+  // Extirpación OG: la rama legacy opengravity_api_key NO cuenta — OG no
+  // provee LLM.
+  if (cfg?.provider && cfg?.provider_key) return true;
+  return getAllUserFacingClients().some(c => isProviderConfigured(c.name));
 }
 
 export interface StartWebServerOptions {
@@ -428,8 +434,8 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     const NATIVE: SkillEntry[] = [
       { id: 'native-files', name: 'Archivos y carpetas', description: 'Leer, escribir, mover, borrar, listar archivos y carpetas en tu máquina.', trigger_keywords: ['archivo', 'carpeta', 'fichero', 'directorio', 'organizar', 'mover', 'renombrar', 'borrar', 'crear'], source: 'native' },
       { id: 'native-shell', name: 'Comandos del sistema', description: 'Ejecutar comandos en la terminal de Windows (PowerShell / cmd).', trigger_keywords: ['comando', 'terminal', 'powershell', 'ejecutar', 'script', 'instalar', 'consola'], source: 'native' },
-      { id: 'native-browser', name: 'Navegador web (Kage)', description: 'Abrir páginas web, hacer clic, rellenar formularios, extraer información.', trigger_keywords: ['web', 'navegador', 'página', 'url', 'buscar', 'abrir', 'chrome', 'formulario', 'scraping'], source: 'native' },
-      { id: 'native-documents', name: 'Documentos (Word · PDF · Excel)', description: 'Generar y editar documentos Word, PDF, Excel y Markdown.', trigger_keywords: ['word', 'pdf', 'excel', 'documento', 'informe', 'tabla', 'markdown', 'generar'], source: 'native' },
+      { id: 'native-browser', name: 'Navegador web (Kage)', description: 'Abrir páginas web, hacer clic, rellenar formularios, extraer información.', trigger_keywords: ['web', 'navegador', 'página', 'url', 'buscar', 'busca', 'investiga', 'investigar', 'noticias', 'abrir', 'chrome', 'formulario', 'scraping'], source: 'native' },
+      { id: 'native-documents', name: 'Documentos (Word · PDF · Excel)', description: 'Generar y editar documentos Word, PDF, Excel y Markdown.', trigger_keywords: ['word', 'pdf', 'excel', 'documento', 'informe', 'resumen', 'tabla', 'markdown', 'generar', 'crea'], source: 'native' },
       { id: 'native-memory', name: 'Memoria persistente', description: 'Guardar y recuperar información entre sesiones (/memory store · recall).', trigger_keywords: ['memoria', 'recordar', 'guardar', 'olvida', 'aprender', 'recall'], source: 'native' },
       { id: 'native-sentinel', name: 'Sentinel — vigilancia web', description: 'Vigilar páginas web y canales; avisar cuando hay cambios relevantes.', trigger_keywords: ['vigilar', 'monitorear', 'avisar', 'alerta', 'sentinel', 'cambio', 'seguimiento'], source: 'native' },
     ];

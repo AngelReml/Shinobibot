@@ -358,41 +358,75 @@
     return wrapper;
   }
 
-  // ─── M2/M4: acciones por mensaje (copiar · retomar) ───────────────────
-  function addMsgActions(el, role) {
-    const row = document.createElement('div');
-    row.className = 'msg-actions';
-    const btnCopy = document.createElement('button');
-    btnCopy.className = 'msg-action-btn';
-    btnCopy.type = 'button';
-    btnCopy.title = 'Copiar mensaje';
-    btnCopy.textContent = '⧉';
-    btnCopy.addEventListener('click', () => {
+  // ─── M2/M4 v2: acciones desplegadas desde la marca ────────────────────
+  // Agente: clic en el hanko 忍 (el sello) → Copiar. Operador: botón ⋯
+  // discreto → Copiar · Editar (vuelca al composer). Nada flota suelto.
+  let openMsgMenu = null;
+  function closeMsgMenu() {
+    if (openMsgMenu) { openMsgMenu.hidden = true; openMsgMenu = null; }
+  }
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (openMsgMenu && t && t.closest
+        && !t.closest('.msg-menu') && !t.closest('.hanko-wrap') && !t.closest('.msg-menu-trigger')) {
+      closeMsgMenu();
+    }
+  });
+
+  function buildMsgMenu(el, role) {
+    const menu = document.createElement('div');
+    menu.className = 'msg-menu';
+    menu.hidden = true;
+    const getTxt = () => {
       const body = el.querySelector('.body');
-      const txt = body ? (body.innerText || body.textContent || '') : '';
-      navigator.clipboard.writeText(txt).then(() => {
-        btnCopy.textContent = '✓';
-        setTimeout(() => { btnCopy.textContent = '⧉'; }, 1500);
+      return body ? (body.innerText || body.textContent || '') : '';
+    };
+    const btnCopy = document.createElement('button');
+    btnCopy.type = 'button';
+    btnCopy.textContent = '⧉ Copiar';
+    btnCopy.addEventListener('click', () => {
+      navigator.clipboard.writeText(getTxt()).then(() => {
+        btnCopy.textContent = '✓ Copiado';
+        setTimeout(() => { btnCopy.textContent = '⧉ Copiar'; closeMsgMenu(); }, 900);
       }).catch(() => {});
     });
-    row.appendChild(btnCopy);
+    menu.appendChild(btnCopy);
     if (role === 'user') {
-      const btnRetomar = document.createElement('button');
-      btnRetomar.className = 'msg-action-btn';
-      btnRetomar.type = 'button';
-      btnRetomar.title = 'Retomar — copia este mensaje al compositor para corregirlo y reenviar';
-      btnRetomar.textContent = '↺';
-      btnRetomar.addEventListener('click', () => {
+      const btnEdit = document.createElement('button');
+      btnEdit.type = 'button';
+      btnEdit.textContent = '✎ Editar';
+      btnEdit.title = 'Vuelca el mensaje al compositor para corregirlo y reenviar';
+      btnEdit.addEventListener('click', () => {
         if (!$composer) return;
-        const body = el.querySelector('.body');
-        $composer.value = body ? (body.innerText || body.textContent || '') : '';
+        $composer.value = getTxt();
         $composer.focus();
         autoResizeComposer();
         renderSkillSuggestions();
+        closeMsgMenu();
       });
-      row.appendChild(btnRetomar);
+      menu.appendChild(btnEdit);
     }
-    el.appendChild(row);
+    el.appendChild(menu);
+    return menu;
+  }
+
+  function toggleMsgMenu(el, role) {
+    let menu = el.querySelector('.msg-menu');
+    if (!menu) menu = buildMsgMenu(el, role);
+    const willOpen = menu.hidden;
+    closeMsgMenu();
+    if (willOpen) { menu.hidden = false; openMsgMenu = menu; }
+  }
+
+  // Trigger ⋯ para mensajes del operador (el hanko pertenece al agente).
+  function addUserMenuTrigger(el) {
+    const t = document.createElement('button');
+    t.className = 'msg-menu-trigger';
+    t.type = 'button';
+    t.title = 'Acciones del mensaje';
+    t.textContent = '⋯';
+    t.addEventListener('click', (e) => { e.stopPropagation(); toggleMsgMenu(el, 'user'); });
+    el.appendChild(t);
   }
 
   // ─── Chat rendering ───────────────────────────────────────────────────
@@ -419,7 +453,7 @@
     const body = document.createElement('div');
     body.className = 'body';
     el.appendChild(body);
-    if (role !== 'system') addMsgActions(el, role);
+    if (role === 'user') addUserMenuTrigger(el);
     return el;
   }
 
@@ -594,6 +628,10 @@
     if (opts.animated) {
       wrap.querySelector('.hanko').style.setProperty('--hanko-delay', `${opts.delayMs || 0}ms`);
     }
+    // M2 v2 — el sello es la puerta: clic despliega las acciones del mensaje.
+    wrap.title = 'Acciones del mensaje';
+    wrap.setAttribute('role', 'button');
+    wrap.addEventListener('click', (e) => { e.stopPropagation(); toggleMsgMenu(msgEl, 'agent'); });
     msgEl.appendChild(wrap);
   }
 
@@ -1056,7 +1094,7 @@
   }
 
   // ─── A4: Tour de primera vez — traduce las metáforas una sola vez ─────
-  const TOUR_KEY = 'shinobi.tourDone.v1';
+  const TOUR_KEY = 'shinobi.tourDone.v2'; // v2: la v1 la consumió una sesión con la UI rota
   const TOUR_STEPS = [
     {
       title: 'Bienvenido al dojo',
@@ -1197,11 +1235,16 @@
     setupTitleEditing();
     maybeTypeOpeningPhrase();
 
+    // En ventana estrecha la sidebar arranca plegada (riel); el 忍 la abre
+    // como cajón (ver layout.css ≤960px) y elegir misión la vuelve a plegar.
+    if (window.innerWidth <= 960) setSidebarCollapsed(true);
+
     // Conversaciones
     window.ShinobiConvs.onSelect(async (id) => {
       const c = window.ShinobiConvs.getActive();
       if ($title) $title.textContent = c?.title || '';
       await loadHistory(id);
+      if (window.innerWidth <= 960) setSidebarCollapsed(true);
     });
     window.ShinobiConvs.onChange(() => {
       const c = window.ShinobiConvs.getActive();

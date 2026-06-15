@@ -539,4 +539,23 @@ html, body {
   }
   .dojo .sidebar-content { opacity: 0; pointer-events: none; }
   .dojo .sidebar-collapsed { display: flex; }
+
+  /* FIX 2026-06-12 — en ventana estrecha el riel era un callejón sin salida:
+     el 忍 ponía data-sidebar="open" pero estas reglas lo pisaban y las
+     misiones quedaban inalcanzables. Ahora "open" = cajón sobre el dojo. */
+  .dojo[data-sidebar="open"] .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: min(290px, 85vw);
+    z-index: 60;
+    background: var(--bg);
+    box-shadow: 10px 0 28px rgba(0, 0, 0, 0.45);
+  }
+  .dojo[data-sidebar="open"] .sidebar-content {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .dojo[data-sidebar="open"] .sidebar-collapsed { display: none; }
 }

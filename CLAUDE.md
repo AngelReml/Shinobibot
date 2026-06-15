@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T14:51:32.370Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T14:51:46.688Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,8 +13,8 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (17 cambios)
-- **Ultimo commit:** a8a4c1d docs: regenera pulso AGENTS/CLAUDE tras enchufar puntas vivas del Kaname
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (14 cambios)
+- **Ultimo commit:** 3d9cd75 chore: saca audit.jsonl/prompt.txt del índice + borra SELLO_CONTRACT.md duplicado
 - **Tamano:** 434 ficheros de codigo (52394 LOC), 167 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 

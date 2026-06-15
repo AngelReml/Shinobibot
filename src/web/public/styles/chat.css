@@ -1380,3 +1380,68 @@ body.dojo-quiet .enso-watermark {
 .tour-next {
   min-width: 120px;
 }
+
+/* === M2 v2 — menú de mensaje desplegado desde la marca (hanko / ⋯) ===
+   El sello 忍 es la puerta de las acciones del agente; el operador tiene
+   un ⋯ discreto que solo aparece al pasar el ratón. Nada flota suelto. */
+.hanko-wrap {
+  cursor: pointer;
+  position: relative;
+}
+.msg-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg);
+  border: 1px solid var(--accent);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  z-index: 40;
+  line-height: 1.3;
+}
+.msg-menu button {
+  border: none;
+  background: transparent;
+  color: var(--text-primary, currentColor);
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 5px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.msg-menu button:hover {
+  background: var(--accent);
+  color: var(--bg);
+}
+/* El menú del mensaje del operador (sin hanko) cuelga del propio mensaje. */
+.msg.user { position: relative; }
+.msg.user .msg-menu {
+  top: auto;
+  bottom: -4px;
+  transform: translateY(100%);
+}
+.msg-menu-trigger {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  width: 24px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: currentColor;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  transition: opacity 0.15s ease;
+}
+.msg:hover .msg-menu-trigger,
+.msg:focus-within .msg-menu-trigger {
+  opacity: 0.55;
+}
+.msg-menu-trigger:hover {
+  opacity: 1;
+}

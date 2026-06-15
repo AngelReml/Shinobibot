@@ -3,8 +3,10 @@
 // (que es la ruta crítica con el orquestador) ni las llamadas a /api/* —
 // esas siempre deben ir al server real.
 
-const CACHE_NAME = 'shinobi-shell-v4'; // v4: Bloque 8.6 — settings, modelo, búsqueda, diálogos
+const CACHE_NAME = 'shinobi-shell-v5'; // v5: UX no-técnico — CSS pasa a network-first
 // Assets que cambian con cada deploy: siempre network-first.
+// Lección 2026-06-12: los CSS eran cache-first y un deploy de UI se servía
+// con estilos viejos — JS nuevo + CSS rancio = interfaz desencajada.
 const NETWORK_FIRST_ASSETS = new Set([
   '/',
   '/index.html',
@@ -17,15 +19,15 @@ const NETWORK_FIRST_ASSETS = new Set([
   '/js/dialog.js',
   '/js/settings.js',
   '/js/search.js',
-]);
-
-// Assets verdaderamente estáticos: cache-first está bien.
-const CACHE_FIRST_ASSETS = new Set([
   '/styles/tokens.css',
   '/styles/base.css',
   '/styles/layout.css',
   '/styles/chat.css',
   '/styles/settings.css',
+]);
+
+// Assets verdaderamente estáticos: cache-first está bien.
+const CACHE_FIRST_ASSETS = new Set([
   '/assets/shinobi-mark.png',
   '/manifest.webmanifest',
 ]);
