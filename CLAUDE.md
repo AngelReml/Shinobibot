@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T09:54:55.455Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T10:02:56.614Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (24 cambios)
-- **Ultimo commit:** 14bc56d feat(shugyo): S-10 — síntesis + certificación de skill de CLI REAL en la jaula
-- **Tamano:** 371 ficheros de codigo (48296 LOC), 129 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (22 cambios)
+- **Ultimo commit:** 15e0f61 feat(tenshu): núcleos protagonistas del puente de mando (TS-01/02/03/08)
+- **Tamano:** 376 ficheros de codigo (48458 LOC), 130 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -45,6 +45,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/integrity/` | 7 | _(anade un banner de cabecera)_ |
 | `src/kagami/` | 9 | _(anade un banner de cabecera)_ |
 | `src/kagemusha/` | 16 | _(anade un banner de cabecera)_ |
+| `src/kangeiko/` | 5 | _(anade un banner de cabecera)_ |
 | `src/knowledge/` | 2 | Habilidad C.1 — /learn <ruta_o_url> |
 | `src/learning/` | 5 | Fase 6 del bucle de aprendizaje — el Curator (Motor 2): mantiene sana la colección de skills. |
 | `src/ledger/` | 1 | D.4 — MissionLedger: hash chain SHA256 de cada mision completada. |
