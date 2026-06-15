@@ -131,3 +131,8 @@ skills/.usage.json
 .shinobi-reader-cache/
 **/.shinobi-reader-cache/
 run_one_out.json
+
+# Runtime artifact (append-only audit log) — no se versiona (precedente 01e5ae7)
+audit.jsonl
+# Scratch de prompts de trabajo
+prompt.txt
