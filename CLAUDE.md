@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T11:19:12.466Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T11:27:56.538Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -14,8 +14,8 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 
 ## Pulso (vivo)
 - **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (19 cambios)
-- **Ultimo commit:** f379743 feat(shitsuji): Nivel 5 — el mayordomo, núcleo determinista de seguridad (gated)
-- **Tamano:** 390 ficheros de codigo (49326 LOC), 136 de test
+- **Ultimo commit:** 8546820 feat(shitsuji): T-08 — ejecución real bajo Capa 2, sobre copias/snapshots (⚑)
+- **Tamano:** 391 ficheros de codigo (49466 LOC), 137 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -67,7 +67,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/security/` | 2 | D-017 — gate selectivo de aprobación: modos on/smart/critical/off (default critical). |
 | `src/selfdebug/` | 1 | Self-Debug — convierte cada fallo de tool en un diagnostic report estructurado y accionable. |
 | `src/sentinel/` | 9 | Sentinel — slash command /sentinel: watch de fuentes, ask semántico, propuestas, council y digest. |
-| `src/shitsuji/` | 8 | _(anade un banner de cabecera)_ |
+| `src/shitsuji/` | 9 | _(anade un banner de cabecera)_ |
 | `src/shugyo/` | 11 | _(anade un banner de cabecera)_ |
 | `src/skills/` | 17 | Bloque 3 — Skill Manager autónomo. Bucle de auto-mejora inspirado en |
 | `src/skills_runtime/` | 1 | Tiny obs-websocket v5 client for the desktop skills. |
