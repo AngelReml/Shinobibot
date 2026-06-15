@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T13:11:33.329Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T13:12:49.622Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (21 cambios)
-- **Ultimo commit:** 592ae93 test(kagemusha): C-21 — LA PRUEBA DURA del Nivel 1 (P1/P2/P4/P5/P6, binaria)
-- **Tamano:** 415 ficheros de codigo (51201 LOC), 156 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (19 cambios)
+- **Ultimo commit:** b278026 feat(tenshu): TS-05 navegador TEV + TS-06 cola de aprobaciones + TS-07 export/verify + TS-10 prueba dura
+- **Tamano:** 416 ficheros de codigo (51257 LOC), 157 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -74,7 +74,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/soul/` | 1 | Soul (Alma) — personalidad configurable del agente: tono, identidad y persona prompt vía soul.md. |
 | `src/stt/` | 1 | STT local con whisper.cpp — transcripción offline envolviendo el binario whisper-cli del operador. |
 | `src/telemetry/` | 1 | G2.1 — Anonymous, opt-in telemetry client. |
-| `src/tenshu/` | 10 | _(anade un banner de cabecera)_ |
+| `src/tenshu/` | 11 | _(anade un banner de cabecera)_ |
 | `src/tools/` | 57 | Este archivo fuerza la carga y registro de todas las herramientas nativas. |
 | `src/tui/` | 2 | _(anade un banner de cabecera)_ |
 | `src/types/` | 1 | Tipos ambientales del repo — contrato mínimo de las skills .mjs cargadas dinámicamente. |

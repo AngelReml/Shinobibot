@@ -11,3 +11,4 @@ export { buildDojoStatus, type StatusInputs } from './status.js';
 export { browseTev, tevSummary, verifyTevLinkage, type ChainVerdict } from './tev_browser.js';
 export { ApprovalQueue, type PendingApproval } from './approvals.js';
 export { exportForAudit, verifyAuditBundle, type AuditBundle, type AuditVerdict } from './export.js';
+export { buildSystemMap, renderSystemMap, DOJO_TOPOLOGY, type SystemMap, type MapNode } from './system_map.js';
