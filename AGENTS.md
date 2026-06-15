@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T12:47:14.591Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T12:49:38.628Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (20 cambios)
-- **Ultimo commit:** 5d24190 test(chizu): M-15 — LA PRUEBA DURA del Nivel 3 (P1–P7, binaria)
-- **Tamano:** 406 ficheros de codigo (50691 LOC), 150 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (19 cambios)
+- **Ultimo commit:** 1e4f575 feat(shugyo): S-02 store + S-03 adaptadores ENGANCHE
+- **Tamano:** 407 ficheros de codigo (50765 LOC), 151 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -68,7 +68,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/selfdebug/` | 1 | Self-Debug — convierte cada fallo de tool en un diagnostic report estructurado y accionable. |
 | `src/sentinel/` | 9 | Sentinel — slash command /sentinel: watch de fuentes, ask semántico, propuestas, council y digest. |
 | `src/shitsuji/` | 13 | _(anade un banner de cabecera)_ |
-| `src/shugyo/` | 13 | _(anade un banner de cabecera)_ |
+| `src/shugyo/` | 14 | _(anade un banner de cabecera)_ |
 | `src/skills/` | 17 | Bloque 3 — Skill Manager autónomo. Bucle de auto-mejora inspirado en |
 | `src/skills_runtime/` | 1 | Tiny obs-websocket v5 client for the desktop skills. |
 | `src/soul/` | 1 | Soul (Alma) — personalidad configurable del agente: tono, identidad y persona prompt vía soul.md. |
