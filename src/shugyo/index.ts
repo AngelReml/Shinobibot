@@ -12,3 +12,4 @@ export { DirCageSandbox, runTrial, type RevertibleSandbox, type CageExecutor, ty
 export { selectTarget, chooseVia, type Target } from './target.js';
 export { explore, orderByValue, type ExploreBudget } from './explore/explorer.js';
 export { induceModel } from './model/induce.js';
+export { synthesizeSkill, certifyInCage, type SkillManifest, type CertCase, type CertResult } from './synth/certify.js';
