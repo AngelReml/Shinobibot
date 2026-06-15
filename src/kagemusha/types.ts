@@ -163,6 +163,19 @@ export interface DawnReport {
   build_suggestions: { text: string; basis: string }[];
   gaps: string[];
   integrity: { fabrication_flags: number; unverified_excluded: number };
+  // §10 (Kagami N2) — the "second voice". Additive slot; Kagami fills it, Kagemusha
+  // doesn't depend on Kagami at runtime (the field is optional). The report has two
+  // voices: "what I found out there" (Kagemusha) + "how I am inside" (Kagami).
+  self_voice?: DawnReportSelfVoice;
+}
+
+/** Kagami's self-portrait attached to the Dawn Report (dossier Kagami §10). */
+export interface DawnReportSelfVoice {
+  code_health: { cracks_critical: number; cracks_total: number; trend: 'up' | 'flat' | 'down' };
+  frontier_summary: { reliable: number; shaky: number; beyond: number };
+  learning_progress?: { skill: string; level: string; mastery: boolean };
+  calibration: { brier_score: number; bias: 'ok' | 'overconfident' | 'underconfident' };
+  frontier_crossed_today?: string;
 }
 
 // ─── §12 Mission ────────────────────────────────────────────────────────────

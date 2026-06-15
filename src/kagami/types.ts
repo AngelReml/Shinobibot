@@ -104,10 +104,6 @@ export interface CalibratedVerdict {
 }
 
 // ─── §10 Second voice in the Dawn Report ────────────────────────────────────
-export interface DawnReportSelfVoice {
-  code_health: { cracks_critical: number; cracks_total: number; trend: 'up' | 'flat' | 'down' };
-  frontier_summary: { reliable: number; shaky: number; beyond: number };
-  learning_progress?: { skill: string; level: string; mastery: boolean };
-  calibration: { brier_score: number; bias: 'ok' | 'overconfident' | 'underconfident' };
-  frontier_crossed_today?: string;
-}
+// Canonical definition lives with the report it extends (kagemusha/types). Kagami
+// extends, never reimplements (dossier §10 ⚠ ENGANCHE).
+export type { DawnReportSelfVoice } from '../kagemusha/types.js';

@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T08:58:07.823Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T09:03:56.799Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (20 cambios)
-- **Ultimo commit:** 1c52daf feat(shugyo): S-05/S-08/S-09 — exploración end-to-end sobre la jaula (determinista)
-- **Tamano:** 359 ficheros de codigo (47738 LOC), 125 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (21 cambios)
+- **Ultimo commit:** 0d0ccf7 feat(kagemusha): C-14/C-15 contraste con el código + C-19/C-20 máquina de estados de la misión
+- **Tamano:** 361 ficheros de codigo (47850 LOC), 126 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -43,7 +43,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/gaia/` | 1 | Scorer OFICIAL de GAIA — port fiel y VALIDADO del `question_scorer` del |
 | `src/gateway/` | 6 | Bloque 6 — orchestrator de canales del gateway externo. |
 | `src/integrity/` | 7 | _(anade un banner de cabecera)_ |
-| `src/kagami/` | 7 | _(anade un banner de cabecera)_ |
+| `src/kagami/` | 9 | _(anade un banner de cabecera)_ |
 | `src/kagemusha/` | 16 | _(anade un banner de cabecera)_ |
 | `src/knowledge/` | 2 | Habilidad C.1 — /learn <ruta_o_url> |
 | `src/learning/` | 5 | Fase 6 del bucle de aprendizaje — el Curator (Motor 2): mantiene sana la colección de skills. |

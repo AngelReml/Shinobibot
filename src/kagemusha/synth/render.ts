@@ -38,6 +38,16 @@ export function renderMarkdown(r: DawnReport): string {
   L.push('## Sello de integridad');
   L.push(`- fabricaciones evitadas: **${r.integrity.fabrication_flags}**`);
   L.push(`- no-verificadas excluidas: **${r.integrity.unverified_excluded}**`);
+  if (r.self_voice) {
+    const v = r.self_voice;
+    L.push('');
+    L.push('## Segunda voz — cómo estoy por dentro (Kagami)');
+    L.push(`- código: ${v.code_health.cracks_critical} grietas críticas / ${v.code_health.cracks_total} totales · tendencia **${v.code_health.trend}**`);
+    L.push(`- frontera: ${v.frontier_summary.reliable} fiables · ${v.frontier_summary.shaky} dudosas · ${v.frontier_summary.beyond} fuera de alcance`);
+    if (v.learning_progress) L.push(`- aprendiendo ${v.learning_progress.skill}: nivel ${v.learning_progress.level}${v.learning_progress.mastery ? ' (dominado)' : ' (en progreso)'}`);
+    L.push(`- calibración: brier ${v.calibration.brier_score.toFixed(3)} · sesgo **${v.calibration.bias}**`);
+    if (v.frontier_crossed_today) L.push(`- frontera nueva que crucé hoy: ${v.frontier_crossed_today}`);
+  }
   L.push('');
   L.push('_No te traigo nada que no haya verificado. Un comentario no es un hecho._');
   return L.join('\n') + '\n';
