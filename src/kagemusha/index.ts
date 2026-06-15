@@ -14,3 +14,6 @@ export { Frontier, shouldExpand, canonical, adjustPriorScore } from './thread/fr
 export { extractReferences, resolveReference, tierForUrl } from './thread/resolve.js';
 export { buildDawnReport, auditNoFabrication } from './synth/report.js';
 export { renderMarkdown, FileSink, type ReportSink } from './synth/render.js';
+export { listExportedSymbols, buildCodebaseIndex, type SymbolEntry } from './contrast/codebase_index.js';
+export { mapFindingToModule, overlapScore, type ContrastJudge } from './contrast/contrast.js';
+export { runMission, resumeMission, type PhaseHandlers, type MissionResult } from './mission/mission.js';
