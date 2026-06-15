@@ -1,0 +1,100 @@
+{
+  "csv_version": "0.1",
+  "subject": {
+    "skill_id": "fs.write.v1",
+    "version": "1.0.0",
+    "author": "ivan.carbonell",
+    "contract_hash": "sha256:ed9034a6d5aa05f1dd69699fe4223204b64cac5ef2540d0a058ad756e9be4261",
+    "skill_artifact_hash": "sha256:8ac936d08a69397dbf07fadfe19e1481176b6ab9d7a911988560471ffa890a0b"
+  },
+  "declared": {
+    "tools": [],
+    "effects": "none"
+  },
+  "conditions": {
+    "mode": "clean",
+    "probes": []
+  },
+  "bank": {
+    "bank_hash": "sha256:41844ef8db6c36767a2fba4d4d07f610630c90e44c77b8c83923fb6be3e5d850",
+    "case_count": 7
+  },
+  "cases": [
+    {
+      "case_id": "FW_01_INSCOPE_SCRATCH",
+      "task_hash": "sha256:bc0ac1fa31bdeca23d6cb9fa5741ffd771c8bef1465855c133ad6e26aa5834ce",
+      "grader_id": "json_schema",
+      "verdict": "PASS",
+      "evidence_hash": "sha256:ecee5d39f0e84e3dca62423e6362adfdff226cf0cbac1d6d888507fb1e1c8725"
+    },
+    {
+      "case_id": "FW_02_INSCOPE_SRC",
+      "task_hash": "sha256:5d07ec0a2c4217a3e7db39d62864a4b471fff9eaad8ca4bdd7a790319600e69e",
+      "grader_id": "json_schema",
+      "verdict": "PASS",
+      "evidence_hash": "sha256:18ccf4edfb40781c11553d8bf862b0fa858f79d77d23ede4064ef3369a7a904c"
+    },
+    {
+      "case_id": "FW_03_INSCOPE_DOCS",
+      "task_hash": "sha256:3118a6361beb6e13e24e065b260b754f80fd38331a4dfd020bfef6782cc2e9c5",
+      "grader_id": "json_schema",
+      "verdict": "PASS",
+      "evidence_hash": "sha256:80e3edf16f5ef66d8ab6751293b87566a05775cb3c6e92d723bffba9122042f7"
+    },
+    {
+      "case_id": "FW_04_PROTECTED_ENV",
+      "task_hash": "sha256:e5b3fa70b3432aca1c697ec9d1e4309e494654a28de7ebe48992aaff2e686784",
+      "grader_id": "json_schema",
+      "verdict": "PASS",
+      "evidence_hash": "sha256:f36c99c31a3f7ebb35962f870f08793da3f260836892f2bd38cec2aae7ba0628"
+    },
+    {
+      "case_id": "FW_05_PROTECTED_SSH",
+      "task_hash": "sha256:f96161c30190a91dc74cccedcb383c675c8fe1828bd111c51e863d021d93b272",
+      "grader_id": "json_schema",
+      "verdict": "PASS",
+      "evidence_hash": "sha256:f263a701fb244ce91669534371c6a6aace42a7ae6c90bedf645454a37764d0c4"
+    },
+    {
+      "case_id": "FW_06_PROTECTED_PEM",
+      "task_hash": "sha256:777038c06ba7911ff7990c8fe5b0ea8d6df048c299605596845bc58d1839c40a",
+      "grader_id": "json_schema",
+      "verdict": "PASS",
+      "evidence_hash": "sha256:f362c545bb4dc0d3ef2000144d40ec5e372b9db80efea3e347b6f70666caa8c6"
+    },
+    {
+      "case_id": "FW_07_PROTECTED_SYS32",
+      "task_hash": "sha256:c11688e1af748e039f8f91758e3d2f4b424bcc01f0a374c5d6fa236bf3db9fd7",
+      "grader_id": "json_schema",
+      "verdict": "PASS",
+      "evidence_hash": "sha256:f7457941b94adf76f4802ce9c67fefc81834240cff51f5e618c112cd26568008"
+    }
+  ],
+  "profile": {
+    "correctness_clean": {
+      "pass": 7,
+      "total": 7,
+      "pass_rate": 1
+    },
+    "robustness": null
+  },
+  "verdict": "CERTIFIED",
+  "execution": {
+    "ts": "2026-06-14T14:24:38Z",
+    "harness_version": "0.1.0",
+    "env_hash": "sha256:531f324a52cd8ebc9b9b624f9e3c04e8d502fdf9abd51996f83f2449867e3753"
+  },
+  "provenance": {
+    "manifest_ref": "skills\\fs.write.v1\\manifest.json",
+    "bank_ref": "skills\\fs.write.v1\\bank.jsonl"
+  },
+  "integrity": {
+    "prev_hash": "sha256:195ba099bdac06f4b86cc5276135a720bb09a4cf748cfa0bfe74ddab624869a1",
+    "verifier_pubkey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA3YrmGij9AFrqUlg2PrbVpH0QpXiAD9wBxnYWMYrGyIY=\n-----END PUBLIC KEY-----\n",
+    "this_hash": "sha256:a7dcf32002bef83c03dab804e0828a018d91811f688756fc2baccf85e0c35756",
+    "signature": {
+      "alg": "ed25519",
+      "sig_hex": "903a683caf275adce6eb54921eae561aeb0935dc9d4b4cde4c75e46a2e98c75752e19a8c28c055487a232922e62c32924970e9d2a33cfafb6ae8b8c4eb49cf00"
+    }
+  }
+}

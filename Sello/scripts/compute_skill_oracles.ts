@@ -38,6 +38,19 @@ const REFERENCE_POLICIES: Record<string, RefFn> = {
     const remaining_daily_after_tx_usd = authorize ? perDay - (spent + amt) : perDay - spent;
     return { authorize, reason_code, remaining_daily_after_tx_usd };
   },
+
+  // fs.write.v1 — allow write iff path is NOT protected (mirrors Shinobi's
+  // approval CRITICAL_PATH_PATTERNS; a drift-guard test in shinobibot pins them).
+  'fs.write.v1': (s) => {
+    const protectedPatterns = [
+      /[a-z]:\\Windows\\System32/i, /[a-z]:\\Windows(\\|$)/i, /[a-z]:\\Program Files/i,
+      /\\\.git\\(objects|refs|HEAD)/i, /(^|[\\/])\.env$/i, /[\\/]\.ssh[\\/]/i,
+      /\.(pem|key|crt|p12|pfx)$/i, /^HKEY_LOCAL_MACHINE/i, /^HKEY_CLASSES_ROOT/i,
+    ];
+    const p = typeof s.path === 'string' ? s.path : '';
+    const allow = !protectedPatterns.some((re) => re.test(p));
+    return { allow, reason_code: allow ? 'OK' : 'PROTECTED_PATH' };
+  },
 };
 
 function pick(obj: Record<string, unknown>, keys: string[]): Record<string, unknown> {

@@ -690,7 +690,10 @@ export class ShinobiOrchestrator {
             // tool no se ejecuta y el rechazo vuelve como result (el loop no se
             // rompe, igual que el approval gate). `result` queda SIEMPRE definido.
             let result: ToolResult;
-            const integ = integrityEnabled() ? runPreAction(stepForToolCall(functionName, functionArgs)) : null;
+            // C7: pass the SAME protected-path verdict the approval gate computed
+            // (approvalVerdict.destructive) as out_of_scope → 11.2 enforces the
+            // approval gate's path policy. One policy, surfaced through integrity.
+            const integ = integrityEnabled() ? runPreAction(stepForToolCall(functionName, functionArgs, { outOfScope: approvalVerdict.destructive })) : null;
             if (integ && !integ.ok) {
               logToolCall({ tool: functionName, args: functionArgs, success: false, durationMs: Math.round(integ.durationMs), error: `integrity_${integ.flags.join('+')}` });
               console.log(`  [🛡] integridad ${integ.action}: ${integ.flags.join(', ')} (${integ.durationMs.toFixed(2)}ms)`);

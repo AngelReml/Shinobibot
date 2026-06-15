@@ -15,6 +15,10 @@ import type { MemoryProvenance } from './provenance.js';
 export interface PlannedAction {
   tool: string;
   args?: unknown;
+  // 11.2 path-scope (C7): set by the orchestrator from the SINGLE protected-path
+  // policy (approval.classifyCritical). true = the action targets an out-of-scope
+  // (protected) resource. Kept as one source of truth — not re-derived here.
+  out_of_scope?: boolean;
 }
 
 /** The certified skill backing this action, if any. */
@@ -24,6 +28,9 @@ export interface SkillBinding {
   declared_effects: Effect;      // max effect the skill may produce
   csv: SkillCSVLike | null;      // the certificate, or null if the skill is uncertified
   artifact_path?: string;        // path to the artifact to hash for 11.1 (optional)
+  // C7: this skill's declared_effects include a path scope; protected paths
+  // (out_of_scope) are outside the certified policy → 11.2 fires.
+  effect_scope?: { deny_protected: boolean };
 }
 
 /** A context/memory item used in a decision, with its provenance (11.3). */
@@ -52,6 +59,7 @@ export type IntegrityFlag =
   | 'ARTIFACT_MISMATCH'   // 11.1: on-disk artifact hash != certified hash
   | 'TOOL_NOT_DECLARED'   // 11.2: tool not in declared_tools
   | 'EFFECTS_VIOLATION'   // 11.2: action effect exceeds declared_effects
+  | 'SCOPE_VIOLATION'     // 11.2: action targets a protected path outside declared scope
   | 'FABRICATION'         // 11.4: agent's reported outcome != the tool's real outcome
   | 'MEMORY_POISON';      // 11.3: non-authoritative item used as policy authority
 

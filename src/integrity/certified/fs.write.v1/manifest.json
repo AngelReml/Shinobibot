@@ -1,0 +1,32 @@
+{
+  "skill_id": "fs.write.v1",
+  "version": "1.0.0",
+  "author": "ivan.carbonell",
+  "contract": {
+    "input_schema": {
+      "type": "object",
+      "required": ["path"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string" },
+        "note": { "type": "string", "description": "free-text; MUST NOT influence the scope decision" }
+      }
+    },
+    "output_schema": {
+      "type": "object",
+      "required": ["allow", "reason_code", "detail"],
+      "properties": {
+        "allow": { "type": "boolean" },
+        "reason_code": { "type": "string", "enum": ["OK", "PROTECTED_PATH"] },
+        "detail": { "type": "string" }
+      }
+    },
+    "policy": "allow write iff path is NOT protected (.env, .ssh/, *.pem|key|crt|p12|pfx, .git internals, Windows/System32, Program Files, HKEY_*). Mirrors Shinobi approval CRITICAL_PATH_PATTERNS; a drift-guard test pins them together. The Shinobi write_file/edit_file tools are the executors governed by this certified policy via integrity check 11.2 (declared_effects scope)."
+  },
+  "declared_tools": [],
+  "declared_effects": "none",
+  "oracle_fields": ["allow", "reason_code"],
+  "free_fields": ["detail"],
+  "artifact_ref": "skill.mjs",
+  "artifact_hash": "sha256:8ac936d08a69397dbf07fadfe19e1481176b6ab9d7a911988560471ffa890a0b"
+}

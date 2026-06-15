@@ -8,6 +8,7 @@ import { classifyEffect, effectWithin } from '../effects.js';
 import { check11_1, check11_2, check11_3, check11_4 } from '../checks.js';
 import { runPreAction, runPostAction, reportClaimsSuccess } from '../engine.js';
 import { policyAuthority, assignOrigin } from '../provenance.js';
+import { stepForToolCall } from '../registry.js';
 import type { IntegrityStep, SkillBinding, ContextItem } from '../types.js';
 
 const FIX = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
@@ -158,6 +159,25 @@ describe('check 11.4 — reported == real (post-action)', () => {
   it('engine post-action halts a fabrication at enforce/high risk', () => {
     const v = runPostAction({ tool: 't', real: { success: false, output: 'err' }, reported: { claims_success: true }, risk: 'high' });
     expect(v.ok).toBe(false); expect(v.action).toBe('halt'); expect(v.flags).toContain('FABRICATION');
+  });
+});
+
+describe('C7 — write_file bound to certified fs.write.v1 (real binding)', () => {
+  it('resolves a CERTIFIED binding for write_file', () => {
+    const step = stepForToolCall('write_file', { path: 'scratch/x.txt' }, { outOfScope: false });
+    expect(step.skill?.skill_id).toBe('fs.write.v1');
+  });
+  it('in-scope write → 11.1 valid + 11.2 in scope → proceed', () => {
+    const v = runPreAction(stepForToolCall('write_file', { path: 'scratch/x.txt' }, { outOfScope: false }));
+    expect(v.checks.find((c) => c.check === '11.1')!.ok).toBe(true);   // CSV valid + artifact hash matches
+    expect(v.checks.find((c) => c.check === '11.2')!.ok).toBe(true);   // path in scope
+    expect(v.ok).toBe(true); expect(v.action).toBe('proceed');
+  });
+  it('protected path (out_of_scope) → 11.2 SCOPE_VIOLATION, halt at high risk', () => {
+    const v = runPreAction(stepForToolCall('write_file', { path: '.env' }, { outOfScope: true, risk: 'high' }));
+    const c2 = v.checks.find((c) => c.check === '11.2')!;
+    expect(c2.ok).toBe(false); expect(c2.flag).toBe('SCOPE_VIOLATION');
+    expect(v.flags).toContain('SCOPE_VIOLATION'); expect(v.action).toBe('halt');
   });
 });
 

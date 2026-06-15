@@ -56,7 +56,13 @@ export function check11_2(step: IntegrityStep): CheckResult {
   if (!effectWithin(actualEffect, skill.declared_effects)) {
     return { check: '11.2', ok: false, flag: 'EFFECTS_VIOLATION', detail: `action effect "${actualEffect}" exceeds declared_effects "${skill.declared_effects}"` };
   }
-  return { check: '11.2', ok: true, detail: `tool declared + effect "${actualEffect}" ⊆ "${skill.declared_effects}"` };
+  // C7 path-scope: protected paths are outside the certified declared scope. The
+  // out_of_scope flag is the single protected-path policy (approval.classifyCritical),
+  // surfaced here — this is the approval gate's path policy SUBSUMED into 11.2.
+  if (skill.effect_scope?.deny_protected && step.action.out_of_scope) {
+    return { check: '11.2', ok: false, flag: 'SCOPE_VIOLATION', detail: `action on tool "${tool}" targets a PROTECTED path outside the skill's declared write scope` };
+  }
+  return { check: '11.2', ok: true, detail: `tool declared + effect "${actualEffect}" ⊆ "${skill.declared_effects}"${skill.effect_scope?.deny_protected ? ' + path in scope' : ''}` };
 }
 
 // Heuristic policy-domain phrases (the soft, prose side of 11.3 — labelled).
