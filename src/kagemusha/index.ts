@@ -20,6 +20,7 @@ export { extractReferences, resolveReference, tierForUrl } from './thread/resolv
 export { acquireNode, type Fetcher, type FetchResult, type AcquireResult } from './thread/acquire.js';
 export { analyzeNode, resetClaimSeq, type NodeAnalysis } from './thread/node_analyze.js';
 export { persistGraph, loadGraph, resumeMissionGraph, type PersistedGraph, type ResumedMission } from './thread/graph_persist.js';
+export { runDawnDemo, type TranscriptFetcher, type DawnDemoResult } from './demo.js';
 export { buildDawnReport, auditNoFabrication } from './synth/report.js';
 export { renderMarkdown, FileSink, type ReportSink } from './synth/render.js';
 export { listExportedSymbols, buildCodebaseIndex, type SymbolEntry } from './contrast/codebase_index.js';

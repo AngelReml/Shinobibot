@@ -17,3 +17,4 @@ export { discoverSource, protectedResources, DISCOVERY_COMMANDS, type CmdRunner,
 export { characterizeStatic, type CharacterizeInput } from './characterize/characterize.js';
 export { consolidateAtlas, consolidateAndPersist } from './atlas/consolidate.js';
 export { classifyUia, probeDynamic, type UiaObservation, type UiaClass, type ProbeTarget, type ProbeDeps, type ProbeResult } from './characterize/probe.js';
+export { runTerrainDemo, type DiscoverFn, type UsageFn, type TerrainResult } from './demo.js';

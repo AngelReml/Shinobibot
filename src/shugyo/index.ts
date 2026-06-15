@@ -16,3 +16,4 @@ export { synthesizeSkill, certifyInCage, type SkillManifest, type CertCase, type
 export { ShugyoStore, sharedShugyoStore, type ShugyoStoreOptions } from './store.js';
 export { publishToKagami } from './adapters.js';
 export { extractAffordances, buildUiSurface, uiGraph, type UiaNode, type UiGraph, type UiEdge } from './surface/uia_surface.js';
+export { runForgeDemo, type ForgeResult } from './demo.js';

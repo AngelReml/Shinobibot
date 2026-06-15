@@ -21,3 +21,4 @@ export {
   loadBank, runBank, measureFromBank, exactGrader, substringGrader,
   type OracleBank, type BankCase, type Grader, type Solver, type BankRun,
 } from './bank.js';
+export { runMirrorDemo, type MirrorInputs, type MirrorResult } from './demo.js';
