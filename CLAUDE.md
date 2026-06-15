@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T12:33:30.033Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T12:37:39.217Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (17 cambios)
-- **Ultimo commit:** 3a8468f feat(kagami): K-10 — LearningSession sobre las cinco vías
-- **Tamano:** 399 ficheros de codigo (50297 LOC), 145 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (20 cambios)
+- **Ultimo commit:** a71e763 test(kagami): K-16 — LA PRUEBA DURA del Nivel 2 (P1–P6, binaria)
+- **Tamano:** 401 ficheros de codigo (50440 LOC), 146 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -30,7 +30,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/benchmark/` | 1 | Benchmark Runner — suite comparativa de 20 tareas con scoring objetivo sin LLM. |
 | `src/browser/` | 7 | Mejora 1: observación por mapa de elementos con ref estable. |
 | `src/channels/` | 13 | CAPA DE CONFIANZA de canales — pairing + identidad firmada. |
-| `src/chizu/` | 10 | _(anade un banner de cabecera)_ |
+| `src/chizu/` | 12 | _(anade un banner de cabecera)_ |
 | `src/cloud/` | 3 | Pool de credenciales API multi-proveedor — rotación de keys y cuarentena 1h tras rate-limit. |
 | `src/committee/` | 8 | Habilidad B.2 — Comité de validación. |
 | `src/constants/` | 1 | Prompt de sistema base del agente (SYSTEM_PROMPT): identidad, regla tool-first y protocolos. |

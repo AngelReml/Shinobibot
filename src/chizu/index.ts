@@ -12,3 +12,5 @@ export { scoreUsage, rankByUsage } from './usage/score.js';
 export { classifyRisk, inferCategory } from './characterize/risk.js';
 export { automationCandidateScore } from './characterize/candidate.js';
 export { Atlas } from './atlas/atlas.js';
+export { ChizuStore, sharedChizuStore, type ChizuStoreOptions } from './store.js';
+export { discoverSource, protectedResources, DISCOVERY_COMMANDS, type CmdRunner, type ProtectedResource } from './adapters.js';
