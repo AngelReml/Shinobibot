@@ -13,3 +13,5 @@ export { selectTarget, chooseVia, type Target } from './target.js';
 export { explore, orderByValue, type ExploreBudget } from './explore/explorer.js';
 export { induceModel } from './model/induce.js';
 export { synthesizeSkill, certifyInCage, type SkillManifest, type CertCase, type CertResult } from './synth/certify.js';
+export { ShugyoStore, sharedShugyoStore, type ShugyoStoreOptions } from './store.js';
+export { publishToKagami } from './adapters.js';
