@@ -11,3 +11,9 @@ export { classifyZone, lintBoundary, boundaryClean, CORE_PATHS, CONTRACT_PATHS, 
 export { coreHash, writeAllowed, guardCoreWrite, stampVersion, type WriteAttempt } from './immutability.js';
 export { loadSkill, type LoadResult } from './contract.js';
 export { makeMediator, SyscallDenied, type KernelHost } from './mediator.js';
+export { KanameStore, sharedKanameStore, type KanameStoreOptions } from './store.js';
+export {
+  loadIntoCatalog, unloadSkill, runOracleBattery, admitToUserspace, canPromote,
+  promoteKernel, revertKernel,
+  type OracleVerdict, type OracleRunner, type BatteryResult, type AdmitResult, type PromotionResult,
+} from './evolution.js';
