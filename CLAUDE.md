@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T08:09:36.747Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T08:34:39.465Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (29 cambios)
-- **Ultimo commit:** 3befb4d feat(integrity): C7-wiring — primera capacidad REAL gobernada (write_file ↔ fs.write.v1)
-- **Tamano:** 332 ficheros de codigo (46216 LOC), 118 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (31 cambios)
+- **Ultimo commit:** 7bcdaf6 feat(kagemusha): Nivel 1 — cimientos + núcleos deterministas (C-01..C-08,C-11,C-12,C-16..C-18)
+- **Tamano:** 346 ficheros de codigo (46959 LOC), 120 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -30,6 +30,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/benchmark/` | 1 | Benchmark Runner — suite comparativa de 20 tareas con scoring objetivo sin LLM. |
 | `src/browser/` | 7 | Mejora 1: observación por mapa de elementos con ref estable. |
 | `src/channels/` | 13 | CAPA DE CONFIANZA de canales — pairing + identidad firmada. |
+| `src/chizu/` | 8 | _(anade un banner de cabecera)_ |
 | `src/cloud/` | 3 | Pool de credenciales API multi-proveedor — rotación de keys y cuarentena 1h tras rate-limit. |
 | `src/committee/` | 8 | Habilidad B.2 — Comité de validación. |
 | `src/constants/` | 1 | Prompt de sistema base del agente (SYSTEM_PROMPT): identidad, regla tool-first y protocolos. |
@@ -42,7 +43,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/gaia/` | 1 | Scorer OFICIAL de GAIA — port fiel y VALIDADO del `question_scorer` del |
 | `src/gateway/` | 6 | Bloque 6 — orchestrator de canales del gateway externo. |
 | `src/integrity/` | 7 | _(anade un banner de cabecera)_ |
-| `src/kagami/` | 1 | _(anade un banner de cabecera)_ |
+| `src/kagami/` | 7 | _(anade un banner de cabecera)_ |
 | `src/kagemusha/` | 13 | _(anade un banner de cabecera)_ |
 | `src/knowledge/` | 2 | Habilidad C.1 — /learn <ruta_o_url> |
 | `src/learning/` | 5 | Fase 6 del bucle de aprendizaje — el Curator (Motor 2): mantiene sana la colección de skills. |
