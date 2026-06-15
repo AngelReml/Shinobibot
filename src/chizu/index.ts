@@ -16,3 +16,4 @@ export { ChizuStore, sharedChizuStore, type ChizuStoreOptions } from './store.js
 export { discoverSource, protectedResources, DISCOVERY_COMMANDS, type CmdRunner, type ProtectedResource } from './adapters.js';
 export { characterizeStatic, type CharacterizeInput } from './characterize/characterize.js';
 export { consolidateAtlas, consolidateAndPersist } from './atlas/consolidate.js';
+export { classifyUia, probeDynamic, type UiaObservation, type UiaClass, type ProbeTarget, type ProbeDeps, type ProbeResult } from './characterize/probe.js';
