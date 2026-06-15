@@ -6,6 +6,8 @@
 export * from './config.js';
 export * from './types.js';
 export { fuse, normalizeExe, type SourceBatch } from './discovery/fuse.js';
+export { parseUninstallJson, parseAppxJson, parseWingetList } from './discovery/parsers.js';
+export { rot13, decodeUserAssistName, parseUserAssistBlob, filetimeToIso, type UserAssistEntry } from './usage/userassist.js';
 export { scoreUsage, rankByUsage } from './usage/score.js';
 export { classifyRisk, inferCategory } from './characterize/risk.js';
 export { automationCandidateScore } from './characterize/candidate.js';
