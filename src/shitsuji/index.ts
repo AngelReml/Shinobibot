@@ -11,3 +11,5 @@ export { approvalsNeeded, unapproved } from './approval.js';
 export { runPlan, assertNoFabrication, type ExecuteDeps } from './execute.js';
 export { makeRealExecutor, type SkillInvoker, type SkillInvocation, type RealExecDeps, type RealExecutor } from './runtime.js';
 export { understand, comprehend, intentReady, pendingQuestions, applyAnswer, type RefPhrase, type NLParse, type IntentParser, type ReferenceResolvers, type FileCandidate } from './understand.js';
+export { ShitsujiStore, sharedShitsujiStore, type ShitsujiStoreOptions, type TevChainVerdict } from './store.js';
+export { certifiedRepertoire, atlasFromCards, requestStepApproval, planNeedsApproval } from './adapters.js';
