@@ -64,6 +64,7 @@ export default defineConfig({
       'src/kagami/__tests__/**/*.test.ts',
       'src/chizu/__tests__/**/*.test.ts',
       'src/shugyo/__tests__/**/*.test.ts',
+      'src/tenshu/__tests__/**/*.test.ts',
       'src/__tests__/stress/**/*.test.ts',
     ],
     exclude: ['node_modules', 'dist', 'scratch', 'test_*.ts'],
