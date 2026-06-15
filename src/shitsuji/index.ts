@@ -14,3 +14,8 @@ export { understand, comprehend, intentReady, pendingQuestions, applyAnswer, typ
 export { ShitsujiStore, sharedShitsujiStore, type ShitsujiStoreOptions, type TevChainVerdict } from './store.js';
 export { certifiedRepertoire, atlasFromCards, requestStepApproval, planNeedsApproval } from './adapters.js';
 export { serve, type ServeDeps, type ServeResult, type ServeOutcome } from './orchestrate.js';
+export {
+  llmIntentParser, extractJson, makeSandboxInvoke, fsCopyInputs, makeFsCommit,
+  ed25519Keypair, loadOrCreateTevKeypair, signTevEntry, signTevChain, verifyTevSignature,
+  type LlmParserOptions, type SandboxInvokeOptions, type SignedTEVEntry, type Ed25519Keypair,
+} from './live.js';
