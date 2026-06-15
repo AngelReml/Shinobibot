@@ -18,3 +18,7 @@ export {
   type OracleVerdict, type OracleRunner, type BatteryResult, type AdmitResult, type PromotionResult,
 } from './evolution.js';
 export { assignFronts, integrateWrites, orchestrateSwarm, type WorkerResult, type LaunchClaude, type SwarmRunResult } from './swarm.js';
+export {
+  defaultExec, makeFsKernelHost, makeClaudeLauncher, parseGitWrites, createWorktree, removeWorktree,
+  type Exec, type FsHostOptions, type LauncherOptions,
+} from './live.js';

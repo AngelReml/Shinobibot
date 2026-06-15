@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T14:35:21.614Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T14:46:20.623Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (19 cambios)
-- **Ultimo commit:** 6cefcf9 feat(kaname): KN-06 orquestador del enjambre + KN-10 LA PRUEBA DURA (P1–P7)
-- **Tamano:** 433 ficheros de codigo (52252 LOC), 166 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (20 cambios)
+- **Ultimo commit:** 3701d5e docs: regenera pulso AGENTS/CLAUDE — incorpora src/kaname (61 módulos)
+- **Tamano:** 434 ficheros de codigo (52394 LOC), 167 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -45,7 +45,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/integrity/` | 7 | _(anade un banner de cabecera)_ |
 | `src/kagami/` | 14 | Nivel 2 — Kagami (鏡): el espejo, autocrítica calibrada (brier+sesgos) + 3 pilares (salud/frontera/a... |
 | `src/kagemusha/` | 22 | Nivel 1 — Kagemusha (影武者): el clon-sombra que investiga de noche → Informe del Amanecer, bajo Capa ... |
-| `src/kaname/` | 10 | Kaname (要): el núcleo inmutable + la frontera núcleo/skills — designa el núcleo, enforcea aislamien... |
+| `src/kaname/` | 11 | Kaname (要): el núcleo inmutable + la frontera núcleo/skills — designa el núcleo, enforcea aislamien... |
 | `src/kangeiko/` | 11 | Kangeiko (寒稽古): motor de auto-mejora verificada — MIDE→INVESTIGA→FABRICA→CERTIFICA→CONSOLIDA→RE-MID... |
 | `src/knowledge/` | 2 | Habilidad C.1 — /learn <ruta_o_url> |
 | `src/learning/` | 5 | Fase 6 del bucle de aprendizaje — el Curator (Motor 2): mantiene sana la colección de skills. |
