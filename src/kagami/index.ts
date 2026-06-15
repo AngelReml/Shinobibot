@@ -16,3 +16,7 @@ export {
   parseVitestSummary, parseTscErrors, parseLintWarnings, runSuite, runTypecheck, runLint,
   lspErrorCount, selloGradeExam, type CmdRunner, type SuiteResult,
 } from './adapters.js';
+export {
+  loadBank, runBank, measureFromBank, exactGrader, substringGrader,
+  type OracleBank, type BankCase, type Grader, type Solver, type BankRun,
+} from './bank.js';
