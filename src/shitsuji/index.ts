@@ -13,3 +13,4 @@ export { makeRealExecutor, type SkillInvoker, type SkillInvocation, type RealExe
 export { understand, comprehend, intentReady, pendingQuestions, applyAnswer, type RefPhrase, type NLParse, type IntentParser, type ReferenceResolvers, type FileCandidate } from './understand.js';
 export { ShitsujiStore, sharedShitsujiStore, type ShitsujiStoreOptions, type TevChainVerdict } from './store.js';
 export { certifiedRepertoire, atlasFromCards, requestStepApproval, planNeedsApproval } from './adapters.js';
+export { serve, type ServeDeps, type ServeResult, type ServeOutcome } from './orchestrate.js';
