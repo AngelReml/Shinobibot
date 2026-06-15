@@ -1,3 +1,4 @@
+// Tenshu (天守): el puente de mando sobre todo el dojo — VER/CONDUCIR/ENTENDER/CONSULTAR + SPA local + kill switch limpio; refleja, no narra. Gated TENSHU_ENABLED.
 /**
  * tenshu — barrel. The command bridge over the whole dojo. Additive + gated by
  * TENSHU_ENABLED (default off). Refleja, no narra; kill switch limpio.

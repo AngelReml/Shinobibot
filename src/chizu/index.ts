@@ -1,3 +1,4 @@
+// Nivel 3 — Chizu (地図): el cartógrafo, retrato fiel de la máquina (discovery/uso/riesgo→Atlas), cero alucinación. Aditivo, gated CHIZU_ENABLED.
 /**
  * chizu — barrel. Level-3: the cartographer. Recognizes the terrain before
  * stepping on it. Additive + gated by CHIZU_ENABLED (default off). The map

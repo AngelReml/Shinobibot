@@ -1,3 +1,4 @@
+// Nivel 2 — Kagami (鏡): el espejo, autocrítica calibrada (brier+sesgos) + 3 pilares (salud/frontera/aprendizaje). Aditivo, gated KAGAMI_ENABLED.
 /**
  * kagami — barrel. Level-2: the mirror. Shinobi knows, guards and improves itself
  * with honesty. Additive + gated by KAGAMI_ENABLED (default off). The mirror

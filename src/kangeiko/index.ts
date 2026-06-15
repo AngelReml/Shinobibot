@@ -1,3 +1,4 @@
+// Kangeiko (寒稽古): motor de auto-mejora verificada — MIDE→INVESTIGA→FABRICA→CERTIFICA→CONSOLIDA→RE-MIDE; solo lo CERTIFIED entra al repertorio. Gated KANGEIKO_ENABLED.
 /**
  * kangeiko — barrel. The verified self-improvement engine. Additive + gated by
  * KANGEIKO_ENABLED (default off). A certified curve that rises — proven, not claimed.

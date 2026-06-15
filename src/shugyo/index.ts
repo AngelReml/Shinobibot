@@ -1,3 +1,4 @@
+// Nivel 4 — Shugyo (修行): el explorador, aprende programas en jaula revertible → skills certificadas por Sello. Aditivo, gated SHUGYO_ENABLED.
 /**
  * shugyo — barrel. Level-4: the explorer. Learns to operate programs in a
  * revertible cage and distills certified skills via Sello. Additive + gated by

@@ -1,3 +1,4 @@
+// Nivel 5 — Shitsuji (執事): el mayordomo, compone skills CERTIFIED sobre datos reales (NL→Intent→Plan→ejecución bajo Capa 2→TEV). Aditivo, gated SHITSUJI_ENABLED.
 /**
  * shitsuji — barrel. Level-5, the butler: composes CERTIFIED skills over the real
  * world. Additive + gated by SHITSUJI_ENABLED (default off). No improvisa, comprueba

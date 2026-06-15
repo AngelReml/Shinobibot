@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T14:00:59.807Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T14:13:27.480Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (18 cambios)
-- **Ultimo commit:** 53860a8 feat(tenshu): TS-04 — SPA local del puente de mando (Bloque 8), gated
-- **Tamano:** 423 ficheros de codigo (51706 LOC), 162 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (26 cambios)
+- **Ultimo commit:** 9f73eef docs: regenera pulso AGENTS.md/CLAUDE.md (context.mjs)
+- **Tamano:** 423 ficheros de codigo (51713 LOC), 162 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -30,7 +30,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/benchmark/` | 1 | Benchmark Runner — suite comparativa de 20 tareas con scoring objetivo sin LLM. |
 | `src/browser/` | 7 | Mejora 1: observación por mapa de elementos con ref estable. |
 | `src/channels/` | 13 | CAPA DE CONFIANZA de canales — pairing + identidad firmada. |
-| `src/chizu/` | 16 | _(anade un banner de cabecera)_ |
+| `src/chizu/` | 16 | Nivel 3 — Chizu (地図): el cartógrafo, retrato fiel de la máquina (discovery/uso/riesgo→Atlas), cero ... |
 | `src/cloud/` | 3 | Pool de credenciales API multi-proveedor — rotación de keys y cuarentena 1h tras rate-limit. |
 | `src/committee/` | 8 | Habilidad B.2 — Comité de validación. |
 | `src/constants/` | 1 | Prompt de sistema base del agente (SYSTEM_PROMPT): identidad, regla tool-first y protocolos. |
@@ -43,9 +43,9 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/gaia/` | 1 | Scorer OFICIAL de GAIA — port fiel y VALIDADO del `question_scorer` del |
 | `src/gateway/` | 6 | Bloque 6 — orchestrator de canales del gateway externo. |
 | `src/integrity/` | 7 | _(anade un banner de cabecera)_ |
-| `src/kagami/` | 14 | _(anade un banner de cabecera)_ |
-| `src/kagemusha/` | 22 | _(anade un banner de cabecera)_ |
-| `src/kangeiko/` | 11 | _(anade un banner de cabecera)_ |
+| `src/kagami/` | 14 | Nivel 2 — Kagami (鏡): el espejo, autocrítica calibrada (brier+sesgos) + 3 pilares (salud/frontera/a... |
+| `src/kagemusha/` | 22 | Nivel 1 — Kagemusha (影武者): el clon-sombra que investiga de noche → Informe del Amanecer, bajo Capa ... |
+| `src/kangeiko/` | 11 | Kangeiko (寒稽古): motor de auto-mejora verificada — MIDE→INVESTIGA→FABRICA→CERTIFICA→CONSOLIDA→RE-MID... |
 | `src/knowledge/` | 2 | Habilidad C.1 — /learn <ruta_o_url> |
 | `src/learning/` | 5 | Fase 6 del bucle de aprendizaje — el Curator (Motor 2): mantiene sana la colección de skills. |
 | `src/ledger/` | 1 | D.4 — MissionLedger: hash chain SHA256 de cada mision completada. |
@@ -67,14 +67,14 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/security/` | 2 | D-017 — gate selectivo de aprobación: modos on/smart/critical/off (default critical). |
 | `src/selfdebug/` | 1 | Self-Debug — convierte cada fallo de tool en un diagnostic report estructurado y accionable. |
 | `src/sentinel/` | 9 | Sentinel — slash command /sentinel: watch de fuentes, ask semántico, propuestas, council y digest. |
-| `src/shitsuji/` | 13 | _(anade un banner de cabecera)_ |
-| `src/shugyo/` | 15 | _(anade un banner de cabecera)_ |
+| `src/shitsuji/` | 13 | Nivel 5 — Shitsuji (執事): el mayordomo, compone skills CERTIFIED sobre datos reales (NL→Intent→Plan→... |
+| `src/shugyo/` | 15 | Nivel 4 — Shugyo (修行): el explorador, aprende programas en jaula revertible → skills certificadas p... |
 | `src/skills/` | 17 | Bloque 3 — Skill Manager autónomo. Bucle de auto-mejora inspirado en |
 | `src/skills_runtime/` | 1 | Tiny obs-websocket v5 client for the desktop skills. |
 | `src/soul/` | 1 | Soul (Alma) — personalidad configurable del agente: tono, identidad y persona prompt vía soul.md. |
 | `src/stt/` | 1 | STT local con whisper.cpp — transcripción offline envolviendo el binario whisper-cli del operador. |
 | `src/telemetry/` | 1 | G2.1 — Anonymous, opt-in telemetry client. |
-| `src/tenshu/` | 14 | _(anade un banner de cabecera)_ |
+| `src/tenshu/` | 14 | Tenshu (天守): el puente de mando sobre todo el dojo — VER/CONDUCIR/ENTENDER/CONSULTAR + SPA local + ... |
 | `src/tools/` | 57 | Este archivo fuerza la carga y registro de todas las herramientas nativas. |
 | `src/tui/` | 2 | _(anade un banner de cabecera)_ |
 | `src/types/` | 1 | Tipos ambientales del repo — contrato mínimo de las skills .mjs cargadas dinámicamente. |

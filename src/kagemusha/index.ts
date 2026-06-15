@@ -1,3 +1,4 @@
+// Nivel 1 — Kagemusha (影武者): el clon-sombra que investiga de noche → Informe del Amanecer, bajo Capa 2. Aditivo, gated KAGEMUSHA_ENABLED.
 /**
  * kagemusha — barrel. Level-1: the shadow-double that researches at night.
  * Everything additive + gated by KAGEMUSHA_ENABLED (default off).
