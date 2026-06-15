@@ -17,3 +17,4 @@ export {
   promoteKernel, revertKernel,
   type OracleVerdict, type OracleRunner, type BatteryResult, type AdmitResult, type PromotionResult,
 } from './evolution.js';
+export { assignFronts, integrateWrites, orchestrateSwarm, type WorkerResult, type LaunchClaude, type SwarmRunResult } from './swarm.js';
