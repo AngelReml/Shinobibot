@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T14:46:20.623Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T14:47:08.794Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,8 +13,8 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (20 cambios)
-- **Ultimo commit:** 3701d5e docs: regenera pulso AGENTS/CLAUDE — incorpora src/kaname (61 módulos)
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (19 cambios)
+- **Ultimo commit:** eedd431 feat(kaname): enchufa las puntas vivas al runtime real (live.ts)
 - **Tamano:** 434 ficheros de codigo (52394 LOC), 167 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
