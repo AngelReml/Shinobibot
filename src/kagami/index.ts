@@ -11,3 +11,8 @@ export { recordExam, masteryDemonstrated, type MasteryThreshold } from './learn/
 export { secretCrack, detectRegressions, untestedModuleCrack, invariantCracks, vulnerableDepCrack, resetCrackSeq, type Invariant } from './guard/cracks.js';
 export { buildSnapshot, healthTrend, crackBurden, type SweepInputs } from './guard/guard.js';
 export { buildSelfVoice, attachSelfVoice, type SelfVoiceInputs } from './voice.js';
+export { KagamiStore, sharedKagamiStore, type KagamiStoreOptions } from './store.js';
+export {
+  parseVitestSummary, parseTscErrors, parseLintWarnings, runSuite, runTypecheck, runLint,
+  lspErrorCount, selloGradeExam, type CmdRunner, type SuiteResult,
+} from './adapters.js';

@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T12:18:24.360Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T12:21:59.708Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (19 cambios)
-- **Ultimo commit:** f230b8d feat(shitsuji): T-12 — conductor del pipeline + EL PROMPT WOW de punta a punta
-- **Tamano:** 395 ficheros de codigo (49952 LOC), 141 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (20 cambios)
+- **Ultimo commit:** 645ea48 feat(shitsuji): enchufa las puntas vivas al runtime real (live.ts)
+- **Tamano:** 397 ficheros de codigo (50162 LOC), 142 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -43,7 +43,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/gaia/` | 1 | Scorer OFICIAL de GAIA — port fiel y VALIDADO del `question_scorer` del |
 | `src/gateway/` | 6 | Bloque 6 — orchestrator de canales del gateway externo. |
 | `src/integrity/` | 7 | _(anade un banner de cabecera)_ |
-| `src/kagami/` | 9 | _(anade un banner de cabecera)_ |
+| `src/kagami/` | 11 | _(anade un banner de cabecera)_ |
 | `src/kagemusha/` | 16 | _(anade un banner de cabecera)_ |
 | `src/kangeiko/` | 11 | _(anade un banner de cabecera)_ |
 | `src/knowledge/` | 2 | Habilidad C.1 — /learn <ruta_o_url> |
