@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T08:38:02.749Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T08:47:36.232Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (21 cambios)
-- **Ultimo commit:** 4cbebce feat(kagami+chizu): Nivel 2 (el espejo) + Nivel 3 (el cartógrafo) — núcleos deterministas
-- **Tamano:** 352 ficheros de codigo (47219 LOC), 121 de test
+- **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (17 cambios)
+- **Ultimo commit:** ed4af74 feat(shugyo): Nivel 4 (el explorador) — núcleos deterministas de seguridad y curva
+- **Tamano:** 353 ficheros de codigo (47369 LOC), 122 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -66,7 +66,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/security/` | 2 | D-017 — gate selectivo de aprobación: modos on/smart/critical/off (default critical). |
 | `src/selfdebug/` | 1 | Self-Debug — convierte cada fallo de tool en un diagnostic report estructurado y accionable. |
 | `src/sentinel/` | 9 | Sentinel — slash command /sentinel: watch de fuentes, ask semántico, propuestas, council y digest. |
-| `src/shugyo/` | 6 | _(anade un banner de cabecera)_ |
+| `src/shugyo/` | 7 | _(anade un banner de cabecera)_ |
 | `src/skills/` | 17 | Bloque 3 — Skill Manager autónomo. Bucle de auto-mejora inspirado en |
 | `src/skills_runtime/` | 1 | Tiny obs-websocket v5 client for the desktop skills. |
 | `src/soul/` | 1 | Soul (Alma) — personalidad configurable del agente: tono, identidad y persona prompt vía soul.md. |

@@ -8,3 +8,4 @@ export * from './types.js';
 export { classifyReversibility, executionPolicy, mayExecute, type ExecutionPolicy } from './explore/reversibility.js';
 export { parseCliHelp, type CliSurface, type CliFlag, type CliSubcommand } from './surface/cli_parser.js';
 export { PatternBook, curveIsDescending } from './curve/patternbook.js';
+export { DirCageSandbox, runTrial, type RevertibleSandbox, type CageExecutor, type CageOptions } from './sandbox/revertible.js';
