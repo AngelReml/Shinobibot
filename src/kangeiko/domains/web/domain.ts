@@ -31,7 +31,10 @@ export function makeWebDomain(arena: WebTask[], rawRunner: WebRunner, opts: WebD
   const safe = arena.filter((t) => t.reversibility !== 'external_effect');
   const external = arena.filter((t) => t.reversibility === 'external_effect');
   let externalDoc = 0;
-  const prove = opts.prove ?? (async (_t, c) => c.declared_effects === 'read_only' || c.declared_effects === 'none');
+  // Default prove is REAL: run the task through the (guarded) runner and require
+  // the oracle to appear in the page outcome. A skill is certified iff the served
+  // page actually yields its oracle — not by fiat.
+  const prove = opts.prove ?? (async (task: WebTask) => { const o = await runner.run(task); return o.executed && o.outcome.includes(task.oracle); });
   const taskFor = (cap: string) => safe.find((t) => t.capability_id === cap);
 
   return {

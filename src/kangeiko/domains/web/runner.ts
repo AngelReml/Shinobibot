@@ -25,6 +25,36 @@ export function guardExternal(inner: WebRunner): WebRunner {
   };
 }
 
+/** Resolve a dojo://fixtures/X url against a served base url (the local dojo). */
+export function resolveDojoUrl(dojoUrl: string, baseUrl: string): string {
+  const m = dojoUrl.match(/^dojo:\/\/fixtures\/(.+)$/);
+  return m ? `${baseUrl.replace(/\/$/, '')}/${m[1]}` : dojoUrl;
+}
+
+function stripTags(html: string): string {
+  return html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * REAL runner over the LOCAL dojo server: HTTP GET the resolved fixture url and
+ * return its visible text as the outcome. No browser needed for static fixtures;
+ * fully runnable. (For dynamic/SPA sites, use makeCdpWebRunner.)
+ */
+export function makeHttpWebRunner(baseUrl: string): WebRunner {
+  return {
+    async run(task) {
+      try {
+        const res = await fetch(resolveDojoUrl(task.url, baseUrl));
+        if (!res.ok) return { outcome: `HTTP ${res.status}`, executed: true };
+        return { outcome: stripTags(await res.text()), executed: true };
+      } catch (e: any) {
+        return { outcome: `fetch error: ${e.message}`, executed: true };
+      }
+    },
+  };
+}
+
 /**
  * REAL runner: navigate the closed-dojo url with the existing web_search tool
  * (CDP) and return the extracted page text as the outcome. Live (needs a browser +

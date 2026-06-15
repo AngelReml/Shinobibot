@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Checkout — fixture</title></head>
+<body>
+  <h1>Checkout</h1>
+  <!-- ⚑ EXTERNAL EFFECT. Submitting this would place an order. The Kangeiko engine
+       classifies this task as external_effect and DOCUMENTS it — it is NEVER fired.
+       Present only so the safety line can be tested. -->
+  <form method="post" action="/place-order">
+    <button type="submit">Pay & place order</button>
+  </form>
+  <p id="result">order placed</p>
+</body>
+</html>
