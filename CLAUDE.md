@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T10:27:52.966Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-06-15T10:35:41.637Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -14,8 +14,8 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 
 ## Pulso (vivo)
 - **Version:** 1.0.0 · **Rama:** main · **Arbol:** SUCIO (19 cambios)
-- **Ultimo commit:** df6e516 feat(kangeiko): makeCdpWebRunner/HTTP runner real + dojo cerrado servido (KG-02/03 vivo)
-- **Tamano:** 382 ficheros de codigo (48830 LOC), 133 de test
+- **Ultimo commit:** 580cdd8 feat(kangeiko): KG-04 — curva persistida + consolidación (learning loop). Motor completo.
+- **Tamano:** 382 ficheros de codigo (48848 LOC), 134 de test
 - **Inventario (escaneo real):** ~59 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)

@@ -55,20 +55,38 @@ export function makeHttpWebRunner(baseUrl: string): WebRunner {
   };
 }
 
+export interface CdpRunnerOptions {
+  /** If set, resolve dojo://fixtures/X against this base; else task.url is used
+   *  verbatim (OPEN WEB — real http(s) urls). */
+  dojoBaseUrl?: string;
+  /** Cap the extracted text (default 12000, matching web_search). */
+  extractChars?: number;
+  /** Injectable navigator (default = the real web_search/CDP tool). For tests. */
+  navigate?: (url: string) => Promise<{ output: string; success: boolean }>;
+}
+
 /**
- * REAL runner: navigate the closed-dojo url with the existing web_search tool
- * (CDP) and return the extracted page text as the outcome. Live (needs a browser +
- * the dojo fixtures served). Read-only navigation; never used for external effects
- * (guardExternal blocks those upstream).
+ * REAL runner for the OPEN WEB: navigate the url with the existing browser layer
+ * (the web_search tool, CDP/Playwright, SPA-aware) and return the extracted page
+ * text. READ-ONLY BY CONSTRUCTION — it only navigates + extracts, never clicks or
+ * submits, so it cannot fire an effect; and guardExternal means an external_effect
+ * task is documented, never even opened. Live (needs a browser at :9222); the
+ * navigator is injectable so the wiring is testable without one.
  */
-export function makeCdpWebRunner(): WebRunner {
+export function makeCdpWebRunner(opts: CdpRunnerOptions = {}): WebRunner {
+  const cap = opts.extractChars ?? 12000;
+  const navigate = opts.navigate ?? (async (url: string) => {
+    const { getTool } = await import('../../../tools/tool_registry.js');
+    const tool = getTool('web_search');
+    if (!tool) return { output: '', success: false };
+    const r = await tool.execute({ query: url });   // a URL → open + extract DOM (read-only)
+    return { output: String(r.output ?? ''), success: !!r.success };
+  });
   return {
     async run(task) {
-      const { getTool } = await import('../../../tools/tool_registry.js');
-      const tool = getTool('web_search');
-      if (!tool) return { outcome: '', executed: false };
-      const r = await tool.execute({ query: task.url });
-      return { outcome: String(r.output ?? ''), executed: true };
+      const url = opts.dojoBaseUrl ? resolveDojoUrl(task.url, opts.dojoBaseUrl) : task.url;
+      const r = await navigate(url);
+      return { outcome: r.output.slice(0, cap), executed: true };
     },
   };
 }
