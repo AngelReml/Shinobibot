@@ -79,7 +79,7 @@ export async function runPlan(plan: Plan, deps: ExecuteDeps): Promise<PlanResult
   const anyStands = results.some((r) => r.status === 'ok');
   const status: PlanResult['status'] = !anyFailedOrBlocked ? 'completed' : anyStands ? 'partial' : 'aborted';
 
-  return { plan_id: plan.plan_id, status, steps: results, honest_summary: summarize(status, results, failedAt, blockedAt), tev_ref: tev.length ? tev[tev.length - 1].this_hash : undefined };
+  return { plan_id: plan.plan_id, status, steps: results, honest_summary: summarize(status, results, failedAt, blockedAt), tev_ref: tev.length ? tev[tev.length - 1].this_hash : undefined, tev };
 }
 
 function summarize(status: PlanResult['status'], results: StepResult[], failedAt: PlanStep | null, blockedAt: PlanStep | null): string {

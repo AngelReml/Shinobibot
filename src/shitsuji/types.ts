@@ -61,7 +61,8 @@ export interface PlanResult {
   status: 'completed' | 'partial' | 'aborted';
   steps: StepResult[];
   honest_summary: string;         // what was achieved and what wasn't (11.4) ⚑
-  tev_ref?: string;
+  tev_ref?: string;               // hash of the last TEV entry (the chain head)
+  tev?: TEVEntry[];               // the full verifiable trace (V3: persisted + referenced) ⚑
 }
 
 /** A verifiable-trace entry (⚠ FASE D for signing; here: declared vs observed). */
