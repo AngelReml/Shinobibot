@@ -6,6 +6,7 @@ import { resolve as resolvePath, sep } from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { isDangerousCommand } from '../utils/permissions.js';
 import { contextCwd, contextWorkspaceRoot } from '../agents/exec_context.js';
+import { runPowerShell } from './_powershell.js';
 
 // Patrones destructivos NO configurables por el LLM. Si el command (tras
 // normalizar) hace match con cualquiera de estos, se rechaza antes de
@@ -109,13 +110,14 @@ export function checkSandbox(command: string, cwd: string): string | null {
 
 const runCommandTool: Tool = {
   name: 'run_command',
-  description: 'Execute a shell command (CMD or PowerShell) on Windows and return its output. Use for: running scripts, checking versions, installing packages, git operations, etc. Commands run in the current working directory.',
+  description: 'Execute a shell command and return its output. On Windows, use PowerShell syntax (Get-Process, Get-ChildItem, etc.) and pass shell="powershell". Default on Windows is auto-PowerShell. Use for: running scripts, checking versions, installing packages, git operations, system queries, etc.',
   parameters: {
     type: 'object',
     properties: {
-      command: { type: 'string', description: 'The command to execute (e.g. "node --version", "dir", "git status")' },
+      command: { type: 'string', description: 'The command to execute. On Windows use PowerShell syntax (e.g. "Get-Process | ConvertTo-Json", "Get-ChildItem C:\\\\", "Get-Service | Where-Object Status -eq Running")' },
       cwd: { type: 'string', description: 'Optional: working directory for the command (defaults to current directory)' },
       timeout: { type: 'number', description: 'Optional: timeout in milliseconds (defaults to 30000)' },
+      shell: { type: 'string', enum: ['auto', 'cmd', 'powershell'], description: 'Shell to use: "powershell" routes via powershell.exe (safe Base64 encoding, no injection), "cmd" forces cmd.exe, "auto" uses PowerShell on Windows and the OS default on Linux. Default: "auto".' },
     },
     required: ['command'],
   },
@@ -124,7 +126,7 @@ const runCommandTool: Tool = {
     return isDangerousCommand(args.command);
   },
 
-  async execute(args: { command: string; cwd?: string; timeout?: number }): Promise<ToolResult> {
+  async execute(args: { command: string; cwd?: string; timeout?: number; shell?: string }): Promise<ToolResult> {
     const timeout = args.timeout || 30_000;
     const cwd = args.cwd || contextCwd();
 
@@ -170,6 +172,28 @@ const runCommandTool: Tool = {
         error: `SHINOBI_RUN_BACKEND='${wantBackend}' no es un backend reconocido. ` +
           `Backends válidos: local, docker, ssh, e2b, mock. ` +
           `No se ejecuta en 'local' por seguridad (rompería el aislamiento esperado).`,
+      };
+    }
+
+    // Fase 2 — D1 Windows: si el caller pide PowerShell, o si es auto y
+    // estamos en Windows, enrutamos por runPowerShell (Base64 -EncodedCommand,
+    // sin inyección de cmd.exe). En Linux con 'auto' usamos el exec() normal.
+    const shellMode = (args.shell || 'auto').toLowerCase();
+    const usePowerShell = shellMode === 'powershell' ||
+      (shellMode === 'auto' && process.platform === 'win32');
+
+    if (usePowerShell) {
+      const r = await runPowerShell(args.command, timeout);
+      const output = [
+        `PS> ${args.command}`,
+        r.stdout.trim() || '',
+        r.stderr.trim() ? `STDERR: ${r.stderr.trim()}` : '',
+        `Exit code: ${r.exitCode}`,
+      ].filter(Boolean).join('\n');
+      return {
+        success: r.success,
+        output,
+        error: r.success ? undefined : `PowerShell command failed (exit ${r.exitCode}): ${r.stderr.trim() || 'unknown error'}`,
       };
     }
 
