@@ -245,3 +245,23 @@ export function sharedMemoryStore(): MemoryStore {
   if (!_sharedStore) _sharedStore = new MemoryStore();
   return _sharedStore;
 }
+
+// ─── Instancias aisladas por userId (FIX 1.1) ─────────────────────────────
+//
+// En modo multi-usuario, cada userId obtiene su propio MemoryStore respaldado
+// por un SQLite independiente (<Shinobi>/users/<userId>/memory.db). De esta
+// forma el recall de un usuario nunca contamina el de otro.
+// Los callers en modo multi-usuario deben usar `getMemoryStore(userId)` en
+// lugar de `sharedMemoryStore()`.
+
+const _userStores = new Map<string, MemoryStore>();
+
+export function getMemoryStore(userId: string): MemoryStore {
+  if (!_userStores.has(userId)) {
+    const defaultDir = path.join(process.env.APPDATA || process.env.HOME || '.', 'Shinobi');
+    const userDir = path.join(defaultDir, 'users', userId);
+    if (!fs.existsSync(userDir)) fs.mkdirSync(userDir, { recursive: true });
+    _userStores.set(userId, new MemoryStore({ db_path: path.join(userDir, 'memory.db') }));
+  }
+  return _userStores.get(userId)!;
+}

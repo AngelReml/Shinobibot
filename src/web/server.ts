@@ -189,7 +189,12 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
 
   const app = express();
   // Límite de body: sin esto un POST gigante a /api/* agota memoria (DoS).
-  app.use(express.json({ limit: '1mb' }));
+  // FIX 0.9: captura rawBody (Buffer) antes del parseo JSON para que el
+  // verificador HMAC de /a2a pueda operar sobre los bytes originales.
+  app.use(express.json({
+    limit: '1mb',
+    verify: (req: any, _res, buf) => { req.rawBody = buf; },
+  }));
 
   // ─── Bloque 7 — onboarding: si no hay config, sirve la pantalla de bienvenida en `/` ─
   app.get('/', (_req, res, next) => {
@@ -491,21 +496,33 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   });
 
   // Sprint 2.4 — Admin dashboard + metrics + Prometheus.
-  app.get('/admin/dashboard', async (_req, res) => {
-    const { renderDashboardHtml } = await import('../observability/admin_dashboard.js');
-    const r = renderDashboardHtml();
-    res.type(r.contentType).send(r.body);
-  });
-  app.get('/admin/metrics/json', async (_req, res) => {
-    const { snapshotJsonResponse } = await import('../observability/admin_dashboard.js');
-    const r = snapshotJsonResponse();
-    res.type(r.contentType).send(r.body);
-  });
-  app.get('/admin/metrics/prom', async (_req, res) => {
-    const { prometheusResponse } = await import('../observability/admin_dashboard.js');
-    const r = prometheusResponse();
-    res.type(r.contentType).send(r.body);
-  });
+  // FIX 0.7: rutas admin protegidas con SHINOBI_ADMIN_TOKEN.
+  // Si el token no está configurado, las rutas no se montan en absoluto.
+  const adminToken = process.env.SHINOBI_ADMIN_TOKEN;
+  if (!adminToken) {
+    console.warn('[SECURITY] SHINOBI_ADMIN_TOKEN not set — admin dashboard disabled');
+  } else {
+    app.use('/admin', (req, res, next) => {
+      const token = req.headers['x-admin-token'] ?? req.query.token;
+      if (token !== adminToken) { res.status(401).json({ error: 'unauthorized' }); return; }
+      next();
+    });
+    app.get('/admin/dashboard', async (_req, res) => {
+      const { renderDashboardHtml } = await import('../observability/admin_dashboard.js');
+      const r = renderDashboardHtml();
+      res.type(r.contentType).send(r.body);
+    });
+    app.get('/admin/metrics/json', async (_req, res) => {
+      const { snapshotJsonResponse } = await import('../observability/admin_dashboard.js');
+      const r = snapshotJsonResponse();
+      res.type(r.contentType).send(r.body);
+    });
+    app.get('/admin/metrics/prom', async (_req, res) => {
+      const { prometheusResponse } = await import('../observability/admin_dashboard.js');
+      const r = prometheusResponse();
+      res.type(r.contentType).send(r.body);
+    });
+  }
 
   // P2 — A2A: discovery + dispatch para que otro agente invoque a Shinobi.
   const a2aDispatcher = buildA2ADispatcher();
@@ -528,10 +545,19 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     return e.count > A2A_MAX;
   };
   app.get('/.well-known/agent-card.json', (req, res) => {
-    // El endpoint anunciado sale de SHINOBI_PUBLIC_URL si está configurado;
-    // si no, del Host de la petición (uso LAN). En despliegue público NO se
-    // debe confiar el Host: uno falsificado envenenaría el discovery.
-    const base = process.env.SHINOBI_PUBLIC_URL?.replace(/\/+$/, '') || `http://${req.headers.host}`;
+    // FIX 0.8: usar SHINOBI_PUBLIC_URL como fuente de verdad para evitar
+    // host-header injection. En producción, rechazar con 503 si no está
+    // configurada. En desarrollo, permitir fallback a req.headers.host con
+    // advertencia de seguridad.
+    const publicUrl = process.env.SHINOBI_PUBLIC_URL?.replace(/\/+$/, '');
+    if (!publicUrl) {
+      if (process.env.NODE_ENV === 'production') {
+        res.status(503).json({ error: 'SHINOBI_PUBLIC_URL not configured' });
+        return;
+      }
+      console.warn('[SECURITY] SHINOBI_PUBLIC_URL not set — falling back to req.headers.host (dev only)');
+    }
+    const base = publicUrl ?? `http://${req.headers.host}`;
     res.json(shinobiAgentCard(`${base}/a2a`));
   });
   app.post('/a2a', async (req, res) => {
@@ -543,7 +569,10 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     const resp = await a2aDispatcher.dispatch(req.body, {
       bearer: (req.headers.authorization || '').replace(/^Bearer\s+/i, '') || undefined,
       signature: typeof req.headers['x-a2a-signature'] === 'string' ? req.headers['x-a2a-signature'] : undefined,
-      rawBody: JSON.stringify(req.body),
+      // FIX 0.9: usar el body crudo (bytes originales) para verificar HMAC.
+      rawBody: (req as any).rawBody instanceof Buffer
+        ? (req as any).rawBody.toString('utf-8')
+        : JSON.stringify(req.body),
     });
     res.status(resp.ok ? 200 : 400).json(resp);
   });

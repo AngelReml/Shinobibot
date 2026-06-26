@@ -1,11 +1,8 @@
+// FIX 1.12 — Se elimina el dotenv.config({override:true}) que se ejecutaba
+// como side-effect al importar este módulo, contaminando el entorno de todos
+// los importadores. La carga de .env es responsabilidad del entrypoint
+// (scripts/shinobi.ts / scripts/shinobi_web.ts), no de un módulo interno.
 import axios from 'axios';
-import dotenv from 'dotenv';
-import { createRequire } from 'module';
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-dotenv.config({ path: resolve(__dirname, '../../.env'), override: true });
 
 /** Timeout de las llamadas HTTP al proveedor LLM. Sin esto, un proveedor
  *  colgado bloquea al caller (reader/llm_adapter) indefinidamente. */

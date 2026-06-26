@@ -19,6 +19,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { APP_VERSION } from '../utils/app_version.js';
 
 export interface ImportPlan {
   hermes_root: string;
@@ -334,7 +335,7 @@ function writeShinobiConfigFromHermes(cfg: HermesConfig, target: string, opts: I
     language: (cfg.language === 'en' ? 'en' : 'es'),
     memory_path: cfg.memory_path ?? path.join(SHINOBI_DEFAULT, 'memory.db'),
     onboarded_at: new Date().toISOString(),
-    version: '1.0.0',
+    version: APP_VERSION,
     imported_from: 'hermes',
   };
   ensureDir(path.dirname(target));

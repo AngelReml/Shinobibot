@@ -137,7 +137,7 @@ CANDIDATE SKILLS:
 `;
 
 function reviewModel(): string {
-  return process.env.SHINOBI_REVIEW_MODEL || 'anthropic/claude-haiku-4.5';
+  return process.env.SHINOBI_REVIEW_MODEL || 'anthropic/claude-haiku-4-5';
 }
 
 /** Edad en días desde el ancla (último uso, o creación si nunca se usó). */

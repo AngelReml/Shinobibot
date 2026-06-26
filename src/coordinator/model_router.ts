@@ -15,9 +15,9 @@
  *   tier      provider     model                  ~$/1M tokens (combined)
  *   tiny      groq         llama-3.3-70b-versatile  ~$0.6
  *   simple    groq         llama-3.3-70b-versatile  ~$0.6
- *   medium    anthropic    claude-haiku-4.5         ~$1.4
- *   complex   anthropic    claude-sonnet-4.6        ~$15
- *   expert    anthropic    claude-opus-4.7          ~$50
+ *   medium    anthropic    claude-haiku-4-5         ~$1.4
+ *   complex   anthropic    claude-sonnet-4-6        ~$15
+ *   expert    anthropic    claude-opus-4-7          ~$50
  *
  * El router NO cambia el modelo a mitad de medición — solo registra la
  * decisión antes de cada turno. Eso preserva la regla del usuario "no
@@ -54,9 +54,9 @@ export interface RouteOptions {
 const PRICE_PER_1M: Record<string, number> = {
   'groq/llama-3.3-70b-versatile': 0.6,
   'groq/llama-3.1-8b-instant': 0.1,
-  'anthropic/claude-haiku-4.5': 1.4,
-  'anthropic/claude-sonnet-4.6': 15.0,
-  'anthropic/claude-opus-4.7': 50.0,
+  'anthropic/claude-haiku-4-5': 1.4,
+  'anthropic/claude-sonnet-4-6': 15.0,
+  'anthropic/claude-opus-4-7': 50.0,
   'openai/gpt-4o-mini': 0.25,
   'openai/gpt-4o': 12.5,
 };
@@ -64,9 +64,9 @@ const PRICE_PER_1M: Record<string, number> = {
 const DEFAULT_MAPPING: Record<ComplexityTier, ModelChoice> = {
   tiny:    { provider: 'groq',      model: 'llama-3.3-70b-versatile' },
   simple:  { provider: 'groq',      model: 'llama-3.3-70b-versatile' },
-  medium:  { provider: 'anthropic', model: 'claude-haiku-4.5' },
-  complex: { provider: 'anthropic', model: 'claude-sonnet-4.6' },
-  expert:  { provider: 'anthropic', model: 'claude-opus-4.7' },
+  medium:  { provider: 'anthropic', model: 'claude-haiku-4-5' },
+  complex: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+  expert:  { provider: 'anthropic', model: 'claude-opus-4-7' },
 };
 
 function readEnvOverride(tier: ComplexityTier): ModelChoice | null {

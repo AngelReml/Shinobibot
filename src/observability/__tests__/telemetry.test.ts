@@ -14,7 +14,7 @@ describe('LLM Execution Telemetry Metrics', () => {
     const reg = metrics();
     reg.counterInc('shinobi_llm_calls_total', 1, { provider: 'openai', model: 'gpt-4o-mini' });
     reg.counterInc('shinobi_llm_calls_total', 1, { provider: 'openai', model: 'gpt-4o-mini' });
-    reg.counterInc('shinobi_llm_calls_total', 1, { provider: 'anthropic', model: 'claude-haiku-4.5' });
+    reg.counterInc('shinobi_llm_calls_total', 1, { provider: 'anthropic', model: 'claude-haiku-4-5' });
 
     const snap = reg.snapshotJson();
     expect(snap.shinobi_llm_calls_total).toBeDefined();

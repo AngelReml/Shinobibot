@@ -20,6 +20,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
+import { APP_VERSION } from '../utils/app_version.js';
 
 export interface TelemetryConfig {
   opted_in: boolean;
@@ -109,7 +110,7 @@ export async function emit(event: string, properties: Record<string, unknown> = 
   if (!cfg.opted_in && !opts.force) return { sent: false, reason: 'opted out' };
   const body: TelemetryEvent = {
     anonymous_id: cfg.anonymous_id,
-    install_version: cfg.install_version ?? '0.0.0',
+    install_version: cfg.install_version ?? APP_VERSION,
     platform: process.platform,
     event,
     properties: sanitizeProperties(properties),

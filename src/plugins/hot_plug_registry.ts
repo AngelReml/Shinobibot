@@ -116,7 +116,7 @@ export class HotPlugRegistry {
 
           const script = await isolate.compileScript(transformed, { filename: resolvedPath });
           
-          // CONTROL DE TIEMPO DE CPU (TIMEOUT DE 500MS)
+          // Carga del módulo — síncrona, solo CPU, 500ms es suficiente.
           await script.run(context, { timeout: 500 });
 
           const runner = await isolate.compileScript(`
@@ -128,7 +128,10 @@ export class HotPlugRegistry {
             })()
           `);
           
-          const resultStr = await runner.run(context, { timeout: 500, promise: true });
+          // Ejecución async — timeout configurable; default 5s mata bucles infinitos
+          // sin ahogar plugins legítimos con I/O. (var: SHINOBI_PLUGIN_TIMEOUT_MS)
+          const pluginTimeoutMs = Number(process.env.SHINOBI_PLUGIN_TIMEOUT_MS) || 5000;
+          const resultStr = await runner.run(context, { timeout: pluginTimeoutMs, promise: true });
           return JSON.parse(resultStr);
 
         } catch (e: any) {

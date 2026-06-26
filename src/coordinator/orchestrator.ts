@@ -1,6 +1,5 @@
 // Orquestador del bucle LLM-tool (ShinobiOrchestrator): ejecuta tools, compacta contexto y audita.
 // Integra failover multi-proveedor, loop detector, approval gate, memoria y skills en cada turno.
-import OpenAI from 'openai';
 import { invokeLLM as routedInvokeLLM, currentProvider } from '../providers/provider_router.js';
 import { route } from './model_router.js';
 import { getAllTools, getTool, toOpenAITools } from '../tools/index.js';
@@ -22,7 +21,7 @@ import { tokenBudget } from '../context/token_budget.js';
 import { LoopDetector, loopDetectorConfigFromEnv, failureModeAdvice } from './loop_detector.js';
 import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
-import { isDestructive, requestApproval, registerApprovedPath } from '../security/approval.js';
+import { isDestructive, requestApproval, registerApprovedPath, clearSessionApprovals } from '../security/approval.js';
 import { integrityEnabled, runPreAction, runPostAction, reportClaimsSuccess } from '../integrity/engine.js';
 import { stepForToolCall } from '../integrity/registry.js';
 import type { ToolResult } from '../tools/tool_registry.js';
@@ -50,7 +49,6 @@ dotenv.config({ path: resolve(__dirname, '../../.env'), override: true });
 export class ShinobiOrchestrator {
   private static memory = sharedMemory();
   private static contextBuilder = new ContextBuilder();
-  private static openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   private static activeModel: string | undefined = undefined;
 
   /**
@@ -86,6 +84,9 @@ export class ShinobiOrchestrator {
   static setConversation(id: string): void {
     const conv = (id && id.trim()) ? id.trim() : 'default';
     if (conv === this.conversationId) return;
+    // FIX 0.2: limpiar los "siempre aprobar" de la sesión anterior para que
+    // el bypass "always" no persista entre conversaciones distintas.
+    clearSessionApprovals();
     this.conversationId = conv;
     if (conv === 'default') {
       this.memory = sharedMemory();
@@ -98,6 +99,7 @@ export class ShinobiOrchestrator {
     }
     this._turnsSinceMemory = 0;
     this._itersSinceSkill = 0;
+    this._memoryReflector = null;
   }
 
   /**
@@ -318,7 +320,6 @@ export class ShinobiOrchestrator {
       }
     } catch (e) { console.error('[soul] persona inject failed:', (e as Error).message); }
     const allTools = getAllTools();
-    const availableTools = allTools;
 
     // Modo deferred-tools (opt-in SHINOBI_DEFERRED_TOOLS=1): en vez de anunciar
     // las ~46 tools cada turno, se anuncia un núcleo + tool_search; el agente
@@ -387,7 +388,7 @@ export class ShinobiOrchestrator {
 
       // Tools a anunciar este turno. En modo deferred crece según lo que
       // tool_search vaya activando; sin deferred es todo el set (sin cambio).
-      const advertisedTools = computeAdvertisedTools(availableTools, {
+      const advertisedTools = computeAdvertisedTools(allTools, {
         deferred,
         activated: getActivatedTools(),
         trustReport,
@@ -395,18 +396,6 @@ export class ShinobiOrchestrator {
       const openAITools = toOpenAITools(advertisedTools);
 
       try {
-        // [B2-DEPRECATED]
-        /*
-        const response = await this.openai.chat.completions.create({
-          model: 'gpt-4o',
-          messages: currentMessages,
-          tools: openAITools.length > 0 ? openAITools : undefined,
-          tool_choice: 'auto',
-          temperature: 0.2,
-        });
-        const responseMessage = response.choices[0].message;
-        */
-
         // Context compactor: si el budget del proveedor se acerca, truncamos
         // tool outputs antiguos y/o colapsamos turnos viejos para que el
         // último user input y los últimos turnos sigan intactos. Sin esto,
@@ -641,10 +630,12 @@ export class ShinobiOrchestrator {
             let isTimeout = false;
             let timer: NodeJS.Timeout | undefined;
 
+            // SHINOBI_APPROVAL_TIMEOUT_ACTION: 'deny' (default, seguro) | 'approve' (legacy)
+            const timeoutApprove = (process.env.SHINOBI_APPROVAL_TIMEOUT_ACTION || 'deny').toLowerCase() === 'approve';
             const timeoutPromise = new Promise<boolean>((resolve) => {
               timer = setTimeout(() => {
                 isTimeout = true;
-                resolve(true); // implicit approval on timeout
+                resolve(timeoutApprove); // por defecto DENIEGA en timeout; usa SHINOBI_APPROVAL_TIMEOUT_ACTION=approve para el comportamiento antiguo
               }, approvalTimeoutMs);
             });
 
@@ -664,18 +655,20 @@ export class ShinobiOrchestrator {
               if (timer) clearTimeout(timer);
             }
 
-            if (!approved && !isTimeout) {
-              const denyReason = approvalVerdict.reason || 'requiere confirmación del usuario';
+            if (!approved) {
+              const denyReason = isTimeout
+                ? `timeout de aprobación (${approvalTimeoutMs / 1000}s) — denegado por seguridad`
+                : (approvalVerdict.reason || 'requiere confirmación del usuario');
               toolResultStr = JSON.stringify({
                 success: false,
                 error: `Acción no aprobada: "${functionName}" (${denyReason}). No se ejecutó. ` +
                   `El usuario puede ajustar el modo con /approval [on|smart|off].`,
               });
-              console.log(`  [⛔] Aprobación denegada: ${functionName}`);
-              logToolCall({ tool: functionName, args: functionArgs, success: false, durationMs: 0, error: 'approval_denied' });
+              console.log(`  [⛔] Aprobación ${isTimeout ? 'denegada por timeout' : 'denegada'}: ${functionName}`);
+              logToolCall({ tool: functionName, args: functionArgs, success: false, durationMs: 0, error: isTimeout ? 'approval_timeout_denied' : 'approval_denied' });
             } else {
               if (isTimeout) {
-                console.log(`  [✓] Aprobación por timeout (${approvalTimeoutMs / 1000}s): tool ejecutada`);
+                console.log(`  [✓] Aprobación por timeout (${approvalTimeoutMs / 1000}s): SHINOBI_APPROVAL_TIMEOUT_ACTION=approve — tool ejecutada`);
               }
             // Aprobación concedida. Si era una escritura/edición fuera del
             // workspace, registramos ese path para que validatePath lo

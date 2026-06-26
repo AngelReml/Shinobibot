@@ -267,8 +267,16 @@ export async function requestApproval(input: ApprovalInput): Promise<boolean> {
   // El freno selectivo SOLO pausa en la clase crítica. Lo no-crítico procede.
   if (!input.destructive) return true;
 
-  // "Aprobar siempre" para esta tool en la sesión.
-  if (sessionAlwaysApproved.has(input.toolName)) return true;
+  // FIX 0.2: check de ruta crítica ANTES de sessionAlwaysApproved. Si la acción
+  // escribe en .env, .ssh, certs, etc., sessionAlwaysApproved NO puede bypassear
+  // el gate — siempre se pregunta, aunque el usuario haya dicho "siempre" antes.
+  const isCriticalPath =
+    (input.toolName === 'write_file' || input.toolName === 'edit_file') &&
+    CRITICAL_PATH_PATTERNS.some(({ regex }) =>
+      regex.test(typeof input.args?.path === 'string' ? input.args.path : ''));
+
+  // "Aprobar siempre" para esta tool en la sesión — excepto rutas críticas.
+  if (!isCriticalPath && sessionAlwaysApproved.has(input.toolName)) return true;
 
   // Acción crítica sin UI para confirmar → fail-safe: DENIEGA (no se crea cuenta
   // / no se gasta / no se escribe credencial de forma desatendida).

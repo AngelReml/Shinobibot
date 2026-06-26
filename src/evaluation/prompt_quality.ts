@@ -59,7 +59,8 @@ export interface EvaluateOptions {
 
 // Modelo barato vía OpenRouter — el mismo backend que usa Shinobi. La
 // evaluación de calidad NO necesita el modelo caro (§8 del manual).
-const DEFAULT_PROVIDER = 'openrouter:anthropic/claude-haiku-4.5';
+import { OPENROUTER_MODEL_HAIKU } from '../utils/model_defaults.js';
+const DEFAULT_PROVIDER = `openrouter:${OPENROUTER_MODEL_HAIKU}`;
 const DEFAULT_TIE_MARGIN = 0.05;
 
 /**

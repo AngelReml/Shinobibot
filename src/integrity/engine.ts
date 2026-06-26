@@ -18,8 +18,11 @@ import type { CheckResult, IntegrityStep, IntegrityFlag, IntegrityVerdict, PostA
 export type IntegrityMode = 'off' | 'flag' | 'enforce';
 
 export function integrityMode(): IntegrityMode {
-  const m = (process.env.SHINOBI_INTEGRITY ?? 'off').toLowerCase();
-  return m === 'flag' || m === 'enforce' ? m : 'off';
+  // FIX 0.14: default 'flag' (detecta y registra, no bloquea).
+  // 'off' solo se activa con SHINOBI_INTEGRITY=off explícito.
+  const m = (process.env.SHINOBI_INTEGRITY ?? 'flag').toLowerCase();
+  if (m === 'off') return 'off';
+  return m === 'enforce' ? 'enforce' : 'flag';
 }
 
 export function integrityEnabled(): boolean {

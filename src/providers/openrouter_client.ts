@@ -7,9 +7,11 @@
 import axios from 'axios';
 import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
 import type { KeyValidation, ProviderClient } from './types.js';
+import { sanitizeOpenAiMessages } from './model_id.js';
+import { DEFAULT_OPENROUTER_MODEL } from '../utils/model_defaults.js';
 
 const BASE_URL = 'https://openrouter.ai/api/v1';
-const DEFAULT_MODEL = 'anthropic/claude-haiku-4.5';
+const DEFAULT_MODEL = DEFAULT_OPENROUTER_MODEL;
 
 export const openrouterClient: ProviderClient = {
   name: 'openrouter',
@@ -25,7 +27,7 @@ export const openrouterClient: ProviderClient = {
     try {
       const resp = await axios.post(`${BASE_URL}/chat/completions`, {
         model,
-        messages: payload.messages,
+        messages: sanitizeOpenAiMessages(payload.messages),
         tools: payload.tools,
         tool_choice: payload.tool_choice,
         temperature: payload.temperature,
@@ -36,7 +38,7 @@ export const openrouterClient: ProviderClient = {
           'Content-Type': 'application/json',
           'X-Title': 'Shinobi',
         },
-        timeout: 60000,
+        timeout: Number(process.env.SHINOBI_LLM_TIMEOUT_MS) || 60000,
       });
       const msg = resp.data?.choices?.[0]?.message;
       if (!msg) return { success: false, output: '', error: `OpenRouter: respuesta vacía (data=${JSON.stringify(resp.data).slice(0, 200)})` };

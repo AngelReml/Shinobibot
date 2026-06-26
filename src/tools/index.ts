@@ -67,5 +67,18 @@ import './voice_speak.js';
 import './audio_transcribe.js';
 
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
+// FIX 1.7 — Activación del sistema de plugins ESM (manifiestos explícitos).
+// HotPlugRegistry (hot_plug_registry.ts) es el sandbox isolated-vm para
+// plugins NO confiables; plugin_loader es el cargador principal de plugins
+// del operador con manifiestos validados.
+import { loadAllPlugins } from '../plugins/plugin_loader.js';
+import { join } from 'path';
+
+// Cargar plugins del directorio `<cwd>/plugins/`. Si el directorio no existe
+// `discoverPlugins` devuelve listas vacías sin lanzar.
+loadAllPlugins(join(process.cwd(), 'plugins')).then(({ loaded, errors }) => {
+  if (loaded.length > 0) console.log(`[plugins] ${loaded.length} plugin(s) cargados.`);
+  for (const e of errors) console.warn(`[plugins] Error cargando ${e.manifestPath}: ${e.errors.join('; ')}`);
+}).catch((err: Error) => console.warn('[plugins] loadAllPlugins falló:', err.message));
 
 export { getAllTools, getTool, toOpenAITools };

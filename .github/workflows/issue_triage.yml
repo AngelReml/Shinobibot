@@ -26,8 +26,12 @@ jobs:
         id: classify
         env:
           TRIAGE_LLM_KEY: ${{ secrets.TRIAGE_LLM_KEY }}
+          # FIX 0.10: issue title/body en variables de entorno para evitar
+          # inyección de comandos shell al interpolar directamente con ${{ }}.
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          payload=$(jq -n --arg t "${{ github.event.issue.title }}" --arg b "${{ github.event.issue.body }}" '{ title: $t, body: $b }')
+          payload=$(jq -n --arg t "$ISSUE_TITLE" --arg b "$ISSUE_BODY" '{ title: $t, body: $b }')
           echo "$payload" | node scripts/triage/classify_issue.mjs > triage.json
           cat triage.json
           echo "label=$(jq -r .label triage.json)"             >> "$GITHUB_OUTPUT"

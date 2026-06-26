@@ -23,8 +23,11 @@ export function loadSkill(manifest: SkillManifestLite, csv: SkillCSVLike | null,
   if (!csv) return { record: { ...base, status: 'rejected' }, admitted: false, reason: 'sin CSV — no certificada' };
   const v = verifyCsvCertificate(csv);
   if (!v.ok) return { record: { ...base, status: 'rejected' }, admitted: false, reason: `CSV inválido: ${v.reasons.join('; ')}` };
-  if (csv.subject?.skill_id && csv.subject.skill_id !== manifest.skill_id) {
-    return { record: { ...base, status: 'rejected' }, admitted: false, reason: `el CSV certifica "${csv.subject.skill_id}", no "${manifest.skill_id}"` };
+  // FIX 0.6 — el CSV debe declarar skill_id Y debe coincidir exactamente con
+  // manifest.skill_id. Antes la condición solo rechazaba cuando skill_id
+  // estaba presente y era distinto; un CSV sin skill_id pasaba sin validación.
+  if (!csv.subject?.skill_id || csv.subject.skill_id !== manifest.skill_id) {
+    return { record: { ...base, status: 'rejected' }, admitted: false, reason: `skill_id mismatch: CSV subject "${csv.subject?.skill_id ?? '(missing)'}", manifest "${manifest.skill_id}"` };
   }
   return { record: { ...base, status: 'loaded' }, admitted: true, reason: 'CSV válido + CERTIFIED' };
 }

@@ -9,9 +9,10 @@
 
 import axios from 'axios';
 import { CloudResponse, LLMChatPayload } from './types.js';
+import { DEFAULT_OPENROUTER_MODEL } from '../utils/model_defaults.js';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_MODEL = 'anthropic/claude-haiku-4.5';
+const DEFAULT_MODEL = DEFAULT_OPENROUTER_MODEL;
 
 export async function invokeLLMViaOpenRouter(payload: LLMChatPayload): Promise<CloudResponse> {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -42,7 +43,7 @@ export async function invokeLLMViaOpenRouter(payload: LLMChatPayload): Promise<C
           'Content-Type': 'application/json',
           'X-Title': 'Shinobi (OpenRouter direct)',
         },
-        timeout: 60000,
+        timeout: Number(process.env.SHINOBI_LLM_TIMEOUT_MS) || 60000,
       }
     );
 

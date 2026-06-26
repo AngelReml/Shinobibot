@@ -109,8 +109,8 @@ export const anthropicClient: ProviderClient = {
     const model = normalizeModelId(payload.model || process.env.SHINOBI_MODEL_DEFAULT, 'anthropic', DEFAULT_MODEL);
     const { system, rest } = splitSystemAndMessages(payload.messages);
 
-    // Anthropic requiere max_tokens explícito.
-    const max_tokens = payload.max_tokens ?? 2048;
+    // Anthropic requiere max_tokens explícito. Configurable vía SHINOBI_ANTHROPIC_MAX_TOKENS.
+    const max_tokens = payload.max_tokens ?? (Number(process.env.SHINOBI_ANTHROPIC_MAX_TOKENS) || 4096);
 
     // Conversión de tools OpenAI → Anthropic.
     let tools: any[] | undefined;
@@ -136,7 +136,7 @@ export const anthropicClient: ProviderClient = {
           'anthropic-version': API_VERSION,
           'Content-Type': 'application/json',
         },
-        timeout: 60000,
+        timeout: Number(process.env.SHINOBI_LLM_TIMEOUT_MS) || 60000,
       });
 
       const blocks: AnthropicContentBlock[] = resp.data?.content || [];

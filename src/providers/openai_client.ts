@@ -32,7 +32,7 @@ export const openaiClient: ProviderClient = {
         max_tokens: payload.max_tokens,
       }, {
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        timeout: 60000,
+        timeout: Number(process.env.SHINOBI_LLM_TIMEOUT_MS) || 60000,
       });
       const msg = resp.data?.choices?.[0]?.message;
       if (!msg) return { success: false, output: '', error: `OpenAI: respuesta vacía (data=${JSON.stringify(resp.data).slice(0, 200)})` };

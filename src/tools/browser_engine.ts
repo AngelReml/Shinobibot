@@ -13,6 +13,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { Browser, BrowserContext, Page } from 'playwright';
 import { invokeLLMViaOpenRouter } from '../cloud/openrouter_fallback.js';
+import { OPENROUTER_MODEL_HAIKU } from '../utils/model_defaults.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Page picking
@@ -497,7 +498,7 @@ export interface VisionResult {
   error?: string;
 }
 
-const DEFAULT_VISION_MODEL = 'anthropic/claude-haiku-4.5';
+const DEFAULT_VISION_MODEL = OPENROUTER_MODEL_HAIKU;
 
 export async function visionAnalyze(page: Page, question: string): Promise<VisionResult> {
   if (process.env.SHINOBI_BROWSER_VISION !== '1') {

@@ -82,7 +82,10 @@ export async function certifyInCage(
     const r = await cage.runAction({ affordance_id: cs.case_id, kind: 'cli_command', label: manifest.skill_id, signature: cs.command, reversibility: effectPermitsChange(manifest.declared_effects) ? 'destructive' : 'reversible' });
     const after = cage.state();
 
-    const output_ok = r.output.trim().includes(cs.expected_stdout.trim());
+    // FIX 0.13 — oracle vacío no puede certificar nada (''.includes('') === true).
+    const oracle = cs.expected_stdout.trim();
+    if (oracle.length === 0) throw new Error('oracle vacío: no se puede certificar');
+    const output_ok = r.output.trim().includes(oracle);
     const changed = before.ref !== after.ref;
     // read_only/none must NOT change cage state; write/irreversible may.
     const effects_ok = effectPermitsChange(manifest.declared_effects) ? true : !changed;

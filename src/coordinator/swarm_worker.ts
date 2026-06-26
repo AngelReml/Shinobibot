@@ -5,6 +5,7 @@ import { sanitizeToolCallArguments, repairMessageSequence } from '../runtime/tra
 import { capToolResultJson } from '../context/tool_output_truncator.js';
 import { metrics } from '../observability/metrics.js';
 import { calculateCost } from './orchestrator.js';
+import { isDestructive, requestApproval } from '../security/approval.js';
 
 export class SwarmWorker {
   private isRunning = false;
@@ -147,8 +148,27 @@ export class SwarmWorker {
               toolResult = JSON.stringify({ error: `Tool ${fnName} not allowed or not found for this worker.` });
             } else {
               const parsedArgs = JSON.parse(fnArgs);
-              const execRes = await tool.execute(parsedArgs);
-              toolResult = typeof execRes === 'string' ? execRes : JSON.stringify(execRes);
+              // FIX 0.3: gate de aprobación para operaciones destructivas en modo headless.
+              // En swarm el asker es null → requestApproval deniega automáticamente si es destructivo.
+              const swarmVerdict = isDestructive(fnName, parsedArgs);
+              if (swarmVerdict.destructive) {
+                const swarmApproved = await requestApproval({
+                  toolName: fnName,
+                  args: parsedArgs,
+                  destructive: true,
+                  reason: swarmVerdict.reason,
+                });
+                if (!swarmApproved) {
+                  toolResult = JSON.stringify({
+                    success: false,
+                    error: `Acción denegada en swarm headless: "${fnName}" requiere aprobación del usuario (${swarmVerdict.reason || 'operación destructiva'}). No se ejecutó.`,
+                  });
+                }
+              }
+              if (!toolResult) {
+                const execRes = await tool.execute(parsedArgs);
+                toolResult = typeof execRes === 'string' ? execRes : JSON.stringify(execRes);
+              }
             }
           } catch (e: any) {
             toolResult = JSON.stringify({ error: e.message });

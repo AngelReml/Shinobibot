@@ -49,7 +49,7 @@ async function callOpenRouter(req: VisionRequest, apiKey: string): Promise<Visio
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://zapweave.com',
+      'HTTP-Referer': process.env.SHINOBI_OPENROUTER_REFERER ?? 'https://github.com/AngelReml/Shinobibot',
       'X-Title': 'Shinobi B9 screen_observe',
     },
     timeout: 60_000,

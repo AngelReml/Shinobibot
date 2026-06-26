@@ -2,13 +2,15 @@
 // approveAndLoad remoto eliminado: solo carga desde APPROVED_DIR local.
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
 import { fileURLToPath } from 'url';
+import { parseSkillMd } from './skill_md_parser.js';
+import { verifySkill } from './skill_signing.js';
+import { APPROVED_SKILLS_DIR } from './paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const APPROVED_DIR = path.join(process.env.APPDATA || os.homedir(), 'Shinobi', 'approved_skills');
+const APPROVED_DIR = APPROVED_SKILLS_DIR;
 
 function ensureDir(): void {
   if (!fs.existsSync(APPROVED_DIR)) fs.mkdirSync(APPROVED_DIR, { recursive: true });
@@ -35,6 +37,22 @@ export class SkillLoader {
     for (const f of files) {
       try {
         const filePath = path.join(APPROVED_DIR, f);
+        // FIX 0.4 — verificar firma antes de cargar el .mjs.
+        // Cada .mjs debe tener un .md de acompañamiento con firma válida.
+        const mdPath = path.join(APPROVED_DIR, f.replace(/\.mjs$/, '.md'));
+        if (!fs.existsSync(mdPath)) {
+          console.warn(`[skill_loader] ${f}: rechazada — falta companion .md (${f.replace(/\.mjs$/, '.md')})`);
+          errors.push(`${f}: rechazada — falta .md de acompañamiento`);
+          continue;
+        }
+        const mdContent = fs.readFileSync(mdPath, 'utf-8');
+        const parsedMd = parseSkillMd(mdContent);
+        const verdict = verifySkill(parsedMd);
+        if (!verdict.valid) {
+          console.warn(`[skill_loader] ${f}: rechazada — verificación de firma falló (${verdict.reason})`);
+          errors.push(`${f}: rechazada — firma inválida (${verdict.reason})`);
+          continue;
+        }
         const content = fs.readFileSync(filePath, 'utf-8');
         const critical = scanText(content, f).filter((x: any) => x.level === 'critical');
         if (critical.length > 0) {

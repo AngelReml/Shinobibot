@@ -116,7 +116,7 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
     } else if (parts[1] === 'list') {
       console.log('Modelos recomendados (override manual; bypassea el router):');
       console.log('- z-ai/glm-4.7 (REASONING tier default)');
-      console.log('- anthropic/claude-haiku-4.5 (BALANCED tier default)');
+      console.log('- anthropic/claude-haiku-4-5 (BALANCED tier default)');
       console.log('- openai/gpt-4o-mini (FAST tier default)');
       console.log('- openai/gpt-4o, anthropic/claude-3.5-sonnet (otros)');
     } else {

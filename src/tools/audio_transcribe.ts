@@ -39,6 +39,22 @@ const tool: Tool = {
 
   async execute(args: { path: string; language?: string; prompt?: string }): Promise<ToolResult> {
     const filePath = resolve(args.path);
+    // FIX 1.8 — Bloquear rutas de sistema sensibles. No usamos ABSOLUTE_PROHIBITED_PATHS
+    // directamente porque incluye '/root' como bloqueo genérico, y la workspace puede
+    // residir en /root/… Aquí bloqueamos solo subdirectorios críticos específicos.
+    const AUDIO_PROHIBITED = [
+      '/etc/passwd', '/etc/shadow', '/etc/sudoers', '/var/log',
+      '/root/.ssh', '/root/.gnupg', '/root/.config',
+      'C:\\Windows\\System32', 'C:\\Windows\\System', 'C:\\Windows\\SysWOW64',
+    ];
+    const lf = filePath.toLowerCase();
+    const isProhibited = AUDIO_PROHIBITED.some(p => {
+      const lp = p.toLowerCase();
+      return lf === lp || lf.startsWith(lp + '/') || lf.startsWith(lp + '\\');
+    });
+    if (isProhibited) {
+      return { success: false, output: '', error: 'path traversal denied: ruta de sistema prohibida.' };
+    }
     if (!existsSync(filePath)) {
       return { success: false, output: '', error: `Archivo no encontrado: ${filePath}` };
     }

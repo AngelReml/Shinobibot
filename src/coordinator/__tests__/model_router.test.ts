@@ -110,10 +110,10 @@ describe('route', () => {
   it('OFF: devuelve currentModel y rationale lo indica', () => {
     const r = route({
       input: 'audita este repo en seguridad',
-      currentModel: { provider: 'anthropic', model: 'claude-sonnet-4.6' },
+      currentModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
     });
     expect(r.enabled).toBe(false);
-    expect(r.choice.model).toBe('claude-sonnet-4.6');
+    expect(r.choice.model).toBe('claude-sonnet-4-6');
     expect(r.rationale.some(s => /OFF/.test(s))).toBe(true);
     expect(r.tier).toBe('expert');  // tier se sigue calculando incluso si está OFF
   });

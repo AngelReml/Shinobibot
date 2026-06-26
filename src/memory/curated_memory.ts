@@ -62,7 +62,7 @@ const USER_TEMPLATE = `# Nombre y ubicación
 §
 
 # Proyectos activos
-- Shinobi: C:\\Users\\angel\\Desktop\\shinobibot
+- Shinobi: ${process.cwd()}
 (añade rutas de tus proyectos clave)
 
 §

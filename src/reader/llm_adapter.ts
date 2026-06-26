@@ -8,10 +8,10 @@ const OPENROUTER_BASE = 'https://openrouter.ai/api/v1/chat/completions';
 
 const OPENROUTER_ALIAS: Record<string, string> = {
   // Logical names actuales (post S1.5 remapping):
-  'claude-sonnet-4-6': 'anthropic/claude-sonnet-4.6',
-  'claude-opus-4-7':   'anthropic/claude-opus-4.7',
+  'claude-sonnet-4-6': 'anthropic/claude-sonnet-4-6',
+  'claude-opus-4-7':   'anthropic/claude-opus-4-7',
   // Back-compat para tests y código legacy que aún referencia haiku-4-5:
-  'claude-haiku-4-5':  'anthropic/claude-haiku-4.5',
+  'claude-haiku-4-5':  'anthropic/claude-haiku-4-5',
 };
 
 // Fallback when OPENROUTER_API_KEY is not set: route to OpenAI directly using

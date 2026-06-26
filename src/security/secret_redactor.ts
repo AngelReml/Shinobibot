@@ -30,6 +30,8 @@
  *   - Private keys:  `-----BEGIN ... PRIVATE KEY-----`
  *   - JWT:           tres segmentos base64url separados por `.`
  *   - Env var line:  `<KEYNAME>=<value>` cuando el nombre indica clave
+ *   - URL credentials: `scheme://user:pass@host` — credenciales embebidas en URI
+ *   - Connection strings: variables cuyo nombre incluye url/uri/dsn/connection/conn/database
  */
 
 export type SecretKind =
@@ -43,9 +45,11 @@ export type SecretKind =
   | 'stripe-key'
   | 'bearer-token'
   | 'url-token'
+  | 'url-credentials'
   | 'private-key-block'
   | 'jwt'
-  | 'env-secret-assignment';
+  | 'env-secret-assignment'
+  | 'env-connection-string';
 
 interface RedactorPattern {
   kind: SecretKind;
@@ -88,6 +92,12 @@ const PATTERNS: RedactorPattern[] = [
   // en g2. Excluye `<` para NO re-redactar placeholders ya emitidos por
   // un patrón anterior (url-token, bearer-token, ...).
   { kind: 'env-secret-assignment', rx: /((?:API_?KEY|SECRET_?KEY|SECRET|PASSWORD|PASSWD|ACCESS_?TOKEN|PRIVATE_?KEY|AUTH_?TOKEN|BEARER_?TOKEN|TOKEN)[A-Z0-9_]*\s*[:=]\s*["']?)([^"'\s\n,;<>]{6,400})/gi, group: 2 },
+  // Connection-string env vars: variables cuyo nombre contiene url/uri/dsn/connection/conn/database.
+  // Captura prefijo (nombre + separador) en g1, valor en g2.
+  { kind: 'env-connection-string', rx: /((?:[A-Z0-9_]*(?:URL|URI|DSN|CONNECTION|CONN|DATABASE)[A-Z0-9_]*)\s*[:=]\s*["']?)([^"'\s\n,;<>]{8,400})/gi, group: 2 },
+  // URLs with embedded credentials: scheme://user:password@host (redact everything after ://).
+  // Captura el esquema (g1) y las credenciales+host completo (g2), redacta g2.
+  { kind: 'url-credentials', rx: /([a-z][a-z0-9+\-.]*:\/\/)([^:@\s"']{1,128}:[^@\s"']{1,128}@[^\s"',;)]{4,400})/gi, group: 2 },
 ];
 
 export interface RedactionMatch {

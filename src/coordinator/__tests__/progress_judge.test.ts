@@ -27,9 +27,9 @@ describe('LLMProgressJudge — parsing del modelo override', () => {
     expect(j.id).toBe('llm:groq/llama-3.3-70b-versatile');
   });
   it('SHINOBI_PROGRESS_JUDGE=provider:model', () => {
-    process.env.SHINOBI_PROGRESS_JUDGE = 'anthropic:claude-haiku-4.5';
+    process.env.SHINOBI_PROGRESS_JUDGE = 'anthropic:claude-haiku-4-5';
     const j = new LLMProgressJudge();
-    expect(j.id).toBe('llm:anthropic/claude-haiku-4.5');
+    expect(j.id).toBe('llm:anthropic/claude-haiku-4-5');
   });
   it('SHINOBI_PROGRESS_JUDGE solo model → default provider groq', () => {
     process.env.SHINOBI_PROGRESS_JUDGE = 'mixtral-8x7b';

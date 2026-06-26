@@ -12,7 +12,7 @@
 //          de tipo "failure recovery"
 //        - pattern trigger: misma tool_sequence aparece M≥SHINOBI_SKILL_PATTERN_THRESHOLD
 //          (default 5) veces con éxito → propone skill de tipo "shortcut"
-//   3. proposeSkill() llama a OpenRouter (anthropic/claude-haiku-4.5 default)
+//   3. proposeSkill() llama a OpenRouter (anthropic/claude-haiku-4-5 default)
 //      en background fire-and-forget, escribe SKILL.md en skills/pending/.
 //      Emite evento `skill_proposed` para el listener (server.ts → WS).
 //   4. approve(id) mueve pending → approved (con status: approved en frontmatter).
@@ -35,7 +35,7 @@ import {
   type ParsedSkill,
   type SkillFrontmatter,
 } from './skill_md_parser.js';
-import { verifySkill } from './skill_signing.js';
+import { verifySkill, signSkill } from './skill_signing.js';
 import { bumpUse, markAgentCreated, getUsageRecord } from '../learning/skill_telemetry.js';
 
 /** Kinds de skill nacidos del agente (elegibles para el Curator), vs 'manual'. */
@@ -44,10 +44,11 @@ function isAgentBornKind(kind: string | undefined): boolean {
 }
 import { invokeLLMViaOpenRouter } from '../cloud/openrouter_fallback.js';
 import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
+import { DEFAULT_OPENROUTER_MODEL } from '../utils/model_defaults.js';
 
 const FAILURE_THRESHOLD = parseInt(process.env.SHINOBI_SKILL_FAILURE_THRESHOLD || '3', 10);
 const PATTERN_THRESHOLD = parseInt(process.env.SHINOBI_SKILL_PATTERN_THRESHOLD || '5', 10);
-const DEFAULT_MODEL = 'anthropic/claude-haiku-4.5';
+const DEFAULT_MODEL = DEFAULT_OPENROUTER_MODEL;
 
 interface RunRow {
   id: string;
@@ -343,8 +344,12 @@ class SkillManagerImpl {
     if (!fs.existsSync(src)) return { ok: false, message: `pending skill not found: ${id}` };
     const parsed = parseSkillMd(fs.readFileSync(src, 'utf-8'));
     parsed.frontmatter.status = 'approved';
+    // FIX 0.5 — firmar antes de escribir a approved/ para que verifySkill()
+    // en loadApproved() pueda validar la integridad de la skill.
+    const signerIdentity = process.env.SHINOBI_SIGNER_ID ?? 'local';
+    const signed = signSkill(parsed, { author: signerIdentity });
     const dst = path.join(this.approvedDir, `${id}.skill.md`);
-    fs.writeFileSync(dst, serializeSkillMd(parsed), 'utf-8');
+    fs.writeFileSync(dst, serializeSkillMd(signed), 'utf-8');
     fs.unlinkSync(src);
     this.loadApproved();
     const name = String(parsed.frontmatter.name || id);
