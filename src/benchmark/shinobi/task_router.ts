@@ -67,12 +67,13 @@ async function handleAgentic(
   filesDir: string,
   tools: string[],
   maxIterations: number,
+  systemPrompt: string = SYSTEM_PROMPT,
 ): Promise<string> {
   const cwd = workdir(filesDir);
   const result = await runInContext({ cwd, workspaceRoot: cwd }, () =>
     runAgentLoop({
       task: task.prompt,
-      systemPrompt: SYSTEM_PROMPT,
+      systemPrompt,
       tools,
       maxIterations,
     }),
@@ -91,7 +92,7 @@ export async function routeTask(task: ShinobiTask, filesDir: string): Promise<st
       return handleAdversarial(task);
 
     case 'file':
-      return handleAgentic(task, filesDir, TOOLBOX.file, 8);
+      return handleAgentic(task, filesDir, TOOLBOX.file, 8, ADVERSARIAL_SYSTEM);
 
     case 'web':
       return handleAgentic(task, filesDir, TOOLBOX.web, 8);

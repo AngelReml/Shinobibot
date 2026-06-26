@@ -18,6 +18,13 @@
 import express from 'express';
 import { createServer } from 'http';
 import { routeTask } from './task_router.js';
+import { redactSecrets } from '../../security/secret_redactor.js';
+import {
+  startCheckpoint,
+  completeCheckpoint,
+  failCheckpoint,
+  getCheckpoint,
+} from './bench_checkpoint.js';
 import type { ShinobiBenchRequest, ShinobiBenchResponse } from './types.js';
 
 const VERSION = '1.0.0';
@@ -57,28 +64,43 @@ function buildApp(token?: string): express.Application {
     const filesDir = typeof body.files_dir === 'string' ? body.files_dir : '';
     const timeoutMs = ((task.setup?.timeout_seconds ?? 300) * 1000);
 
+    // T6.1 — Idempotencia: si la tarea ya terminó con éxito, devolvemos el output cacheado.
+    const cached = getCheckpoint(task.id);
+    if (cached?.status === 'done' && cached.output != null) {
+      const body2: ShinobiBenchResponse = { output: cached.output };
+      res.json(body2);
+      return;
+    }
+
+    // Marca la tarea como en ejecución (detectable si el proceso muere aquí).
+    startCheckpoint(task.id);
+
     // AbortController para respetar el timeout de la tarea.
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), timeoutMs);
 
     try {
-      let output: string;
-
       // Envolvemos en una race para respetar el timeout del AbortController.
       const raceTimeout = new Promise<never>((_res, rej) => {
         ac.signal.addEventListener('abort', () => rej(new Error('task timeout')));
       });
 
-      output = await Promise.race([
+      const rawOutput = await Promise.race([
         routeTask(task, filesDir),
         raceTimeout,
       ]);
 
       clearTimeout(timer);
+
+      // T5.3 — VETO: redactar cualquier secreto antes de enviarlo al runner externo.
+      const output = redactSecrets(rawOutput).text;
+
+      completeCheckpoint(task.id, output);
       const body2: ShinobiBenchResponse = { output };
       res.json(body2);
     } catch (err: any) {
       clearTimeout(timer);
+      failCheckpoint(task.id, err?.message ?? String(err));
       const isTimeout = err?.message === 'task timeout';
       res.status(isTimeout ? 504 : 500).json({
         output: '',
