@@ -1,0 +1,1408 @@
+{
+  "k": 3,
+  "suite": "s_code",
+  "stamp": "2026-06-29T19-11-36",
+  "suiteLabel": "S-CODE(v1.0)",
+  "results": [
+    {
+      "agent": "mock-pass",
+      "task": "code-add",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './sum.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-add_STKSgO/[eval]\n    at Function._resolveFilename (node",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-add",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './sum.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-add_qn3qua/[eval]\n    at Function._resolveFilename (node",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-fizzbuzz",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './fizzbuzz.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-fizzbuzz_m5Dbqq/[eval]\n    at Function._resolveFile",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-fizzbuzz",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './fizzbuzz.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-fizzbuzz_nUACB7/[eval]\n    at Function._resolveFile",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-fibonacci",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './fib.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-fibonacci_PERpTn/[eval]\n    at Function._resolveFilename",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-fibonacci",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './fib.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-fibonacci_7oOMiw/[eval]\n    at Function._resolveFilename",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-palindrome",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './palindrome.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-palindrome_d0fgJj/[eval]\n    at Function._resolve",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-palindrome",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './palindrome.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-palindrome_qPre0E/[eval]\n    at Function._resolve",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-flatten",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './flatten.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-flatten_upiImx/[eval]\n    at Function._resolveFilena",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-flatten",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './flatten.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-flatten_o3v5vG/[eval]\n    at Function._resolveFilena",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-twosum",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './twosum.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-twosum_ByD25l/[eval]\n    at Function._resolveFilename",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-twosum",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './twosum.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-twosum_2EDiYk/[eval]\n    at Function._resolveFilename",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-memoize",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './memoize.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-memoize_d9HLb6/[eval]\n    at Function._resolveFilena",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-memoize",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './memoize.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-memoize_jIm481/[eval]\n    at Function._resolveFilena",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-chunk",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './chunk.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-chunk_I2xZLx/[eval]\n    at Function._resolveFilename (",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-chunk",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './chunk.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-chunk_OzXAAL/[eval]\n    at Function._resolveFilename (",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-deepclone",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './deepclone.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-deepclone_LkfQwZ/[eval]\n    at Function._resolveFi",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-deepclone",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './deepclone.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-deepclone_H9LYp5/[eval]\n    at Function._resolveFi",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-groupby",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './groupby.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-groupby_x8KA4V/[eval]\n    at Function._resolveFilena",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-groupby",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './groupby.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-groupby_t99ScC/[eval]\n    at Function._resolveFilena",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-filter-json",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "active.json no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-filter-json",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "active.json no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-csv-to-json",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "people.json no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-csv-to-json",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "people.json no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-sort-json",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "sorted.json no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-sort-json",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "sorted.json no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-template-render",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "output.txt no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-template-render",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "output.txt no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-merge-json-arrays",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "merged.json no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-merge-json-arrays",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "merged.json no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-word-stats",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "stats.json no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-word-stats",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "stats.json no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-find-replace",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "result.txt no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-find-replace",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "result.txt no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-unique-lines",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "unique.txt no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-unique-lines",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "unique.txt no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-extract-numbers",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "numbers.txt no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-extract-numbers",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "numbers.txt no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-log-summary",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "summary.txt no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-log-summary",
+      "category": "tool_use",
+      "pass": false,
+      "checkDetail": "summary.txt no existe",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-isEmail",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './validator.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-isemail_RX4yC1/[eval]\n    at Function._resolveFile",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-isEmail",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './validator.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-isemail_ro03oU/[eval]\n    at Function._resolveFile",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-wordfreq",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './wordfreq.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-wordfreq_Ilm4my/[eval]\n    at Function._resolveFile",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-wordfreq",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './wordfreq.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-wordfreq_oOGq1X/[eval]\n    at Function._resolveFile",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-binsearch",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './binsearch.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-binsearch_IHpD5X/[eval]\n    at Function._resolveFi",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-binsearch",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './binsearch.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-binsearch_HC3bRu/[eval]\n    at Function._resolveFi",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-range",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './range.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-range_VTAQfE/[eval]\n    at Function._resolveFilename (",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-range",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './range.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-range_fvi5SV/[eval]\n    at Function._resolveFilename (",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-pass",
+      "task": "code-pipe",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './pipe.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-pass_code-pipe_3POp84/[eval]\n    at Function._resolveFilename (no",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    },
+    {
+      "agent": "mock-fail",
+      "task": "code-pipe",
+      "category": "coding",
+      "pass": false,
+      "checkDetail": "node:internal/modules/cjs/loader:1433\n  throw err;\n  ^\n\nError: Cannot find module './pipe.js'\nRequire stack:\n- /tmp/shinobi-bench/mock-fail_code-pipe_H65GQf/[eval]\n    at Function._resolveFilename (no",
+      "durationMs": 3,
+      "iterations": 1,
+      "toolsUsed": [],
+      "passK": false,
+      "runs": [
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        },
+        {
+          "pass": false,
+          "durationMs": 1,
+          "iterations": 1
+        }
+      ]
+    }
+  ]
+}

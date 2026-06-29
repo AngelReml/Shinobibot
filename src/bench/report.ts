@@ -24,6 +24,10 @@ export interface AgentSummary {
   /** Tasa de auto-corrección: tareas con selfCorrected entre las que lo reportan. */
   selfCorrectedCount: number;
   selfCorrectedOf: number;
+  /** pass^k: tareas donde TODAS las repeticiones pasaron. Solo con repeat > 1. */
+  passKCount: number;
+  passKTotal: number; // total de tareas que tienen datos de repetición
+  passKRate: number;  // 0..1
 }
 
 export interface BenchReport {
@@ -55,10 +59,15 @@ export function summarize(results: BenchResult[]): BenchReport {
     for (const c of Object.values(byCategory)) c.rate = c.total > 0 ? round(c.passed / c.total) : 0;
     const safety = rs.filter((r) => r.category === 'safety');
     const selfReports = rs.filter((r) => typeof r.selfCorrected === 'boolean');
+    const kReports = rs.filter((r) => r.runs !== undefined);
+    const passKCount = kReports.filter((r) => r.passK === true).length;
     agents.push({
       totalLoopAborts: rs.reduce((s, r) => s + (r.loopAborts ?? 0), 0),
       selfCorrectedCount: selfReports.filter((r) => r.selfCorrected).length,
       selfCorrectedOf: selfReports.length,
+      passKCount,
+      passKTotal: kReports.length,
+      passKRate: kReports.length > 0 ? round(passKCount / kReports.length) : 0,
       agent,
       total: rs.length,
       passed,
@@ -84,13 +93,26 @@ export function toMarkdown(report: BenchReport): string {
   const lines: string[] = [];
   lines.push(`# Benchmark — ${report.taskCount} tareas`);
   lines.push('');
-  lines.push('| Agente | Éxito | Pasadas | Iter media | Coste $ | Safety | Bucles abortados | Auto-corrección | Errores |');
-  lines.push('|---|---|---|---|---|---|---|---|---|');
-  for (const a of report.agents) {
-    const pct = `${Math.round(a.successRate * 100)}%`;
-    const safety = a.safetyTotal > 0 ? `${a.safetyPassed}/${a.safetyTotal}` : '—';
-    const sc = a.selfCorrectedOf > 0 ? `${a.selfCorrectedCount}/${a.selfCorrectedOf}` : '—';
-    lines.push(`| ${a.agent} | ${pct} | ${a.passed}/${a.total} | ${a.avgIterations} | ${a.totalCostUsd} | ${safety} | ${a.totalLoopAborts} | ${sc} | ${a.errors} |`);
+  const hasK = report.agents.some((a) => a.passKTotal > 0);
+  if (hasK) {
+    lines.push('| Agente | pass@1 | pass^k | Pasadas | Iter media | Coste $ | Safety | Bucles | Auto-corrección | Errores |');
+    lines.push('|---|---|---|---|---|---|---|---|---|---|');
+    for (const a of report.agents) {
+      const pct = `${Math.round(a.successRate * 100)}%`;
+      const kPct = a.passKTotal > 0 ? `${Math.round(a.passKRate * 100)}% (${a.passKCount}/${a.passKTotal})` : '—';
+      const safety = a.safetyTotal > 0 ? `${a.safetyPassed}/${a.safetyTotal}` : '—';
+      const sc = a.selfCorrectedOf > 0 ? `${a.selfCorrectedCount}/${a.selfCorrectedOf}` : '—';
+      lines.push(`| ${a.agent} | ${pct} | ${kPct} | ${a.passed}/${a.total} | ${a.avgIterations} | ${a.totalCostUsd} | ${safety} | ${a.totalLoopAborts} | ${sc} | ${a.errors} |`);
+    }
+  } else {
+    lines.push('| Agente | Éxito | Pasadas | Iter media | Coste $ | Safety | Bucles abortados | Auto-corrección | Errores |');
+    lines.push('|---|---|---|---|---|---|---|---|---|');
+    for (const a of report.agents) {
+      const pct = `${Math.round(a.successRate * 100)}%`;
+      const safety = a.safetyTotal > 0 ? `${a.safetyPassed}/${a.safetyTotal}` : '—';
+      const sc = a.selfCorrectedOf > 0 ? `${a.selfCorrectedCount}/${a.selfCorrectedOf}` : '—';
+      lines.push(`| ${a.agent} | ${pct} | ${a.passed}/${a.total} | ${a.avgIterations} | ${a.totalCostUsd} | ${safety} | ${a.totalLoopAborts} | ${sc} | ${a.errors} |`);
+    }
   }
   return lines.join('\n');
 }

@@ -80,6 +80,14 @@ export interface AgentAdapter {
   run(task: BenchTask, ctx: TaskContext): Promise<AgentRunResult>;
 }
 
+/** Resultado de una repetición individual (para pass^k). */
+export interface RunRecord {
+  pass: boolean;
+  durationMs: number;
+  iterations: number;
+  error?: string;
+}
+
 /** Resultado final de una celda (agente × tarea) tras el check. */
 export interface BenchResult {
   agent: string;
@@ -96,4 +104,8 @@ export interface BenchResult {
   /** Auto-corrección (verificador cazó + reintento arregló). */
   selfCorrected?: boolean;
   error?: string;
+  /** Resultados individuales de cada repetición (solo si repeat > 1). */
+  runs?: RunRecord[];
+  /** true si TODAS las repeticiones pasaron (pass^k, k = runs.length). */
+  passK?: boolean;
 }

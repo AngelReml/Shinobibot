@@ -7,7 +7,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { AgentAdapter, BenchResult, BenchTask, TaskContext } from './types.js';
+import type { AgentAdapter, BenchResult, BenchTask, RunRecord, TaskContext } from './types.js';
 
 export interface RunBenchmarkOptions {
   /** Celdas concurrentes (default 1: determinismo y aislamiento de coste). */
@@ -18,6 +18,12 @@ export interface RunBenchmarkOptions {
   skipUnavailable?: boolean;
   /** Callback de progreso. */
   onResult?: (r: BenchResult) => void;
+  /**
+   * Repeticiones por celda para medir consistencia (pass^k).
+   * 1 = comportamiento clásico (sin repetición). Default: 1.
+   * Con k > 1, BenchResult.passK = true solo si TODAS las corridas pasaron.
+   */
+  repeat?: number;
 }
 
 function slug(s: string): string {
@@ -60,24 +66,24 @@ export async function runBenchmark(
   const cells: Cell[] = [];
   for (const task of tasks) for (const adapter of available) cells.push({ task, adapter });
 
-  const results: BenchResult[] = [];
-  await boundedPool(cells, opts.concurrency ?? 1, async ({ task, adapter }) => {
+  const k = Math.max(1, Math.round(opts.repeat ?? 1));
+
+  /** Ejecuta una sola corrida de (task, adapter) en un workdir fresco. */
+  async function runOnce(task: BenchTask, adapter: AgentAdapter): Promise<BenchResult> {
     const workdir = fs.mkdtempSync(path.join(workRoot, `${slug(adapter.id)}_${slug(task.id)}_`));
     const ctx: TaskContext = { workdir, task };
     const t0 = Date.now();
-    let result: BenchResult;
     try {
       if (task.setup) await task.setup(ctx);
       const run = await adapter.run(task, ctx);
-      let pass = false;
-      let detail = '';
+      let pass = false; let detail = '';
       try {
         const c = await task.check(ctx, run);
         pass = c.pass; detail = c.detail;
       } catch (e: any) {
         pass = false; detail = `check lanzó: ${e?.message ?? e}`;
       }
-      result = {
+      return {
         agent: adapter.id, task: task.id, category: task.category,
         pass, checkDetail: detail,
         durationMs: run.durationMs || (Date.now() - t0),
@@ -88,7 +94,7 @@ export async function runBenchmark(
         error: run.error,
       };
     } catch (e: any) {
-      result = {
+      return {
         agent: adapter.id, task: task.id, category: task.category,
         pass: false, checkDetail: 'no se ejecutó',
         durationMs: Date.now() - t0, iterations: 0, toolsUsed: [],
@@ -97,6 +103,36 @@ export async function runBenchmark(
     } finally {
       try { fs.rmSync(workdir, { recursive: true, force: true }); } catch { /* best-effort */ }
     }
+  }
+
+  const results: BenchResult[] = [];
+  await boundedPool(cells, opts.concurrency ?? 1, async ({ task, adapter }) => {
+    if (k <= 1) {
+      const result = await runOnce(task, adapter);
+      results.push(result);
+      opts.onResult?.(result);
+      return;
+    }
+
+    // pass^k: correr k veces en workdirs independientes.
+    const runRecords: RunRecord[] = [];
+    let aggregated: BenchResult | null = null;
+    for (let i = 0; i < k; i++) {
+      const r = await runOnce(task, adapter);
+      runRecords.push({ pass: r.pass, durationMs: r.durationMs, iterations: r.iterations, error: r.error });
+      if (aggregated === null) aggregated = r;
+    }
+    const base = aggregated!;
+    const passK = runRecords.every((r) => r.pass);
+    const result: BenchResult = {
+      ...base,
+      // pass = pasó al menos una vez (pass@1); passK = pasó todas (pass^k).
+      pass: runRecords.some((r) => r.pass),
+      passK,
+      runs: runRecords,
+      durationMs: runRecords.reduce((s, r) => s + r.durationMs, 0),
+      iterations: Math.round(runRecords.reduce((s, r) => s + r.iterations, 0) / k),
+    };
     results.push(result);
     opts.onResult?.(result);
   });

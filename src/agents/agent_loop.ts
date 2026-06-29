@@ -32,8 +32,23 @@ import {
 } from '../coordinator/loop_detector.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
 import { capToolResultJson, TOOL_OUTPUT_MAX_CHARS } from '../context/tool_output_truncator.js';
+import { diagnoseError } from '../selfdebug/self_debug.js';
 import type { LLMChatPayload, CloudResponse } from '../cloud/types.js';
 import type { ProviderName } from '../providers/types.js';
+
+/** Enriquece el resultado de un tool fallido con un hint de causa raíz. */
+function selfDebugHint(tool: string, args: unknown, error: string): string {
+  if (process.env.SHINOBI_SELF_DEBUG === '0') return error;
+  try {
+    const diag = diagnoseError({ tool, args, error });
+    const top = diag.rootCauseHypotheses[0];
+    if (!top || top.confidence < 0.5) return error;
+    const fix = diag.fixSuggestions[0]?.detail ?? '';
+    return `${error}\n[HINT ${Math.round(top.confidence * 100)}%]: ${top.cause}${fix ? ` → ${fix}` : ''}`;
+  } catch {
+    return error;
+  }
+}
 
 /** Veredicto final de un agent_loop. */
 export type AgentLoopVerdict =
@@ -281,6 +296,9 @@ export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoop
           result = { success: false, output: '', error: err?.message ?? String(err) };
         }
         const durationMs = Date.now() - t0;
+        if (!result.success) {
+          result = { ...result, error: selfDebugHint(name, args, result.error ?? 'unknown') };
+        }
         resultStr = JSON.stringify(result);
         logToolCall({
           tool: name, args, success: !!result.success, durationMs,

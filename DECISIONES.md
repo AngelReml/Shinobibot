@@ -1,5 +1,37 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-06-29 · G2 — Shadow modes: criterio de promoción/matar documentado
+
+**Contexto:** Los dos shadow modes (dispatch affinity `src/dispatch/` y refiner
+`src/refiner/`) llevan activos en shadow desde su creación. En G2 hay que
+"promover o matar" con datos (PLAN_SOMBRA §G2 ítem 3). Los registros shadow
+(`shadow_dispatch.jsonl`, `refiner_shadow.jsonl`) están vacíos hoy porque ningún
+operador ha activado `SHINOBI_SHADOW_DISPATCH=1` ni `SHINOBI_REFINER_SHADOW=1`
+en producción.
+
+**Decisión: mantener en shadow — evaluar en G2 real con umbral concreto.**
+
+Criterios de promoción (deben cumplirse AMBOS simultáneamente):
+- **Dispatch classifier**: ≥20 misiones con `outcome` registrado en
+  `shadow_dispatch.jsonl` y tasa de acierto general (specialist='general' →
+  outcome='success') ≥ 80%. Evaluador: `evaluatePromotion()` en
+  `src/dispatch/shadow_recorder.ts`.
+- **Refiner**: ≥50 tareas hacia especialistas en `refiner_shadow.jsonl`, tasa
+  de reescritura ≥ 30% (señal de que el refinador añade valor real) y coste
+  total estimado < $0.10/semana (rentable).
+
+Criterios de kill (se mata si alguno se cumple):
+- Tras la corrida G1 real, el pass^5 de shinobi **no mejora** con shadow
+  activo vs sin él (A/B con flag `SHINOBI_DISPATCH_MODE=active`).
+- El registro shadow tiene >100 entradas pero tasa de acierto < 60% (el
+  clasificador perjudica más de lo que ayuda).
+
+**Próximo paso:** activar `SHINOBI_SHADOW_DISPATCH=1` en la máquina del
+operador durante la semana post-G1 para acumular datos. Evaluar con
+`summarizeShadowLog()` y `evaluatePromotion()` antes de cerrar G2.
+
+---
+
 ## 2026-06-12 · Revisión post-ejecución (UX + extirpación) — reparaciones
 
 **Hallazgo raíz:** el mount del sandbox Linux sirve vistas OBSOLETAS/PARCIALES
