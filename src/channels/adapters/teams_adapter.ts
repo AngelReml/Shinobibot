@@ -28,6 +28,8 @@ export class TeamsAdapter implements ChannelAdapter {
   private sentCount = 0;
   private lastError: string | undefined;
   private running = false;
+  // conversationId → TurnContext reference, para mensajes proactivos.
+  private convRefs = new Map<string, any>();
 
   isConfigured(): boolean {
     return !!(process.env.TEAMS_APP_ID && process.env.TEAMS_APP_PASSWORD);
@@ -77,13 +79,16 @@ export class TeamsAdapter implements ChannelAdapter {
       }
       this.adapter.processActivity(req, res, async (context: any) => {
         if (context.activity.type !== 'message') return;
+        const convId: string = context.activity.conversation.id;
+        // Caché la referencia para mensajes proactivos posteriores.
+        this.convRefs.set(convId, context);
         try {
           const incoming: IncomingMessage = {
             channelId: this.id,
             text: context.activity.text ?? '',
             target: {
               channelId: this.id,
-              conversationId: context.activity.conversation.id,
+              conversationId: convId,
               userId: context.activity.from.id,
               metadata: { tenantId: context.activity.channelData?.tenant?.id },
             },
@@ -114,11 +119,19 @@ export class TeamsAdapter implements ChannelAdapter {
     this.running = false;
   }
 
-  async send(_target: ChannelTarget, _msg: OutgoingMessage): Promise<void> {
-    // Teams requiere conversationReference cacheada para enviar fuera de
-    // turn — el envío proactivo no está implementado. La respuesta normal
-    // viaja inline en el turn (el handler la devuelve como OutgoingMessage).
-    // NO se lanza: un adapter registrado no debe romper channelRegistry.send().
-    console.warn('[teams] send() proactivo no soportado (sin conversationReference cacheada) — mensaje no entregado.');
+  async send(target: ChannelTarget, msg: OutgoingMessage): Promise<void> {
+    const ctx = this.convRefs.get(target.conversationId);
+    if (!ctx || !this.adapter) {
+      throw new Error(`[teams] send(): sin conversationReference para "${target.conversationId}" — el agente aún no ha recibido un turn de ese usuario`);
+    }
+    const pkg = 'botbuilder';
+    const { MessageFactory } = await import(pkg);
+    await this.adapter.continueConversation(
+      ctx.activity.getConversationReference?.() ?? ctx,
+      async (proactiveCtx: any) => {
+        await proactiveCtx.sendActivity(MessageFactory.text(msg.text));
+        this.sentCount++;
+      },
+    );
   }
 }

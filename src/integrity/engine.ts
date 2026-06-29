@@ -1,3 +1,6 @@
+// src/integrity/engine.ts
+//
+// Integrity layer (Capa 2) — checks pre/post-action (claimed==real) y bloqueo opcional vía SHINOBI_INTEGRITY.
 /**
  * integrity/engine.ts — runtime integrity layer (Capa 2), increment C1.
  *

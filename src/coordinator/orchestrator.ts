@@ -13,7 +13,7 @@ import {
 import { loadTrustReport } from '../audit/trust_ledger.js';
 import { sharedMemory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
-import { MemoryStore, sharedMemoryStore } from '../memory/memory_store.js';
+import { MemoryStore, sharedMemoryStore, getMemoryStore } from '../memory/memory_store.js';
 import { skillManager } from '../skills/skill_manager.js';
 import { compactMessages, type CompactionResult } from '../context/compactor.js';
 import { shouldUseLLM, compactWithLLM } from '../context/llm_compactor.js';
@@ -34,6 +34,7 @@ import { ProgressTracker, progressDetectionEnabled } from './progress_judge.js';
 import { MemoryReflector, reflectionEnabled } from '../context/memory_reflector.js';
 import { runBackgroundReview, backgroundReviewEnabled, reviewInProgress } from '../learning/background_review.js';
 import { loadSoul, personaSystemMessage, builtinSoul } from '../soul/soul.js';
+import type { AlcaynaAgentDef } from '../agents/agent_registry.js';
 import { sanitizeToolCallArguments, repairMessageSequence } from '../runtime/trajectory_helpers.js';
 import { capToolResultJson, TOOL_OUTPUT_MAX_CHARS } from '../context/tool_output_truncator.js';
 import { metrics } from '../observability/metrics.js';
@@ -41,6 +42,9 @@ import dotenv from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { validatePayload as contractsValidatePayload, ProtocolViolation } from './contracts.js';
+import { ResourceGovernor, GovernorShedError } from '../runtime/resource_governor.js';
+import { runBestOfN } from '../agents/best_of_n.js';
+import { SYSTEM_PROMPT } from '../constants/prompts.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -50,6 +54,14 @@ export class ShinobiOrchestrator {
   private static memory = sharedMemory();
   private static contextBuilder = new ContextBuilder();
   private static activeModel: string | undefined = undefined;
+  /** Agente Alcayna activo en la sesión — null = modo normal. */
+  private static _activeAlcaynaAgent: AlcaynaAgentDef | null = null;
+
+  /** Activa un agente Alcayna para la sesión actual. null = desactivar. */
+  static setAlcaynaAgent(agent: AlcaynaAgentDef | null): void {
+    this._activeAlcaynaAgent = agent;
+  }
+  static getAlcaynaAgent(): AlcaynaAgentDef | null { return this._activeAlcaynaAgent; }
 
   /**
    * Validates an event payload against its registered I/O contract.
@@ -61,11 +73,13 @@ export class ShinobiOrchestrator {
   }
 
   /**
-   * Índice de recall semántico (SQLite). Es un derivado de memory/MEMORY.md
-   * — semantic_index.ts lo reconstruye en boot. Se usa el singleton
-   * compartido para no abrir dos conexiones sobre el mismo memory.db.
+   * Índice de recall semántico (SQLite). En single-user usa el singleton
+   * compartido. En multi-user, pasar userId devuelve el store aislado del
+   * usuario (getMemoryStore(userId) — cada uno con su propio memory.db).
    */
-  static getMemory(): MemoryStore { return sharedMemoryStore(); }
+  static getMemory(userId?: string): MemoryStore {
+    return userId ? getMemoryStore(userId) : sharedMemoryStore();
+  }
 
   static setModel(model: string | undefined) { this.activeModel = model; }
   static getModel(): string { return this.activeModel || 'default'; }
@@ -146,6 +160,47 @@ export class ShinobiOrchestrator {
   private static _turnsSinceMemory = 0;
   private static _itersSinceSkill = 0;
 
+  // ── E8: Resource Governor ────────────────────────────────────────────────
+  // Singleton process-wide. Controla concurrencia, equidad y backpressure.
+  // Config por env: SHINOBI_GOVERNOR_MAX (default 4), _PER_TENANT (default 2),
+  // _QUEUE (default 8). Se desactiva pasando SHINOBI_GOVERNOR_DISABLED=1.
+  private static _governor: ResourceGovernor | null = null;
+  static governor(): ResourceGovernor {
+    if (!this._governor) {
+      this._governor = new ResourceGovernor({
+        maxConcurrency: Number(process.env.SHINOBI_GOVERNOR_MAX) || 4,
+        perTenantCap:   Number(process.env.SHINOBI_GOVERNOR_PER_TENANT) || 2,
+        maxQueue:       Number(process.env.SHINOBI_GOVERNOR_QUEUE) || 8,
+      });
+    }
+    return this._governor;
+  }
+
+  // ── E5: best-of-N (SHINOBI_BEST_OF_N=1) ────────────────────────────────
+  // Cuando está activo, sustituye executeToolLoop por N candidatos generados
+  // con runAgentLoop (caja abierta) y devuelve el mejor según el reranker.
+  // Persiste la respuesta elegida en memoria igual que el loop normal.
+  private static async runBestOfNForTask(input: string): Promise<any> {
+    const allToolNames = getAllTools().map(t => t.name);
+    const n = Math.max(1, Number(process.env.SHINOBI_BEST_OF_N_COUNT) || 3);
+    console.log(`[Shinobi] best-of-N: generando ${n} candidatos...`);
+    const bonResult = await runBestOfN({
+      task: input,
+      systemPrompt: SYSTEM_PROMPT,
+      tools: allToolNames,
+      n,
+    });
+    console.log(
+      `[Shinobi] best-of-N: elegido=${bonResult.selection.chosenIndex}/${bonResult.attempts}, ok=${bonResult.ok}`
+    );
+    await this.memory.addMessage({ role: 'assistant', content: bonResult.output });
+    return {
+      verdict: bonResult.ok ? 'VALID_AGENT' : 'MAX_ITERATIONS',
+      mode: 'best_of_n',
+      response: bonResult.output,
+    };
+  }
+
   static async process(input: string): Promise<any> {
     const currentDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0');
     const maxDepth = Number(process.env.SHINOBI_MAX_SPAWN_DEPTH || '3');
@@ -169,7 +224,28 @@ export class ShinobiOrchestrator {
     let error: string | undefined;
 
     try {
-      const result = await this.executeToolLoop(input, toolSequence);
+      // ── E8 governor + E5 best-of-N ──────────────────────────────────────
+      // El governor controla concurrencia y backpressure (E8). Si el flag
+      // SHINOBI_BEST_OF_N=1 está activo, sustituye el executeToolLoop por N
+      // candidatos paralelos con reranking (E5). La habilitación del governor
+      // se puede suprimir con SHINOBI_GOVERNOR_DISABLED=1 (útil en test).
+      let result: any;
+      const governorDisabled = process.env.SHINOBI_GOVERNOR_DISABLED === '1';
+      const useBestOfN = process.env.SHINOBI_BEST_OF_N === '1';
+      const work = () => useBestOfN
+        ? ShinobiOrchestrator.runBestOfNForTask(input)
+        : this.executeToolLoop(input, toolSequence);
+      try {
+        result = governorDisabled
+          ? await work()
+          : await ShinobiOrchestrator.governor().run(this.conversationId, work);
+      } catch (e: any) {
+        if (e instanceof GovernorShedError) {
+          result = { verdict: 'ERROR', error: e.message };
+        } else {
+          throw e;
+        }
+      }
       success = result?.verdict === 'VALID_AGENT';
       if (result?.verdict === 'ERROR' && result?.error) error = String(result.error);
 
@@ -319,6 +395,17 @@ export class ShinobiOrchestrator {
         }
       }
     } catch (e) { console.error('[soul] persona inject failed:', (e as Error).message); }
+
+    // Agente Alcayna activo: inyecta su system_prompt como primer mensaje de
+    // sistema. El agente especializado sobreescribe el comportamiento general
+    // sin cambiar el loop ni las tools — es solo contexto de rol.
+    const alcaynaAgent = ShinobiOrchestrator._activeAlcaynaAgent;
+    if (alcaynaAgent) {
+      currentMessages = [
+        { role: 'system', content: `[MODO ALCAYNA — ${alcaynaAgent.name}]\n${alcaynaAgent.system_prompt}` } as any,
+        ...currentMessages,
+      ];
+    }
     const allTools = getAllTools();
 
     // Modo deferred-tools (opt-in SHINOBI_DEFERRED_TOOLS=1): en vez de anunciar

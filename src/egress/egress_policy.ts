@@ -1,0 +1,117 @@
+// src/egress/egress_policy.ts
+//
+// E3 — SOBERANÍA: Capa de Egress (punto único de control de red saliente, opt-in y auditable).
+/**
+ * E3 — SOBERANÍA: Capa de Egress
+ *
+ * Punto único de control de todo tráfico de red saliente de Shinobi.
+ * Principio: toda llamada de red es opt-in explícita y auditable.
+ * Las llamadas al LLM son inevitables; todo lo demás requiere justificación.
+ *
+ * ALLOWLIST de módulos autorizados para llamadas de red directas:
+ * - src/providers/         — llamadas a LLM (razón de ser del agente)
+ * - src/cloud/             — pool de credenciales + cliente legacy
+ * - src/telemetry/         — opt-in anónimo (usuario acepta en wizard)
+ * - src/tools/web_search*  — búsqueda explícita por el usuario
+ * - src/memory/embedding_providers/ — embeddings para memoria semántica
+ * - src/memory/providers/  — proveedores de memoria externos (opt-in)
+ * - src/kangeiko/domains/web/ — ejecución controlada de tareas web en dojo
+ * - src/skills/registry/   — instalación de skills desde fuente conocida
+ *
+ * TODO fuera de esa allowlist es una violación de egress.
+ */
+
+export const EGRESS_ALLOWLIST: readonly string[] = [
+  'src/providers/',
+  'src/cloud/',
+  'src/telemetry/',
+  'src/tools/web_search',
+  'src/tools/audio_transcribe',        // fallback a OpenAI Whisper API (transcripción)
+  'src/memory/embedding_providers/',
+  'src/memory/providers/',
+  'src/kangeiko/domains/web/',
+  'src/skills/registry/',
+  'src/skills/anthropic_skill_installer', // descarga de skills desde GitHub
+  'src/gateway/',                        // gateway LLM multi-proveedor (ollama/groq/openai)
+  'src/utils/vision_client',             // cliente vision LLM (OpenRouter/OpenAI)
+] as const;
+
+/** Términos de import que implican llamada de red directa. */
+export const NETWORK_IMPORT_PATTERNS: readonly string[] = [
+  "'axios'",
+  '"axios"',
+  "from 'axios'",
+  'from "axios"',
+  "import fetch",
+  "from 'node-fetch'",
+  'from "node-fetch"',
+  "from 'got'",
+  'from "got"',
+  "from 'undici'",
+  'from "undici"',
+] as const;
+
+/**
+ * Clasificación de una llamada de red por sensibilidad de datos.
+ *
+ * Degradación graciosa por sensibilidad (mitigación E3):
+ * - SENSITIVE  → modelo local obligatorio (aunque sea peor)
+ * - NORMAL     → remoto permitido
+ *
+ * El operador no elige entre soberanía y capacidad en abstracto;
+ * elige por tarea, y el sistema lo impone.
+ */
+export type DataSensitivity = 'sensitive' | 'normal';
+
+export interface EgressRequest {
+  /** Destino de la llamada (dominio o URL parcial para logs). */
+  destination: string;
+  /** Módulo fuente que hace la llamada (para auditoría). */
+  source: string;
+  /** Razón justificada de la llamada. */
+  reason: string;
+  /** Sensibilidad de los datos enviados. */
+  sensitivity?: DataSensitivity;
+}
+
+export interface EgressResult {
+  allowed: boolean;
+  reason: string;
+  /** Si sensitivity=sensitive, fuerza degradación a modelo local. */
+  useLocalModel?: boolean;
+}
+
+/**
+ * Gate de egress: evalúa si una llamada de red está autorizada.
+ * Todos los providers y módulos autorizados llaman esto antes de salir.
+ *
+ * @returns allowed=true si el módulo está en la allowlist y la llamada
+ *   está justificada. Para datos sensibles, marca useLocalModel=true.
+ */
+export function egressGate(req: EgressRequest): EgressResult {
+  const isAllowlisted = EGRESS_ALLOWLIST.some(prefix => req.source.includes(prefix));
+
+  if (!isAllowlisted) {
+    return {
+      allowed: false,
+      reason: `Egress no autorizado desde ${req.source} → ${req.destination}. ` +
+        `Solo los módulos en EGRESS_ALLOWLIST pueden hacer llamadas de red directas.`,
+    };
+  }
+
+  const useLocalModel = req.sensitivity === 'sensitive';
+
+  return {
+    allowed: true,
+    reason: `Egress autorizado: ${req.source} → ${req.destination} (${req.reason})`,
+    useLocalModel,
+  };
+}
+
+/**
+ * Verifica si un módulo fuente está en la allowlist de egress.
+ * Versión simplificada para checks rápidos.
+ */
+export function isEgressAuthorized(sourceModule: string): boolean {
+  return EGRESS_ALLOWLIST.some(prefix => sourceModule.includes(prefix));
+}

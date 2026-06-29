@@ -10,6 +10,7 @@ import * as readline from 'readline';
 import { ShinobiOrchestrator } from '../src/coordinator/orchestrator.js';
 import { handleSlashCommand } from '../src/coordinator/slash_commands.js';
 import { IntentRouter } from '../src/dispatch/intent_router.js';
+import { getAlcaynaAgent } from '../src/agents/agent_registry.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
 import { skillManager } from '../src/skills/skill_manager.js';
 import { curatedMemory } from '../src/memory/curated_memory.js';
@@ -520,10 +521,25 @@ async function main() {
     // Intent Router (Split-Brain Fase 1)
     try {
       const intentRes = await IntentRouter.route(trimmed);
-      if (intentRes.matched && intentRes.response) {
-        console.log(intentRes.response);
-        prompt();
-        return;
+      if (intentRes.matched) {
+        if (intentRes.type === 'agent_activation' && intentRes.agentId) {
+          // E2: cableado real — activar el agente Alcayna en la sesión.
+          const agentDef = getAlcaynaAgent(intentRes.agentId);
+          if (agentDef) {
+            ShinobiOrchestrator.setAlcaynaAgent(agentDef);
+            console.log(`[Alcayna] Departamento ${agentDef.name} activado. Las siguientes respuestas usarán su persona especializada.`);
+            console.log(`         Para volver al modo normal: /alcayna reset`);
+          } else {
+            console.log(intentRes.response ?? 'Agente activado.');
+          }
+          prompt();
+          return;
+        }
+        if (intentRes.response) {
+          console.log(intentRes.response);
+          prompt();
+          return;
+        }
       }
     } catch (err: any) {
       console.warn(`[IntentRouter Warning] Error al procesar intenciones: ${err.message}`);

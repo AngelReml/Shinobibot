@@ -15,6 +15,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { isOutsideWorkspace, approvePathForSession } from '../utils/permissions.js';
 import { redactSecrets } from './secret_redactor.js';
+import { logApprovalDecision } from '../audit/audit_log.js';
 
 export type ApprovalMode = 'on' | 'smart' | 'critical' | 'off';
 export type Approval = 'yes' | 'no' | 'always';
@@ -276,11 +277,16 @@ export async function requestApproval(input: ApprovalInput): Promise<boolean> {
       regex.test(typeof input.args?.path === 'string' ? input.args.path : ''));
 
   // "Aprobar siempre" para esta tool en la sesión — excepto rutas críticas.
-  if (!isCriticalPath && sessionAlwaysApproved.has(input.toolName)) return true;
+  if (!isCriticalPath && sessionAlwaysApproved.has(input.toolName)) {
+    logApprovalDecision({ tool: input.toolName, decision: 'allow', reason: input.reason, mode, denySource: undefined });
+    return true;
+  }
 
-  // Acción crítica sin UI para confirmar → fail-safe: DENIEGA (no se crea cuenta
-  // / no se gasta / no se escribe credencial de forma desatendida).
-  if (!_asker) return false;
+  // Acción crítica sin UI para confirmar → fail-safe: DENIEGA.
+  if (!_asker) {
+    logApprovalDecision({ tool: input.toolName, decision: 'deny', reason: input.reason, mode, denySource: 'no_asker' });
+    return false;
+  }
 
   const reason = input.reason ? ` (${input.reason})` : '';
   const prompt =
@@ -292,10 +298,18 @@ export async function requestApproval(input: ApprovalInput): Promise<boolean> {
   try {
     answer = await _asker(prompt);
   } catch {
-    return false; // error al preguntar → fail-safe deny
+    logApprovalDecision({ tool: input.toolName, decision: 'deny', reason: input.reason, mode, denySource: 'asker_error' });
+    return false;
   }
-  if (answer === 'always') { sessionAlwaysApproved.add(input.toolName); return true; }
-  return answer === 'yes';
+
+  if (answer === 'always') {
+    sessionAlwaysApproved.add(input.toolName);
+    logApprovalDecision({ tool: input.toolName, decision: 'allow', reason: input.reason, mode });
+    return true;
+  }
+  const allowed = answer === 'yes';
+  logApprovalDecision({ tool: input.toolName, decision: allowed ? 'allow' : 'deny', reason: input.reason, mode, denySource: allowed ? undefined : 'user_no' });
+  return allowed;
 }
 
 /**

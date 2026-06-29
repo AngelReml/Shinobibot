@@ -138,10 +138,32 @@ export class WebhookAdapter implements ChannelAdapter {
     this.running = false;
   }
 
-  async send(_target: ChannelTarget, _msg: OutgoingMessage): Promise<void> {
-    // Webhook es request/response síncrono: la respuesta se devuelve dentro
-    // del onRequest, no hay envío proactivo (eso lo cubre el n8n bridge).
-    // NO se lanza: un adapter registrado no debe romper channelRegistry.send().
-    console.warn('[webhook] send() proactivo no soportado (canal síncrono) — usa el HTTP response del request original.');
+  async send(target: ChannelTarget, msg: OutgoingMessage): Promise<void> {
+    const callbackUrl = process.env.WEBHOOK_CALLBACK_URL;
+    if (!callbackUrl) {
+      throw new Error(
+        '[webhook] send() proactivo requiere WEBHOOK_CALLBACK_URL — ' +
+        'configura la URL a la que Shinobi debe hacer POST con la respuesta.',
+      );
+    }
+    const body = JSON.stringify({
+      text: msg.text,
+      metadata: msg.metadata,
+      conversationId: target.conversationId,
+      userId: target.userId,
+    });
+    const { default: https } = await import(callbackUrl.startsWith('https') ? 'https' : 'http');
+    await new Promise<void>((resolve, reject) => {
+      const req = (https as any).request(callbackUrl, { method: 'POST', headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) } }, (res: any) => {
+        res.resume();
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) resolve();
+          else reject(new Error(`[webhook] callback respondió ${res.statusCode}`));
+        });
+      });
+      req.on('error', reject);
+      req.end(body);
+    });
+    this.sentCount++;
   }
 }

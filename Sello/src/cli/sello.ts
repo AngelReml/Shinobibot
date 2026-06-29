@@ -38,8 +38,8 @@ usage:
   sello skill-cert <skill-dir> [artifact]    certify a skill: run its bank clean,
                                              emit a signed CSV (CONTRACT §11).
                                              [artifact] overrides the subject file
-                                             (e.g. skill_buggy.mjs) to prove the
-                                             certificate discriminates.
+                                             (e.g. variants/skill_buggy.mjs) to prove
+                                             the certificate discriminates.
   sello skill-verify <csv-file>              verify a CSV: signature + chain +
                                              evidence + env + profile recompute
   sello skill-replay <skill-dir> [artifact]  re-certify and check the verdict +

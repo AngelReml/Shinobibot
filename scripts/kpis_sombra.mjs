@@ -54,12 +54,20 @@ for (const e of audit) {
   if (e.sessionId) s.sessions.add(e.sessionId);
   s.ms += e.durationMs || 0;
 }
-const approvalKinds = Object.keys(byKind).filter(k => /approv|gate|candado|permission/i.test(k));
-// El candado hoy NO emite kind propio: aparece como error de un tool_call frenado.
-// Se detecta por patron sobre el campo error (instrumentar kind propio en G1).
+// approval_decision: kind propio (instrumentado en G1). Fallback: heurística sobre errores.
+let candadoAllow = 0, candadoDeny = 0;
 const RE_CANDADO = /approval_denied|rechazad|no permitid|denegad|not permitted|requires approval/i;
-let candadoHits = 0;
-for (const e of audit) if (e.kind === 'tool_call' && e.error && RE_CANDADO.test(e.error)) candadoHits++;
+let candadoHeuristico = 0;
+for (const e of audit) {
+  if (e.kind === 'approval_decision') {
+    if (e.decision === 'allow') candadoAllow++;
+    else candadoDeny++;
+  } else if (e.kind === 'tool_call' && e.error && RE_CANDADO.test(e.error)) {
+    candadoHeuristico++;
+  }
+}
+const tieneKindPropio = (candadoAllow + candadoDeny) > 0;
+const candadoHits = tieneKindPropio ? candadoDeny : candadoHeuristico;
 
 // ── ledger/chain.jsonl (misiones) ──
 const chain = readJsonl(join(ROOT, 'ledger', 'chain.jsonl'));
@@ -106,7 +114,11 @@ for (const w of Object.keys(missionsByWeek).sort()) {
 L.push('');
 L.push('## Estado de los KPIs del plan (§4.3)');
 L.push('');
-L.push(`- Interrupciones del candado: ${candadoHits} detectadas por patron sobre el campo error de tool_calls frenados${approvalKinds.length ? ` (+ kinds propios: ${approvalKinds.map(k => `${k}=${byKind[k]}`).join(', ')})` : '. NOTA: el audit aun NO emite un kind de aprobacion propio; viven como error de tool_call. Instrumentar kind dedicado en G1 para medir el voto "rastro" del candado con precision.'}`);
+if (tieneKindPropio) {
+  L.push(`- Candado (kind propio, G1+): allow=${candadoAllow} · deny=${candadoDeny} · tasa_bloqueo=${candadoAllow+candadoDeny > 0 ? ((candadoDeny/(candadoAllow+candadoDeny))*100).toFixed(1)+'%' : 'n/a'}`);
+} else {
+  L.push(`- Interrupciones del candado: ${candadoHits} detectadas por heuristica sobre errores (sin kind approval_decision en este periodo — activado en G1+).`);
+}
 L.push(`- Kinds presentes en el audit: ${Object.entries(byKind).map(([k, v]) => `${k}=${v}`).join(', ')}`);
 L.push('- Tiempo a primera mision / retencion de anillo: sin datos hasta G3 (anillos).');
 L.push('- Divergencia de replay: sin datos hasta que la suite corra con replay (G1/G2).');

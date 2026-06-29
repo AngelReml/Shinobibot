@@ -13,7 +13,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { classifyDispatch } from './classifier.js';
-import type { DispatchDecision, ShadowEntry } from './types.js';
+import type { DispatchDecision, DispatchMode, ShadowEntry } from './types.js';
 
 /** Ruta del registro shadow — raíz del repo, fácil de encontrar para Iván. */
 export function shadowLogPath(): string {
@@ -23,6 +23,20 @@ export function shadowLogPath(): string {
 /** ¿Está el shadow mode activado? Opt-in estricto. */
 export function shadowDispatchEnabled(): boolean {
   return process.env.SHINOBI_SHADOW_DISPATCH === '1';
+}
+
+/**
+ * Modo activo del clasificador: 'shadow' (default) o 'active'.
+ * Solo 'active' si SHINOBI_DISPATCH_MODE=active Y el clasificador ya fue
+ * evaluado como elegible para promoción.
+ */
+export function dispatchMode(): DispatchMode {
+  return process.env.SHINOBI_DISPATCH_MODE === 'active' ? 'active' : 'shadow';
+}
+
+/** ¿El clasificador controla el despacho real? */
+export function dispatchClassifierActive(): boolean {
+  return dispatchMode() === 'active';
 }
 
 /** Anexa una entrada al registro shadow (escritura append, una línea JSON). */
@@ -50,6 +64,72 @@ export async function shadowClassifyAndRecord(message: string): Promise<ShadowEn
     console.log(`[shadow_dispatch] clasificación shadow falló (sin efecto en el despacho real): ${e?.message ?? e}`);
     return null;
   }
+}
+
+/**
+ * Registra el resultado de una misión sobre una entrada shadow previa.
+ * El orchestrator llama a esto al finalizar una misión.
+ */
+export function recordShadowOutcome(entryTs: string, outcome: 'success' | 'failure', iterations: number): void {
+  const p = shadowLogPath();
+  if (!fs.existsSync(p)) return;
+  const lines = fs.readFileSync(p, 'utf-8').split('\n');
+  const updated = lines.map(l => {
+    if (!l.trim()) return l;
+    try {
+      const e = JSON.parse(l) as ShadowEntry;
+      if (e.ts === entryTs) return JSON.stringify({ ...e, outcome, iterations });
+      return l;
+    } catch { return l; }
+  });
+  fs.writeFileSync(p, updated.join('\n'), 'utf-8');
+}
+
+/**
+ * Evalúa si el clasificador es elegible para promoción a modo activo.
+ *
+ * Criterios:
+ * - Al menos `minMissions` entradas con outcome registrado.
+ * - Al menos `minSuccessRate`% de las misiones donde el shadow dijo 'general'
+ *   terminaron en success (el clasificador sabe cuándo NO especializar).
+ *
+ * La idea: si el clasificador distingue bien cuándo enviar a general vs
+ * especialista, y las misiones que envió a general terminaron bien, es
+ * una señal positiva para promoción.
+ */
+export interface PromotionEvaluation {
+  eligible: boolean;
+  totalWithOutcome: number;
+  generalDecisions: number;
+  generalSuccessRate: number;
+  reason: string;
+}
+
+export function evaluatePromotion(minMissions = 20, minSuccessRate = 0.8): PromotionEvaluation {
+  const entries = readShadowLog();
+  const withOutcome = entries.filter(e => e.outcome !== undefined);
+  if (withOutcome.length < minMissions) {
+    return {
+      eligible: false,
+      totalWithOutcome: withOutcome.length,
+      generalDecisions: 0,
+      generalSuccessRate: 0,
+      reason: `Insuficientes datos: ${withOutcome.length}/${minMissions} misiones con outcome registrado`,
+    };
+  }
+  const generalDecisions = withOutcome.filter(e => e.shadow.specialist === 'general');
+  const generalSuccess = generalDecisions.filter(e => e.outcome === 'success').length;
+  const rate = generalDecisions.length > 0 ? generalSuccess / generalDecisions.length : 0;
+  const eligible = rate >= minSuccessRate;
+  return {
+    eligible,
+    totalWithOutcome: withOutcome.length,
+    generalDecisions: generalDecisions.length,
+    generalSuccessRate: rate,
+    reason: eligible
+      ? `Elegible: tasa de acierto en despacho general ${(rate * 100).toFixed(1)}% ≥ ${(minSuccessRate * 100).toFixed(1)}%`
+      : `No elegible: tasa ${(rate * 100).toFixed(1)}% < ${(minSuccessRate * 100).toFixed(1)}%`,
+  };
 }
 
 /** Lee el registro shadow completo (para informes / inspección). */

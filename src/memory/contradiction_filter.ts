@@ -1,23 +1,26 @@
 // src/memory/contradiction_filter.ts
 
-import { sharedMemoryStore } from './memory_store.js';
+import { sharedMemoryStore, type MemoryStore } from './memory_store.js';
 
 export class ContradictionFilter {
   /**
    * Compares a proposed new fact against existing memories semantically.
    * If a direct contradiction is detected, it returns hasConflict: true.
+   *
+   * @param store - Opcional. Store aislado del usuario (getMemoryStore(userId)).
+   *   Si se omite, usa el singleton compartido (single-user o legacy).
    */
-  public static async check(newFact: string): Promise<{
+  public static async check(newFact: string, store?: MemoryStore): Promise<{
     hasConflict: boolean;
     reason?: string;
     conflictingFact?: string;
   }> {
-    const store = sharedMemoryStore();
+    const s = store ?? sharedMemoryStore();
     
     // Recall top semantically related memories
     let related: any[] = [];
     try {
-      related = await store.recall({
+      related = await s.recall({
         query: newFact,
         limit: 5,
         min_score: 0.55 // reasonable threshold for related concepts

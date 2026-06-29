@@ -37,6 +37,8 @@ export interface KernelVersion {
   promoted_at: string;
   dojo_hard_tests: 'green' | 'red';
   suite: { passed: number; skipped: number };
+  /** Ruta absoluta al snapshot del directorio kernel creado en la promoción. */
+  snapshot_path?: string;
 }
 
 export interface SkillRecord {

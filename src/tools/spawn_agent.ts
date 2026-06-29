@@ -17,6 +17,7 @@ import { runAgentLoop, type AgentLoopResult, type LLMInvoker } from '../agents/a
 import { invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import { DESTRUCTIVE_TOOLS } from '../security/approval.js';
 import { WorktreeManager, withWorktree } from '../agents/worktree.js';
+import { createJob, resolveJob, failJob } from '../agents/background_jobs.js';
 
 // Tools destructivas que SÍ son seguras bajo aislamiento por worktree porque
 // validatePath las confina a WORKSPACE_ROOT (= el worktree desechable).
@@ -113,6 +114,21 @@ const spawnAgent: Tool = {
           'run_command (aislado del host). Si el backend no está disponible, falla ' +
           'en vez de ejecutar en el host. Default "none".',
       },
+      model: {
+        type: 'string',
+        description:
+          'Opcional. Override del modelo LLM para este subagente (ej. ' +
+          '"anthropic/claude-opus-4-8", "openai/gpt-4o-mini"). Si se omite, ' +
+          'usa el modelo activo del orchestrator.',
+      },
+      background: {
+        type: 'boolean',
+        description:
+          'Opcional. Si true, el subagente corre en background: responde ' +
+          'inmediatamente con un job_id y continúa sin bloquear. ' +
+          'El usuario puede consultar el estado con /task <job_id>. ' +
+          'Solo compatible con isolation="none". Default false.',
+      },
     },
     required: ['task'],
   },
@@ -126,6 +142,8 @@ const spawnAgent: Tool = {
     label?: string;
     isolation?: 'none' | 'worktree';
     sandbox?: SandboxMode;
+    model?: string;
+    background?: boolean;
   }): Promise<ToolResult> {
     const task = (args.task ?? '').trim();
     if (!task) {
@@ -179,6 +197,7 @@ const spawnAgent: Tool = {
     const childDepth = parentDepth + 1;
     const label = (args.label ?? `sub-${childDepth}`).trim() || `sub-${childDepth}`;
 
+    const agentModel = typeof args.model === 'string' && args.model.trim() ? args.model.trim() : undefined;
     const runLoop = (): Promise<AgentLoopResult> => runAgentLoop({
       task,
       systemPrompt: (args.system_prompt ?? '').trim() || DEFAULT_SYSTEM_PROMPT,
@@ -186,6 +205,7 @@ const spawnAgent: Tool = {
       depth: childDepth,
       label,
       maxIterations: typeof args.max_iterations === 'number' ? args.max_iterations : undefined,
+      model: agentModel,
       invokeLLM: _invoker,
     });
 

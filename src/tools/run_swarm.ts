@@ -43,6 +43,7 @@ const runSwarmTool: Tool = {
             task: { type: 'string', description: 'La sub-tarea.' },
             tools: { type: 'array', items: { type: 'string' }, description: 'Caja de tools (se filtran las destructivas).' },
             criteria: { type: 'string', description: 'Criterios de aceptación (modo verify).' },
+            model: { type: 'string', description: 'Override de modelo para ESTA tarea (ej. "anthropic/claude-opus-4-8"). Si se omite, usa el modelo global del swarm.' },
           },
           required: ['task'],
         },
@@ -54,7 +55,7 @@ const runSwarmTool: Tool = {
   },
   categories: ['research', 'coder'],
 
-  async execute(args: { tasks?: Array<{ task?: string; tools?: string[]; criteria?: string }>; concurrency?: number; verify?: boolean }): Promise<ToolResult> {
+  async execute(args: { tasks?: Array<{ task?: string; tools?: string[]; criteria?: string; model?: string }>; concurrency?: number; verify?: boolean }): Promise<ToolResult> {
     const rawTasks = Array.isArray(args.tasks) ? args.tasks : [];
     const tasks: SwarmTask[] = rawTasks
       .filter((t) => t && typeof t.task === 'string' && t.task.trim())
@@ -64,6 +65,7 @@ const runSwarmTool: Tool = {
         // Filtra destructivas (subagentes sin gate, en paralelo).
         tools: (Array.isArray(t.tools) && t.tools.length > 0 ? t.tools : DEFAULT_BOX).filter((x) => !DESTRUCTIVE_TOOLS.has(x)),
         criteria: t.criteria,
+        model: typeof t.model === 'string' && t.model.trim() ? t.model.trim() : undefined,
       }));
 
     if (tasks.length === 0) {

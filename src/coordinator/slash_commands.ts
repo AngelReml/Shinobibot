@@ -14,7 +14,6 @@
 // each line over WebSocket as a "thinking" event, so no separate sink is
 // required.
 
-import axios from 'axios';
 import { ShinobiOrchestrator } from './orchestrator.js';
 import { SkillLoader } from '../skills/skill_loader.js';
 import { skillManager } from '../skills/skill_manager.js';
@@ -667,6 +666,35 @@ ${pending.length} pending skill(s):`);
       await handleSentinel(argv, { provider, proposalLLM, councilLLM });
     } catch (e: any) {
       console.error(`[sentinel] error: ${e?.message ?? e}`);
+    }
+    return true;
+  }
+
+  // /alcayna [list | status | reset]
+  if (trimmed.startsWith('/alcayna')) {
+    const { listAlcaynaAgents } = await import('../agents/agent_registry.js');
+    const { ShinobiOrchestrator } = await import('../coordinator/orchestrator.js');
+    const sub = trimmed.slice('/alcayna'.length).trim();
+    if (sub === 'reset' || sub === '') {
+      ShinobiOrchestrator.setAlcaynaAgent(null);
+      console.log('[Alcayna] Modo normal restaurado. Sin agente especializado activo.');
+    } else if (sub === 'status') {
+      const active = ShinobiOrchestrator.getAlcaynaAgent();
+      if (active) {
+        console.log(`[Alcayna] Agente activo: ${active.name} (${active.id})`);
+        console.log(`  Capa: ${active.layer} | Modelo: ${active.recommendedModel}`);
+        console.log(`  Tools permitidas: ${active.allowedTools.join(', ')}`);
+      } else {
+        console.log('[Alcayna] Sin agente activo (modo normal).');
+      }
+    } else if (sub === 'list') {
+      const agents = listAlcaynaAgents();
+      console.log(`[Alcayna] ${agents.length} departamentos disponibles:`);
+      for (const a of agents) {
+        console.log(`  • ${a.name} (${a.id}) — activa con: "${a.activationKeyword}"`);
+      }
+    } else {
+      console.log('Uso: /alcayna [list | status | reset]');
     }
     return true;
   }

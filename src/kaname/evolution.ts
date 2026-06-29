@@ -5,6 +5,7 @@
  * núcleo); lo que no pasa el oráculo no entra ni se promociona.
  */
 
+import * as fs from 'node:fs';
 import { loadSkill, type LoadResult } from './contract.js';
 import type { KanameStore } from './store.js';
 import type { SkillManifestLite, SkillRecord, KernelVersion } from './types.js';
@@ -86,11 +87,22 @@ export function promoteKernel(store: KanameStore, candidate: KernelVersion, batt
   return { promoted: true, reason: 'promocionado: suite + pruebas duras en verde', version: candidate };
 }
 
-/** Revert to a known-green previous version (§9 reversible). */
-export function revertKernel(store: KanameStore, toVersion: string): KernelVersion | null {
+/** Revert to a known-green previous version (§9 reversible).
+ *
+ * Si la versión tiene `snapshot_path` y el directorio existe, restaura los
+ * ficheros del kernel copiando el snapshot sobre `kernelDir`. Después
+ * actualiza promoted_at para que la versión sea la head (latestVersion).
+ * La versión defectuosa permanece en el historial para auditoría.
+ */
+export function revertKernel(store: KanameStore, toVersion: string, kernelDir?: string): KernelVersion | null {
   const target = store.listVersions().find((v) => v.version === toVersion) ?? null;
   if (!target) return null;
-  // Re-stamp it as the head by re-saving with a fresh promoted_at marker is the
-  // caller's job; here we just return the version to roll back to (state restorer).
-  return target;
+
+  if (kernelDir && target.snapshot_path && fs.existsSync(target.snapshot_path)) {
+    fs.cpSync(target.snapshot_path, kernelDir, { recursive: true });
+  }
+
+  const restored: KernelVersion = { ...target, promoted_at: new Date().toISOString() };
+  store.saveVersion(restored);
+  return restored;
 }

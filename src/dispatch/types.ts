@@ -40,6 +40,26 @@ export interface ShadowEntry {
    * habría enrutado a un especialista donde el despacho actual fue general?
    */
   currentDispatch: 'general-orchestrator';
+  /**
+   * Resultado de la misión (registrado a posteriori por el orchestrator).
+   * Permite calcular si el clasificador habría tomado mejores decisiones.
+   * - 'success': la misión terminó satisfactoriamente.
+   * - 'failure': la misión falló (error, loop, rechazo).
+   * - undefined: todavía no registrado.
+   */
+  outcome?: 'success' | 'failure';
+  /** Número de iteraciones que tomó la misión (señal de dificultad). */
+  iterations?: number;
 }
+
+/**
+ * Modo del clasificador de despacho.
+ * - 'shadow': solo registra; no controla el despacho. (default)
+ * - 'active': el clasificador controla el despacho real.
+ *
+ * Transición shadow→active: solo después de que evaluatePromotion() devuelva
+ * elegible=true. Nunca por fe, siempre por evidencia medida.
+ */
+export type DispatchMode = 'shadow' | 'active';
 
 export type { SpecialistAgent };

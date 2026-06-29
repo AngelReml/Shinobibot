@@ -32,6 +32,8 @@ export interface SwarmTask {
   systemPrompt?: string;
   /** Criterios de aceptación (modo verify). */
   criteria?: string;
+  /** Override de modelo para ESTA tarea (ej. "anthropic/claude-opus-4-8"). */
+  model?: string;
 }
 
 export interface SwarmOptions {
@@ -105,6 +107,7 @@ export async function runSwarm(options: SwarmOptions): Promise<SwarmResult> {
     const systemPrompt = t.systemPrompt ?? options.systemPrompt ?? DEFAULT_SYSTEM;
     const tools = t.tools ?? options.tools ?? [];
     try {
+      const taskModel = t.model ?? options.model;
       if (options.verify) {
         const r = await runVerifiedAgent({
           task: t.task,
@@ -114,7 +117,7 @@ export async function runSwarm(options: SwarmOptions): Promise<SwarmResult> {
           label,
           maxAttempts: options.maxAttempts ?? 2,
           maxIterations: options.maxIterations,
-          model: options.model,
+          model: taskModel,
           invokeLLM: options.invokeLLM,
           verifyInvokeLLM: options.verifyInvokeLLM,
         });
@@ -125,7 +128,7 @@ export async function runSwarm(options: SwarmOptions): Promise<SwarmResult> {
       }
       const r = await runAgentLoop({
         task: t.task, systemPrompt, tools, label,
-        maxIterations: options.maxIterations, model: options.model,
+        maxIterations: options.maxIterations, model: taskModel,
         invokeLLM: options.invokeLLM,
       });
       return {

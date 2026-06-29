@@ -38,7 +38,9 @@ export class MemoryStore {
         importance REAL NOT NULL DEFAULT 0.5,
         embedding TEXT,
         source TEXT,
-        provenance TEXT
+        provenance TEXT,
+        valid_from TEXT,
+        valid_until TEXT
       );
       CREATE INDEX IF NOT EXISTS idx_memories_category ON memories(category);
       CREATE INDEX IF NOT EXISTS idx_memories_last_accessed ON memories(last_accessed_at DESC);
@@ -54,16 +56,28 @@ export class MemoryStore {
       CREATE INDEX IF NOT EXISTS idx_recall_memory ON recall_log(memory_id);
       CREATE INDEX IF NOT EXISTS idx_recall_timestamp ON recall_log(timestamp DESC);
     `);
-    // FASE C / 11.3 — additive provenance column. Idempotent migration for DBs
-    // created before this column existed (CREATE TABLE above already has it for
-    // fresh DBs; ALTER only runs on legacy DBs missing it).
+    // Additive migrations — idempotent for legacy DBs.
     const cols = this.db.prepare(`PRAGMA table_info(memories)`).all() as Array<{ name: string }>;
     if (!cols.some((c) => c.name === 'provenance')) {
       this.db.exec(`ALTER TABLE memories ADD COLUMN provenance TEXT`);
     }
+    if (!cols.some((c) => c.name === 'valid_from')) {
+      this.db.exec(`ALTER TABLE memories ADD COLUMN valid_from TEXT`);
+    }
+    if (!cols.some((c) => c.name === 'valid_until')) {
+      this.db.exec(`ALTER TABLE memories ADD COLUMN valid_until TEXT`);
+    }
   }
 
-  public async store(content: string, options: { category?: string; tags?: string[]; importance?: number; source?: string; provenance?: MemoryProvenance } = {}): Promise<MemoryEntry> {
+  public async store(content: string, options: {
+    category?: string;
+    tags?: string[];
+    importance?: number;
+    source?: string;
+    provenance?: MemoryProvenance;
+    valid_from?: string;
+    valid_until?: string;
+  } = {}): Promise<MemoryEntry> {
     const id = crypto.randomBytes(8).toString('hex');
     const now = new Date().toISOString();
     const embedding = await EmbeddingProvider.embed(content);
@@ -78,17 +92,21 @@ export class MemoryStore {
       importance: options.importance ?? 0.5,
       embedding,
       source: options.source,
-      provenance: options.provenance
+      provenance: options.provenance,
+      valid_from: options.valid_from,
+      valid_until: options.valid_until,
     };
 
     this.db.prepare(`
-      INSERT INTO memories (id, content, category, tags, created_at, last_accessed_at, access_count, importance, embedding, source, provenance)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO memories (id, content, category, tags, created_at, last_accessed_at, access_count, importance, embedding, source, provenance, valid_from, valid_until)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       entry.id, entry.content, entry.category, JSON.stringify(entry.tags),
       entry.created_at, entry.last_accessed_at, entry.access_count, entry.importance,
       JSON.stringify(entry.embedding), entry.source || null,
-      entry.provenance ? JSON.stringify(entry.provenance) : null
+      entry.provenance ? JSON.stringify(entry.provenance) : null,
+      entry.valid_from ?? null,
+      entry.valid_until ?? null,
     );
 
     return entry;
@@ -108,8 +126,13 @@ export class MemoryStore {
 
     const rows = this.db.prepare(sql).all(...params) as any[];
     const results: RecallResult[] = [];
+    const now = new Date();
 
     for (const row of rows) {
+      // E4 — self-check gate: silently drop expired or not-yet-active entries.
+      if (row.valid_until && new Date(row.valid_until) < now) continue;
+      if (row.valid_from && new Date(row.valid_from) > now) continue;
+
       const entry: MemoryEntry = {
         id: row.id,
         content: row.content,
@@ -121,7 +144,9 @@ export class MemoryStore {
         importance: row.importance,
         embedding: row.embedding ? JSON.parse(row.embedding) : undefined,
         source: row.source,
-        provenance: row.provenance ? JSON.parse(row.provenance) : undefined
+        provenance: row.provenance ? JSON.parse(row.provenance) : undefined,
+        valid_from: row.valid_from ?? undefined,
+        valid_until: row.valid_until ?? undefined,
       };
 
       let score = 0;

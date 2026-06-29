@@ -53,12 +53,49 @@ export async function startTelegramChannel(opts: TelegramChannelOptions): Promis
   const botCfg: BotConfig<any> = {};
   const bot = new Bot(opts.botToken, botCfg);
 
+  const MODEL_LIST = [
+    'anthropic/claude-haiku-4-5      — rápido, barato (default)',
+    'anthropic/claude-sonnet-4-6     — equilibrado',
+    'anthropic/claude-opus-4-8       — máxima capacidad',
+    'openai/gpt-4o-mini              — muy barato',
+    'openai/gpt-4o                   — GPT tope',
+    'google/gemini-2.0-flash         — Gemini rápido',
+    'meta-llama/llama-3.3-70b-versatile — open source',
+    'z-ai/glm-4.7                    — gratuito en OR',
+    'deepseek/deepseek-chat          — razonamiento barato',
+  ];
+
+  // Handles /model commands locally without invoking the orchestrator.
+  function handleModelCommand(text: string): string | null {
+    const trimmed = text.trim();
+    if (!/^\/model(\s|$)/i.test(trimmed)) return null;
+    const parts = trimmed.split(/\s+/);
+    if (parts.length === 1) {
+      return `Modelo activo: ${ShinobiOrchestrator.getModel()}`;
+    }
+    const sub = parts[1].toLowerCase();
+    if (sub === 'list') {
+      return 'Modelos disponibles en OpenRouter:\n' + MODEL_LIST.join('\n') +
+        '\n\nUso: /model <id>  |  /model auto';
+    }
+    if (sub === 'auto') {
+      ShinobiOrchestrator.setModel(undefined);
+      return 'Modelo: auto (usa el default del orchestrator)';
+    }
+    ShinobiOrchestrator.setModel(parts[1]);
+    return `Modelo cambiado a: ${parts[1]}`;
+  }
+
   // Core message processor — extracted so tests can call it without grammY.
   async function handleMessage(userId: number, text: string): Promise<string> {
     if (!allow.has(userId)) {
       console.log(`[telegram] ignoring message from user_id=${userId} (not in allowlist)`);
       return ''; // empty response = nothing sent back
     }
+    // /model command handled locally — never reaches the orchestrator.
+    const modelReply = handleModelCommand(text);
+    if (modelReply !== null) return modelReply;
+
     const sessionId = sessionIdFor(userId);
     opts.chatStore.add(sessionId, 'user', text, null);
     const taggedInput = `[ORIGIN: telegram:${userId}] ${text}`;

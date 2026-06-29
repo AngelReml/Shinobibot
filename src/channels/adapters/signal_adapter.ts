@@ -31,6 +31,11 @@ export class SignalAdapter implements ChannelAdapter {
   private running = false;
   private allowedNumbers: Set<string> | null = null;
   private requestId = 0;
+  // Serial processing queue — prevents concurrent handleLine() calls from
+  // racing on shared state when multiple data events arrive before an async
+  // handler completes.
+  private lineQueue: string[] = [];
+  private processingQueue = false;
 
   isConfigured(): boolean {
     return !!process.env.SIGNAL_PHONE_NUMBER;
@@ -73,15 +78,15 @@ export class SignalAdapter implements ChannelAdapter {
     if (!this.proc.stdout) throw new Error('signal-cli stdout no disponible');
 
     let buf = '';
-    this.proc.stdout.on('data', async (chunk) => {
+    this.proc.stdout.on('data', (chunk) => {
       buf += chunk.toString('utf-8');
       let nl: number;
       while ((nl = buf.indexOf('\n')) >= 0) {
         const line = buf.slice(0, nl);
         buf = buf.slice(nl + 1);
-        if (!line.trim()) continue;
-        await this.handleLine(line);
+        if (line.trim()) this.lineQueue.push(line);
       }
+      void this.drainQueue();
     });
     this.proc.stderr?.on('data', (chunk) => {
       this.lastError = chunk.toString('utf-8').slice(0, 200);
@@ -90,6 +95,19 @@ export class SignalAdapter implements ChannelAdapter {
       this.running = false;
     });
     this.running = true;
+  }
+
+  private async drainQueue(): Promise<void> {
+    if (this.processingQueue) return;
+    this.processingQueue = true;
+    try {
+      while (this.lineQueue.length > 0) {
+        const line = this.lineQueue.shift()!;
+        await this.handleLine(line);
+      }
+    } finally {
+      this.processingQueue = false;
+    }
   }
 
   private async handleLine(line: string): Promise<void> {

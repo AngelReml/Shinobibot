@@ -84,11 +84,18 @@ describe('kaname — KN-09 evolución + reversión (P7)', () => {
     const red = await runOracleBattery([fail]);
     expect(promoteKernel(s, { ...v1, version: '1.2' }, red).promoted).toBe(false);  // oráculo rojo
   });
-  it('revertir restaura una versión previa conocida-verde', async () => {
+  it('revertir restaura una versión previa conocida-verde y la hace head', async () => {
     const s = mem();
     promoteKernel(s, v1, await runOracleBattery([pass]));
     promoteKernel(s, { ...v1, version: '1.1', promoted_at: '2026-02-01' }, await runOracleBattery([pass]));
-    expect(revertKernel(s, '1.0')!.version).toBe('1.0');
+    // latestVersion() apunta a 1.1 antes del revert
+    expect(s.latestVersion()!.version).toBe('1.1');
+    // revertKernel devuelve la versión objetivo
+    const reverted = revertKernel(s, '1.0');
+    expect(reverted!.version).toBe('1.0');
+    // Y la hace la head real (promoted_at actualizado → latestVersion() apunta a 1.0)
+    expect(s.latestVersion()!.version).toBe('1.0');
+    // versión inexistente devuelve null
     expect(revertKernel(s, '9.9')).toBeNull();
   });
 });

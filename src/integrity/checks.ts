@@ -1,3 +1,6 @@
+// src/integrity/checks.ts
+//
+// Integrity layer — checks pre/post-acción (claimed==real, hash, tipo) y bloqueo opcional vía SHINOBI_INTEGRITY.
 /**
  * integrity/checks.ts — the pre-action integrity checks (C1: 11.1 + 11.2).
  *

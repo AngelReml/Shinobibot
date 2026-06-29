@@ -13,7 +13,7 @@
 // de CuratedMemory): los cambios mid-sesión se ven al siguiente reinicio.
 
 import { curatedMemory } from './curated_memory.js';
-import { sharedMemoryStore } from './memory_store.js';
+import { sharedMemoryStore, type MemoryStore } from './memory_store.js';
 
 export interface ReindexResult {
   ok: boolean;
@@ -25,11 +25,14 @@ export interface ReindexResult {
  * Reconstruye el índice semántico desde memory/MEMORY.md. Best-effort: nunca
  * lanza — si falla, el recall semántico simplemente queda vacío y el resto de
  * la memoria (snapshot en texto) sigue funcionando.
+ *
+ * @param store - Opcional. Store aislado del usuario (getMemoryStore(userId)).
+ *   Si se omite, usa el singleton compartido.
  */
-export async function rebuildSemanticIndex(): Promise<ReindexResult> {
+export async function rebuildSemanticIndex(store?: MemoryStore): Promise<ReindexResult> {
   try {
     const entries = curatedMemory().memoryEntries();
-    const indexed = await sharedMemoryStore().reindexFromMarkdown(entries);
+    const indexed = await (store ?? sharedMemoryStore()).reindexFromMarkdown(entries);
     return { ok: true, indexed };
   } catch (e: any) {
     return { ok: false, indexed: 0, error: e?.message ?? String(e) };

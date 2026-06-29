@@ -408,6 +408,29 @@
       "proposed": false,
       "firstSeenAt": "2026-06-12T10:24:18.005Z",
       "lastSeenAt": "2026-06-12T10:24:18.005Z"
+    },
+    {
+      "signature": "read_file→memory",
+      "tools": [
+        "read_file",
+        "memory"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-06-29T17:26:53.056Z",
+      "lastSeenAt": "2026-06-29T17:26:53.056Z"
+    },
+    {
+      "signature": "memory→env_list→run_command",
+      "tools": [
+        "memory",
+        "env_list",
+        "run_command"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-06-29T17:58:17.829Z",
+      "lastSeenAt": "2026-06-29T17:58:17.829Z"
     }
   ]
 }

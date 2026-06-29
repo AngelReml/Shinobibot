@@ -27,7 +27,7 @@ import { dirname, resolve } from 'path';
 import { createHash } from 'crypto';
 import { redactSecrets } from '../security/secret_redactor.js';
 
-export type AuditEventKind = 'tool_call' | 'loop_abort' | 'failover';
+export type AuditEventKind = 'tool_call' | 'loop_abort' | 'failover' | 'approval_decision';
 
 export interface ToolCallEvent {
   kind: 'tool_call';
@@ -58,7 +58,21 @@ export interface FailoverEvent {
   reason: string;
 }
 
-export type AuditEvent = ToolCallEvent | LoopAbortEvent | FailoverEvent;
+export interface ApprovalDecisionEvent {
+  kind: 'approval_decision';
+  ts: string;
+  tool: string;
+  decision: 'allow' | 'deny';
+  /** Razón de la acción crítica (del clasificador). */
+  reason?: string;
+  /** Modo de aprobación activo cuando se tomó la decisión. */
+  mode: string;
+  /** Si deny: fue por fail-safe (sin asker) o por voto explícito del usuario. */
+  denySource?: 'no_asker' | 'user_no' | 'asker_error';
+  sessionId?: string;
+}
+
+export type AuditEvent = ToolCallEvent | LoopAbortEvent | FailoverEvent | ApprovalDecisionEvent;
 
 const ARGS_PREVIEW_CAP = 200;
 
@@ -156,6 +170,26 @@ export function logFailover(args: { from: string; to: string; reason: string }):
     from: args.from,
     to: args.to,
     reason: args.reason,
+  });
+}
+
+export function logApprovalDecision(args: {
+  tool: string;
+  decision: 'allow' | 'deny';
+  reason?: string;
+  mode: string;
+  denySource?: ApprovalDecisionEvent['denySource'];
+  sessionId?: string;
+}): boolean {
+  return writeAuditEvent({
+    kind: 'approval_decision',
+    ts: new Date().toISOString(),
+    tool: args.tool,
+    decision: args.decision,
+    reason: args.reason,
+    mode: args.mode,
+    denySource: args.denySource,
+    sessionId: args.sessionId,
   });
 }
 

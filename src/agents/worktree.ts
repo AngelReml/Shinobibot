@@ -158,11 +158,17 @@ export function parseWorktreeList(stdout: string): Worktree[] {
   return out;
 }
 
+// Mutex global — withWorktree muta process.cwd() y WORKSPACE_ROOT (ambos
+// globales al proceso), por lo que dos llamadas concurrentes se pisarían.
+// El lock garantiza ejecución secuencial sin necesidad de refactorizar las
+// tools que confían en process.cwd().
+let _worktreeLock: Promise<void> = Promise.resolve();
+
 /**
  * Ejecuta `fn` con cwd + WORKSPACE_ROOT scoped a un worktree fresco, y limpia
- * después. SECUENCIAL por diseño (cwd global): no envolver dos llamadas
- * concurrentes. Por defecto descarta el worktree (force); con `keepIfChanged`
- * lo conserva si quedó con cambios.
+ * después. SECUENCIAL por diseño (cwd global): el mutex interno impide que dos
+ * llamadas concurrentes se solapen. Con `keepIfChanged` conserva el worktree
+ * si quedó con cambios.
  */
 export async function withWorktree<T>(
   mgr: WorktreeManager,
@@ -170,6 +176,12 @@ export async function withWorktree<T>(
   fn: (wt: Worktree) => Promise<T>,
   opts: { keepIfChanged?: boolean } = {},
 ): Promise<{ result: T; worktree: Worktree; kept: boolean }> {
+  let release!: () => void;
+  const acquired = new Promise<void>(resolve => { release = resolve; });
+  const prev = _worktreeLock;
+  _worktreeLock = acquired;
+  await prev;
+
   const wt = mgr.create(label);
   const prevCwd = process.cwd();
   const prevWsRoot = process.env.WORKSPACE_ROOT;
@@ -184,6 +196,7 @@ export async function withWorktree<T>(
     process.chdir(prevCwd);
     if (prevWsRoot === undefined) delete process.env.WORKSPACE_ROOT;
     else process.env.WORKSPACE_ROOT = prevWsRoot;
+    release();
   }
 
   // Limpieza tras restaurar el entorno (solo en éxito; si fn lanzó, la
