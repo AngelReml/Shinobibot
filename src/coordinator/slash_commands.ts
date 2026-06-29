@@ -55,6 +55,8 @@ export const SLASH_COMMANDS: SlashCommandInfo[] = [
   { cmd: '/sentinel', desc: 'Vigilancia tecnológica: watch · ask · deep · digest' },
   { cmd: '/notify', desc: 'Notificaciones n8n: set · unset · test' },
   { cmd: '/record', desc: 'Grabar la sesión con OBS: start · stop' },
+  { cmd: '/familia', desc: 'Modo familia: crear · borrar · lista · config <id>' },
+  { cmd: '/anillos', desc: 'Guía de apertura de anillos (familia → confianza)' },
 ];
 
 export interface SlashContext {
@@ -696,6 +698,130 @@ ${pending.length} pending skill(s):`);
     } else {
       console.log('Uso: /alcayna [list | status | reset]');
     }
+    return true;
+  }
+
+  // /familia crear <id> [--nombre "Display Name"] [--max-iter N]
+  // /familia borrar <id>
+  // /familia lista
+  // /familia config <id> [--max-iter N] [--shell on|off] [--destructivo on|off]
+  if (trimmed.startsWith('/familia')) {
+    const { userRegistry } = await import('../multiuser/multiuser_wiring.js');
+    const reg = userRegistry();
+    const parts = trimmed.split(/\s+/);
+    const sub = parts[1] ?? '';
+
+    if (sub === 'lista') {
+      const users = reg.list().filter(u => u.role === 'family');
+      if (users.length === 0) {
+        console.log('No hay usuarios de familia. Crea uno con: /familia crear <id>');
+      } else {
+        console.log(`${users.length} usuario(s) de familia:`);
+        for (const u of users) {
+          const r = u.restrictions;
+          console.log(`  • ${u.userId} (${u.displayName})`);
+          if (r) console.log(`    shell=${!r.noShell} · destructivo=${!r.noDestructive} · max-iter=${r.maxIterationsPerSession}`);
+        }
+      }
+      return true;
+    }
+
+    if (sub === 'crear') {
+      const id = parts[2];
+      if (!id) { console.log('Usage: /familia crear <id> [--nombre "Nombre"] [--max-iter N]'); return true; }
+      const nombreIdx = parts.indexOf('--nombre');
+      const rest = trimmed.slice(trimmed.indexOf(id) + id.length).trim();
+      const nombreMatch = rest.match(/--nombre\s+"([^"]+)"/);
+      const displayName = nombreMatch ? nombreMatch[1] : id;
+      const maxIterIdx = parts.indexOf('--max-iter');
+      const maxIter = maxIterIdx !== -1 ? parseInt(parts[maxIterIdx + 1] ?? '12', 10) : 12;
+      try {
+        const u = reg.createFamily({ userId: id, displayName, restrictions: { noShell: true, noDestructive: true, noCriticalPaths: true, maxIterationsPerSession: Number.isFinite(maxIter) ? maxIter : 12 } });
+        console.log(`✓ Usuario de familia creado: ${u.userId} (${u.displayName})`);
+        console.log(`  shell=NO · destructivo=NO · rutas-críticas=NO · max-iter=${u.restrictions?.maxIterationsPerSession}`);
+      } catch (e: any) {
+        console.log(`✗ Error: ${e?.message ?? e}`);
+      }
+      return true;
+    }
+
+    if (sub === 'borrar') {
+      const id = parts[2];
+      if (!id) { console.log('Usage: /familia borrar <id>'); return true; }
+      try {
+        const ok = reg.remove(id);
+        console.log(ok ? `✓ Usuario ${id} eliminado.` : `✗ Usuario ${id} no encontrado.`);
+      } catch (e: any) {
+        console.log(`✗ Error: ${e?.message ?? e}`);
+      }
+      return true;
+    }
+
+    if (sub === 'config') {
+      const id = parts[2];
+      if (!id) { console.log('Usage: /familia config <id> [--max-iter N] [--shell on|off] [--destructivo on|off]'); return true; }
+      const u = reg.get(id);
+      if (!u) { console.log(`✗ Usuario ${id} no existe.`); return true; }
+      const r = { ...(u.restrictions ?? { noShell: true, noDestructive: true, noCriticalPaths: true, maxIterationsPerSession: 12 }) };
+      const maxIterIdx = parts.indexOf('--max-iter');
+      if (maxIterIdx !== -1) {
+        const n = parseInt(parts[maxIterIdx + 1] ?? '', 10);
+        if (Number.isFinite(n) && n >= 0) r.maxIterationsPerSession = n;
+      }
+      const shellIdx = parts.indexOf('--shell');
+      if (shellIdx !== -1) r.noShell = (parts[shellIdx + 1] ?? '') !== 'on';
+      const destIdx = parts.indexOf('--destructivo');
+      if (destIdx !== -1) r.noDestructive = (parts[destIdx + 1] ?? '') !== 'on';
+      try {
+        reg.update(id, { restrictions: r });
+        console.log(`✓ Config actualizada para ${id}:`);
+        console.log(`  shell=${!r.noShell} · destructivo=${!r.noDestructive} · max-iter=${r.maxIterationsPerSession}`);
+      } catch (e: any) {
+        console.log(`✗ Error: ${e?.message ?? e}`);
+      }
+      return true;
+    }
+
+    console.log('Uso: /familia lista | crear <id> [--nombre "Nombre"] [--max-iter N] | borrar <id> | config <id> [--max-iter N] [--shell on|off] [--destructivo on|off]');
+    return true;
+  }
+
+  // /anillos — guía de apertura de anillos para el operador
+  if (trimmed === '/anillos' || trimmed.startsWith('/anillos ')) {
+    console.log('');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('  GUÍA DE LOS ANILLOS — PLAN SOMBRA §6');
+    console.log('═══════════════════════════════════════════════════════════════');
+    console.log('');
+    console.log('ANILLO 1 — La familia (abrir en G3)');
+    console.log('  Quién  : pareja e hijos');
+    console.log('  Misión : prueba de usabilidad real; sin manual');
+    console.log('  Crear  : /familia crear mama --nombre "Mamá" --max-iter 12');
+    console.log('           /familia crear nino --nombre "Nico" --max-iter 8');
+    console.log('  Regla  : si necesitan ayuda para la primera misión, el fallo');
+    console.log('           es del producto, no del usuario');
+    console.log('');
+    console.log('ANILLO 2 — Operadores de confianza (abrir cuando anillo 1');
+    console.log('           lleva 4 semanas verde)');
+    console.log('  Quién  : 3–5 personas técnicas elegidas a dedo');
+    console.log('  Misión : diversidad de misiones, red-team sin guion,');
+    console.log('           skills forjados por manos ajenas');
+    console.log('  Crear  : usuario normal (/no/ familia) con rol collaborator');
+    console.log('           Ejemplo: usa la API del registry directamente');
+    console.log('');
+    console.log('REGLAS DE LOS ANILLOS:');
+    console.log('  1. En orden y por puerta (anillo 1 antes que anillo 2)');
+    console.log('  2. Cada operador mantiene su soberanía de datos');
+    console.log('  3. La fuga no es catástrofe — es adelantar el calendario');
+    console.log('  4. Los anillos son el primer público de la emergencia (G6)');
+    console.log('');
+    console.log('MÉTRICAS DE ANILLO (KPI N0):');
+    console.log('  • Misiones/semana  : tendencia ↑; objetivo >10/sem en G3');
+    console.log('  • Retención        : 100% con ≥1 misión/sem · 4 semanas');
+    console.log('  • 0 acciones irreversibles sin candado en todo el periodo');
+    console.log('');
+    console.log('  Ver estado actual: npm run kpis (kpis_sombra.mjs)');
+    console.log('═══════════════════════════════════════════════════════════════');
     return true;
   }
 

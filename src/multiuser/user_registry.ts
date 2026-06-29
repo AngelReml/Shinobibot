@@ -21,7 +21,22 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'fs';
 import { resolve, join } from 'path';
 
-export type UserRole = 'owner' | 'collaborator' | 'guest';
+export type UserRole = 'owner' | 'collaborator' | 'guest' | 'family';
+
+/**
+ * Restricciones de la caja de familia (modo familia).
+ * Solo aplicables a role='family'. El owner siempre tiene caja completa.
+ */
+export interface FamilyRestrictions {
+  /** Deniega run_command y todo shell exec. Default true en modo familia. */
+  noShell: boolean;
+  /** Deniega acciones destructivas irreversibles (rm, format, etc.). Default true. */
+  noDestructive: boolean;
+  /** Deniega escritura en rutas críticas (.env, .ssh, certs). Default true. */
+  noCriticalPaths: boolean;
+  /** Presupuesto de iteraciones por sesión (0 = sin límite). */
+  maxIterationsPerSession: number;
+}
 
 export interface UserRecord {
   userId: string;
@@ -31,7 +46,17 @@ export interface UserRecord {
   lastActiveAt?: string;
   userDir: string;
   metadata?: Record<string, string>;
+  /** Solo presente si role='family'. Enforcement en agent_loop via approvalGate. */
+  restrictions?: FamilyRestrictions;
 }
+
+/** Restricciones por defecto para un usuario de familia. */
+export const FAMILY_DEFAULTS: FamilyRestrictions = {
+  noShell: true,
+  noDestructive: true,
+  noCriticalPaths: true,
+  maxIterationsPerSession: 12,
+};
 
 export interface RegistryState {
   version: 1;
@@ -129,6 +154,32 @@ export class UserRegistry {
     if (role === 'owner') this.state.ownerId = args.userId;
     this.save();
     return rec;
+  }
+
+  /**
+   * Da de alta un usuario de familia (role='family') con restricciones
+   * de caja cerrada por defecto. El operador puede afinar las restricciones.
+   */
+  createFamily(args: {
+    userId: string;
+    displayName: string;
+    restrictions?: Partial<FamilyRestrictions>;
+  }): UserRecord {
+    const rec = this.create({ userId: args.userId, displayName: args.displayName, role: 'family' });
+    rec.restrictions = { ...FAMILY_DEFAULTS, ...(args.restrictions ?? {}) };
+    this.save();
+    return rec;
+  }
+
+  /** Actualiza campos mutables de un usuario existente (atomic save). */
+  update(userId: string, patch: Partial<Pick<UserRecord, 'displayName' | 'restrictions' | 'metadata'>>): UserRecord {
+    const u = this.get(userId);
+    if (!u) throw new Error(`usuario no existe: ${userId}`);
+    if (patch.displayName !== undefined) u.displayName = patch.displayName;
+    if (patch.restrictions !== undefined) u.restrictions = patch.restrictions;
+    if (patch.metadata !== undefined) u.metadata = { ...(u.metadata ?? {}), ...patch.metadata };
+    this.save();
+    return u;
   }
 
   remove(userId: string): boolean {

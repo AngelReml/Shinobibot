@@ -246,6 +246,11 @@ export function isReadOnly(toolName: string): boolean {
 let _asker: Asker | null = null;
 export function setApprovalAsker(fn: Asker | null): void { _asker = fn; }
 
+/** Pre-gate inyectado por la capa multiuser (modo familia). Se llama ANTES del asker
+ *  con la tool y sus args; si devuelve false la acción se deniega sin preguntar. */
+let _preGate: ((tool: string, args: any) => Promise<boolean>) | null = null;
+export function setApprovalPreGate(fn: ((tool: string, args: any) => Promise<boolean>) | null): void { _preGate = fn; }
+
 export interface ApprovalInput {
   toolName: string;
   args: any;
@@ -280,6 +285,15 @@ export async function requestApproval(input: ApprovalInput): Promise<boolean> {
   if (!isCriticalPath && sessionAlwaysApproved.has(input.toolName)) {
     logApprovalDecision({ tool: input.toolName, decision: 'allow', reason: input.reason, mode, denySource: undefined });
     return true;
+  }
+
+  // Pre-gate de familia: deniega sin preguntar ciertas tools para usuarios restringidos.
+  if (_preGate) {
+    const allowed = await _preGate(input.toolName, input.args);
+    if (!allowed) {
+      logApprovalDecision({ tool: input.toolName, decision: 'deny', reason: 'family_gate', mode });
+      return false;
+    }
   }
 
   // Acción crítica sin UI para confirmar → fail-safe: DENIEGA.

@@ -74,6 +74,7 @@ export default defineConfig({
       'src/shitsuji/__tests__/**/*.test.ts',
       'src/kaname/__tests__/**/*.test.ts',
       'src/egress/__tests__/**/*.test.ts',
+      'src/utils/__tests__/**/*.test.ts',
       'src/__tests__/stress/**/*.test.ts',
     ],
     exclude: ['node_modules', 'dist', 'scratch', 'test_*.ts'],

@@ -58,3 +58,52 @@ export function resolveUser(userId?: string, displayName?: string): UserRecord {
 
 /** Test helper: reinicia el singleton. */
 export function _resetMultiuserWiring(): void { _registry = null; }
+
+// ── Modo familia: enforcement de restricciones de caja ───────────────────────
+
+const SHELL_TOOLS = new Set(['run_command', 'spawn_agent', 'task_scheduler_create']);
+const DESTRUCTIVE_TOOLS_FAMILY = new Set([
+  'run_command',         // shell + posible rm
+  'task_scheduler_create', // crea tarea persistente
+  'start_cloud_mission', // compute remoto
+  'n8n_invoke',          // workflow externo
+]);
+
+/**
+ * Construye un approvalGate listo para inyectar en AgentLoopOptions que
+ * enforcea las restricciones de un usuario de familia.
+ *
+ * Si el usuario no tiene restricciones (owner/collaborator/guest sin
+ * FamilyRestrictions), devuelve null — no hay gate extra.
+ */
+export function familyApprovalGate(userId: string): ((tool: string, args: any) => Promise<boolean>) | null {
+  const reg = userRegistry();
+  const user = reg.get(userId);
+  if (!user?.restrictions) return null;
+  const r = user.restrictions;
+
+  return async (tool: string, args: any): Promise<boolean> => {
+    if (r.noShell && SHELL_TOOLS.has(tool)) {
+      return false; // caja: sin shell
+    }
+    if (r.noDestructive && DESTRUCTIVE_TOOLS_FAMILY.has(tool)) {
+      return false; // caja: sin destructivo
+    }
+    if (r.noCriticalPaths && (tool === 'write_file' || tool === 'edit_file')) {
+      const p = typeof args?.path === 'string' ? args.path : '';
+      const SENSITIVE = /(^|[\\/])(\.env|\.ssh[\\/]|\.bashrc|\.profile|\.zshrc|authorized_keys)|(\.pem|\.key|\.crt|\.p12|\.pfx)$/i;
+      if (SENSITIVE.test(p)) return false; // caja: sin rutas críticas
+    }
+    return true;
+  };
+}
+
+/**
+ * Devuelve el presupuesto de iteraciones para un usuario.
+ * 0 significa sin límite. Para owner/collaborator/guest siempre 0.
+ */
+export function userIterationBudget(userId: string): number {
+  const reg = userRegistry();
+  const user = reg.get(userId);
+  return user?.restrictions?.maxIterationsPerSession ?? 0;
+}

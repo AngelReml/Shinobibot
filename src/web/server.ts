@@ -44,11 +44,14 @@ import { screencastHub } from '../browser/screencast.js';
 import {
   ensureApprovalModeInitialized,
   setApprovalAsker,
+  setApprovalPreGate,
   getApprovalMode,
   setApprovalMode,
   type Approval,
   type ApprovalMode,
 } from '../security/approval.js';
+import { resolveUser, familyApprovalGate } from '../multiuser/multiuser_wiring.js';
+import { humanizeError, formatHumanError } from '../utils/human_errors.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -712,6 +715,12 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
       const conversationId = String(msg.conversationId ?? msg.sessionId ?? 'default');
       if (!text) return;
 
+      // G3 — modo familia: resolver usuario y montar pre-gate si corresponde.
+      const msgUserId = typeof msg.userId === 'string' ? msg.userId : undefined;
+      const msgDisplayName = typeof msg.displayName === 'string' ? msg.displayName : undefined;
+      const user = resolveUser(msgUserId, msgDisplayName);
+      const fGate = user.role === 'family' ? familyApprovalGate(user.userId) : null;
+
       if (busy) {
         ws.send(JSON.stringify({ type: 'error', message: 'Shinobi está ocupado con otra petición — espera a que termine.' }));
         return;
@@ -772,6 +781,11 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
       console.error = (...args: any[]) => { send(stringifyArgs(args)); origErr(...args); };
       console.warn = (...args: any[]) => { send(stringifyArgs(args)); origWarn(...args); };
       console.info = (...args: any[]) => { send(stringifyArgs(args)); origInfo(...args); };
+
+      // G3 — instalar pre-gate de familia (si aplica). La serialización del
+      // orchestrator garantiza que solo hay una request en vuelo → sin riesgo
+      // de que el gate de un usuario afecte al siguiente.
+      if (fGate) setApprovalPreGate(fGate);
 
       let finalResponse = '';
       try {
@@ -834,12 +848,16 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
       } catch (e: any) {
         const errMsg = e?.message ?? String(e);
         store.addInConversation(conversationId, 'system', `[error] ${errMsg}`, captured);
-        try { ws.send(JSON.stringify({ type: 'error', message: errMsg })); } catch {}
+        // G3 — traducir al humano antes de enviar al WebChat.
+        const human = humanizeError(errMsg);
+        try { ws.send(JSON.stringify({ type: 'error', message: formatHumanError(human), raw: human.raw })); } catch {}
       } finally {
         console.log = origLog;
         console.error = origErr;
         console.warn = origWarn;
         console.info = origInfo;
+        // G3 — limpiar pre-gate de familia al terminar la petición.
+        if (fGate) setApprovalPreGate(null);
         busy = false;
       }
       }); // fin runExclusive — sección exclusiva con canales
