@@ -9,6 +9,7 @@ import { runTeam, type TeamTask } from '../agents/team.js';
 import { WorktreeManager } from '../agents/worktree.js';
 import { invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import type { LLMInvoker } from '../agents/agent_loop.js';
+import { getSpawnDepth, getMaxSpawnDepth, runWithSpawnDepth } from '../agents/spawn_depth.js';
 
 let _invoker: LLMInvoker = routedInvokeLLM;
 let _manager: WorktreeManager | undefined;
@@ -55,28 +56,20 @@ const runTeamTool: Tool = {
       return { success: false, output: '', error: 'run_team requiere al menos una tarea con "task".' };
     }
 
-    const parentDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0') || 0;
-    const maxDepth = Number(process.env.SHINOBI_MAX_SPAWN_DEPTH || '3') || 3;
+    const parentDepth = getSpawnDepth();
+    const maxDepth = getMaxSpawnDepth();
     if (parentDepth + 1 >= maxDepth) {
       return { success: false, output: '', error: `Profundidad de spawn máxima (${parentDepth + 1}/${maxDepth}); no se lanza el equipo.` };
     }
 
-    const prevDepth = process.env.SHINOBI_SPAWN_DEPTH;
-    process.env.SHINOBI_SPAWN_DEPTH = String(parentDepth + 1);
-    let result;
-    try {
-      result = await runTeam({
-        tasks,
-        manager: _manager,
-        concurrency: typeof args.concurrency === 'number' ? args.concurrency : undefined,
-        verify: !!args.verify,
-        invokeLLM: _invoker,
-        verifyInvokeLLM: _invoker,
-      });
-    } finally {
-      if (prevDepth === undefined) delete process.env.SHINOBI_SPAWN_DEPTH;
-      else process.env.SHINOBI_SPAWN_DEPTH = prevDepth;
-    }
+    const result = await runWithSpawnDepth(parentDepth + 1, () => runTeam({
+      tasks,
+      manager: _manager,
+      concurrency: typeof args.concurrency === 'number' ? args.concurrency : undefined,
+      verify: !!args.verify,
+      invokeLLM: _invoker,
+      verifyInvokeLLM: _invoker,
+    }));
 
     const lines = result.results.map((r) =>
       `- ${r.label}: ${r.ok ? 'OK' : 'FALLO'}${r.kept ? ` → rama ${r.branch}` : ''}${r.error ? ` (${r.error})` : ''}`);
