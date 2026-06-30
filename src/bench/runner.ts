@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { AgentAdapter, BenchResult, BenchTask, RunRecord, TaskContext } from './types.js';
+import type { ProvenanceKeypair } from '../agents/provenance_v2.js';
 
 export interface RunBenchmarkOptions {
   /** Celdas concurrentes (default 1: determinismo y aislamiento de coste). */
@@ -24,6 +25,18 @@ export interface RunBenchmarkOptions {
    * Con k > 1, BenchResult.passK = true solo si TODAS las corridas pasaron.
    */
   repeat?: number;
+  /**
+   * Si se provee, emite un paquete SignedProvenance (F4.1) por celda.
+   * El audit.jsonl se lee dentro de runOnce (antes de limpiar el workdir).
+   * El paquete se guarda en outDir/<agent>_<taskId>_<ts>.json.
+   */
+  provenanceOpts?: {
+    keypair: ProvenanceKeypair;
+    /** Directorio donde se guardan los paquetes .json. Se crea si no existe. */
+    outDir: string;
+    /** Tarea → prompt real (para embeber en el paquete). Default: task.id */
+    promptOf?: (task: BenchTask) => string;
+  };
 }
 
 function slug(s: string): string {
@@ -68,6 +81,9 @@ export async function runBenchmark(
 
   const k = Math.max(1, Math.round(opts.repeat ?? 1));
 
+  const provOpts = opts.provenanceOpts;
+  if (provOpts) fs.mkdirSync(provOpts.outDir, { recursive: true });
+
   /** Ejecuta una sola corrida de (task, adapter) en un workdir fresco. */
   async function runOnce(task: BenchTask, adapter: AgentAdapter): Promise<BenchResult> {
     const workdir = fs.mkdtempSync(path.join(workRoot, `${slug(adapter.id)}_${slug(task.id)}_`));
@@ -83,6 +99,29 @@ export async function runBenchmark(
       } catch (e: any) {
         pass = false; detail = `check lanzó: ${e?.message ?? e}`;
       }
+
+      // F4.1 — emitir paquete de provenance ANTES de que finally limpie el workdir.
+      let provenancePath: string | undefined;
+      if (provOpts && run.ok) {
+        try {
+          const { buildSignedProvenance } = await import('../agents/provenance_v2.js');
+          const prompt = provOpts.promptOf?.(task) ?? task.id;
+          const pkg = buildSignedProvenance({
+            taskId: task.id,
+            prompt,
+            finalText: run.finalText,
+            auditPath: run.auditPath,
+            verdict: { passed: pass, rationale: detail },
+            embedAudit: true,
+            privateKeyPem: provOpts.keypair.privateKeyPem,
+            publicKeyPem: provOpts.keypair.publicKeyPem,
+          });
+          const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+          provenancePath = path.join(provOpts.outDir, `${slug(adapter.id)}_${slug(task.id)}_${ts}.json`);
+          fs.writeFileSync(provenancePath, JSON.stringify(pkg, null, 2));
+        } catch { /* best-effort — no bloquea el resultado */ }
+      }
+
       return {
         agent: adapter.id, task: task.id, category: task.category,
         pass, checkDetail: detail,
@@ -92,6 +131,7 @@ export async function runBenchmark(
         loopAborts: run.metrics?.loopAborts,
         selfCorrected: run.selfCorrected,
         error: run.error,
+        provenancePath,
       };
     } catch (e: any) {
       return {

@@ -41,6 +41,7 @@
     "bench:g2": "tsx scripts/bench_g2.ts",
     "bench:g4": "tsx scripts/bench_g4.ts",
     "bench:g5": "tsx scripts/bench_g5_safety.ts",
+    "bench:f41": "tsx scripts/bench_f41.ts",
     "build:exe": "tsx scripts/build_exe.ts"
   },
   "keywords": [],

@@ -109,4 +109,6 @@ export interface BenchResult {
   runs?: RunRecord[];
   /** true si TODAS las repeticiones pasaron (pass^k, k = runs.length). */
   passK?: boolean;
+  /** Ruta al paquete de provenance firmado Ed25519 (F4.1), si se emitió. */
+  provenancePath?: string;
 }
