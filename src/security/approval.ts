@@ -3,11 +3,13 @@
 /**
  * D-017 — Approval system inspired by industry-standard agent permission models.
  *
- * Three modes:
- *   - on      : every write/exec tool requires user confirmation. Read-only passes.
- *   - smart   : only genuinely destructive ops require confirmation. Default.
- *   - off     : no checks at all. Path prohibition list bypassed too.
+ * Four modes (ApprovalMode):
+ *   - on       : every write/exec tool requires user confirmation. Read-only passes.
+ *   - smart    : solo la clase crítica (credenciales, secretos, login, pago, cloud).
+ *   - critical : idéntico a 'smart' en implementación actual — alias semántico.
+ *   - off      : no checks at all. Path prohibition list bypassed too.
  *
+ * Default: 'critical' (lee config.json; si no hay entrada, devuelve 'critical').
  * Config persisted under approval_mode in %APPDATA%\Shinobi\config.json.
  */
 import * as fs from 'fs';
@@ -274,10 +276,13 @@ export async function requestApproval(input: ApprovalInput): Promise<boolean> {
   // FIX 0.2: check de ruta crítica ANTES de sessionAlwaysApproved. Si la acción
   // escribe en .env, .ssh, certs, etc., sessionAlwaysApproved NO puede bypassear
   // el gate — siempre se pregunta, aunque el usuario haya dicho "siempre" antes.
+  // FIX 0.10: extendido a CRITICAL_TOOLS (start_cloud_mission, n8n_invoke, …).
+  // Sin esto, un único "siempre" desbloqueaba despacho de cloud ilimitado en sesión.
   const isCriticalPath =
-    (input.toolName === 'write_file' || input.toolName === 'edit_file') &&
+    CRITICAL_TOOLS.has(input.toolName) ||
+    ((input.toolName === 'write_file' || input.toolName === 'edit_file') &&
     CRITICAL_PATH_PATTERNS.some(({ regex }) =>
-      regex.test(typeof input.args?.path === 'string' ? input.args.path : ''));
+      regex.test(typeof input.args?.path === 'string' ? input.args.path : '')));
 
   // "Aprobar siempre" para esta tool en la sesión — excepto rutas críticas.
   if (!isCriticalPath && sessionAlwaysApproved.has(input.toolName)) {

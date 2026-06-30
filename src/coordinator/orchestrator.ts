@@ -717,8 +717,13 @@ export class ShinobiOrchestrator {
             let isTimeout = false;
             let timer: NodeJS.Timeout | undefined;
 
-            // SHINOBI_APPROVAL_TIMEOUT_ACTION: 'deny' (default, seguro) | 'approve' (legacy)
+            // SHINOBI_APPROVAL_TIMEOUT_ACTION: 'deny' (default, seguro) | 'approve' (⚠ PELIGROSO)
+            // Con 'approve', cualquier acción crítica se auto-aprueba tras el timeout si el
+            // usuario no responde — equivale a desactivar el gate para sesiones lentas.
             const timeoutApprove = (process.env.SHINOBI_APPROVAL_TIMEOUT_ACTION || 'deny').toLowerCase() === 'approve';
+            if (timeoutApprove && approvalVerdict.destructive) {
+              console.warn(`[SECURITY] SHINOBI_APPROVAL_TIMEOUT_ACTION=approve — "${functionName}" se auto-aprobará en ${approvalTimeoutMs / 1000}s si no hay respuesta`);
+            }
             const timeoutPromise = new Promise<boolean>((resolve) => {
               timer = setTimeout(() => {
                 isTimeout = true;

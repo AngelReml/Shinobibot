@@ -15,6 +15,17 @@
   let models = [];
   let activeModel = 'auto';
 
+  // CSRF token fetcheado al init; requerido en POST /api/model y /api/approval.
+  let csrfToken = '';
+  async function ensureCsrf() {
+    if (csrfToken) return csrfToken;
+    try {
+      const r = await fetch('/api/csrf-token');
+      if (r.ok) csrfToken = (await r.json()).token || '';
+    } catch { /* silencio */ }
+    return csrfToken;
+  }
+
   // ─── refs ─────────────────────────────────────────────────────────────
   const $ = (id) => document.getElementById(id);
 
@@ -59,8 +70,9 @@
 
   async function setModel(id) {
     try {
+      const csrf = await ensureCsrf();
       const r = await fetch('/api/model', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Shinobi-CSRF': csrf },
         body: JSON.stringify({ model: id }),
       });
       const data = await r.json();
@@ -226,8 +238,9 @@
 
   async function setApproval(mode) {
     try {
+      const csrf = await ensureCsrf();
       await fetch('/api/approval', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Shinobi-CSRF': csrf },
         body: JSON.stringify({ mode }),
       });
       window.ShinobiToast?.('Candado', `Modo: ${mode}.`);

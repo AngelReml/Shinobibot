@@ -187,6 +187,12 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   const store = new ChatStore(dbPath);
   const residentLoop = new ResidentLoop();
 
+  // CSRF token generado en memoria al arrancar. El frontend lo fetcha en
+  // GET /api/csrf-token y lo adjunta como X-Shinobi-CSRF en peticiones que
+  // mutan estado sensible (/api/approval, /api/model). Protege contra SSRF
+  // desde páginas web maliciosas: no pueden leer la respuesta cross-origin.
+  const csrfToken = randomUUID();
+
   // D-017: ensure approval_mode field exists.
   ensureApprovalModeInitialized();
 
@@ -277,6 +283,20 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     reloadConfig();
     res.json({ ok: true, currentProvider: currentProvider() });
   });
+
+  // CSRF: el frontend lo fetcha al init y lo manda como X-Shinobi-CSRF.
+  app.get('/api/csrf-token', (_req, res) => {
+    res.json({ token: csrfToken });
+  });
+
+  // Middleware que exige X-Shinobi-CSRF en endpoints que mutan estado sensible.
+  function requireCsrf(req: express.Request, res: express.Response, next: express.NextFunction): void {
+    if (req.headers['x-shinobi-csrf'] !== csrfToken) {
+      res.status(403).json({ ok: false, error: 'CSRF token inválido o ausente' });
+      return;
+    }
+    next();
+  }
 
   // ─── Bloque 8.2 — endpoints de conversaciones ──────────────────────────────
 
@@ -387,14 +407,14 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   });
 
   // Cambiar modelo en caliente. 'auto'/'' → setModel(undefined).
-  app.post('/api/model', (req, res) => {
+  app.post('/api/model', requireCsrf, (req, res) => {
     const model = typeof req.body?.model === 'string' ? req.body.model.trim() : '';
     ShinobiOrchestrator.setModel(model && model !== 'auto' ? model : undefined);
     res.json({ ok: true, active: ShinobiOrchestrator.getModel() });
   });
 
   // Cambiar modo del candado (§11). El gate persiste en config.json.
-  app.post('/api/approval', (req, res) => {
+  app.post('/api/approval', requireCsrf, (req, res) => {
     const mode = String(req.body?.mode || '').toLowerCase();
     if (!['on', 'smart', 'critical', 'off'].includes(mode)) {
       res.status(400).json({ ok: false, error: 'modo inválido (on|smart|critical|off)' });
@@ -498,7 +518,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     console.warn('[SECURITY] SHINOBI_ADMIN_TOKEN not set — admin dashboard disabled');
   } else {
     app.use('/admin', (req, res, next) => {
-      const token = req.headers['x-admin-token'] ?? req.query.token;
+      const token = req.headers['x-admin-token'];
       if (token !== adminToken) { res.status(401).json({ error: 'unauthorized' }); return; }
       next();
     });
