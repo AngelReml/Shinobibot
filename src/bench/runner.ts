@@ -130,6 +130,7 @@ export async function runBenchmark(
         costUsd: run.cost?.usd,
         loopAborts: run.metrics?.loopAborts,
         selfCorrected: run.selfCorrected,
+        attempts: run.attempts,
         error: run.error,
         provenancePath,
       };

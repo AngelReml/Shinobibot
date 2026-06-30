@@ -111,4 +111,6 @@ export interface BenchResult {
   passK?: boolean;
   /** Ruta al paquete de provenance firmado Ed25519 (F4.1), si se emitió. */
   provenancePath?: string;
+  /** Intentos productor→verificador realizados (solo si verified=true). */
+  attempts?: number;
 }
