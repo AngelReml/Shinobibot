@@ -88,5 +88,5 @@ const browserScrollTool: Tool = {
   }
 };
 
-registerTool(browserScrollTool);
+// No registrado — usar browser_act action:'scroll' con scroll_count + wait_between_ms.
 export default browserScrollTool;

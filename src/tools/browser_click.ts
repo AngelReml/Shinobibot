@@ -144,5 +144,5 @@ const browserClickTool: Tool = {
   }
 };
 
-registerTool(browserClickTool);
+// No registrado — funcionalidad absorbida por browser_act (selector fallback).
 export default browserClickTool;

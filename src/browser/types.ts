@@ -73,6 +73,22 @@ export interface ActCommand {
   index?: number;
   /** si true, devuelve un snapshot nuevo tras la acción. */
   reobserve?: boolean;
+
+  // ── Selector fallback para click sin ref previo (sin necesidad de browser_observe) ──
+  /** texto visible del elemento a clicar (alternativa a ref). */
+  button_text?: string;
+  /** selector CSS del elemento a clicar (alternativa a ref). */
+  css_selector?: string;
+  /** aria-label del elemento a clicar (alternativa a ref). */
+  aria_label?: string;
+  /** posición 1-indexed cuando css_selector o button_text devuelve múltiples (default 1). */
+  nth?: number;
+
+  // ── Scroll en múltiples ciclos (para contenido lazy-loaded) ──────────────────
+  /** número de ciclos de scroll (default 1). */
+  scroll_count?: number;
+  /** ms entre ciclos de scroll (default 1 500). */
+  wait_between_ms?: number;
 }
 
 /** Resultado de una acción, con verificación incorporada. */

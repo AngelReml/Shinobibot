@@ -113,5 +113,5 @@ const browserClickPositionTool: Tool = {
   }
 };
 
-registerTool(browserClickPositionTool);
+// No registrado — usar browser_act con css_selector + nth.
 export default browserClickPositionTool;

@@ -427,10 +427,10 @@ export class ShinobiOrchestrator {
     const budget = new IterationBudget(Number(process.env.SHINOBI_MAX_ITERATIONS) || 10);
     let iteration = 0;
 
-    // Anti-loop de navegación: si el bot llama a web_search / browser_click
-    // más de 3 veces consecutivas sin cambiar el contenido obtenido, inyecta
-    // un mensaje de ruptura en el contexto antes de seguir.
-    const NAV_TOOLS = new Set(['web_search', 'browser_click', 'browser_click_position', 'browser_scroll', 'web_search_with_warmup']);
+    // Anti-loop de navegación: si el bot llama repetidamente a tools de
+    // navegación/browser sin obtener contenido nuevo, inyecta un mensaje de
+    // ruptura. browser_act es la herramienta unificada; los legacy están fuera.
+    const NAV_TOOLS = new Set(['web_search', 'web_search_with_warmup', 'browser_act', 'browser_observe', 'browser_session']);
     let navConsecutiveCount = 0;
     let lastNavContentFingerprint = '';
     const NAV_STALL_LIMIT = Number(process.env.SHINOBI_NAV_STALL_LIMIT) || 3;

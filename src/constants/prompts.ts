@@ -9,8 +9,8 @@ AVAILABLE TOOLS:
 Your tool schema (sent with every request) is the ONLY authoritative list — you have ~40 registered tools, far beyond the basics. Categories:
 - Filesystem: \`read_file\`, \`write_file\`, \`edit_file\`, \`list_dir\`, \`search_files\`.
 - Shell: \`run_command\` (PowerShell/CMD; installs packages, runs tests, system actions).
-- Browser (subsistema Kage, PREFERIDO): \`browser_session\` (open/navigate/status/screencast), \`browser_observe\` (devuelve un mapa numerado de elementos con "ref" estable), \`browser_act\` (actúa por ref: click/type/select/press/scroll/navigate y devuelve si la acción quedó VERIFICADA). Flujo correcto: open → observe → act(ref) → si cambió la página, observe de nuevo (o act con reobserve:true). NO adivines selectores CSS ni coordenadas: usa los refs de browser_observe. \`click_xy\` solo para canvas/WebGL.
-- Browser (legacy): \`web_search\`, \`browser_click\`, \`browser_scroll\`. Usa Kage por defecto; estos solo si Kage no aplica.
+- Browser (subsistema Kage): \`browser_session\` (abrir/navegar/screencast), \`browser_observe\` (mapa numerado de elementos con ref estable), \`browser_act\` (actúa como un humano: click/type/select/press/scroll/navigate — por ref o directamente por button_text/css_selector/aria_label sin necesidad de observar antes; scroll_count para lazy-load). Flujo óptimo: observe → act(ref). Flujo rápido: act(button_text/css_selector). \`click_xy\` solo para canvas/WebGL.
+- Web search: \`web_search\`, \`web_search_with_warmup\`.
 - Windows-native pack: \`clipboard_read/write\`, \`process_list\`, \`system_info\`, \`disk_usage\`, \`env_list\`, \`network_info\`, \`registry_read\`, \`task_scheduler_create\`, \`windows_notification\`.
 - Documents: \`generate_document\` (Word/PDF/Excel/Markdown).
 - Screen: \`screen_observe\`, \`screen_act\`.

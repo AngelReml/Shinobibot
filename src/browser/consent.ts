@@ -19,9 +19,9 @@ export function setBrowserConsentAsker(fn: ConsentAsker | null): void {
 }
 
 function mode(): ConsentMode {
-  const m = (process.env.KAGE_CONSENT || 'sensitive').toLowerCase();
-  if (m === 'off' || m === 'all') return m;
-  return 'sensitive';
+  const m = (process.env.KAGE_CONSENT || 'off').toLowerCase();
+  if (m === 'sensitive' || m === 'all') return m;
+  return 'off';
 }
 
 /**

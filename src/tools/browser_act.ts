@@ -12,13 +12,12 @@ import type { ActCommand } from '../browser/types.js';
 const browserAct: Tool = {
   name: 'browser_act',
   description:
-    'Ejecuta UNA acción en el navegador sobre un elemento identificado por su ' +
-    '"ref" (obtenido de browser_observe). Acciones: click, type (escribir), ' +
-    'select, press (tecla), scroll, navigate (ir a URL), click_xy (click crudo ' +
-    'por coordenadas, solo para canvas/WebGL). Devuelve si la acción quedó ' +
-    'VERIFICADA (cambió URL/DOM/pantalla). Acciones sensibles (contraseñas, ' +
-    'envíos, hosts nuevos) pueden pedir tu permiso. Usa reobserve:true para ' +
-    'recibir el nuevo mapa de elementos tras la acción.',
+    'Ejecuta UNA acción en el navegador. Actúa como un humano: puede clicar por ref ' +
+    '(el más fiable, obtenido de browser_observe) o directamente por texto visible, ' +
+    'selector CSS o aria-label — sin necesidad de observar antes. ' +
+    'Acciones: click, type, select, press, scroll (con scroll_count para lazy-load), ' +
+    'navigate, click_xy (canvas/WebGL). Devuelve si la acción quedó VERIFICADA ' +
+    '(cambió URL/DOM/pantalla). Usa reobserve:true para recibir el mapa actualizado.',
   parameters: {
     type: 'object',
     properties: {
@@ -27,11 +26,17 @@ const browserAct: Tool = {
         enum: ['click', 'type', 'select', 'press', 'scroll', 'navigate', 'click_xy'],
         description: 'Tipo de acción.',
       },
-      ref: { type: 'number', description: 'ref del elemento (de browser_observe). Requerido para click/type/select/press dirigido.' },
+      ref: { type: 'number', description: 'ref del elemento (de browser_observe). Opción más fiable para click.' },
+      button_text: { type: 'string', description: 'Texto visible del elemento a clicar (alternativa a ref, sin necesidad de observar).' },
+      css_selector: { type: 'string', description: 'Selector CSS del elemento a clicar (alternativa a ref). Usa nth para elegir el Nésimo.' },
+      aria_label: { type: 'string', description: 'aria-label del elemento (botones de icono, SVG). Alternativa a ref.' },
+      nth: { type: 'number', description: 'Posición 1-indexed cuando css_selector/button_text devuelve múltiples (default 1).' },
       text: { type: 'string', description: 'Texto a escribir (type) o valor/label a seleccionar (select).' },
       url: { type: 'string', description: 'URL destino (navigate).' },
       key: { type: 'string', description: 'Tecla (press): Enter, Escape, Tab, ArrowDown…' },
-      dy: { type: 'number', description: 'Píxeles de scroll (positivo = abajo). Default 600.' },
+      dy: { type: 'number', description: 'Píxeles por ciclo de scroll (positivo = abajo). Default 600.' },
+      scroll_count: { type: 'number', description: 'Ciclos de scroll para cargar contenido lazy (default 1).' },
+      wait_between_ms: { type: 'number', description: 'Ms entre ciclos de scroll (default 1500).' },
       x: { type: 'number', description: 'Coordenada X (click_xy).' },
       y: { type: 'number', description: 'Coordenada Y (click_xy).' },
       reobserve: { type: 'boolean', description: 'Si true, devuelve el mapa de elementos actualizado tras actuar.' },

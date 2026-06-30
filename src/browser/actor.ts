@@ -85,11 +85,13 @@ export async function act(session: KageSession, cmd: ActCommand): Promise<ActRes
       // ── Scroll ────────────────────────────────────────────────────────────
       case 'scroll': {
         const dy = cmd.dy ?? 600;
-        await (ctx as Page).evaluate((px: number) => {
-          // @ts-ignore — corre en el navegador
-          window.scrollBy(0, px);
-        }, dy);
-        detail = `scroll ${dy}px`;
+        const cycles = Math.max(1, cmd.scroll_count ?? 1);
+        const waitBetween = cmd.wait_between_ms ?? 1_500;
+        for (let i = 0; i < cycles; i++) {
+          await (ctx as Page).evaluate((px: number) => { window.scrollBy(0, px); }, dy);
+          if (i < cycles - 1) await (ctx as Page).waitForTimeout(waitBetween);
+        }
+        detail = cycles > 1 ? `scroll ${dy}px × ${cycles} ciclos` : `scroll ${dy}px`;
         break;
       }
 
@@ -156,6 +158,26 @@ export async function act(session: KageSession, cmd: ActCommand): Promise<ActRes
       case 'click':
       case 'type':
       case 'select': {
+        if (cmd.action === 'click' && cmd.ref == null) {
+          // Selector fallback: clic sin ref previo (sin necesidad de browser_observe)
+          const p = ctx as Page;
+          const nthIdx = Math.max(0, (cmd.nth ?? 1) - 1); // nth es 1-indexed para el LLM
+          if (cmd.css_selector) {
+            await p.locator(cmd.css_selector).nth(nthIdx).click({ timeout: 10_000 });
+            detail = `click por css "${cmd.css_selector}"${nthIdx > 0 ? `[${nthIdx + 1}]` : ''}`;
+          } else if (cmd.aria_label) {
+            await p.locator(`[aria-label*="${cmd.aria_label}" i]`).nth(nthIdx).click({ timeout: 10_000 });
+            detail = `click por aria-label "${cmd.aria_label}"`;
+          } else if (cmd.button_text) {
+            await p.getByText(cmd.button_text, { exact: false }).nth(nthIdx).click({ timeout: 10_000 });
+            detail = `click por texto "${cmd.button_text}"`;
+          } else {
+            throw new Error('click requiere ref, css_selector, aria_label o button_text');
+          }
+          targetDetached = true; // el click puede causar navegación
+          break;
+        }
+
         if (cmd.ref == null) throw new Error(`${cmd.action} requiere ref`);
         const handle = await resolveRef(ctx, cmd.ref, true);
         if (!handle) throw new Error(`ref ${cmd.ref} no existe (página cambió; vuelve a observar)`);

@@ -168,22 +168,13 @@ const READ_ONLY_TOOLS = new Set<string>([
  */
 export const DESTRUCTIVE_TOOLS = new Set<string>([
   'write_file', 'edit_file', 'run_command',
-  'browser_click', 'browser_click_position', 'browser_scroll',
-  // 'start_cloud_mission' es el nombre REGISTRADO de la tool (cloud_mission.ts);
-  // con 'cloud_mission' (nombre del archivo) isDestructive no la encontraba y
-  // lanzaba ejecución remota de swarm sin gate. Mismo patrón que request_new_skill.
+  // browser_act es la herramienta unificada de browser; no se bloquea a sub-agentes
+  // porque Shinobi usa el browser como un humano (autónomo por defecto).
+  // Los tools legacy browser_click/browser_scroll/browser_click_position
+  // están desregistrados — no los verá ningún agente.
   'screen_act', 'start_cloud_mission', 'n8n_invoke',
-  // El nombre REGISTRADO de la tool es 'request_new_skill' (skill_request_generation.ts:5),
-  // no el del archivo. isDestructive() recibe el nombre registrado: con la
-  // entrada equivocada la tool se auto-ejecutaba sin gate pese a disparar
-  // generación remota de código (gap detectado en el 5º ciclo de auditoría).
   'request_new_skill',
-  // task_scheduler_create crea tareas programadas persistentes (schtasks
-  // /CREATE /F) — declara requiresConfirmation() pero el gate real corre
-  // por esta lista, así que sin esta entrada se auto-ejecutaba sin pedir.
   'task_scheduler_create',
-  // mcp_connect spawnea un proceso externo (servidor MCP) y registra sus tools:
-  // es una decisión de confianza → requiere gate de aprobación.
   'mcp_connect',
 ]);
 
