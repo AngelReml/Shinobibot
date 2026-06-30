@@ -22,6 +22,7 @@ import { runInContext } from './exec_context.js';
 import { WorktreeManager } from './worktree.js';
 import { DESTRUCTIVE_TOOLS } from '../security/approval.js';
 import type { Verdict } from './verifier.js';
+import { getSpawnDepth, getMaxSpawnDepth, runWithSpawnDepth } from './spawn_depth.js';
 
 const WORKTREE_SAFE = new Set(['write_file', 'edit_file']);
 
@@ -77,17 +78,21 @@ export interface TeamResult {
 const DEFAULT_SYSTEM = 'Eres un miembro de un equipo, enfocado en UNA sub-tarea en tu propio espacio de trabajo aislado. Sé conciso.';
 
 async function boundedPool<T, R>(items: T[], limit: number, worker: (item: T, i: number) => Promise<R>): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-  const runners = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
-    while (true) {
-      const i = next++;
-      if (i >= items.length) break;
-      results[i] = await worker(items[i], i);
-    }
+  const _d = getSpawnDepth(), _max = getMaxSpawnDepth();
+  if (_d + 1 >= _max) throw new Error(`[spawn_depth] team: profundidad máxima (${_d + 1}/${_max})`);
+  return runWithSpawnDepth(_d + 1, async () => {
+    const results = new Array<R>(items.length);
+    let next = 0;
+    const runners = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+      while (true) {
+        const i = next++;
+        if (i >= items.length) break;
+        results[i] = await worker(items[i], i);
+      }
+    });
+    await Promise.all(runners);
+    return results;
   });
-  await Promise.all(runners);
-  return results;
 }
 
 /**

@@ -22,6 +22,7 @@ import { runAgentLoop, type AgentLoopOptions, type AgentLoopResult, type LLMInvo
 import { runVerifiedAgent } from './verified_agent.js';
 import { verifyResult, type Verdict } from './verifier.js';
 import { selectBest, type ScoredCandidate, type Selection } from './best_of_n_select.js';
+import { getSpawnDepth, getMaxSpawnDepth, runWithSpawnDepth } from './spawn_depth.js';
 
 export { selectBest, rankKey } from './best_of_n_select.js';
 export type { ScoredCandidate, Selection } from './best_of_n_select.js';
@@ -82,16 +83,20 @@ export function defaultTemperatures(n: number): number[] {
 }
 
 async function boundedPool<T>(items: T[], limit: number, worker: (it: T, i: number) => Promise<void>): Promise<void> {
-  let next = 0;
-  const width = Math.max(1, Math.min(limit, items.length || 1));
-  const runners = Array.from({ length: width }, async () => {
-    while (true) {
-      const i = next++;
-      if (i >= items.length) break;
-      await worker(items[i], i);
-    }
+  const _d = getSpawnDepth(), _max = getMaxSpawnDepth();
+  if (_d + 1 >= _max) throw new Error(`[spawn_depth] best_of_n: profundidad máxima (${_d + 1}/${_max})`);
+  return runWithSpawnDepth(_d + 1, async () => {
+    let next = 0;
+    const width = Math.max(1, Math.min(limit, items.length || 1));
+    const runners = Array.from({ length: width }, async () => {
+      while (true) {
+        const i = next++;
+        if (i >= items.length) break;
+        await worker(items[i], i);
+      }
+    });
+    await Promise.all(runners);
   });
-  await Promise.all(runners);
 }
 
 const EMPTY_VERDICT: Verdict = { passed: false, score: 0, issues: [], rationale: '' };

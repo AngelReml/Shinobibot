@@ -449,28 +449,20 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     ];
 
     // Skills aprobadas del manager. loadApproved() relee skills/approved/ y
-    // refresca el índice in-memory (barato: pocos ficheros .skill.md). El
-    // array `approved` es privado en SkillManagerImpl — lectura via cast.
-    // TODO honesto: exponer listApproved() público en skill_manager y
-    // eliminar este cast (anotado en DECISIONES.md).
+    // refresca el índice in-memory (barato: pocos ficheros .skill.md).
     const approvedSkills: SkillEntry[] = [];
     try {
-      const result = sm.loadApproved();
-      if (result.count > 0) {
-        const smAny = sm as any;
-        if (Array.isArray(smAny.approved)) {
-          for (const s of smAny.approved) {
-            approvedSkills.push({
-              id: String(s.id || ''),
-              name: String(s.frontmatter?.name || s.id || ''),
-              description: String(s.frontmatter?.description || ''),
-              trigger_keywords: Array.isArray(s.frontmatter?.trigger_keywords)
-                ? s.frontmatter.trigger_keywords.map(String)
-                : [],
-              source: 'skill',
-            });
-          }
-        }
+      sm.loadApproved();
+      for (const s of sm.listApproved()) {
+        approvedSkills.push({
+          id: String(s.id || ''),
+          name: String(s.frontmatter?.name || s.id || ''),
+          description: String(s.frontmatter?.description || ''),
+          trigger_keywords: Array.isArray(s.frontmatter?.trigger_keywords)
+            ? s.frontmatter.trigger_keywords.map(String)
+            : [],
+          source: 'skill',
+        });
       }
     } catch { /* si falla, solo mostramos las nativas */ }
 

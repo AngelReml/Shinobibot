@@ -149,30 +149,59 @@ function appendRegistry(skillsRoot: string, record: any): void {
 
 /**
  * Resuelve un SkillSource a un directorio temporal listo para auditar.
- * Solo implementamos `local` y `github-raw` aquí; los otros lanzan
- * `not_implemented` para que el caller los maneje (e.g. usando `gh` o
- * `git clone`) o el sprint los siga después.
+ *
+ * Fuentes implementadas:
+ *   local      — copia recursiva del path local.
+ *   github-raw — descarga SKILL.md desde una URL raw de GitHub.
+ *   github-repo — descarga SKILL.md via raw.githubusercontent.com
+ *                 (solo el SKILL.md raíz; para bundles multi-fichero usa 'local').
+ *   tarball    — no implementado; extrae manualmente y usa 'local'.
  */
 async function materializeSource(source: SkillSource): Promise<{ tmpDir: string; cleanup: () => void; }> {
+  const makeTmp = (): string => {
+    const d = join(tmpdir(), `shinobi-skill-stage-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(d, { recursive: true });
+    return d;
+  };
+  const makeCleanup = (d: string) => () => { try { rmSync(d, { recursive: true, force: true }); } catch { } };
+
   if (source.kind === 'local') {
     const abs = resolve(source.path);
     if (!existsSync(abs)) throw new Error(`local path no existe: ${abs}`);
-    // Materializamos en un tmp para no contaminar el origen.
-    const tmpDir = join(tmpdir(), `shinobi-skill-stage-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(tmpDir, { recursive: true });
+    const tmpDir = makeTmp();
     copyRecursive(abs, tmpDir);
-    return { tmpDir, cleanup: () => { try { rmSync(tmpDir, { recursive: true, force: true }); } catch { } } };
+    return { tmpDir, cleanup: makeCleanup(tmpDir) };
   }
+
   if (source.kind === 'github-raw') {
-    const tmpDir = join(tmpdir(), `shinobi-skill-stage-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-    mkdirSync(tmpDir, { recursive: true });
-    // Importamos axios bajo demanda para no añadirlo al cold path.
+    const tmpDir = makeTmp();
     const axios = (await import('axios')).default;
     const resp = await axios.get(source.url, { timeout: 30000, responseType: 'text' });
     writeFileSync(join(tmpDir, 'SKILL.md'), String(resp.data), 'utf-8');
-    return { tmpDir, cleanup: () => { try { rmSync(tmpDir, { recursive: true, force: true }); } catch { } } };
+    return { tmpDir, cleanup: makeCleanup(tmpDir) };
   }
-  throw new Error(`source kind no implementado todavía: ${source.kind}`);
+
+  if (source.kind === 'github-repo') {
+    // Descarga SKILL.md via raw.githubusercontent.com sin necesitar tarball.
+    // Para skills multi-fichero, clona el repo y usa `file://<ruta>`.
+    const ref = source.ref ?? 'main';
+    const subPrefix = source.subdir ? `${source.subdir}/` : '';
+    const rawUrl = `https://raw.githubusercontent.com/${source.owner}/${source.repo}/${ref}/${subPrefix}SKILL.md`;
+    const tmpDir = makeTmp();
+    const axios = (await import('axios')).default;
+    const resp = await axios.get(rawUrl, { timeout: 30000, responseType: 'text' });
+    writeFileSync(join(tmpDir, 'SKILL.md'), String(resp.data), 'utf-8');
+    return { tmpDir, cleanup: makeCleanup(tmpDir) };
+  }
+
+  if (source.kind === 'tarball') {
+    throw new Error(
+      `tarball source no implementado. Extrae el archivo localmente y usa: file://<ruta-al-directorio-extraído>`,
+    );
+  }
+
+  const _exhaustive: never = source;
+  throw new Error(`source kind desconocido: ${(_exhaustive as any).kind}`);
 }
 
 export async function installSkillFromSource(arg: string, opts: InstallOptions = {}): Promise<InstallResult> {

@@ -60,7 +60,7 @@ interface RunRow {
   error: string | null;
 }
 
-interface ApprovedSkill {
+export interface ApprovedSkill {
   id: string;
   frontmatter: SkillFrontmatter;
   body: string;
@@ -421,6 +421,8 @@ class SkillManagerImpl {
   }
 
   approvedCount(): number { return this.approved.length; }
+
+  listApproved(): ApprovedSkill[] { return [...this.approved]; }
 
   /**
    * Match approved skills against the user's input by `trigger_keywords`.

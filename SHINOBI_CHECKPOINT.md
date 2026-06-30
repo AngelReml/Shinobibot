@@ -1,7 +1,7 @@
 # SHINOBI — Checkpoint de ejecución del plan arquitectónico
 <!-- Generado por Claude Code. Actualizar tras cada tarea completada. -->
 
-**Última actualización:** 2026-06-30 (G5/F4.3 — Self-Correction Rate: detection rate + correction rate + net gain · 1726/1726 tests)
+**Última actualización:** 2026-06-30 (auditoría hardcoded/dead/stubs · 4 fixes aplicados · 1731/1731 tests)
 **Plan de referencia:** "SHINOBI — ARQUITECTURA DEFINITIVA" (7 estadios E1–E7)
 **Frase de recuperación:** `Continúa el plan arquitectónico de Shinobi desde el SHINOBI_CHECKPOINT.md`
 
@@ -193,6 +193,44 @@
 | Typecheck | ✅ 0 errores |
 
 **E7 CERRADO en código.**
+
+---
+
+## SESIÓN 2026-06-30 — spawn_depth + auditoría de código
+
+### spawn_depth — integración completa en motores paralelos
+
+| Entregable | Estado |
+|---|---|
+| Import + check de profundidad en `best_of_n.ts` | ✅ `boundedPool()` incrementa depth antes de `Array.from` (fix clave: runners se crean dentro del contexto ALS) |
+| Import + check de profundidad en `swarm.ts` | ✅ ídem — `boundedPool()` refactorizado |
+| Import + check de profundidad en `team.ts` | ✅ ídem — `boundedPool()` refactorizado |
+| Test race-condition fix actualizado | ✅ `swarm.test.ts` — expected depth 1→2 (semántica nueva: pool incrementa) |
+| Test nuevo: `best_of_n_depth.test.ts` | ✅ 3 casos: happy path · lanza en maxDepth · hermanos no acumulan |
+| Test nuevo: `team_depth.test.ts` | ✅ 2 casos: happy path · lanza en maxDepth (con git repo real) |
+| Docstring `spawn_depth.ts` | ✅ inventario completo de motores y herramientas con/sin depth |
+| Suite completa | ✅ 1731/1731 verdes · typecheck limpio |
+
+**Nota técnica crítica**: `Array.from({ length: N }, async () => {...})` crea Y arranca las promesas en el momento de la llamada. Si se coloca antes de `runWithSpawnDepth`, los runners heredan el contexto ALS del padre, no el nuevo contexto. La fix correcta es mover toda la creación DENTRO de `runWithSpawnDepth`.
+
+---
+
+### Auditoría de código — hardcoded, dead, stubs
+
+**Metodología**: datos crudos únicamente (grep + lectura directa). Sin suposiciones.
+
+| # | Archivo | Problema | Severidad | Fix |
+|---|---------|---------|-----------|-----|
+| 1 | `src/skills/anthropic_skill_installer.ts:175` | `github-repo` y `tarball` parseable pero lanzan runtime error — contrato roto | ALTA | ✅ `github-repo` implementado via `raw.githubusercontent.com/{owner}/{repo}/{ref}/SKILL.md`; `tarball` error accionable + exhaustiveness check `never` |
+| 2 | `src/learning/background_review.ts:47` | `SHINOBI_REVIEW_MODEL` fallback `'anthropic/claude-3-5-haiku-20241022'` (naming antiguo) mientras `skill_curator.ts` usaba `'anthropic/claude-haiku-4-5'` | MEDIA | ✅ Unificado a `'anthropic/claude-haiku-4-5'` en ambos archivos |
+| 3 | `.env.example` | 11 variables leídas en código sin documentar: `SHINOBI_REVIEW_MODEL`, `SHINOBI_REVIEW_ENABLED`, `SHINOBI_CURATOR_*` (4 vars), `SHINOBI_PROGRESS_DETECTION`, `SHINOBI_PROGRESS_JUDGE`, `OPENROUTER_DEFAULT_MODEL`, `OPENROUTER_VISION_MODEL`, `KAGEMUSHA_BULK_MODEL`, `KAGEMUSHA_JUDGE_MODEL` | MEDIA | ✅ Documentadas con defaults y descripción |
+| 4 | `src/web/server.ts:454` + `src/skills/skill_manager.ts:120` | Cast `sm as any` para leer `SkillManagerImpl.approved` privado — deuda técnica anotada como TODO | BAJA | ✅ `ApprovedSkill` exportado; `listApproved()` público añadido; cast eliminado |
+
+**Falsos positivos descartados** (confirmados con datos crudos):
+- `MockBackend` en `sandbox/registry.ts` — comentario explícito: "Mock NO se registra por default"; solo re-exportado para tests
+- `MockProgressJudge` en `progress_judge.ts` — label "Judge sintético para tests", bien documentado
+- `runForgeDemo` en `shugyo/demo.ts` — implementación real del pipeline shugyo; "demo" es el nombre del scaffold S-15
+- URLs de APIs externas — correctas y necesarias
 
 ---
 

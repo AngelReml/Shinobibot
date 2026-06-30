@@ -9,6 +9,20 @@
 //
 // Con AsyncLocalStorage cada rama async hereda una COPIA del valor del padre al
 // momento del fork; las mutaciones de una rama NO afectan a las hermanas.
+//
+// Motores que usan spawn_depth (incrementan profundidad en su boundedPool):
+//   - best_of_n (motor E5) — N candidatos en paralelo
+//   - swarm     (motor E4) — enjambre con concurrencia acotada
+//   - team      (motor E6) — equipo con worktrees aislados
+//
+// Herramientas que usan spawn_depth (incrementan al despachar subagentes):
+//   - spawn_agent      — crea subagente aislado
+//   - run_swarm        — delega al motor swarm
+//   - specialist_agents — delegación a especialistas
+//
+// Motores que NO incrementan (secuenciales o sin fork de profundidad):
+//   - agent_loop      — lee depth, no incrementa
+//   - verified_agent  — secuencial, reintenta en el mismo hilo
 
 import { AsyncLocalStorage } from 'async_hooks';
 

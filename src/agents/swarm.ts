@@ -20,6 +20,7 @@
 import { runAgentLoop, type LLMInvoker } from './agent_loop.js';
 import { runVerifiedAgent } from './verified_agent.js';
 import type { Verdict } from './verifier.js';
+import { getSpawnDepth, getMaxSpawnDepth, runWithSpawnDepth } from './spawn_depth.js';
 
 export interface SwarmTask {
   /** La instrucción de esta sub-tarea. */
@@ -79,18 +80,22 @@ async function boundedPool<T, R>(
   limit: number,
   worker: (item: T, index: number) => Promise<R>,
 ): Promise<R[]> {
-  const results = new Array<R>(items.length);
-  let next = 0;
-  const runnerCount = Math.max(1, Math.min(limit, items.length));
-  const runners = Array.from({ length: runnerCount }, async () => {
-    while (true) {
-      const idx = next++;
-      if (idx >= items.length) break;
-      results[idx] = await worker(items[idx], idx);
-    }
+  const _d = getSpawnDepth(), _max = getMaxSpawnDepth();
+  if (_d + 1 >= _max) throw new Error(`[spawn_depth] swarm: profundidad máxima (${_d + 1}/${_max})`);
+  return runWithSpawnDepth(_d + 1, async () => {
+    const results = new Array<R>(items.length);
+    let next = 0;
+    const runnerCount = Math.max(1, Math.min(limit, items.length));
+    const runners = Array.from({ length: runnerCount }, async () => {
+      while (true) {
+        const idx = next++;
+        if (idx >= items.length) break;
+        results[idx] = await worker(items[idx], idx);
+      }
+    });
+    await Promise.all(runners);
+    return results;
   });
-  await Promise.all(runners);
-  return results;
 }
 
 /**

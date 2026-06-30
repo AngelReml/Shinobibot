@@ -90,7 +90,8 @@ describe('runSwarm — enjambre (E4)', () => {
   it('race condition fix: tareas paralelas no acumulan profundidad entre sí', async () => {
     // Regresión: con process.env, 4 tareas paralelas que cada una incrementaba
     // SHINOBI_SPAWN_DEPTH causaban depth 6/3 aunque ninguna anidara más de 1 nivel.
-    // Con AsyncLocalStorage cada rama hereda su propia copia → profundidad real = 1.
+    // Con AsyncLocalStorage + boundedPool que incrementa al hacer fan-out,
+    // cada hermano ve la misma profundidad (padre+1), no valores acumulados.
     const depths: number[] = [];
     const captureDepth: LLMInvoker = async () => {
       depths.push(getSpawnDepth());
@@ -103,7 +104,8 @@ describe('runSwarm — enjambre (E4)', () => {
         invokeLLM: captureDepth,
       })
     );
-    // Todas las tareas deben ver profundidad 1 (la del padre), no valores acumulados.
-    expect(depths.every((d) => d === 1)).toBe(true);
+    // Todos los workers ven profundidad 2 (padre=1, +1 por boundedPool).
+    // Si acumularan entre hermanos verían 2,3,4,5 — no ocurre.
+    expect(depths.every((d) => d === 2)).toBe(true);
   });
 });
