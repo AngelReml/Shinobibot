@@ -236,6 +236,24 @@
 
 ---
 
+## PRÓXIMA SESIÓN — objetivos de Fase 0 (seguridad real, no limpieza)
+
+Lo auditado hoy fue deuda de limpieza (Fase 2). Los bloqueantes reales de Fase 0 no se tocaron porque grep no los encuentra — son errores de lógica, no de nombre.
+
+La próxima sesión debe hacer **lectura directa del cuerpo** de estos archivos, con los puntos críticos ya marcados por la auditoría de 5 agentes:
+
+| Archivo | Punto crítico | Por qué importa |
+|---------|---------------|-----------------|
+| `src/security/approval.ts` | cuerpo completo | Gate de aprobación — cualquier bypass aquí es falla total de seguridad |
+| `src/coordinator/orchestrator.ts` | ~línea 647 | Marcado crítico por el audit de 5 agentes — leer contexto completo |
+| `src/agents/swarm_worker.ts` | línea 143 | Marcado crítico — leer antes/después para entender la lógica completa |
+| `src/kaname/contract.ts` | cuerpo completo | Frontera núcleo/skills — si el contrato se rompe, el aislamiento se rompe |
+| `src/observability/admin_dashboard.ts` | cuerpo completo | Dashboard de admin — superficie de ataque directa |
+
+**Metodología obligatoria**: Read del cuerpo, no grep. Buscar errores de lógica: condiciones invertidas, timeouts que resuelven en la dirección equivocada, checks que se saltan bajo carga, permisos que se otorgan por defecto en lugar de denegarse.
+
+---
+
 ## Principios de ejecución (no negociables)
 
 - Un problema → un commit → un test de regresión
