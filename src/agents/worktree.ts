@@ -22,6 +22,7 @@ import { spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { runInContext } from './exec_context.js';
 
 export interface Worktree {
   /** Ruta absoluta del worktree (checkout aislado). */
@@ -158,17 +159,11 @@ export function parseWorktreeList(stdout: string): Worktree[] {
   return out;
 }
 
-// Mutex global — withWorktree muta process.cwd() y WORKSPACE_ROOT (ambos
-// globales al proceso), por lo que dos llamadas concurrentes se pisarían.
-// El lock garantiza ejecución secuencial sin necesidad de refactorizar las
-// tools que confían en process.cwd().
-let _worktreeLock: Promise<void> = Promise.resolve();
-
 /**
- * Ejecuta `fn` con cwd + WORKSPACE_ROOT scoped a un worktree fresco, y limpia
- * después. SECUENCIAL por diseño (cwd global): el mutex interno impide que dos
- * llamadas concurrentes se solapen. Con `keepIfChanged` conserva el worktree
- * si quedó con cambios.
+ * Ejecuta `fn` con cwd + workspaceRoot scoped al worktree vía AsyncLocalStorage
+ * (exec_context). Sin mutex — el aislamiento es por contexto async, no global,
+ * por lo que varias llamadas concurrentes ya no se pisan. Con `keepIfChanged`
+ * conserva el worktree si quedó con cambios.
  */
 export async function withWorktree<T>(
   mgr: WorktreeManager,
@@ -176,31 +171,16 @@ export async function withWorktree<T>(
   fn: (wt: Worktree) => Promise<T>,
   opts: { keepIfChanged?: boolean } = {},
 ): Promise<{ result: T; worktree: Worktree; kept: boolean }> {
-  let release!: () => void;
-  const acquired = new Promise<void>(resolve => { release = resolve; });
-  const prev = _worktreeLock;
-  _worktreeLock = acquired;
-  await prev;
-
   const wt = mgr.create(label);
-  const prevCwd = process.cwd();
-  const prevWsRoot = process.env.WORKSPACE_ROOT;
-  process.chdir(wt.path);
-  process.env.WORKSPACE_ROOT = wt.path;
 
   let result: T;
   try {
-    result = await fn(wt);
-  } finally {
-    // Restaurar SIEMPRE el entorno global antes de tocar nada más.
-    process.chdir(prevCwd);
-    if (prevWsRoot === undefined) delete process.env.WORKSPACE_ROOT;
-    else process.env.WORKSPACE_ROOT = prevWsRoot;
-    release();
+    result = await runInContext({ cwd: wt.path, workspaceRoot: wt.path }, () => fn(wt));
+  } catch (err) {
+    // Si fn lanzó, el worktree queda para inspección; propagamos el error.
+    throw err;
   }
 
-  // Limpieza tras restaurar el entorno (solo en éxito; si fn lanzó, la
-  // excepción ya se propagó y el worktree queda para inspección).
   let kept: boolean;
   if (opts.keepIfChanged) {
     kept = !mgr.removeIfUnchanged(wt.path).removed;

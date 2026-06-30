@@ -18,6 +18,7 @@ import { invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import { DESTRUCTIVE_TOOLS } from '../security/approval.js';
 import { WorktreeManager, withWorktree } from '../agents/worktree.js';
 import { createJob, resolveJob, failJob } from '../agents/background_jobs.js';
+import { getSpawnDepth, getMaxSpawnDepth, runWithSpawnDepth } from '../agents/spawn_depth.js';
 
 // Tools destructivas que SÍ son seguras bajo aislamiento por worktree porque
 // validatePath las confina a WORKSPACE_ROOT (= el worktree desechable).
@@ -189,12 +190,19 @@ const spawnAgent: Tool = {
     const stripped = requested.filter(isBlocked);
     const box = requested.filter((t) => !isBlocked(t));
 
-    // Profundidad: el hijo está un nivel por debajo del actual. Se publica en
-    // env durante su ejecución para que un spawn_agent anidado vea su nivel
-    // (save/restore: correcto para anidamiento secuencial; la orquestación
-    // paralela usará un mecanismo sin env cuando se construya Team).
-    const parentDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0') || 0;
+    // Profundidad: usa AsyncLocalStorage para que cada subagente (incluso los
+    // paralelos lanzados por run_swarm) tenga su propio contador aislado y no
+    // contaminen el SHINOBI_SPAWN_DEPTH de sus ramas hermanas.
+    const parentDepth = getSpawnDepth();
+    const maxDepth = getMaxSpawnDepth();
     const childDepth = parentDepth + 1;
+    if (childDepth >= maxDepth) {
+      return {
+        success: false,
+        output: '',
+        error: `Profundidad de spawn máxima (${childDepth}/${maxDepth}); no se crea otro subagente.`,
+      };
+    }
     const label = (args.label ?? `sub-${childDepth}`).trim() || `sub-${childDepth}`;
 
     const agentModel = typeof args.model === 'string' && args.model.trim() ? args.model.trim() : undefined;
@@ -209,11 +217,9 @@ const spawnAgent: Tool = {
       invokeLLM: _invoker,
     });
 
-    const prevDepthEnv = process.env.SHINOBI_SPAWN_DEPTH;
-    process.env.SHINOBI_SPAWN_DEPTH = String(childDepth);
     // Sandbox de ejecución: el subagente routea run_command al backend pedido.
-    // Save/restore (global al proceso → correcto para el anidamiento secuencial,
-    // como la profundidad; el paralelo real lo cubrirá Team).
+    // process.env.SHINOBI_RUN_BACKEND sigue siendo global (no hay paralelo real
+    // de sandboxes distintos hoy; cuando se construya Team se migrará también).
     const prevBackendEnv = process.env.SHINOBI_RUN_BACKEND;
     if (sandbox !== 'none') process.env.SHINOBI_RUN_BACKEND = sandbox;
     let result: AgentLoopResult;
@@ -230,17 +236,16 @@ const spawnAgent: Tool = {
         }
         // El subagente corre con cwd + WORKSPACE_ROOT scoped al worktree; si deja
         // cambios, se conserva (rama propia) para fusionar; si no, se descarta.
-        const wrapped = await withWorktree(mgr, label, async () => runLoop(), { keepIfChanged: true });
+        const runInDepth = () => withWorktree(mgr, label, async () => runLoop(), { keepIfChanged: true });
+        const wrapped = await runWithSpawnDepth(childDepth, runInDepth);
         result = wrapped.result;
         worktreeNote = wrapped.kept
           ? `\n[worktree conservado con cambios: rama ${wrapped.worktree.branch} → ${wrapped.worktree.path}]`
           : `\n[worktree descartado (sin cambios): ${wrapped.worktree.branch}]`;
       } else {
-        result = await runLoop();
+        result = await runWithSpawnDepth(childDepth, runLoop);
       }
     } finally {
-      if (prevDepthEnv === undefined) delete process.env.SHINOBI_SPAWN_DEPTH;
-      else process.env.SHINOBI_SPAWN_DEPTH = prevDepthEnv;
       if (prevBackendEnv === undefined) delete process.env.SHINOBI_RUN_BACKEND;
       else process.env.SHINOBI_RUN_BACKEND = prevBackendEnv;
     }

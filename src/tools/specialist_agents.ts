@@ -13,6 +13,7 @@
  */
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { ResearchAgent, DocsAgent, DataAgent } from '../agents/index.js';
+import { getSpawnDepth, runWithSpawnDepth } from '../agents/spawn_depth.js';
 
 const researchAgentTool: Tool = {
   name: 'research_agent_run',
@@ -31,10 +32,8 @@ const researchAgentTool: Tool = {
   async execute(args: { question?: string }): Promise<ToolResult> {
     const question = typeof args?.question === 'string' ? args.question.trim() : '';
     if (!question) return { success: false, output: '', error: 'research_agent_run requires "question".' };
-    const prevDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0');
     try {
-      process.env.SHINOBI_SPAWN_DEPTH = String(prevDepth + 1);
-      const r = await new ResearchAgent().produce(question);
+      const r = await runWithSpawnDepth(getSpawnDepth() + 1, () => new ResearchAgent().produce(question));
       const lines = [
         `[delegado → ResearchAgent] valid=${r.valid}`,
         `Answer: ${r.answer}`,
@@ -45,8 +44,6 @@ const researchAgentTool: Tool = {
       return { success: r.valid, output: lines.join('\n'), error: r.valid ? undefined : 'sin fuentes verificables' };
     } catch (err: any) {
       return { success: false, output: '', error: `research_agent_run failed: ${err?.message ?? err}` };
-    } finally {
-      process.env.SHINOBI_SPAWN_DEPTH = String(prevDepth);
     }
   },
 };
@@ -70,10 +67,10 @@ const docsAgentTool: Tool = {
     if (!args?.title || !args?.content) {
       return { success: false, output: '', error: 'docs_agent_run requires "title" and "content".' };
     }
-    const prevDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0');
     try {
-      process.env.SHINOBI_SPAWN_DEPTH = String(prevDepth + 1);
-      const r = await new DocsAgent().produce({ title: args.title, content: args.content, format: args.format });
+      const r = await runWithSpawnDepth(getSpawnDepth() + 1, () =>
+        new DocsAgent().produce({ title: args.title!, content: args.content!, format: args.format })
+      );
       return {
         success: true,
         output: `[delegado → DocsAgent] ${r.format} generado: ${r.artifact} (${r.bytes} bytes). ` +
@@ -81,8 +78,6 @@ const docsAgentTool: Tool = {
       };
     } catch (err: any) {
       return { success: false, output: '', error: `docs_agent_run failed: ${err?.message ?? err}` };
-    } finally {
-      process.env.SHINOBI_SPAWN_DEPTH = String(prevDepth);
     }
   },
 };
@@ -106,10 +101,10 @@ const dataAgentTool: Tool = {
     if (!args?.title || !args?.dataset) {
       return { success: false, output: '', error: 'data_agent_run requires "title" and "dataset".' };
     }
-    const prevDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0');
     try {
-      process.env.SHINOBI_SPAWN_DEPTH = String(prevDepth + 1);
-      const r = await new DataAgent().produce({ title: args.title, dataset: args.dataset, goal: args.goal ?? '' });
+      const r = await runWithSpawnDepth(getSpawnDepth() + 1, () =>
+        new DataAgent().produce({ title: args.title!, dataset: args.dataset!, goal: args.goal ?? '' })
+      );
       return {
         success: true,
         output: `[delegado → DataAgent] gráfico ${r.chartType} generado: ${r.artifact} (${r.bytes} bytes). ` +
@@ -117,8 +112,6 @@ const dataAgentTool: Tool = {
       };
     } catch (err: any) {
       return { success: false, output: '', error: `data_agent_run failed: ${err?.message ?? err}` };
-    } finally {
-      process.env.SHINOBI_SPAWN_DEPTH = String(prevDepth);
     }
   },
 };

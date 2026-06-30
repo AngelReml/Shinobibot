@@ -75,27 +75,33 @@ export async function certifyInCage(
   const base = await cage.snapshot();
 
   const results: CertResult['cases'] = [];
-  for (const cs of cases) {
-    await cage.revert(base);
-    for (const [f, c] of Object.entries(cs.seed)) cage.seed(f, c);
-    const before = cage.state();
-    const r = await cage.runAction({ affordance_id: cs.case_id, kind: 'cli_command', label: manifest.skill_id, signature: cs.command, reversibility: effectPermitsChange(manifest.declared_effects) ? 'destructive' : 'reversible' });
-    const after = cage.state();
+  // try/finally garantiza que la jaula siempre vuelve a `base`, incluso si un caso lanza
+  // (oracle vacío, error de ejecución, etc.) — el revert no puede quedar en el happy-path.
+  try {
+    for (const cs of cases) {
+      // oracle vacío ANTES de correr la acción — fail-fast sin contaminar la jaula.
+      const oracle = cs.expected_stdout.trim();
+      if (oracle.length === 0) throw new Error(`oracle vacío en caso "${cs.case_id}": no se puede certificar`);
 
-    // FIX 0.13 — oracle vacío no puede certificar nada (''.includes('') === true).
-    const oracle = cs.expected_stdout.trim();
-    if (oracle.length === 0) throw new Error('oracle vacío: no se puede certificar');
-    const output_ok = r.output.trim().includes(oracle);
-    const changed = before.ref !== after.ref;
-    // read_only/none must NOT change cage state; write/irreversible may.
-    const effects_ok = effectPermitsChange(manifest.declared_effects) ? true : !changed;
-    const passed = output_ok && effects_ok;
-    results.push({
-      case_id: cs.case_id, output_ok, effects_ok, passed,
-      detail: passed ? 'ok' : !output_ok ? `output mismatch (got "${r.output.trim().slice(0, 40)}")` : `EFFECTS VIOLATION: declared "${manifest.declared_effects}" but cage state changed`,
-    });
+      await cage.revert(base);
+      for (const [f, c] of Object.entries(cs.seed)) cage.seed(f, c);
+      const before = cage.state();
+      const r = await cage.runAction({ affordance_id: cs.case_id, kind: 'cli_command', label: manifest.skill_id, signature: cs.command, reversibility: effectPermitsChange(manifest.declared_effects) ? 'destructive' : 'reversible' });
+      const after = cage.state();
+
+      const output_ok = r.output.trim().includes(oracle);
+      const changed = before.ref !== after.ref;
+      // read_only/none must NOT change cage state; write/irreversible may.
+      const effects_ok = effectPermitsChange(manifest.declared_effects) ? true : !changed;
+      const passed = output_ok && effects_ok;
+      results.push({
+        case_id: cs.case_id, output_ok, effects_ok, passed,
+        detail: passed ? 'ok' : !output_ok ? `output mismatch (got "${r.output.trim().slice(0, 40)}")` : `EFFECTS VIOLATION: declared "${manifest.declared_effects}" but cage state changed`,
+      });
+    }
+  } finally {
+    await cage.revert(base);
   }
-  await cage.revert(base);
 
   const allPass = results.length > 0 && results.every((c) => c.passed);
   const effectsViolated = results.some((c) => !c.effects_ok);

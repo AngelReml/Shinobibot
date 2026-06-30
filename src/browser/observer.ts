@@ -1,10 +1,12 @@
 // src/browser/observer.ts
 // Mejora 1: observación por mapa de elementos con ref estable.
-// Recorre el DOM en el contexto de la página, detecta interactivos VISIBLES,
+// Recorre el DOM en el contexto de la página (o frame activo), detecta
+// interactivos VISIBLES — incluidos los que viven en shadow roots —,
 // les pone data-kage-ref="N" y devuelve una lista numerada legible para el LLM.
+// G4-1: acepta Page | Frame (contexto activo) y atraviesa shadow DOM.
 // Ver docs/BROWSER_SUBSYSTEM.md §1 (Mejora 1) y §2.
 
-import type { Page } from 'playwright';
+import type { Frame, Page } from 'playwright';
 import type { ElementRef, Snapshot } from './types.js';
 
 // Este módulo evalúa código DENTRO del navegador (page.evaluate). El proyecto
@@ -16,7 +18,8 @@ declare const window: any;
 
 /**
  * Script que se evalúa DENTRO de la página. Debe ser autocontenido (no usa
- * nada del scope de Node). Devuelve un array serializable de elementos.
+ * nada del scope de Node). Atraviesa shadow roots de forma recursiva.
+ * Devuelve un array serializable de elementos.
  */
 function collectInteractiveElements(): Array<{
   ref: number; label: string; role: string; hint?: string; sensitive?: boolean;
@@ -77,25 +80,53 @@ function collectInteractiveElements(): Array<{
     '[onclick]', '[contenteditable=true]',
   ].join(',');
 
-  const candidates: any[] = Array.from(document.querySelectorAll(selector));
-  for (const el of candidates) {
-    if (!isVisible(el)) continue;
-    const tag = el.tagName.toLowerCase();
-    const type = (el.getAttribute('type') || '').toLowerCase();
-    if (tag === 'input' && type === 'hidden') continue;
+  function collectFromRoot(root: any): void {
+    const candidates: any[] = Array.from(root.querySelectorAll(selector));
+    for (const el of candidates) {
+      if (!isVisible(el)) continue;
+      const tag = el.tagName.toLowerCase();
+      const type = (el.getAttribute('type') || '').toLowerCase();
+      if (tag === 'input' && type === 'hidden') continue;
 
-    ref += 1;
-    el.setAttribute('data-kage-ref', String(ref));
-    const role = roleOf(el);
-    const hint = tag === 'input' ? (type || 'text') : (type || undefined);
-    const sensitive =
-      type === 'password' ||
-      /pass|contrase|card|tarjeta|cvv|iban|secret|token/i.test(
-        (el.getAttribute('name') || '') + (el.getAttribute('autocomplete') || '') + labelOf(el)
-      );
-    out.push({ ref, label: labelOf(el), role, hint, sensitive });
+      ref += 1;
+      el.setAttribute('data-kage-ref', String(ref));
+      const role = roleOf(el);
+      const hint = tag === 'input' ? (type || 'text') : (type || undefined);
+      const sensitive =
+        type === 'password' ||
+        /pass|contrase|card|tarjeta|cvv|iban|secret|token/i.test(
+          (el.getAttribute('name') || '') + (el.getAttribute('autocomplete') || '') + labelOf(el)
+        );
+      out.push({ ref, label: labelOf(el), role, hint, sensitive });
+    }
+
+    // Traversal recursivo de shadow roots.
+    const allEls: any[] = Array.from(root.querySelectorAll('*'));
+    for (const el of allEls) {
+      if (el.shadowRoot) collectFromRoot(el.shadowRoot);
+    }
   }
+
+  collectFromRoot(document);
   return out;
+}
+
+/** Busca en shadow roots el elemento con data-kage-ref=N. Serializable. */
+function findRefInShadow(ref: number): Element | null {
+  function search(root: Document | ShadowRoot): Element | null {
+    const direct = root.querySelector(`[data-kage-ref="${ref}"]`);
+    if (direct) return direct;
+    const allEls = Array.from(root.querySelectorAll('*')) as Element[];
+    for (const el of allEls) {
+      const sr = (el as any).shadowRoot as ShadowRoot | null;
+      if (sr) {
+        const found = search(sr);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  return search(document);
 }
 
 /** Formatea los elementos como texto legible para el LLM. */
@@ -111,32 +142,29 @@ function formatElements(elements: ElementRef[]): string {
 }
 
 /**
- * Observa la pestaña activa. `withScreenshot` añade un jpeg reducido en base64.
+ * Observa el contexto activo (página o frame).
+ * `withScreenshot` añade un jpeg reducido en base64 (solo disponible en Page).
  */
-export async function snapshot(page: Page, withScreenshot = false): Promise<Snapshot> {
-  // FIX (batería 2026-06-10): el bundler (esbuild/tsup keepNames) envuelve las
-  // funciones nombradas (`collectInteractiveElements` y sus helpers internos
-  // `isVisible`/`roleOf`/`labelOf`) en `__name(fn, "nombre")` para preservar
-  // `.name`. Al serializar la función a la página vía page.evaluate, esas
-  // llamadas a `__name` viajan en el string pero el helper NO existe en el
-  // contexto de la página → `ReferenceError: __name is not defined` y
-  // browser_observe quedaba completamente roto. Inyectamos un `__name`
-  // identidad en la página ANTES de evaluar. La arrow anónima inline de abajo
-  // NO la envuelve el bundler (solo nombra funciones con nombre), así que esta
-  // inyección es segura y no recae en el mismo bug.
-  await page.evaluate(() => {
+export async function snapshot(ctx: Page | Frame, withScreenshot = false): Promise<Snapshot> {
+  // FIX (batería 2026-06-10): el bundler envuelve funciones nombradas en
+  // `__name(fn, "nombre")` — inyectamos el helper identidad antes de evaluar.
+  await ctx.evaluate(() => {
     const g = globalThis as any;
     if (typeof g.__name !== 'function') g.__name = (fn: any) => fn;
   });
-  const elements = (await page.evaluate(collectInteractiveElements)) as ElementRef[];
-  const url = page.url();
-  const title = await page.title().catch(() => '');
+  const elements = (await ctx.evaluate(collectInteractiveElements)) as ElementRef[];
+  const url = ctx.url();
+  const title = await ctx.title().catch(() => '');
 
   let screenshotB64: string | undefined;
   if (withScreenshot) {
     try {
-      const buf = await page.screenshot({ type: 'jpeg', quality: 50, fullPage: false });
-      screenshotB64 = buf.toString('base64');
+      // screenshot() solo existe en Page, no en Frame.
+      const asPage = ctx as any;
+      if (typeof asPage.screenshot === 'function') {
+        const buf = await asPage.screenshot({ type: 'jpeg', quality: 50, fullPage: false });
+        screenshotB64 = buf.toString('base64');
+      }
     } catch { /* sin screenshot si falla */ }
   }
 
@@ -148,4 +176,19 @@ export async function snapshot(page: Page, withScreenshot = false): Promise<Snap
   ].join('\n');
 
   return { url, title, elements, text, screenshotB64 };
+}
+
+/**
+ * Resuelve un ref a un ElementHandle, buscando también en shadow roots.
+ * Exportado para uso en actor.ts.
+ */
+export async function resolveRefDeep(ctx: Page | Frame, ref: number) {
+  // Intento rápido: light DOM (el 99 % de los casos).
+  const handle = await ctx.$(`[data-kage-ref="${ref}"]`);
+  if (handle) return handle;
+
+  // Fallback: búsqueda en shadow roots vía evaluate.
+  const shadowHandle = await ctx.evaluateHandle(findRefInShadow, ref);
+  const el = shadowHandle.asElement();
+  return el;
 }

@@ -2,18 +2,28 @@
 // Mejora 2: acción anclada con Playwright + reintento por staleness; CDP solo de
 // respaldo (click_xy). Mejora 3: cada acción devuelve un veredicto de
 // verificación. Mejora 4: input-lock del motor durante la acción.
+// G4-1: nuevas acciones back/forward/wait_for/upload/iframe; resolveRef usa
+// resolveRefDeep para piercear shadow roots; act opera sobre el contexto activo
+// (page o frame) vía session.getActiveContext().
 // Ver docs/BROWSER_SUBSYSTEM.md §1 (Mejoras 2-4).
 
-import type { Page, ElementHandle } from 'playwright';
+import type { Page, Frame } from 'playwright';
 import type { KageSession } from './session.js';
 import type { ActCommand, ActResult } from './types.js';
-import { snapshot } from './observer.js';
+import { snapshot, resolveRefDeep } from './observer.js';
 import { startMutationCounter, captureBefore, buildVerdict } from './verifier.js';
 
-/** Resuelve un ref a un ElementHandle fresco vía el atributo data-kage-ref. */
-async function resolveRef(page: Page, ref: number): Promise<ElementHandle | null> {
-  const handle = await page.$(`[data-kage-ref="${ref}"]`);
-  return handle;
+/**
+ * Resuelve un ref en el contexto activo (page o frame), atravesando shadow roots.
+ * Reintenta una vez después de re-observar si la primera búsqueda falla.
+ */
+async function resolveRef(ctx: Page | Frame, ref: number, retryObserve = false) {
+  const handle = await resolveRefDeep(ctx, ref);
+  if (handle) return handle;
+  if (!retryObserve) return null;
+  // staleness: re-observa y reintenta.
+  await snapshot(ctx);
+  return resolveRefDeep(ctx, ref);
 }
 
 /**
@@ -22,8 +32,8 @@ async function resolveRef(page: Page, ref: number): Promise<ElementHandle | null
  */
 export async function act(session: KageSession, cmd: ActCommand): Promise<ActResult> {
   const page = await session.getPage();
+  const ctx = await session.getActiveContext();
 
-  // navigate y scroll no necesitan ref; el resto sí (salvo click_xy/press global).
   const before = await captureBefore(page);
   const readMutations = await startMutationCounter(page);
   let targetDetached = false;
@@ -32,25 +42,62 @@ export async function act(session: KageSession, cmd: ActCommand): Promise<ActRes
   await session.lockInput();
   try {
     switch (cmd.action) {
+      // ── Navegación de página completa ─────────────────────────────────────
       case 'navigate': {
         if (!cmd.url) throw new Error('navigate requiere url');
         await page.goto(cmd.url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+        session.setActiveFrame(null); // nueva URL = vuelve a página principal
         detail = `navegó a ${cmd.url}`;
         break;
       }
+      case 'back': {
+        await page.goBack({ waitUntil: 'domcontentloaded', timeout: 15_000 });
+        session.setActiveFrame(null);
+        detail = 'navegó hacia atrás';
+        break;
+      }
+      case 'forward': {
+        await page.goForward({ waitUntil: 'domcontentloaded', timeout: 15_000 });
+        session.setActiveFrame(null);
+        detail = 'navegó hacia adelante';
+        break;
+      }
+
+      // ── Espera explícita ───────────────────────────────────────────────────
+      case 'wait_for': {
+        const ms = cmd.timeout ?? 15_000;
+        if (cmd.selector) {
+          await ctx.waitForSelector(cmd.selector, { state: 'visible', timeout: ms });
+          detail = `esperó selector "${cmd.selector}"`;
+        } else {
+          // Espera estabilización de red (solo disponible en Page).
+          const asPage = ctx as any;
+          if (typeof asPage.waitForLoadState === 'function') {
+            await asPage.waitForLoadState('networkidle', { timeout: ms });
+          } else {
+            await ctx.waitForTimeout(Math.min(ms, 3_000));
+          }
+          detail = 'esperó estabilización';
+        }
+        break;
+      }
+
+      // ── Scroll ────────────────────────────────────────────────────────────
       case 'scroll': {
         const dy = cmd.dy ?? 600;
-        await page.evaluate((px: number) => {
+        await (ctx as Page).evaluate((px: number) => {
           // @ts-ignore — corre en el navegador
           window.scrollBy(0, px);
         }, dy);
         detail = `scroll ${dy}px`;
         break;
       }
+
+      // ── Teclado global ────────────────────────────────────────────────────
       case 'press': {
         if (!cmd.key) throw new Error('press requiere key');
         if (cmd.ref != null) {
-          const h = await resolveRef(page, cmd.ref);
+          const h = await resolveRef(ctx, cmd.ref, true);
           if (!h) throw new Error(`ref ${cmd.ref} no encontrado`);
           await h.press(cmd.key, { timeout: 10_000 });
         } else {
@@ -59,8 +106,9 @@ export async function act(session: KageSession, cmd: ActCommand): Promise<ActRes
         detail = `tecla ${cmd.key}`;
         break;
       }
+
+      // ── Click crudo por coordenadas (canvas/WebGL fallback) ───────────────
       case 'click_xy': {
-        // Fallback canvas/WebGL: inyección cruda por CDP. Sin DOM que anclar.
         if (cmd.x == null || cmd.y == null) throw new Error('click_xy requiere x e y');
         const cdp = session.getCDP();
         if (cdp) {
@@ -72,17 +120,45 @@ export async function act(session: KageSession, cmd: ActCommand): Promise<ActRes
         detail = `click crudo en (${cmd.x},${cmd.y})`;
         break;
       }
+
+      // ── Upload ────────────────────────────────────────────────────────────
+      case 'upload': {
+        if (cmd.ref == null) throw new Error('upload requiere ref');
+        if (!cmd.files || cmd.files.length === 0) throw new Error('upload requiere files[]');
+        const h = await resolveRef(ctx, cmd.ref, true);
+        if (!h) throw new Error(`ref ${cmd.ref} no existe (upload)`);
+        await (h as any).setInputFiles(cmd.files, { timeout: 10_000 });
+        targetDetached = true; // el input de archivos puede desconectarse tras setInputFiles
+        detail = `subió ${cmd.files.length} archivo(s) en ref ${cmd.ref}`;
+        break;
+      }
+
+      // ── Iframe ────────────────────────────────────────────────────────────
+      case 'iframe': {
+        const frames: Frame[] = page.frames();
+        // frames[0] es la página principal; los iframes empiezan en frames[1].
+        let frame: Frame | undefined;
+        if (cmd.src != null) {
+          frame = frames.find(f => f.url().includes(cmd.src!));
+        } else {
+          const idx = (cmd.index ?? 0) + 1; // +1 para saltar la página principal
+          frame = frames[idx];
+        }
+        if (!frame || frame.isDetached()) {
+          throw new Error(`iframe no encontrado (src="${cmd.src ?? ''}", index=${cmd.index ?? 0})`);
+        }
+        session.setActiveFrame(frame);
+        detail = `cambió contexto a iframe "${frame.url() || '(sin URL)'}"`;
+        break;
+      }
+
+      // ── Acciones ancladas por ref (click / type / select) ─────────────────
       case 'click':
       case 'type':
       case 'select': {
         if (cmd.ref == null) throw new Error(`${cmd.action} requiere ref`);
-        let handle = await resolveRef(page, cmd.ref);
-        if (!handle) {
-          // staleness: re-observa una vez y reintenta resolver.
-          await snapshot(page);
-          handle = await resolveRef(page, cmd.ref);
-          if (!handle) throw new Error(`ref ${cmd.ref} no existe (página cambió; vuelve a observar)`);
-        }
+        const handle = await resolveRef(ctx, cmd.ref, true);
+        if (!handle) throw new Error(`ref ${cmd.ref} no existe (página cambió; vuelve a observar)`);
 
         if (cmd.action === 'click') {
           await handle.click({ timeout: 10_000 });
@@ -99,26 +175,25 @@ export async function act(session: KageSession, cmd: ActCommand): Promise<ActRes
           detail = `seleccionó "${cmd.text}" en ref ${cmd.ref}`;
         }
 
-        // ¿el target sigue conectado? si no, señal fuerte de efecto.
         try {
-          targetDetached = !(await handle.evaluate((el: any) => el.isConnected));
+          targetDetached = !(await (handle as any).evaluate((el: any) => el.isConnected));
         } catch {
           targetDetached = true;
         }
         break;
       }
+
       default:
         throw new Error(`acción desconocida: ${(cmd as any).action}`);
     }
 
-    // Pequeña espera para que reflows/navegaciones se asienten antes de medir.
     await page.waitForTimeout(400);
     const domMutations = await readMutations();
     const { verdict } = await buildVerdict(page, before, domMutations, targetDetached);
 
     const result: ActResult = { ok: true, action: cmd.action, detail, verdict };
     if (cmd.reobserve) {
-      result.snapshot = await snapshot(page);
+      result.snapshot = await snapshot(ctx);
     }
     return result;
   } catch (err: any) {

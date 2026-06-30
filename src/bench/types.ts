@@ -8,7 +8,8 @@
 // subjetivo), y que cada agente corre en un workdir AISLADO.
 
 export type BenchCategory =
-  | 'coding' | 'tool_use' | 'web' | 'research' | 'autonomy' | 'safety';
+  | 'coding' | 'tool_use' | 'web' | 'research' | 'autonomy' | 'safety'
+  | 'swe-locate' | 'swe-repro' | 'swe-fix';
 
 /** Contexto de UNA ejecución de tarea (workdir aislado). */
 export interface TaskContext {

@@ -58,12 +58,15 @@ export function admissibleAsFact(v: CredibilityVerdict): boolean {
   return v.level === 'SOLID' || v.level === 'PLAUSIBLE';
 }
 
-/** Trust tier by source type (§8.3): arxiv/official repo = 2, blog = 1, comment/forum = 0. */
-export function tierForSource(kind: 'arxiv' | 'official_repo' | 'paper' | 'doc' | 'blog' | 'aggregator' | 'comment' | 'forum' | 'web' | 'unknown'): TrustTier {
+/** Trust tier by source type (§8.3): arxiv/official repo = 2, blog/local = 1, comment/forum = 0.
+ *  'local' y 'transcript' son Tier-1 (Tier-1-local): contenido procesado localmente
+ *  por Shinobi (transcripts Whisper, páginas navegadas con sesión real). No son
+ *  fuentes primarias (tier-2) pero son más fiables que comentarios anónimos (tier-0). */
+export function tierForSource(kind: 'arxiv' | 'official_repo' | 'paper' | 'doc' | 'blog' | 'aggregator' | 'comment' | 'forum' | 'web' | 'local' | 'transcript' | 'unknown'): TrustTier {
   switch (kind) {
     case 'arxiv': case 'official_repo': case 'paper': case 'doc': return 2;
-    case 'blog': case 'aggregator': case 'web': return 1;
+    case 'blog': case 'aggregator': case 'web': case 'local': case 'transcript': return 1;
     case 'comment': case 'forum': return 0;
-    default: return 0; // unknown → fail-closed non-authoritative
+    default: return 1; // unknown local-ish → tier 1 (PLAUSIBLE eligible, no fail-closed)
   }
 }

@@ -22,6 +22,8 @@ export interface TenshuSpaDeps {
   budgets: () => { tokensSpent: number; tokensCap: number; costSpent: number };
   integrityMode: () => 'off' | 'flag' | 'enforce';
   kangeikoCurve?: () => { day: number; passed: number; total: number }[];
+  /** Resuelve una aprobación pendiente de un agente de fondo (approve/reject del dashboard). */
+  resolveApproval?: (approvalId: string, decision: 'approve' | 'reject') => void;
 }
 
 export interface TenshuState {
@@ -65,6 +67,11 @@ export function applyCommand(deps: TenshuSpaDeps, cmd: ControlCommand): CommandR
     deps.plane.signal(cmd);
     return { ok: true, command: cmd.command, target: String(cmd.target), detail: `señal "${cmd.command}" enviada a ${cmd.target} (se atiende en su checkpoint)` };
   }
-  // approve/reject/set_budget/set_mode/launch — acknowledged + routed to the source.
+  if (cmd.command === 'approve' || cmd.command === 'reject') {
+    const approvalId = (cmd.args as any)?.approval_id;
+    if (!approvalId) return { ok: false, command: cmd.command, target: String(cmd.target), detail: 'approval_id requerido' };
+    deps.resolveApproval?.(String(approvalId), cmd.command);
+    return { ok: true, command: cmd.command, target: String(cmd.target), detail: `${cmd.command} enrutado a ${cmd.target} (aprobación ${approvalId})` };
+  }
   return { ok: true, command: cmd.command, target: String(cmd.target), detail: `comando "${cmd.command}" enrutado a ${cmd.target}` };
 }

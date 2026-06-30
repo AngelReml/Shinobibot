@@ -61,6 +61,14 @@ export function loadManifest(dir: string, artifactOverride?: string): LoadedSkil
 
   const artifactRef = artifactOverride ?? manifest.artifact_ref;
   const artifactPath = path.resolve(dir, artifactRef);
+
+  // Path containment: both declared artifact_ref AND any CLI override must
+  // resolve inside the skill directory. A traversal (../../..) would escape.
+  const realDir = path.resolve(dir);
+  if (!artifactPath.startsWith(realDir + path.sep) && artifactPath !== realDir) {
+    throw new Error(`SECURITY: artifact_ref escapes skill directory: ${artifactRef}`);
+  }
+
   if (!fs.existsSync(artifactPath)) throw new Error(`artifact not found: ${artifactPath}`);
   const artifactHash = hashArtifact(artifactPath);
 

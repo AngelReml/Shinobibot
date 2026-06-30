@@ -26,6 +26,11 @@ import { ask, deepExtract, listArchived } from './query.js';
 import { forwardToCouncil, type CouncilLLM } from './council.js';
 import { collectDigest, renderDigest } from './digest.js';
 import { SentinelTokenBudget } from './token_budget.js';
+import { extractClaims, type ClaimLLM } from './e5_claims.js';
+import { distillHypotheses } from './e5_hypotheses.js';
+import { E5BetRegistry } from './e5_bets.js';
+import { E5Store } from './e5_store.js';
+import { renderBriefing } from './e5_briefing.js';
 
 export interface SentinelPaths {
   sourcesYaml: string;
@@ -41,6 +46,8 @@ export interface SentinelDeps {
   proposalLLM?: (prompt: string) => Promise<string>;
   /** LLM para el council (forward). Requerido para /sentinel forward. */
   councilLLM?: CouncilLLM;
+  /** LLM para extracción de claims E5. Opcional → heurística. */
+  claimLLM?: ClaimLLM;
   /** Sink de salida (default console.log). */
   out?: (line: string) => void;
 }
@@ -101,14 +108,22 @@ export async function handleSentinel(argv: string, deps: SentinelDeps): Promise<
     case 'list':    return cmdList(rest, paths, out);
     case 'forward': return cmdForward(rest, paths, deps, out);
     case 'digest':  return cmdDigest(rest, paths, deps, out);
+    // E5 — ANTICIPADOR
+    case 'claim':   return cmdClaim(rest, paths, deps, out);
+    case 'brief':   return cmdBrief(paths, out);
+    case 'bet':     return cmdBet(rest, paths, out);
     default:
-      out('Uso: /sentinel <watch|ask|deep|list|forward|digest>');
-      out('  watch                 — chequea fuentes + indexa items nuevos');
-      out('  ask <tema>            — busca en lo archivado');
-      out('  deep <itemId>         — extrae propuesta de un item');
-      out('  list <YYYY-MM-DD>     — lista items archivados desde una fecha');
-      out('  forward <proposalId>  — pasa una propuesta al council');
-      out('  digest [--week|--month] — boletín');
+      out('Uso: /sentinel <watch|ask|deep|list|forward|digest|claim|brief|bet>');
+      out('  watch                          — chequea fuentes + indexa items nuevos');
+      out('  ask <tema>                     — busca en lo archivado');
+      out('  deep <itemId>                  — extrae propuesta de un item');
+      out('  list <YYYY-MM-DD>              — lista items archivados desde una fecha');
+      out('  forward <proposalId>           — pasa una propuesta al council');
+      out('  digest [--week|--month]        — boletín');
+      out('  claim <itemId>                 — E5: extrae claims de un item archivado');
+      out('  brief                          — E5: briefing de hipótesis y apuestas');
+      out('  bet <hypothesisId>             — E5: registra apuesta sobre una hipótesis');
+      out('  bet resolve <betId> win|miss|partial — E5: cierra una apuesta');
   }
 }
 
@@ -227,4 +242,132 @@ function cmdDigest(arg: string, paths: SentinelPaths, deps: SentinelDeps, out: (
     window,
   });
   for (const line of renderDigest(data).split('\n')) out(line);
+}
+
+// ── E5 — ANTICIPADOR ────────────────────────────────────────────────────────
+
+/** /sentinel claim <itemId> — extrae claims de un item y los persiste + destila hipótesis. */
+async function cmdClaim(
+  itemId: string, paths: SentinelPaths, deps: SentinelDeps, out: (l: string) => void,
+): Promise<void> {
+  if (!itemId) { out('Uso: /sentinel claim <itemId>'); return; }
+
+  // Localiza el raw .md del item.
+  const rawPath = findRawPath(paths.dataDir, itemId);
+  if (!rawPath) { out(`Item no encontrado: ${itemId}. ¿Has corrido /sentinel watch?`); return; }
+
+  // Lee el item archivado del front-matter + texto.
+  const md = readFileSync(rawPath, 'utf-8');
+  const fmMatch = md.match(/^---\n([\s\S]*?)\n---/);
+  if (!fmMatch) { out(`Formato inválido en ${rawPath}`); return; }
+
+  const fm: Record<string, string> = {};
+  for (const line of fmMatch[1].split('\n')) {
+    const idx = line.indexOf(':');
+    if (idx >= 0) fm[line.slice(0, idx).trim()] = line.slice(idx + 1).trim().replace(/^"|"$/g, '');
+  }
+  const rawText = md.slice(fmMatch[0].length).trim();
+
+  const item = {
+    itemId: fm.itemId || itemId,
+    sourceId: fm.sourceId || '',
+    sourceType: (fm.sourceType as any) || 'rss',
+    sourceName: fm.sourceName || fm.sourceId || '',
+    title: fm.title?.replace(/^"|"$/g, '') || itemId,
+    url: fm.url || '',
+    publishedAt: fm.publishedAt || fm.archivedAt || new Date().toISOString(),
+    durationMinutes: fm.durationMinutes ? Number(fm.durationMinutes) : undefined,
+    rawText,
+    transcriptSource: (fm.transcriptSource as any) || 'text',
+    archivedAt: fm.archivedAt || new Date().toISOString(),
+  };
+
+  out(`Extrayendo claims de "${item.title}"…`);
+  const claims = await extractClaims(item, { llm: deps.claimLLM });
+
+  const store = new E5Store(paths.dataDir);
+  const { added, duplicates } = store.appendClaims(claims);
+  out(`  Claims: ${added} nuevos, ${duplicates} ya existentes.`);
+
+  const admissible = claims.filter((c) => c.credibility !== 'UNFOUNDED');
+  const notes = claims.filter((c) => !c.dimension);
+  out(`  Admisibles: ${admissible.length} · Sin dimensión (notas): ${notes.length}`);
+
+  // Destila hipótesis desde los claims activos.
+  const activeClaims = store.activeClaims();
+  const { hypotheses, notes: allNotes } = distillHypotheses(activeClaims);
+  const stats = store.mergeHypotheses(hypotheses);
+  out(`  Hipótesis: ${stats.added} nuevas, ${stats.updated} actualizadas.`);
+
+  for (const h of hypotheses) {
+    out(`  [${h.credibility}] ${h.title}`);
+    out(`    → /sentinel bet ${h.hypothesisId}`);
+  }
+  if (allNotes.length > 0) {
+    out(`  ${allNotes.length} claims archivados como notas (sin dimensión → no se persiguen).`);
+  }
+}
+
+/** /sentinel brief — renderiza el briefing E5 actual. */
+function cmdBrief(paths: SentinelPaths, out: (l: string) => void): void {
+  const store = new E5Store(paths.dataDir);
+  const bets = new E5BetRegistry(join(paths.dataDir, 'e5_bets.json'));
+  const hypotheses = store.loadHypotheses();
+
+  if (hypotheses.length === 0) {
+    out('Sin hipótesis aún. Corre /sentinel claim <itemId> para extraer señal.');
+    return;
+  }
+
+  const briefing = renderBriefing({
+    hypotheses,
+    pendingBets: bets.pending(),
+    resolvedBets: bets.resolved(),
+    calibrationScore: bets.calibrationScore(),
+  });
+  for (const line of briefing.split('\n')) out(line);
+}
+
+/** /sentinel bet <hypothesisId> | bet resolve <betId> win|miss|partial */
+function cmdBet(arg: string, paths: SentinelPaths, out: (l: string) => void): void {
+  const store = new E5Store(paths.dataDir);
+  const registry = new E5BetRegistry(join(paths.dataDir, 'e5_bets.json'));
+  const parts = arg.trim().split(/\s+/);
+
+  if (parts[0] === 'resolve') {
+    // bet resolve <betId> win|miss|partial
+    const betId = parts[1];
+    const outcome = parts[2]?.toLowerCase();
+    if (!betId || !outcome) { out('Uso: /sentinel bet resolve <betId> win|miss|partial'); return; }
+    if (!['win', 'miss', 'partial'].includes(outcome)) {
+      out('Resultado debe ser: win, miss o partial');
+      return;
+    }
+    try {
+      const bet = registry.resolve(betId, outcome.toUpperCase() as 'WIN' | 'MISS' | 'PARTIAL');
+      const score = bet.calibrationScore ?? 0;
+      out(`Apuesta ${betId} resuelta: ${bet.outcome} (score asimétrico: ${score > 0 ? '+' : ''}${score})`);
+      out(`Calibración acumulada: ${registry.calibrationScore().toFixed(1)}`);
+      store.attachBet(bet.hypothesisId, bet.betId);
+    } catch (e: any) {
+      out(`Error: ${e?.message ?? e}`);
+    }
+    return;
+  }
+
+  // bet <hypothesisId> — registra apuesta
+  const hypothesisId = parts[0];
+  if (!hypothesisId) { out('Uso: /sentinel bet <hypothesisId>'); return; }
+
+  const hypotheses = store.loadHypotheses();
+  const h = hypotheses.find((h) => h.hypothesisId === hypothesisId);
+  if (!h) { out(`Hipótesis no encontrada: ${hypothesisId}. Corre /sentinel claim primero.`); return; }
+  if (h.betId) { out(`Esta hipótesis ya tiene apuesta: ${h.betId}`); return; }
+
+  const bet = registry.register(h);
+  store.attachBet(h.hypothesisId, bet.betId);
+  out(`Apuesta registrada: ${bet.betId}`);
+  out(`  Hipótesis: ${h.title}`);
+  out(`  Dimensión: ${h.dimension} · Credibilidad: ${h.credibility}`);
+  out(`  Resolver con: /sentinel bet resolve ${bet.betId} win|miss|partial`);
 }

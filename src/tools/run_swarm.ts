@@ -14,6 +14,7 @@ import { runSwarm, type SwarmTask } from '../agents/swarm.js';
 import { invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import { DESTRUCTIVE_TOOLS } from '../security/approval.js';
 import type { LLMInvoker } from '../agents/agent_loop.js';
+import { getSpawnDepth, getMaxSpawnDepth, runWithSpawnDepth } from '../agents/spawn_depth.js';
 
 const DEFAULT_BOX = ['read_file', 'list_dir', 'search_files'];
 
@@ -72,28 +73,21 @@ const runSwarmTool: Tool = {
       return { success: false, output: '', error: 'run_swarm requiere al menos una tarea con "task".' };
     }
 
-    // Profundidad de spawn acotada (anti-recursión).
-    const parentDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0') || 0;
-    const maxDepth = Number(process.env.SHINOBI_MAX_SPAWN_DEPTH || '3') || 3;
+    // Profundidad de spawn acotada (anti-recursión). Usa AsyncLocalStorage para
+    // que las ramas paralelas del enjambre no se contaminen entre sí.
+    const parentDepth = getSpawnDepth();
+    const maxDepth = getMaxSpawnDepth();
     if (parentDepth + 1 >= maxDepth) {
       return { success: false, output: '', error: `Profundidad de spawn máxima (${parentDepth + 1}/${maxDepth}); no se lanza el enjambre.` };
     }
 
-    const prevDepthEnv = process.env.SHINOBI_SPAWN_DEPTH;
-    process.env.SHINOBI_SPAWN_DEPTH = String(parentDepth + 1);
-    let result;
-    try {
-      result = await runSwarm({
-        tasks,
-        concurrency: typeof args.concurrency === 'number' ? args.concurrency : undefined,
-        verify: !!args.verify,
-        invokeLLM: _invoker,
-        verifyInvokeLLM: _invoker,
-      });
-    } finally {
-      if (prevDepthEnv === undefined) delete process.env.SHINOBI_SPAWN_DEPTH;
-      else process.env.SHINOBI_SPAWN_DEPTH = prevDepthEnv;
-    }
+    const result = await runWithSpawnDepth(parentDepth + 1, () => runSwarm({
+      tasks,
+      concurrency: typeof args.concurrency === 'number' ? args.concurrency : undefined,
+      verify: !!args.verify,
+      invokeLLM: _invoker,
+      verifyInvokeLLM: _invoker,
+    }));
 
     const lines = result.results.map((r) => `- ${r.label}: ${r.ok ? 'OK' : 'FALLO'}${r.error ? ` (${r.error})` : ''}`);
     const header = `Enjambre: ${result.succeeded}/${result.total} tareas OK.`;

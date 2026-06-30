@@ -45,8 +45,10 @@ export interface Verdict {
 
 /** Comando de acción que el actor sabe ejecutar. */
 export interface ActCommand {
-  action: 'click' | 'type' | 'select' | 'scroll' | 'navigate' | 'press' | 'click_xy';
-  /** ref del elemento objetivo (para click/type/select/press). */
+  action:
+    | 'click' | 'type' | 'select' | 'scroll' | 'navigate' | 'press' | 'click_xy'
+    | 'back' | 'forward' | 'wait_for' | 'upload' | 'iframe';
+  /** ref del elemento objetivo (para click/type/select/press/upload). */
   ref?: number;
   /** texto a escribir (type) o valor a seleccionar (select). */
   text?: string;
@@ -59,6 +61,16 @@ export interface ActCommand {
   /** coordenadas para click_xy (fallback canvas/WebGL). */
   x?: number;
   y?: number;
+  /** selector CSS a esperar (wait_for). Omitir = esperar networkidle. */
+  selector?: string;
+  /** timeout en ms para wait_for (default 15 000). */
+  timeout?: number;
+  /** rutas absolutas de archivos a subir (upload). */
+  files?: string[];
+  /** substring de la URL del iframe a activar (iframe). */
+  src?: string;
+  /** índice 0-based del iframe en la página (iframe; alternativa a src). */
+  index?: number;
   /** si true, devuelve un snapshot nuevo tras la acción. */
   reobserve?: boolean;
 }

@@ -44,6 +44,10 @@ export function _resetDockerAvailability(): void {
   _availabilityCache = { checked: false, available: false };
 }
 
+export function _forceDockerAvailabilityForTest(available: boolean, error?: string): void {
+  _availabilityCache = { checked: true, available, error };
+}
+
 export function isDockerAvailable(): Promise<{ available: boolean; error?: string }> {
   if (_availabilityCache.checked) {
     return Promise.resolve({ available: _availabilityCache.available, error: _availabilityCache.error });

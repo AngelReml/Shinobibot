@@ -7,6 +7,7 @@ export { BENCH_TASKS } from './tasks.js';
 export { S_POLICY_TASKS, S_POLICY_VERSION } from './suites/s_policy.js';
 export { S_AGENTIC_TASKS, S_AGENTIC_VERSION } from './suites/s_agentic.js';
 export { S_CODE_TASKS, S_CODE_VERSION } from './suites/s_code.js';
+export { S_SWE_TASKS, S_SWE_VERSION } from './suites/s_swe.js';
 export { ShinobiAdapter } from './adapters/shinobi_adapter.js';
 export { MockAdapter, type MockBehavior } from './adapters/mock_adapter.js';
 export { CliAdapter, type CliAdapterConfig } from './adapters/cli_adapter.js';

@@ -4,7 +4,7 @@
 // para respetar los modos sandbox / CDP-remoto / local ya existentes.
 // Ver docs/BROWSER_SUBSYSTEM.md §2.
 
-import type { Browser, BrowserContext, Page, CDPSession } from 'playwright';
+import type { Browser, BrowserContext, Frame, Page, CDPSession } from 'playwright';
 import type { ElementRef } from './types.js';
 
 export class KageSession {
@@ -12,6 +12,8 @@ export class KageSession {
   private page: Page | null = null;
   private cdp: CDPSession | null = null;
   private inputLocked = false;
+  /** Frame activo (null = página principal). Cambia con la acción 'iframe'. */
+  private activeFrame: Frame | null = null;
 
   /** Último mapa de elementos observado (para resolver ref→ElementRef en consent). */
   lastElements: ElementRef[] = [];
@@ -70,6 +72,21 @@ export class KageSession {
     await this.ensure();
     if (!this.page) throw new Error('KageSession: no hay página activa.');
     return this.page;
+  }
+
+  /**
+   * Devuelve el contexto de DOM activo: el frame seleccionado si hay uno
+   * activo y no está desconectado, o la página principal en caso contrario.
+   */
+  async getActiveContext(): Promise<Page | Frame> {
+    if (this.activeFrame && !this.activeFrame.isDetached()) return this.activeFrame;
+    this.activeFrame = null;
+    return this.getPage();
+  }
+
+  /** Selecciona un frame como contexto activo para observe/act (null = vuelve a la página). */
+  setActiveFrame(frame: Frame | null): void {
+    this.activeFrame = frame;
   }
 
   /** Devuelve la CDPSession o null si no está disponible. */

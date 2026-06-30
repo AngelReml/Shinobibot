@@ -1,7 +1,7 @@
 # SHINOBI — Checkpoint de ejecución del plan arquitectónico
 <!-- Generado por Claude Code. Actualizar tras cada tarea completada. -->
 
-**Última actualización:** 2026-06-29 (G3 cerrado en código — modo familia + errores humanos + /familia + /anillos)
+**Última actualización:** 2026-06-30 (E7 EVOLUTIVO completo — carta fundacional Ed25519 + skill-priors + benchmark verificabilidad · 214/214 tests)
 **Plan de referencia:** "SHINOBI — ARQUITECTURA DEFINITIVA" (7 estadios E1–E7)
 **Frase de recuperación:** `Continúa el plan arquitectónico de Shinobi desde el SHINOBI_CHECKPOINT.md`
 
@@ -18,9 +18,10 @@
 | 5 | E2 | Cablear/eliminar fachadas funcionales | ✅ COMPLETADO — revertKernel salva store como head, shadow dispatcher tiene gate de promoción + registro de outcome, agentes Alcayna cablea keyword→setAlcaynaAgent→inyección real de system_prompt, /alcayna list/status/reset, plugins ya opt-in con SHINOBI_PLUGINS_ENABLED=1 |
 | 6 | E3 | Capa de egress + test de red no autorizada | ✅ COMPLETADO — 6/6 verde en `src/egress/__tests__/egress_invariants.test.ts` |
 | 7 | E4 | Memoria temporal con valid_from/valid_until + self-check gate | ✅ COMPLETADO — 6/6 verde en `src/memory/__tests__/temporal_memory.test.ts` |
-| 8 | E5 | PredAItor: señal → hipótesis ancladas | ⏸ EN PAUSA — código en PC del operador (disponible la semana que viene) |
-| 9 | E6 | Cage revertible + oracle real + corpus de trayectorias | ⬜ BLOQUEADO por E5 |
-| 10 | E7 | Auto-mejora + carta fundacional firmada | ⬜ BLOQUEADO por E6 |
+| G4 | G4 | Kage robusto + S-SWE + RepoMap + bench_g4 + /comparar | ✅ COMPLETADO — 20/20 verde |
+| 8 | E5 | ANTICIPADOR: señal nativa → claims → hipótesis → briefing + apuestas | ✅ COMPLETADO — 38/38 tests verdes · typecheck limpio |
+| 9 | E6 | Cage revertible + forgeSkill + diversity budget PatternBook | ✅ COMPLETADO — 50/50 tests shugyo verdes · typecheck limpio |
+| 10 | E7 | Carta fundacional Ed25519 + skill-priors + benchmark verificabilidad | ✅ COMPLETADO — 214/214 tests · typecheck limpio |
 
 ## G1 (PLAN_SOMBRA) — primer harness-delta firmado
 
@@ -79,6 +80,23 @@
 
 ---
 
+## G4 (PLAN_SOMBRA) — Capacidad de frontera
+
+| Entregable | Estado |
+|---|---|
+| Kage robusto: back/forward/wait_for/upload/iframe en actor.ts | ✅ `src/browser/actor.ts` + `types.ts` + `session.ts` — 6/6 verde en `kage_g4.test.ts` |
+| Observer piercear shadow DOM | ✅ `src/browser/observer.ts` — `collectFromRoot()` recursivo + `resolveRefDeep()` |
+| Suite S-SWE v1.0 (15 tareas deterministas) | ✅ `src/bench/suites/s_swe.ts` · 3 categorías: swe-locate, swe-repro, swe-fix |
+| RepoMap F2.1 — índice símbolo→archivo BM25 | ✅ `src/reader/repo_map.ts` — 9/9 verde en `repo_map.test.ts` |
+| bench_g4.ts — mide salto pass@1 E5 on/off | ✅ `scripts/bench_g4.ts` + `npm run bench:g4` |
+| Corrida mock k=3 firmada | ✅ `bench_results/g4_mock_k3_2026-06-29T21-06-18.md` + sha256 |
+| /comparar slash command (E6 cableado) | ✅ `src/coordinator/slash_commands.ts` — 5/5 verde en `slash_comparar.test.ts` |
+| Corrida real k=5 (LLM) | ⬜ `npm run bench:g4 -- --k 5 --suite s_swe` en máquina del operador |
+
+**G4 CERRADO en código** — pendiente corrida real con LLM + activación `/comparar` en prod.
+
+---
+
 ## G0 (PLAN_SOMBRA) — cableado de motores al orchestrator
 
 | Motor | Tarea | Estado |
@@ -110,6 +128,70 @@
    - `src/coordinator/orchestrator.ts:68` → `static getMemory()`
    - `src/memory/contradiction_filter.ts:15` → `sharedMemoryStore()`
    - `src/memory/semantic_index.ts:32` → `sharedMemoryStore().reindexFromMarkdown`
+
+---
+
+## G5 — Los titulares propios (F4)
+
+| Entregable | Estado |
+|---|---|
+| F4.2 Safety Scoreboard: bench_g5_safety.ts | ✅ `scripts/bench_g5_safety.ts` + `npm run bench:g5` — corrida mock k=1 firmada: `bench_results/g5_safety_mock_k1_2026-06-30T07-35-59.md` · sha256: caddf64... |
+| F4.1 Provable-autonomy v2 por tarea | ⬜ pendiente |
+| F4.3 Self-correction rate medido | ⬜ pendiente |
+| Demo tamper (ledger: editar línea N → rompe en N) grabada en Yoru | ⬜ pendiente |
+| ≥20 skills útiles forjados y sellados con lacre OpenGravity | ⬜ pendiente |
+| Corrida real k=3 S-POLICY (LLM) | ⬜ `npm run bench:g5` en máquina del operador |
+
+**G5 EN PROGRESO** — F4.2 cerrado en código, corrida real pendiente en máquina del operador.
+
+---
+
+## E5 — ANTICIPADOR (señal nativa sin PredAItor)
+
+| Entregable | Estado |
+|---|---|
+| Fix 1: YouTube @handle (`@usuario` → `UCxxx`) | ✅ `src/sentinel/watcher.ts` — `resolveHandleToChannelId()` |
+| Fix 2: Tier-1-local (`local`,`transcript` → tier 1, no tier 0) | ✅ `src/kagemusha/thread/credibility.ts` + `e5_claims.ts` (WEAK→PLAUSIBLE) |
+| E5 tipos canónicos | ✅ `src/sentinel/e5_types.ts` — E5Claim, E5Hypothesis, E5Bet, E5BriefingEntry, E5Dimension |
+| Extracción de claims (heurística + LLM opcional) | ✅ `src/sentinel/e5_claims.ts` — detectDimension, extractClaims, validityWindow |
+| Destilación de hipótesis con corroboración | ✅ `src/sentinel/e5_hypotheses.ts` — ≥2 fuentes independientes → SOLID |
+| Registro de apuestas asimétricas | ✅ `src/sentinel/e5_bets.ts` — WIN=+1, PARTIAL=+0.3, MISS=-2 |
+| Briefing markdown al operador | ✅ `src/sentinel/e5_briefing.ts` — SOLID/PLAUSIBLE/apuestas/calibración |
+| Persistencia claims+hipótesis con ventana temporal E4 | ✅ `src/sentinel/e5_store.ts` — activeClaims(now), mergeHypotheses, attachBet |
+| Subcomandos `/sentinel claim/brief/bet` | ✅ `src/sentinel/sentinel_command.ts` — cmdClaim, cmdBrief, cmdBet |
+| Tests E5 | ✅ `src/sentinel/__tests__/e5.test.ts` — 38/38 verdes |
+| Typecheck | ✅ 0 errores |
+
+**E5 CERRADO en código** — pendiente integración con LLM real en máquina del operador.
+
+---
+
+## E6 — SHUGYO MADURO (jaula robusta + puente + diversidad)
+
+| Entregable | Estado |
+|---|---|
+| Fix oracle vacío (`''.includes('')`) | ✅ Ya estaba en `certify.ts` (FIX 0.13 previo) — movido antes de runAction |
+| `try/finally` en `certifyInCage` | ✅ `src/shugyo/synth/certify.ts` — revert garantizado aunque lance el executor |
+| `forgeSkill()` — puente Shugyo→Sello | ✅ `src/shugyo/forge.ts` — synthesize+certify+persist en una llamada; exportado del barrel |
+| Diversity budget en `PatternBook` | ✅ `src/shugyo/curve/patternbook.ts` — maxPatterns=100, jaccard>0.8 descarta, evicta menor hit_rate |
+| Tests E6 | ✅ `src/shugyo/__tests__/e6.test.ts` — 15/15 verdes; suite shugyo completa 50/50 |
+| Typecheck | ✅ 0 errores |
+
+**E6 CERRADO en código.**
+
+---
+
+## E7 — EVOLUTIVO (verificabilidad demostrable)
+
+| Entregable | Estado |
+|---|---|
+| Carta fundacional firmada Ed25519 | ✅ `src/agents/charter.ts` — signCharter/verifyCharter/buildCharterBody/CORE_INVARIANTS_V1 |
+| Skill-priors adjustment (circuito Sello→PatternBook) | ✅ `src/shugyo/priors.ts` — adjustPrior/adjustPriors/estimateCertPrior |
+| Benchmark de verificabilidad (G5 F4.1) | ✅ `src/agents/__tests__/e7.test.ts` — 100% sig valid + 100% tamper detectado |
+| Tests E7 | ✅ 19/19 verdes; suite total 214/214 |
+| Typecheck | ✅ 0 errores |
+
+**E7 CERRADO en código.**
 
 ---
 

@@ -190,10 +190,26 @@ export class SentinelWatcher {
 
   private async fetchYoutube(source: SentinelSource): Promise<SentinelItem[]> {
     // RSS público de YouTube — sin API key.
-    const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(source.id)}`;
+    // Acepta tanto channel_id (UCxxx) como handle (@usuario).
+    let channelId = source.id;
+    if (source.id.startsWith('@')) {
+      channelId = await this.resolveHandleToChannelId(source.id);
+    }
+    const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${encodeURIComponent(channelId)}`;
     const res = await this.fetchImpl(url);
     if (!res.ok) throw new Error(`youtube ${source.id} HTTP ${res.status}`);
     return parseFeed(res.text, source, this.now().toISOString()).slice(0, ITEM_CAP);
+  }
+
+  /** Resuelve un @handle a su channel_id leyendo la página del canal. */
+  async resolveHandleToChannelId(handle: string): Promise<string> {
+    const url = `https://www.youtube.com/${handle}`;
+    const res = await this.fetchImpl(url);
+    if (!res.ok) throw new Error(`YouTube handle ${handle} HTTP ${res.status}`);
+    // YouTube embeds the channelId in the page as "channelId":"UCxxx"
+    const match = res.text.match(/"channelId"\s*:\s*"(UC[^"]{10,})"/);
+    if (!match) throw new Error(`no se pudo extraer channelId del handle ${handle} — verifica que el canal existe`);
+    return match[1];
   }
 }
 

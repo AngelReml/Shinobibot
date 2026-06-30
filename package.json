@@ -39,6 +39,8 @@
     "bench:agentic": "tsx scripts/bench_s_agentic.ts",
     "bench:s_code": "tsx scripts/bench_s_code.ts",
     "bench:g2": "tsx scripts/bench_g2.ts",
+    "bench:g4": "tsx scripts/bench_g4.ts",
+    "bench:g5": "tsx scripts/bench_g5_safety.ts",
     "build:exe": "tsx scripts/build_exe.ts"
   },
   "keywords": [],

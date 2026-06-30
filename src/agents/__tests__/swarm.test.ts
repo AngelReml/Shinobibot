@@ -5,6 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { runSwarm } from '../swarm.js';
+import { runWithSpawnDepth, getSpawnDepth } from '../spawn_depth.js';
 import type { LLMInvoker } from '../agent_loop.js';
 
 const envelope = (content: string): string => JSON.stringify({ content });
@@ -84,5 +85,25 @@ describe('runSwarm — enjambre (E4)', () => {
     expect(r.results[1].ok).toBe(false);
     expect(r.results[0].ok).toBe(true);
     expect(r.results[2].ok).toBe(true);
+  });
+
+  it('race condition fix: tareas paralelas no acumulan profundidad entre sí', async () => {
+    // Regresión: con process.env, 4 tareas paralelas que cada una incrementaba
+    // SHINOBI_SPAWN_DEPTH causaban depth 6/3 aunque ninguna anidara más de 1 nivel.
+    // Con AsyncLocalStorage cada rama hereda su propia copia → profundidad real = 1.
+    const depths: number[] = [];
+    const captureDepth: LLMInvoker = async () => {
+      depths.push(getSpawnDepth());
+      return { success: true, output: envelope('ok'), error: '' };
+    };
+    await runWithSpawnDepth(1, () =>
+      runSwarm({
+        tasks: Array.from({ length: 4 }, (_, i) => ({ task: `t${i}` })),
+        concurrency: 4,
+        invokeLLM: captureDepth,
+      })
+    );
+    // Todas las tareas deben ver profundidad 1 (la del padre), no valores acumulados.
+    expect(depths.every((d) => d === 1)).toBe(true);
   });
 });

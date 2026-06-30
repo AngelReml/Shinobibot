@@ -16,6 +16,7 @@ import '../write_file.js'; // registra la tool real write_file en el registry
 import '../run_command.js'; // registra la tool real run_command en el registry
 import { WorktreeManager } from '../../agents/worktree.js';
 import { sandboxRegistry, _resetSandboxRegistry } from '../../sandbox/registry.js';
+import { _forceDockerAvailabilityForTest, _resetDockerAvailability } from '../_docker_backend.js';
 import type { RunBackend, RunOutput } from '../../sandbox/types.js';
 import type { LLMInvoker } from '../../agents/agent_loop.js';
 
@@ -195,9 +196,10 @@ describe('spawn_agent — sandbox de ejecución', () => {
   });
 
   it('sandbox=docker con daemon caído falla loud (no ejecuta en el host)', async () => {
+    _forceDockerAvailabilityForTest(false, 'docker no usable (daemon caído)');
     __setSpawnInvokerForTest(completesWith('no debería ejecutarse'));
     const res = await spawnAgent.execute({ task: 'corre algo', tools: ['run_command'], sandbox: 'docker' });
-    // En este entorno el daemon docker está caído → debe fallar, no caer al host.
+    _resetDockerAvailability();
     expect(res.success).toBe(false);
     expect(res.error).toMatch(/docker/i);
     expect(res.error).toMatch(/host|seguridad/i);

@@ -57,6 +57,7 @@ export const SLASH_COMMANDS: SlashCommandInfo[] = [
   { cmd: '/record', desc: 'Grabar la sesión con OBS: start · stop' },
   { cmd: '/familia', desc: 'Modo familia: crear · borrar · lista · config <id>' },
   { cmd: '/anillos', desc: 'Guía de apertura de anillos (familia → confianza)' },
+  { cmd: '/comparar', desc: 'Comparación multi-repo (E6): /comparar <ruta1> <ruta2> [--query "qué buscar"]' },
 ];
 
 export interface SlashContext {
@@ -822,6 +823,89 @@ ${pending.length} pending skill(s):`);
     console.log('');
     console.log('  Ver estado actual: npm run kpis (kpis_sombra.mjs)');
     console.log('═══════════════════════════════════════════════════════════════');
+    return true;
+  }
+
+  // /comparar <ruta1> <ruta2> [<ruta3>...] [--query "qué buscar"]
+  // G4-5 — Comparación estructural multi-repo usando RepoMap (E6 sin LLM).
+  // Para análisis profundo semántico: pide al agente "compara repos X e Y".
+  if (trimmed.startsWith('/comparar ') || trimmed === '/comparar') {
+    const parts = trimmed.slice('/comparar'.length).trim().split(/\s+/);
+    let query = '';
+    const repoPaths: string[] = [];
+
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i] === '--query' && i + 1 < parts.length) {
+        query = parts.slice(i + 1).join(' ').replace(/^"|"$/g, '');
+        break;
+      } else if (parts[i]) {
+        repoPaths.push(parts[i]);
+      }
+    }
+
+    if (repoPaths.length < 2) {
+      console.log('Uso: /comparar <ruta1> <ruta2> [<ruta3>...] [--query "qué buscar"]');
+      console.log('Ejemplo: /comparar ~/proyecto-a ~/proyecto-b --query "manejo de errores"');
+      console.log('Nota: para análisis semántico profundo usa el agente directamente.');
+      return true;
+    }
+
+    try {
+      const fsM = await import('fs');
+      const pathM = await import('path');
+      const { buildRepoMap, searchRepoMap, formatSearchResults } = await import('../reader/repo_map.js');
+
+      const maps = repoPaths.map((p: string) => {
+        const abs = p.startsWith('~')
+          ? pathM.join(process.env.HOME ?? '', p.slice(1))
+          : pathM.resolve(p);
+        if (!fsM.existsSync(abs)) throw new Error(`Ruta no existe: ${abs}`);
+        return { path: abs, name: pathM.basename(abs), map: buildRepoMap(abs) };
+      });
+
+      const sep = '═'.repeat(60);
+      console.log(`\n${sep}`);
+      console.log(`[E6] Comparación estructural — ${maps.length} repos`);
+      console.log(`${sep}\n`);
+
+      // Métricas básicas.
+      const col = (v: string | number) => String(v).padStart(12);
+      console.log(`${'Métrica'.padEnd(22)}${maps.map(m => col(m.name)).join('')}`);
+      console.log(`${'-'.repeat(22)}${maps.map(() => '-'.repeat(12)).join('')}`);
+
+      console.log(`${'Archivos fuente'.padEnd(22)}${maps.map(m => col(m.map.files.length)).join('')}`);
+      const syms = (m: (typeof maps)[0]) => m.map.files.reduce((s, f) => s + f.symbols.length, 0);
+      console.log(`${'Símbolos'.padEnd(22)}${maps.map(m => col(syms(m))).join('')}`);
+      const fns = (m: (typeof maps)[0]) => m.map.files.reduce((s, f) => s + f.symbols.filter(x => x.kind === 'function').length, 0);
+      console.log(`${'Funciones'.padEnd(22)}${maps.map(m => col(fns(m))).join('')}`);
+      const cls = (m: (typeof maps)[0]) => m.map.files.reduce((s, f) => s + f.symbols.filter(x => x.kind === 'class').length, 0);
+      console.log(`${'Clases'.padEnd(22)}${maps.map(m => col(cls(m))).join('')}`);
+
+      console.log('');
+
+      // Símbolos únicos vs comunes.
+      const symSets = maps.map(m => new Set(m.map.files.flatMap(f => f.symbols.map(s => s.name))));
+      const common = [...symSets[0]].filter(s => symSets.every(set => set.has(s)));
+      console.log(`Compartidos (${common.length}): ${common.slice(0, 10).join(', ')}${common.length > 10 ? '…' : ''}`);
+      for (let i = 0; i < maps.length; i++) {
+        const unique = [...symSets[i]].filter(s => !symSets.some((set, j) => j !== i && set.has(s)));
+        console.log(`Únicos en ${maps[i].name} (${unique.length}): ${unique.slice(0, 8).join(', ')}${unique.length > 8 ? '…' : ''}`);
+      }
+
+      // Búsqueda por query si se especificó.
+      if (query) {
+        console.log(`\n── Query: "${query}" ──`);
+        for (const { name, map } of maps) {
+          const results = searchRepoMap(map, query, 3);
+          console.log(`\n${name}:`);
+          console.log(results.length > 0 ? formatSearchResults(results, query) : '  (sin resultados)');
+        }
+      }
+
+      console.log(`\n${sep}`);
+    } catch (e: any) {
+      console.error(`[E6] Error: ${e?.message ?? e}`);
+    }
     return true;
   }
 

@@ -141,10 +141,8 @@ export class WebhookAdapter implements ChannelAdapter {
   async send(target: ChannelTarget, msg: OutgoingMessage): Promise<void> {
     const callbackUrl = process.env.WEBHOOK_CALLBACK_URL;
     if (!callbackUrl) {
-      throw new Error(
-        '[webhook] send() proactivo requiere WEBHOOK_CALLBACK_URL — ' +
-        'configura la URL a la que Shinobi debe hacer POST con la respuesta.',
-      );
+      // No-op: sin callback URL no hay destino; el adapter queda silencioso.
+      return;
     }
     const body = JSON.stringify({
       text: msg.text,

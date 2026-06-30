@@ -15,6 +15,7 @@ import {
   type GitRunner,
   type GitResult,
 } from '../worktree.js';
+import { contextCwd, contextWorkspaceRoot } from '../exec_context.js';
 
 // ── Unit (git mockeado) ──────────────────────────────────────────────────
 
@@ -143,21 +144,24 @@ describe('WorktreeManager (integración, git real)', () => {
     expect(fs.existsSync(wt.path)).toBe(false);
   });
 
-  it('withWorktree aísla cwd+WORKSPACE_ROOT y lo restaura; descarta por defecto', async () => {
+  it('withWorktree aísla cwd+WORKSPACE_ROOT vía exec_context y descarta por defecto', async () => {
     const before = process.cwd();
+    const beforeWsRoot = process.env.WORKSPACE_ROOT;
     let insideCwd = '';
     let insideWsRoot = '';
     const { worktree, kept } = await withWorktree(mgr, 'scoped', async (wt) => {
-      insideCwd = path.resolve(process.cwd());
-      insideWsRoot = path.resolve(process.env.WORKSPACE_ROOT || '');
+      // Las tools usan contextCwd()/contextWorkspaceRoot(), NO process.cwd() directo.
+      insideCwd = contextCwd();
+      insideWsRoot = contextWorkspaceRoot();
       fs.writeFileSync(path.join(wt.path, 'work.txt'), 'trabajo\n');
       return 'done';
     });
-    // dentro: cwd y WORKSPACE_ROOT apuntaban al worktree
+    // dentro del contexto async: las funciones de exec_context apuntaban al worktree
     expect(insideCwd).toBe(path.resolve(worktree.path));
     expect(insideWsRoot).toBe(path.resolve(worktree.path));
-    // fuera: restaurado y worktree descartado (default)
+    // fuera: process.cwd() y WORKSPACE_ROOT NUNCA se tocaron (no hay mutación global)
     expect(process.cwd()).toBe(before);
+    expect(process.env.WORKSPACE_ROOT).toBe(beforeWsRoot);
     expect(kept).toBe(false);
     expect(fs.existsSync(worktree.path)).toBe(false);
   });

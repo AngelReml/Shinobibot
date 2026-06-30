@@ -25,6 +25,7 @@
 
 import { invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import { getTool, toOpenAITools, type Tool } from '../tools/tool_registry.js';
+import { getSpawnDepth, getMaxSpawnDepth } from './spawn_depth.js';
 import {
   LoopDetector,
   loopDetectorConfigFromEnv,
@@ -162,8 +163,8 @@ function parseAssistantMessage(output: unknown): { content: string; tool_calls?:
  */
 export async function runAgentLoop(options: AgentLoopOptions): Promise<AgentLoopResult> {
   const label = options.label ?? 'subagent';
-  const depth = options.depth ?? envInt('SHINOBI_SPAWN_DEPTH', 0);
-  const maxDepth = options.maxDepth ?? envInt('SHINOBI_MAX_SPAWN_DEPTH', 3);
+  const depth = options.depth ?? getSpawnDepth();
+  const maxDepth = options.maxDepth ?? getMaxSpawnDepth();
   const toolsUsed: string[] = [];
 
   if (depth >= maxDepth) {

@@ -35,6 +35,8 @@ function fakeSession(page: Page): KageSession {
     lastElements: [] as ElementRef[],
     knownHosts: new Set<string>(),
     rememberHost: () => {},
+    setActiveFrame: () => {},
+    getActiveContext: async () => page,
   } as unknown as KageSession;
 }
 

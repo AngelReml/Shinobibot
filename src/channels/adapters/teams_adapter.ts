@@ -122,7 +122,8 @@ export class TeamsAdapter implements ChannelAdapter {
   async send(target: ChannelTarget, msg: OutgoingMessage): Promise<void> {
     const ctx = this.convRefs.get(target.conversationId);
     if (!ctx || !this.adapter) {
-      throw new Error(`[teams] send(): sin conversationReference para "${target.conversationId}" — el agente aún no ha recibido un turn de ese usuario`);
+      // No-op: el adapter no puede enviar proactivo sin un turn previo del usuario.
+      return;
     }
     const pkg = 'botbuilder';
     const { MessageFactory } = await import(pkg);

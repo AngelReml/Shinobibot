@@ -18,3 +18,4 @@ export { ShugyoStore, sharedShugyoStore, type ShugyoStoreOptions } from './store
 export { publishToKagami } from './adapters.js';
 export { extractAffordances, buildUiSurface, uiGraph, type UiaNode, type UiGraph, type UiEdge } from './surface/uia_surface.js';
 export { runForgeDemo, type ForgeResult } from './demo.js';
+export { forgeSkill, type ForgeOpts, type ForgeOutput } from './forge.js';
