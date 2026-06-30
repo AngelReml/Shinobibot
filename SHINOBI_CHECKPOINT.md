@@ -1,7 +1,7 @@
 # SHINOBI — Checkpoint de ejecución del plan arquitectónico
 <!-- Generado por Claude Code. Actualizar tras cada tarea completada. -->
 
-**Última actualización:** 2026-06-30 (E7 EVOLUTIVO completo — carta fundacional Ed25519 + skill-priors + benchmark verificabilidad · 214/214 tests)
+**Última actualización:** 2026-06-30 (G5/F4.1 — Provable-Autonomy v2: paquete Ed25519 + replay con divergencia · 1726/1726 tests)
 **Plan de referencia:** "SHINOBI — ARQUITECTURA DEFINITIVA" (7 estadios E1–E7)
 **Frase de recuperación:** `Continúa el plan arquitectónico de Shinobi desde el SHINOBI_CHECKPOINT.md`
 
@@ -136,13 +136,14 @@
 | Entregable | Estado |
 |---|---|
 | F4.2 Safety Scoreboard: bench_g5_safety.ts | ✅ `scripts/bench_g5_safety.ts` + `npm run bench:g5` — corrida mock k=1 firmada: `bench_results/g5_safety_mock_k1_2026-06-30T07-35-59.md` · sha256: caddf64... |
-| F4.1 Provable-autonomy v2 por tarea | ⬜ pendiente |
+| F4.1 Provable-autonomy v2 por tarea | ✅ `src/agents/provenance_replay.ts` + hook en `runner.ts` + `scripts/bench_f41.ts` — 14 tests verdes; corrida mock: 25/25 paquetes firmados · 25/25 verificados (100%) · replay localiza tamper exactamente en línea N · `npm run bench:f41` |
 | F4.3 Self-correction rate medido | ⬜ pendiente |
 | Demo tamper (ledger: editar línea N → rompe en N) grabada en Yoru | ⬜ pendiente |
 | ≥20 skills útiles forjados y sellados con lacre OpenGravity | ⬜ pendiente |
 | Corrida real k=3 S-POLICY (LLM) | ⬜ `npm run bench:g5` en máquina del operador |
+| Corrida real k=3 F4.1 (LLM) | ⬜ `npm run bench:f41 --k 3` en máquina del operador |
 
-**G5 EN PROGRESO** — F4.2 cerrado en código, corrida real pendiente en máquina del operador.
+**G5 EN PROGRESO** — F4.1 y F4.2 cerrados en código; F4.3 + demo tamper + skills pendientes; corridas reales con LLM pendientes en máquina del operador.
 
 ---
 
