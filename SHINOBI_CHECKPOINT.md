@@ -1,7 +1,7 @@
 # SHINOBI — Checkpoint de ejecución del plan arquitectónico
 <!-- Generado por Claude Code. Actualizar tras cada tarea completada. -->
 
-**Última actualización:** 2026-06-30 (auditoría hardcoded/dead/stubs · 4 fixes aplicados · 1731/1731 tests)
+**Última actualización:** 2026-06-30 (run_team migrado a ALS · spawn_depth coherente en todas las tools · 1731/1731 tests)
 **Plan de referencia:** "SHINOBI — ARQUITECTURA DEFINITIVA" (7 estadios E1–E7)
 **Frase de recuperación:** `Continúa el plan arquitectónico de Shinobi desde el SHINOBI_CHECKPOINT.md`
 
@@ -225,6 +225,8 @@
 | 2 | `src/learning/background_review.ts:47` | `SHINOBI_REVIEW_MODEL` fallback `'anthropic/claude-3-5-haiku-20241022'` (naming antiguo) mientras `skill_curator.ts` usaba `'anthropic/claude-haiku-4-5'` | MEDIA | ✅ Unificado a `'anthropic/claude-haiku-4-5'` en ambos archivos |
 | 3 | `.env.example` | 11 variables leídas en código sin documentar: `SHINOBI_REVIEW_MODEL`, `SHINOBI_REVIEW_ENABLED`, `SHINOBI_CURATOR_*` (4 vars), `SHINOBI_PROGRESS_DETECTION`, `SHINOBI_PROGRESS_JUDGE`, `OPENROUTER_DEFAULT_MODEL`, `OPENROUTER_VISION_MODEL`, `KAGEMUSHA_BULK_MODEL`, `KAGEMUSHA_JUDGE_MODEL` | MEDIA | ✅ Documentadas con defaults y descripción |
 | 4 | `src/web/server.ts:454` + `src/skills/skill_manager.ts:120` | Cast `sm as any` para leer `SkillManagerImpl.approved` privado — deuda técnica anotada como TODO | BAJA | ✅ `ApprovedSkill` exportado; `listApproved()` público añadido; cast eliminado |
+| 5 | `.env.example` (2º gap) | `GROQ_API_KEY` usada en 4 archivos de producción (`registry.ts:70`, `credential_pool.ts:23`, `groq_client.ts:24-25`, `gateway/llm.ts:20`) pero ausente de `.env.example` | BAJA | ✅ Añadida |
+| 6 | `src/tools/run_team.ts` | Tool usaba `process.env.SHINOBI_SPAWN_DEPTH` mutable con `try/finally` — race condition real bajo paralelismo. `run_swarm.ts` ya usaba ALS; asimetría insegura | ALTA | ✅ Migrado a `getSpawnDepth() + runWithSpawnDepth()` (commit `1a278d2`) · 1731/1731 tests |
 
 **Falsos positivos descartados** (confirmados con datos crudos):
 - `MockBackend` en `sandbox/registry.ts` — comentario explícito: "Mock NO se registra por default"; solo re-exportado para tests

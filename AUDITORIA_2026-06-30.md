@@ -86,23 +86,27 @@ Los siguientes módulos solo recibieron grep de patrones, sin lectura de su cuer
 
 ---
 
-## 3. INCONSISTENCIAS CONOCIDAS SIN RESOLVER
+## 3. INCONSISTENCIAS RESUELTAS EN SESIÓN
 
-Datos crudos, sin fix aplicado porque requieren decisión de diseño:
+### spawn_depth: run_team usaba process.env mutable en lugar de ALS
 
-### spawn_depth: asimetría tool-level entre run_swarm y run_team
-
-**Dato crudo** (`run_swarm.ts:78-84`):
+**Hallazgo con dato crudo** (`run_team.ts:58-79` antes del fix):
 ```typescript
-const parentDepth = getSpawnDepth();
-if (parentDepth + 1 >= maxDepth) { return error; }
+// ANTES — método antiguo, race condition bajo paralelismo:
+const parentDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0') || 0;
+process.env.SHINOBI_SPAWN_DEPTH = String(parentDepth + 1);
+try { result = await runTeam({...}); }
+finally { process.env.SHINOBI_SPAWN_DEPTH = prevDepth; }
+```
+
+**Causa raíz**: `run_team.ts` nunca se migró a `AsyncLocalStorage` cuando se creó `spawn_depth.ts`. Seguía usando el mecanismo global que `spawn_depth.ts` documenta explícitamente como el bug a corregir.
+
+**Comparación con run_swarm.ts** (línea 84, ya correcto):
+```typescript
 const result = await runWithSpawnDepth(parentDepth + 1, () => runSwarm({...}));
 ```
-**Dato crudo** (`run_team.ts`): `grep -n "spawn_depth" src/tools/run_team.ts` → sin resultados.
 
-**Consecuencia medible**: un worker lanzado via `run_swarm` desde depth 0 ve depth 2 (tool +1, motor boundedPool +1). Un worker lanzado via `run_team` desde depth 0 ve depth 1 (solo motor boundedPool +1). Con `SHINOBI_MAX_SPAWN_DEPTH=3` (default), `run_swarm` tiene margen de 1 nivel adicional antes de cortar; `run_team` tiene 2.
-
-**No está resuelto.** Puede ser intencional (team tiene worktrees = más aislado = más margen) o un olvido.
+**Fix aplicado** (commit `1a278d2`): reemplaza las 10 líneas de env-mutation por `getSpawnDepth() + runWithSpawnDepth()`. Ambas tools ahora son simétricas: check temprano → wrap ALS → motor. 1731/1731 tests.
 
 ---
 
@@ -131,10 +135,10 @@ Datos directamente medibles, sin interpretación:
 ```
 Tests:      1731 / 1731 passing
 Typecheck:  0 errors (tsc --noEmit)
-Archivos modificados en sesión: 15
-Líneas netas añadidas: +329 / -68
-Commit: fbb7785
-Branch: main (ahead of origin/main by 6 commits)
+Archivos modificados en sesión: 16
+Líneas netas añadidas: ~+350 / -80
+Commit final: 1a278d2  (run_team → ALS)
+Branch: main (ahead of origin/main by 8 commits)
 ```
 
 **Pendientes del plan arquitectónico** (del SHINOBI_CHECKPOINT.md, sin cambio hoy):
