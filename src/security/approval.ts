@@ -42,14 +42,18 @@ function writeConfigRaw(raw: any): void {
 }
 
 export function getApprovalMode(): ApprovalMode {
-  // PASO 3 — gate SELECTIVO. El no-op global (FIX-002) se reconvierte en un
-  // freno que solo pausa en la clase crítica (credenciales, secreto→.env, ToS,
-  // creación de cuenta, gasto). Precedencia: env > /approval (cachedMode) >
-  // default. Default 'critical' = freno selectivo activo. 'off' sigue disponible
-  // para desactivarlo explícitamente.
+  // Precedencia: env > cachedMode (cambio en sesión via setApprovalMode) >
+  // config.json persistido > default 'critical'.
   const env = (process.env.SHINOBI_APPROVAL_MODE || '').toLowerCase();
   if (env === 'off' || env === 'critical' || env === 'smart' || env === 'on') return env as ApprovalMode;
   if (cachedMode) return cachedMode;
+  // Leer config.json en el primer acceso tras arranque (resultado cacheado en cachedMode).
+  const raw = readConfigRaw();
+  const persisted = (raw?.approval_mode || '').toLowerCase();
+  if (persisted === 'off' || persisted === 'critical' || persisted === 'smart' || persisted === 'on') {
+    cachedMode = persisted as ApprovalMode;
+    return cachedMode;
+  }
   return 'critical';
 }
 
@@ -63,11 +67,10 @@ export function setApprovalMode(mode: ApprovalMode): void {
 }
 
 /**
- * Ensure the on-disk config has an approval_mode field. Called on startup.
- * If absent, sets default 'smart' and persists it.
+ * Lee el modo efectivo al arranque. Llama a getApprovalMode() que ya lee
+ * config.json si no hay override de env ni cachedMode.
  */
 export function ensureApprovalModeInitialized(): { mode: ApprovalMode; created: boolean } {
-  // PASO 3 — reporta el modo efectivo (gate selectivo activo por defecto).
   return { mode: getApprovalMode(), created: false };
 }
 
@@ -227,12 +230,16 @@ export function classifyCritical(toolName: string, args: any): DestructiveVerdic
 
 /**
  * ¿Esta llamada requiere confirmación bajo el modo activo?
- *   - off                  → nunca (no-op legacy).
- *   - critical/smart/on    → solo la clase crítica (classifyCritical).
- * El nombre se conserva por compatibilidad con los call sites (orchestrator).
+ *   - off              → nunca.
+ *   - critical / smart → solo la clase crítica (classifyCritical).
+ *   - on               → toda tool en DESTRUCTIVE_TOOLS + la clase crítica.
  */
 export function isDestructive(toolName: string, args: any): DestructiveVerdict {
-  if (getApprovalMode() === 'off') return { destructive: false };
+  const mode = getApprovalMode();
+  if (mode === 'off') return { destructive: false };
+  if (mode === 'on' && DESTRUCTIVE_TOOLS.has(toolName)) {
+    return { destructive: true, reason: `modo 'on': toda herramienta de escritura/ejecución requiere confirmación` };
+  }
   return classifyCritical(toolName, args);
 }
 

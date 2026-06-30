@@ -6,8 +6,8 @@
  *
  * Aggregates the pre-action checks (11.1 + 11.2) into a verdict and applies
  * policy. Hooks into the agent loop are ADDITIVE and gated by SHINOBI_INTEGRITY:
- *   off     (default) → layer is a no-op; production behaviour unchanged.
- *   flag             → run checks, record violations, but never block.
+ *   flag    (default) → run checks, record violations, but never block.
+ *   off              → layer is a no-op; production behaviour unchanged.
  *   enforce          → block (halt) the action on any violation.
  * Policy also blocks on high-risk context regardless of mode (dossier 11.x).
  *
