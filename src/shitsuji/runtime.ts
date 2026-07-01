@@ -4,6 +4,15 @@
  * that the deterministic runPlan() (execute.ts) drives. It is the seam where the
  * butler stops reasoning and touches the world — so it wears the full armor:
  *
+ *   0. CAPA 3 (F3.3, NUEVA) — CERTIFIED POR CHECKSUM, NO SOLO POR NOMBRE. Antes
+ *      de tocar la jaula, si el caller inyectó un `certified` registry
+ *      (certified_registry.ts), el step se re-verifica: el hash del artefacto
+ *      que se va a ejecutar debe coincidir con el hash que Shugyō certificó bajo
+ *      ese skill_id. `feasibility.ts` solo comprueba que el NOMBRE está en el
+ *      repertorio (`Set<string>.has(skill_id)`) — eso no protege contra que el
+ *      artefacto detrás de ese nombre haya cambiado. Esta capa es ADICIONAL a la
+ *      1/2/3 de abajo, no las reemplaza; si no se inyecta `certified`, es un
+ *      no-op retro-compatible.
  *   1. COPIAS/SNAPSHOTS — every step runs inside a revertible cage (reuse Shugyō's
  *      DirCageSandbox). The user's real inputs are COPIED in; the original is never
  *      the thing operated on. A snapshot is taken before each step so revert()
@@ -30,6 +39,7 @@ import { classifyEffect, effectWithin, effectRank, type Effect } from '../integr
 import { check11_4 } from '../integrity/checks.js';
 import type { PlanStep, StepResult } from './types.js';
 import type { ExecuteDeps } from './execute.js';
+import { verifyCertifiedChecksum, type CertifiedCheckDeps } from './certified_registry.js';
 
 /** The live skill invocation (⚑). Runs a CERTIFIED skill over the data placed in
  *  `workDir`; returns the REAL outcome. `claims_success` is what the skill/agent
@@ -55,6 +65,13 @@ export interface RealExecDeps {
   uncommit?: (step: PlanStep, workDir: string) => void | Promise<void>;     // ⚑ live: undo a committed reversible result
   declaredEffect?: (step: PlanStep) => Effect;                       // effect ceiling per step (default: from reversibility)
   cage?: DirCageSandbox;                                             // injectable (tests); else a fresh one is created
+  /** F3.3 — CAPA 3 opcional: re-verificación criptográfica de "certified".
+   *  Si se inyecta, cada step con skill_id se comprueba contra este registry
+   *  ANTES de tocar la jaula. Un skill_id ausente del registry, o presente
+   *  pero con hash que no coincide, hace FALLAR el step de inmediato — el
+   *  código nunca se ejecuta. Sin esto (default), el comportamiento es
+   *  idéntico al anterior a F3.3 (retro-compatible). */
+  certified?: CertifiedCheckDeps;
   approved: Set<string> | string[];
   ts: string;
 }
@@ -87,6 +104,25 @@ export function makeRealExecutor(deps: RealExecDeps): RealExecutor {
   const upstream: Record<string, string> = {};  // step_id → produced artifact (transfer)
 
   const runStep = async (step: PlanStep): Promise<StepResult> => {
+    // (0) CAPA 3 (F3.3) — re-verificación criptográfica de "certified", ANTES
+    // de tocar la jaula. feasibility.ts ya comprobó el NOMBRE; esto comprueba
+    // que el ARTEFACTO a ejecutar es el que realmente se certificó. Solo
+    // aplica si el caller inyectó un registry (opt-in, retro-compatible).
+    if (deps.certified && step.skill_id) {
+      const verdict = verifyCertifiedChecksum(step, deps.certified);
+      if (!verdict.ok) {
+        const detail = verdict.reason === 'not_in_registry'
+          ? `"${step.skill_id}" no está en el registro de checksums certificados`
+          : verdict.reason === 'no_artifact'
+            ? `no se pudo calcular el checksum del artefacto a ejecutar para "${step.skill_id}"`
+            : `el artefacto a ejecutar para "${step.skill_id}" NO coincide con el checksum certificado (esperado ${verdict.expectedHash?.slice(0, 12)}…, actual ${verdict.actualHash?.slice(0, 12)}…)`;
+        return {
+          step_id: step.step_id, status: 'failed',
+          real_effect: `⚑ Capa 3 CERTIFIED_CHECKSUM_MISMATCH: ${detail}. El nombre puede figurar como certified, pero no se ejecuta código sin verificación criptográfica del artefacto.`,
+        };
+      }
+    }
+
     // (2) ⚑ external effects are documented, NEVER fired — even if approved.
     if (step.reversibility === 'external_effect') {
       return {

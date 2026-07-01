@@ -4,12 +4,22 @@
  * observing, is reverted. Exploration isn't "careful" — it's "break whatever in
  * here, I'll blow the cage and start over". That's what makes exploring safe.
  *
- * Design: the REVERT mechanism is a working-directory snapshot (copy + restore) —
- * the lightest option in §7.2, the one whose gate we can meet by execution. The
- * EXECUTION of an action is delegated to the existing sandbox RunBackend (reuse,
- * not a new isolation), so isolation strength is pluggable (local file-cage now,
- * docker/e2b later). The executionPolicy gate (external_effect never fires) is
- * enforced here. Contract: after ANY action, revert() leaves the world as it was.
+ * Design: the REVERT mechanism is a working-directory snapshot (fs.cpSync copy +
+ * wipe/restore, content-addressed by a SHA-256 hash of the tracked files in
+ * `state()`) — the lightest option in §7.2, the one whose gate we can meet by
+ * execution. The EXECUTION of an action is delegated to the existing sandbox
+ * RunBackend (reuse, not a new isolation) — `defaultExecutor` below calls
+ * `sandboxRegistry().get('local')`, i.e. plain `child_process.exec` with NO OS-level
+ * confinement (no container, no VM, no namespace). So TODAY: isolation = directory
+ * snapshot/restore only; the command itself runs with full host privileges while
+ * it's executing — the cage only guarantees the FILESYSTEM STATE is restored
+ * afterward, not that the command was contained while it ran. `isolation strength
+ * is pluggable` refers to swapping which RunBackend is injected here (e.g. the
+ * hardened docker.ts backend from F2.2) — that swap is NOT wired up by default
+ * today. The executionPolicy gate (external_effect never fires) is enforced here.
+ * Contract: after ANY action, revert() leaves the world as it was — that contract
+ * is about filesystem state, not about the command's OS-level blast radius while
+ * it was running.
  */
 
 import * as fs from 'node:fs';

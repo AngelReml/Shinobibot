@@ -259,7 +259,10 @@ export function formatSearchResults(results: SearchResult[], query: string): str
   const lines = [`[RepoMap] Top ${results.length} archivos para "${query}":\n`];
   for (const r of results) {
     const syms = r.matchedSymbols.length > 0 ? `  símbolos: ${r.matchedSymbols.join(', ')}` : '';
-    lines.push(`${r.relPath}  (score=${r.score})${syms}`);
+    // relPath viene de path.relative() — usa `\` en Windows. Se normaliza a
+    // `/` porque este texto es para el LLM (mismo estilo en todo el repo, y
+    // evita que un backslash se lea como escape).
+    lines.push(`${r.relPath.replace(/\\/g, '/')}  (score=${r.score})${syms}`);
     if (r.snippet) lines.push(`  ···\n${r.snippet.split('\n').map(l => '  ' + l).join('\n')}\n  ···`);
   }
   return lines.join('\n');

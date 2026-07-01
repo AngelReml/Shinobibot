@@ -26,6 +26,8 @@
  * puede consumir.
  */
 
+import { userIterationBudget } from '../multiuser/multiuser_wiring.js';
+
 export interface BudgetSnapshot {
   total: number;
   used: number;
@@ -109,6 +111,28 @@ export class IterationBudget {
       refunded: this.refunded,
     };
   }
+}
+
+/**
+ * F2.6 (auditoría 2026-07-01): `userIterationBudget(userId)` (multiuser)
+ * existía — setter + persistencia vía slash command — pero no tenía NINGÚN
+ * caller: el orchestrator siempre construía `IterationBudget` con el
+ * default por env/hardcoded, así que un límite por usuario configurado
+ * (p.ej. modo familia, `maxIterationsPerSession`) nunca se aplicaba de
+ * verdad — un control de recursos que aparentaba existir.
+ *
+ * Precedencia: límite por usuario si está configurado (> 0) → si no,
+ * `SHINOBI_MAX_ITERATIONS` (env) → si tampoco, el default `10`. Sin userId,
+ * o con userId sin restricción configurada (`userIterationBudget` devuelve
+ * 0 = sin límite explícito), el comportamiento es IDÉNTICO al de antes.
+ *
+ * Pura y exportada por separado (no inline en orchestrator.ts) para que sea
+ * testeable sin levantar el loop LLM completo.
+ */
+export function effectiveMaxIterations(userId?: string, envMax = process.env.SHINOBI_MAX_ITERATIONS): number {
+  const perUser = userId ? userIterationBudget(userId) : 0;
+  if (perUser > 0) return perUser;
+  return Number(envMax) || 10;
 }
 
 /**

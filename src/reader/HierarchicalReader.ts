@@ -2,7 +2,14 @@
 // depth=1 → behavior de Habilidad A (plano, 1 supervisor + N sub-agentes hoja).
 // depth=2 → 1 supervisor + M sub-supervisores temáticos, cada sub-sup parte
 //           SU subrama y despliega K hojas.
-// depth=3 → reservado, mismo patrón recursivo. No se construye en este gate.
+// depth=3 → NO IMPLEMENTADO. El tipo `Depth` lo admite porque estaba reservado
+//           para un patrón recursivo (sub-sub-supervisores), pero el runtime
+//           SOLO distingue depth===1 vs "no 1" (ver executeWithSubSupervisors):
+//           depth=3 caía en la misma rama que depth=2 y se degradaba en
+//           silencio a depth=2 — SIN avisar al caller. F4.3 (2026-07-01):
+//           depth=3 ahora lanza UnsupportedDepthError explícito en el
+//           constructor. Nunca degradación silenciosa: o se implementa de
+//           verdad, o falla ruidoso.
 //
 // Cada nodo del árbol logguea inicio/fin/coste/output → telemetría visualizable.
 // IMPORTANTE: NO modifica RepoReader (gate A.4 ya verde). Construido al lado.
@@ -25,6 +32,16 @@ import {
 } from './schemas.js';
 
 export type Depth = 1 | 2 | 3;
+
+/** F4.3 — thrown by the HierarchicalReader constructor when depth=3 is requested.
+ *  depth=3 is declared in the Depth type (reserved) but has no runtime
+ *  implementation; without this guard it silently ran the depth=2 code path. */
+export class UnsupportedDepthError extends Error {
+  constructor(depth: number) {
+    super(`HierarchicalReader: depth=${depth} no está implementado (reservado en el tipo, sin código detrás). Usa depth 1 o 2.`);
+    this.name = 'UnsupportedDepthError';
+  }
+}
 
 export interface TelemetryNode {
   id: string;                   // unique within tree, dot-separated path "0.2.1"
@@ -156,6 +173,9 @@ export class HierarchicalReader {
   constructor(opts: HierarchicalOptions) {
     this.llm = opts.llm;
     this.depth = opts.depth ?? 1;
+    // F4.3 — depth=3 is type-reserved but not implemented at runtime; reject
+    // loudly instead of silently running the depth=2 code path.
+    if ((this.depth as number) === 3) throw new UnsupportedDepthError(3);
     this.budget = opts.budget ?? DEFAULT_BUDGET;
     this.subagentModel = opts.subagentModel ?? 'z-ai/glm-4.7-flash';
     this.synthModel = opts.synthModel ?? 'claude-sonnet-4-6';

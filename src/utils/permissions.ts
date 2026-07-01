@@ -28,6 +28,31 @@ function isInsideDir(parent: string, child: string): boolean {
   return rel === '' || (!rel.startsWith('..' + path.sep) && rel !== '..' && !path.isAbsolute(rel));
 }
 
+const WINDOWS_DRIVE_ABS = /^[a-zA-Z]:[\\/]/;
+const WINDOWS_UNC_ABS = /^\\\\/;
+
+/**
+ * Descubierto en verificación final (2026-07-01), no forma parte del plan
+ * original — el mismo tipo de bug de path traversal que ALTA-04 ya
+ * corregía para symlinks, pero en el eje "convención de SO", no "symlink".
+ *
+ * `path.resolve`/`path.isAbsolute` usan la convención del SO donde corre
+ * el proceso. Un string absoluto en la OTRA convención (p.ej.
+ * `C:\Windows\System32` pasado a un proceso Node corriendo en Linux, o
+ * `/etc/shadow` pasado a un proceso corriendo en Windows) NO se reconoce
+ * como absoluto — `path.resolve` lo trata como un segmento relativo y lo
+ * cuelga bajo el cwd, colándose tanto el check de "dentro del workspace"
+ * como el de `ABSOLUTE_PROHIBITED_PATHS`. Shinobi es Windows-native, pero
+ * también soporta Remote Mode (VPS+Docker sobre SSH) y sandbox backends
+ * Linux — un tool call con un path Windows-style ejecutándose sobre un
+ * backend Linux (o viceversa) debe rechazarse, no resolverse a ciegas.
+ */
+function looksLikeForeignAbsolutePath(p: string): boolean {
+  if (path.sep === '/') return WINDOWS_DRIVE_ABS.test(p) || WINDOWS_UNC_ABS.test(p);
+  if (path.sep === '\\') return p.startsWith('/') && !WINDOWS_DRIVE_ABS.test(p);
+  return false;
+}
+
 /**
  * ALTA-04: resuelve symlinks de `p` antes de comparar contra el workspace o
  * las rutas prohibidas. `path.resolve` es léxico — un symlink CREADO DENTRO
@@ -126,11 +151,19 @@ export function validatePath(requestedPath: string, mode: 'read' | 'write' = 're
 
   // Directory traversal check — usa path.relative para que un directorio
   // hermano con prefijo común NO pase el filtro (bug C5 de la auditoría).
-  if (!manuallyApproved && !isInsideDir(realRoot, realPath)) {
+  // Incluye el check de convención de SO extranjera (ver
+  // looksLikeForeignAbsolutePath): un path absoluto en la OTRA convención
+  // nunca puede estar legítimamente "dentro" del workspace, así que se
+  // trata igual que "fuera del workspace" — bypasseable por aprobación
+  // manual explícita igual que el resto de este bloque, pero NUNCA por
+  // resolución silenciosa.
+  if (!manuallyApproved && (looksLikeForeignAbsolutePath(requestedPath) || !isInsideDir(realRoot, realPath))) {
     return {
       allowed: false,
-      reason: `Access denied: Path ${resolvedPath} is outside the workspace root (${root}). ` +
-        `Si el usuario aprueba la operación explícitamente en el chat, el path se desbloqueará para ella.`
+      reason: looksLikeForeignAbsolutePath(requestedPath)
+        ? `Access denied: ${requestedPath} looks like an absolute path from a different OS path convention — refusing rather than silently resolving it as relative to the workspace.`
+        : `Access denied: Path ${resolvedPath} is outside the workspace root (${root}). ` +
+          `Si el usuario aprueba la operación explícitamente en el chat, el path se desbloqueará para ella.`
     };
   }
 

@@ -2,20 +2,21 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    // Incluimos solo los specs que están escritos en estilo vitest
-    // (describe/it/expect). El repo tiene 18 archivos .test.ts pre-existentes
-    // con patrón `main().catch(...)` (scripts E2E ad-hoc) que NO son specs
-    // vitest — vitest los rechaza con "No test suite found". Se irán
-    // portando uno a uno; este include conservador evita romper CI mientras.
     include: [
       'src/audit/__tests__/audit_log.test.ts',
       'src/audit/__tests__/trust_ledger.test.ts',
       'src/audit/__tests__/audit_chain.test.ts',
+      'src/audit/__tests__/audit_truncation_detected.test.ts',
+      'src/audit/__tests__/audit_write_failure_loud.test.ts',
+      'src/audit/__tests__/audit_multiuser_isolation.test.ts',
       'src/backup/__tests__/**/*.test.ts',
       'src/db/__tests__/**/*.test.ts',
       'src/security/__tests__/**/*.test.ts',
       'src/channels/__tests__/**/*.test.ts',
+      'src/channels/adapters/__tests__/**/*.test.ts',
       'src/committee/__tests__/committee_evolutive.test.ts',
+      'src/committee/__tests__/apply_proposal.test.ts',
+      'src/committee/__tests__/code_reviewer_redacts.test.ts',
       'src/context/__tests__/**/*.test.ts',
       'src/coordinator/__tests__/**/*.test.ts',
       'src/memory/__tests__/memory_citations.test.ts',
@@ -36,6 +37,8 @@ export default defineConfig({
       'src/reader/__tests__/deep_descent.test.ts',
       'src/reader/__tests__/multi_repo.test.ts',
       'src/reader/__tests__/repo_map.test.ts',
+      'src/reader/__tests__/reader_depth.test.ts',
+      'src/reader/__tests__/reader_model_attribution.test.ts',
       'src/runtime/__tests__/mission_scheduler.test.ts',
       'src/runtime/__tests__/remote_mode.test.ts',
       'src/runtime/__tests__/resource_governor.test.ts',
@@ -49,6 +52,7 @@ export default defineConfig({
       'src/gaia/__tests__/**/*.test.ts',
       'src/sandbox/__tests__/**/*.test.ts',
       'src/sandbox/browser_sandbox/__tests__/**/*.test.ts',
+      'src/sandbox/backends/__tests__/**/*.test.ts',
       'src/skills/__tests__/**/*.test.ts',
       'src/skills/auditor/__tests__/**/*.test.ts',
       'src/sentinel/__tests__/**/*.test.ts',
@@ -65,6 +69,10 @@ export default defineConfig({
       'src/tools/__tests__/run_team.test.ts',
       'src/tools/__tests__/tool_registry_source.test.ts',
       'src/tools/__tests__/file_tools_security.test.ts',
+      'src/tools/__tests__/audio_prohibited_uses_canonical.test.ts',
+      'src/tools/__tests__/tools_registry_integrity.test.ts',
+      'src/tools/__tests__/browser_cdp_dedicated_profile.test.ts',
+      'src/tools/__tests__/env_list_value_based.test.ts',
       'src/tui/__tests__/**/*.test.tsx',
       'src/web/__tests__/pwa.test.ts',
       'src/web/__tests__/admin_auth.test.ts',
@@ -77,6 +85,7 @@ export default defineConfig({
       'src/agents/__tests__/**/*.test.ts',
       'src/integrity/__tests__/**/*.test.ts',
       'src/kagemusha/__tests__/**/*.test.ts',
+      'src/kagemusha/ingest/__tests__/**/*.test.ts',
       'src/kagami/__tests__/**/*.test.ts',
       'src/chizu/__tests__/**/*.test.ts',
       'src/shugyo/__tests__/**/*.test.ts',
@@ -87,6 +96,11 @@ export default defineConfig({
       'src/egress/__tests__/**/*.test.ts',
       'src/utils/__tests__/**/*.test.ts',
       'src/__tests__/stress/**/*.test.ts',
+      'src/__tests__/estado_generator.test.ts',
+      'src/__tests__/no_residual_branding.test.ts',
+      'src/__tests__/no_stealth_in_public_tree.test.ts',
+      'src/memory/__tests__/embedding_math.test.ts',
+      'src/constants/__tests__/system_prompt_tools_sync.test.ts',
     ],
     exclude: ['node_modules', 'dist', 'scratch', 'test_*.ts'],
     pool: 'forks',

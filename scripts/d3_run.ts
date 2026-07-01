@@ -3,6 +3,7 @@
 // Output: docs/D3_VALIDATION.md con el resumen + commits a audits/.
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
 import { runAudit } from '../src/audit/runAudit.js';
@@ -11,7 +12,7 @@ const TARGET_URL = 'https://github.com/sindresorhus/execa';
 
 async function main() {
   // Resolve a fixed SHA from the local clone we already have so the 3 runs are deterministic.
-  const localExeca = 'C:\\Users\\angel\\Desktop\\test_repos\\execa';
+  const localExeca = path.join(os.homedir(), 'Desktop', 'test_repos', 'execa');
   let pinnedSha: string | undefined;
   if (fs.existsSync(localExeca)) {
     const r = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: localExeca, encoding: 'utf-8' });

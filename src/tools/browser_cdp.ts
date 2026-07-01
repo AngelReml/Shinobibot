@@ -102,7 +102,7 @@ async function waitForPort(port: number, totalMs: number, intervalMs: number): P
  * y abiertos. Es la clave para no tener que pedirle nunca al usuario que
  * cierre los suyos. El perfil persiste (logins propios de Shinobi).
  */
-function shinobiBrowserProfileDir(): string {
+export function shinobiBrowserProfileDir(): string {
   const base = process.env.LOCALAPPDATA || process.env.APPDATA || process.cwd();
   return join(base, 'Shinobi', 'browser-profile');
 }

@@ -18,6 +18,7 @@ import { existsSync, statSync, readFileSync } from 'fs';
 import { extname, resolve, basename } from 'path';
 import axios from 'axios';
 import { isWhisperCppAvailable, transcribeWithWhisperCpp } from '../stt/whisper_cpp_provider.js';
+import { ABSOLUTE_PROHIBITED_PATHS } from '../utils/permissions.js';
 
 const SUPPORTED_EXTENSIONS = new Set([
   '.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.wav', '.webm', '.ogg', '.flac',
@@ -39,18 +40,37 @@ const tool: Tool = {
 
   async execute(args: { path: string; language?: string; prompt?: string }): Promise<ToolResult> {
     const filePath = resolve(args.path);
-    // FIX 1.8 — Bloquear rutas de sistema sensibles. No usamos ABSOLUTE_PROHIBITED_PATHS
-    // directamente porque incluye '/root' como bloqueo genérico, y la workspace puede
-    // residir en /root/… Aquí bloqueamos solo subdirectorios críticos específicos.
-    const AUDIO_PROHIBITED = [
-      '/etc/passwd', '/etc/shadow', '/etc/sudoers', '/var/log',
-      '/root/.ssh', '/root/.gnupg', '/root/.config',
-      'C:\\Windows\\System32', 'C:\\Windows\\System', 'C:\\Windows\\SysWOW64',
-    ];
+    // F2.9 (auditoria 2026-07, antes FIX 1.8) - bloquea rutas de sistema
+    // sensibles usando la MISMA lista canonica que el resto del repo
+    // (ABSOLUTE_PROHIBITED_PATHS, src/utils/permissions.ts - la que ya usa
+    // validatePath/read_file/write_file/run_command). Antes habia
+    // aqui una lista AUDIO_PROHIBITED duplicada a mano que divergia de la
+    // canonica (omitia '/root' generico y en su lugar listaba solo
+    // '/root/.ssh'/'.gnupg'/'.config') - dos fuentes de verdad que podian
+    // desincronizarse silenciosamente si una se actualizaba y la otra no.
+    // Ahora hay una unica fuente: se compone [...ABSOLUTE_PROHIBITED_PATHS,
+    // ...extra] si en el futuro hace falta una ruta extra especifica de
+    // audio; hoy no hace falta ninguna. NOTA: ABSOLUTE_PROHIBITED_PATHS
+    // incluye '/root' generico (mas amplio que antes) - es la misma
+    // restriccion que ya aplica a read_file/write_file/run_command en todo
+    // el repo, asi que audio_transcribe deja de ser una excepcion con
+    // cobertura mas debil que el resto de tools.
     const lf = filePath.toLowerCase();
-    const isProhibited = AUDIO_PROHIBITED.some(p => {
+    // Un path POSIX-style ('/etc/passwd') pasado a un proceso Windows NO lo
+    // reconoce `path.resolve` como absoluto — lo cuelga del cwd, colando el
+    // check anterior (que compara contra el path YA resuelto). Se compara
+    // TAMBIÉN el string crudo contra las entradas POSIX de la lista, sin
+    // pasar por resolve(), para que la convención del SO del proceso no
+    // determine si la ruta es prohibida. No se extiende a rutas foráneas que
+    // NO están en la lista (p.ej. '/tmp/foo.mp3') — esas deben seguir
+    // resolviéndose como siempre y fallar más abajo con "no encontrado" si no
+    // existen, para no bloquear de más.
+    const rawLower = args.path.toLowerCase().replace(/\\/g, '/');
+    const isProhibited = ABSOLUTE_PROHIBITED_PATHS.some(p => {
       const lp = p.toLowerCase();
-      return lf === lp || lf.startsWith(lp + '/') || lf.startsWith(lp + '\\');
+      if (lf === lp || lf.startsWith(lp + '/') || lf.startsWith(lp + '\\')) return true;
+      if (lp.startsWith('/') && (rawLower === lp || rawLower.startsWith(lp + '/'))) return true;
+      return false;
     });
     if (isProhibited) {
       return { success: false, output: '', error: 'path traversal denied: ruta de sistema prohibida.' };
@@ -66,8 +86,6 @@ const tool: Tool = {
     const backend = (process.env.SHINOBI_STT_BACKEND || 'auto').toLowerCase();
     const key = process.env.OPENAI_API_KEY;
 
-    // ── Backend 1: whisper.cpp local ──
-    // Se intenta primero salvo que el operador fuerce 'api'.
     if (backend !== 'api') {
       const local = await isWhisperCppAvailable();
       if (local.available) {
@@ -75,16 +93,14 @@ const tool: Tool = {
         if (r.ok && r.text) {
           return { success: true, output: r.text };
         }
-        // whisper.cpp falló: si el operador forzó 'local', error; si no, cae a API.
         if (backend === 'local') {
-          return { success: false, output: '', error: `whisper.cpp local falló: ${r.error ?? 'sin texto'}` };
+          return { success: false, output: '', error: `whisper.cpp local fallo: ${r.error ?? 'sin texto'}` };
         }
       } else if (backend === 'local') {
         return { success: false, output: '', error: `whisper.cpp local no disponible: ${local.error}. Configura SHINOBI_WHISPERCPP_BIN + SHINOBI_WHISPERCPP_MODEL.` };
       }
     }
 
-    // ── Backend 2: OpenAI Whisper API (fallback) ──
     if (!key) {
       return {
         success: false, output: '',
@@ -97,7 +113,6 @@ const tool: Tool = {
     }
 
     try {
-      // FormData global (Node 18+) acepta Blob para archivos.
       const buffer = readFileSync(filePath);
       const blob = new Blob([new Uint8Array(buffer)]);
       const form = new FormData();
@@ -116,7 +131,7 @@ const tool: Tool = {
       );
       const text = (resp.data?.text ?? '').toString();
       if (!text) {
-        return { success: false, output: '', error: 'Whisper API devolvió respuesta vacía.' };
+        return { success: false, output: '', error: 'Whisper API devolvio respuesta vacia.' };
       }
       return { success: true, output: text };
     } catch (e: any) {

@@ -10,12 +10,23 @@
  * Diseño:
  *   - Una línea JSON por evento, append-only. Fácil de grep/jq.
  *   - Path configurable via `SHINOBI_AUDIT_LOG_PATH` (default
- *     `<cwd>/audit.jsonl`).
- *   - Si el path no es escribible (read-only fs, etc.), el módulo no
- *     lanza — se desactiva silencioso. El audit no debe bloquear el flujo.
+ *     `<cwd>/audit.jsonl`). En modo multi-usuario (SHINOBI_TRUST_USER_HEADER=1)
+ *     y sin override explícito, cada userId escribe en su propio
+ *     `audit/<userId>.jsonl` (F2.3, MEDIA-10) — ver `resolveLogPath()`.
+ *   - Si el path no es escribible (read-only fs, etc.), la escritura falla
+ *     y se reporta RUIDOSAMENTE por stderr (F2.3 — antes se tragaba en
+ *     silencio); el caller sigue recibiendo `false` y el flujo del agente
+ *     NO se bloquea (el audit es best-effort por diseño), pero el operador
+ *     ya no puede perderse la señal.
  *   - Args se hashean (SHA256) y se incluye un preview de 200 chars del
  *     JSON.stringify para no filtrar contenido sensible en bulk pero
  *     poder reconstruir manualmente.
+ *   - Anti-truncado (F2.3): cada escritura ancla periódicamente el último
+ *     chainHash en `<path>.anchor` (audit_anchor.ts), un fichero append-only
+ *     aparte del log y de su chainhead. `verifyAuditIntegrityOnStartup()`
+ *     compara el log actual contra el histórico de anclas al arrancar y
+ *     alerta (sin bloquear el arranque) si detecta líneas desaparecidas del
+ *     final (truncado) o historia reescrita antes del punto anclado.
  *
  * Diferenciador vs Hermes (Skills Guard audit log solo para skills) y
  * OpenClaw (logs dispersos en sandbox-info): Shinobi audita TODAS las
@@ -23,10 +34,11 @@
  */
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { dirname, resolve } from 'path';
+import { dirname, resolve, join } from 'path';
 import { createHash } from 'crypto';
 import { redactSecrets } from '../security/secret_redactor.js';
-import { buildChain, GENESIS } from './audit_chain.js';
+import { buildChain, toLines, GENESIS } from './audit_chain.js';
+import { maybeAnchor, checkAnchorIntegrity, type AnchorIntegrityResult } from './audit_anchor.js';
 
 export type AuditEventKind = 'tool_call' | 'loop_abort' | 'failover' | 'approval_decision';
 
@@ -89,24 +101,54 @@ function defaultPath(): string {
   return resolve(process.cwd(), 'audit.jsonl');
 }
 
-// MEDIA-10: `audit.jsonl` es un único fichero compartido por toda la
-// instancia (no uno por usuario) — un guest con acceso de lectura al
-// fichero ve `argsPreview`/`sessionId`/`userId` de TODOS los usuarios.
-// Aislar logs por usuario es un cambio de arquitectura que queda fuera de
-// alcance de este fix puntual. Mitigación parcial ya aplicada: cada evento
-// ahora puede llevar `userId` (ver ALTA-10) para que, SI en el futuro
-// aparece un endpoint de lectura scoped por usuario, pueda filtrar por ese
-// campo. Hoy (grep de `loadTrustReport`/`resolveLogPath` en el repo) no
-// existe ningún endpoint que sirva el contenido de audit.jsonl a un usuario
-// concreto (ni en `src/web`, ni en `src/gateway`, ni en las tools de
-// `src/tools`) — `trust_report` y `tool_search` agregan sobre TODO el log
-// sin exponer eventos individuales, así que no hay nada que filtrar hoy.
-// Riesgo residual: si se añade tal endpoint, DEBE filtrar por `userId` antes
-// de servir líneas a un usuario no-owner.
-function resolveLogPath(): string {
-  return process.env.SHINOBI_AUDIT_LOG_PATH
-    ? resolve(process.env.SHINOBI_AUDIT_LOG_PATH)
-    : defaultPath();
+// MEDIA-10 (auditoría 2026-07, RESUELTO): antes, `audit.jsonl` era un único
+// fichero compartido por toda la instancia (no uno por usuario) — un guest
+// con acceso de lectura al fichero veía `argsPreview`/`sessionId`/`userId`
+// de TODOS los usuarios. Ahora, en modo multi-usuario (mismo flag que
+// habilita `resolveUser()` a asignar userIds no-owner —
+// `SHINOBI_TRUST_USER_HEADER=1`, ver src/memory/memory_store.ts
+// `getMemoryStore(userId)`, que sigue el mismo patrón de aislamiento),
+// cada userId escribe en su propio `audit/<userId>.jsonl`, independiente del
+// de los demás. Sin userId (single-user, o multiusuario mal configurado sin
+// pasar userId al caller) cae al log compartido de siempre — back-compat.
+//
+// `resolveLogPath(userId?)`:
+//   - Sin SHINOBI_AUDIT_LOG_PATH y sin userId (o sin modo multiusuario):
+//     `<cwd>/audit.jsonl` (comportamiento previo, sin cambios).
+//   - Con SHINOBI_AUDIT_LOG_PATH: se respeta tal cual (override explícito del
+//     operador) — el aislamiento por usuario NO se aplica sobre un path
+//     forzado a mano; el operador asumió esa responsabilidad al fijarlo.
+//   - Con userId Y modo multiusuario activo: `<dir del default>/audit/<userId>.jsonl`.
+function auditBaseDir(): string {
+  return dirname(defaultPath());
+}
+
+/** True si Shinobi corre en modo multi-usuario (mismo flag que memory_store). */
+function multiUserModeActive(): boolean {
+  return process.env.SHINOBI_TRUST_USER_HEADER === '1';
+}
+
+/**
+ * Sanea un userId para que sea seguro como nombre de fichero (anti
+ * path-traversal). Primero colapsa cualquier secuencia de ".." a un único
+ * "_" (evita que un userId como "../../etc/passwd" produzca un nombre de
+ * fichero que aún contenga el literal ".." tras sanear separadores — aunque
+ * `join()` ya no lo interpretaría como traversal real porque los "/" se
+ * sanean por separado, esto cierra el caso incluso a nivel de string
+ * resultante, no solo de resolución de path). Luego reemplaza cualquier
+ * carácter que no sea alfanumérico/_/-  por "_".
+ */
+function sanitizeUserId(userId: string): string {
+  const noTraversal = userId.replace(/\.\.+/g, '_');
+  return noTraversal.replace(/[^a-zA-Z0-9_\-]/g, '_').slice(0, 128) || 'unknown';
+}
+
+function resolveLogPath(userId?: string): string {
+  if (process.env.SHINOBI_AUDIT_LOG_PATH) return resolve(process.env.SHINOBI_AUDIT_LOG_PATH);
+  if (userId && multiUserModeActive()) {
+    return join(auditBaseDir(), 'audit', `${sanitizeUserId(userId)}.jsonl`);
+  }
+  return defaultPath();
 }
 
 /** Path del head persistido de la cadena de hashes para un log dado
@@ -204,9 +246,16 @@ function previewArgs(args: unknown): string {
 
 /**
  * Escribe una entrada en el log. Si falla (path no writable, disco lleno),
- * no lanza — el audit es best-effort por diseño para no bloquear el agente.
+ * no lanza — el audit es best-effort por diseño para no bloquear el agente
+ * (un fallo de audit no debe tumbar una tool call real). PERO (F2.3,
+ * auditoría 2026-07): el fallo YA NO se traga en silencio. Un evento de
+ * audit que no se pudo escribir es un evento de SEGURIDAD — antes cualquier
+ * caller que ignorase el `boolean` de retorno (la mayoría, ver grep de
+ * `writeAuditEvent(`/`logToolCall(` en el repo — casi ninguno mira el
+ * resultado) perdía la señal por completo. Ahora se loguea SIEMPRE a stderr
+ * con contexto (path, tipo de evento, causa) antes de devolver false.
  */
-export function writeAuditEvent(event: AuditEvent): boolean {
+export function writeAuditEvent(event: AuditEvent, userId?: string): boolean {
   if (process.env.SHINOBI_AUDIT_DISABLED === '1') {
     // CRIT-07: silenciar el audit trail sin dejar constancia es justo el tipo
     // de cosa que un atacante (o un operador con prisa) querría que pasara
@@ -222,7 +271,7 @@ export function writeAuditEvent(event: AuditEvent): boolean {
     }
     return false;
   }
-  const path = resolveLogPath();
+  const path = resolveLogPath(userId ?? (event as any).userId);
   try {
     const dir = dirname(path);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
@@ -242,8 +291,27 @@ export function writeAuditEvent(event: AuditEvent): boolean {
     const line = JSON.stringify({ ...JSON.parse(contentJson), prevHash, chainHash });
     appendFileSync(path, line + '\n', 'utf-8');
     setChainHead(path, chainHash);
+    // F2.3 — anclaje periódico anti-truncado (audit_anchor.ts). Barato: lee
+    // el nº de líneas actuales solo cuando toca anclar (cada N líneas).
+    try {
+      const lineCount = toLines(readFileSync(path, 'utf-8')).length;
+      maybeAnchor(path, lineCount, chainHash);
+    } catch (anchorErr: any) {
+      // El anclaje es una capa adicional — si falla, NO debe tumbar la
+      // escritura del evento (que ya tuvo éxito). Pero sí se reporta: un
+      // anclaje que falla repetidamente deja la detección de truncado ciega.
+      console.error(`[SECURITY] audit: fallo al anclar (anti-truncado) en ${path}: ${anchorErr?.message ?? anchorErr}`);
+    }
     return true;
-  } catch {
+  } catch (err: any) {
+    // F2.3 — fallo ruidoso: antes este catch devolvía `false` en silencio.
+    // Una escritura de audit fallida (disco lleno, permisos, path inválido)
+    // es un evento de seguridad — el operador debe enterarse por stderr,
+    // visible en cualquier consola/journal/servicio, no perderse.
+    console.error(
+      `[SECURITY] FALLO AL ESCRIBIR AUDIT EVENT — kind=${(event as any)?.kind ?? 'unknown'} ` +
+      `path=${path}: ${err?.message ?? String(err)}`,
+    );
     return false;
   }
 }
@@ -309,7 +377,7 @@ export function logApprovalDecision(args: {
   mode: string;
   denySource?: ApprovalDecisionEvent['denySource'];
   sessionId?: string;
-  /** ALTA-10: opcional — quién recibió la decisión, si el caller lo conoce. */
+  /** ALTA-10: opcional — quién recibió/tomó la decisión, si el caller lo conoce. */
   userId?: string;
 }): boolean {
   return writeAuditEvent({
@@ -325,5 +393,48 @@ export function logApprovalDecision(args: {
   });
 }
 
-/** Exporta helpers internos para tests. */
-export const _internals = { hashArgs, previewArgs, resolveLogPath, chainHeadPath, getChainHead };
+/**
+ * F2.3 — verificación de integridad del audit trail al arrancar el proceso.
+ * Comprueba el log resuelto (single-user o, si se pasa userId, el log de ese
+ * usuario) contra su histórico de anclas (audit_anchor.ts). Emite una alerta
+ * ruidosa por stderr si detecta truncado o reescritura de historia — NO
+ * bloquea el arranque (no es una decisión segura de tomar unilateralmente
+ * aquí; el operador decide qué hacer con la alerta), salvo que el caller
+ * explícitamente trate `ok: false` como fatal.
+ */
+export function verifyAuditIntegrityOnStartup(userId?: string): AnchorIntegrityResult {
+  const path = resolveLogPath(userId);
+  const result = checkAnchorIntegrity(path);
+  if (result.ok && result.reason === 'no_anchors' && existsSync(path)) {
+    // Log preexistente sin ancla histórica todavía (p.ej. tras actualizar
+    // Shinobi a una versión con F2.3 sobre un audit.jsonl ya existente, o un
+    // log nuevo que aún no llegó al intervalo de anclaje). Sembramos la
+    // primera ancla ahora mismo con el estado actual del log — a partir de
+    // aquí, cualquier truncado/reescritura posterior sí será detectable.
+    try {
+      const lines = toLines(readFileSync(path, 'utf-8'));
+      if (lines.length > 0) {
+        const last = JSON.parse(lines[lines.length - 1]);
+        if (last && typeof last.chainHash === 'string') {
+          maybeAnchor(path, lines.length, last.chainHash, 1);
+        }
+      }
+    } catch (seedErr: any) {
+      console.error(
+        `[SECURITY] audit: no se pudo sembrar la ancla inicial en ${path}: ${seedErr?.message ?? seedErr}`,
+      );
+    }
+  }
+  return result;
+}
+
+export const _internals = {
+  multiUserModeActive,
+  sanitizeUserId,
+  auditBaseDir,
+  resolveLogPath,
+  hashArgs,
+  previewArgs,
+  chainHeadPath,
+  getChainHead,
+};

@@ -1,7 +1,12 @@
 import { ShinobiOrchestrator } from '../../src/coordinator/orchestrator.js';
 import { writeFileSync, mkdirSync } from 'fs';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
 
-mkdirSync('C:/Users/angel/Desktop/shinobibot/artifacts/agent_validation', { recursive: true });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(__dirname, '..', '..');
+
+mkdirSync(path.join(REPO_ROOT, 'artifacts', 'agent_validation'), { recursive: true });
 
 const MISSION = 'Lista las primeras 5 criptomonedas del top ranking de CoinGecko (https://www.coingecko.com). Para cada una devuelve: rank, nombre, símbolo y precio si lo encuentras. Devuelve la respuesta estructurada en JSON.';
 
@@ -34,7 +39,7 @@ async function main() {
     result_preview: typeof result === 'string' ? result.slice(0, 3000) : JSON.stringify(result).slice(0, 3000)
   };
   
-  writeFileSync('C:/Users/angel/Desktop/shinobibot/artifacts/agent_validation/level1_report.json', JSON.stringify(report, null, 2));
+  writeFileSync(path.join(REPO_ROOT, 'artifacts', 'agent_validation', 'level1_report.json'), JSON.stringify(report, null, 2));
   
   console.log(`[AGENT-E2E-L1] Done in ${report.elapsed_seconds}s | success=${report.success}`);
   if (error) console.log(`[AGENT-E2E-L1] ERROR: ${error}`);

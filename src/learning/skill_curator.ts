@@ -3,6 +3,14 @@
 /**
  * Fase 6 del bucle de aprendizaje — el Curator (Motor 2).
  *
+ * CURATOR CANÓNICO (F3.5, 2026-07): este módulo es la ÚNICA fuente de
+ * verdad para la lógica de curación de skills — transiciones de estado por
+ * antigüedad (`runStaleTransitions`) y el ciclo completo con consolidación
+ * asistida por LLM (`runCuratorCycle`). `src/skills/skill_curator.ts` fue
+ * unificado en esta pasada: antes duplicaba la lógica de transición con
+ * matices propios (comportamiento no unificado); ahora es una fachada fina
+ * que delega aquí — no la reimplementes ahí, extiende ESTE archivo.
+ *
  * Mantiene la COLECCIÓN de skills sana a escala. Sin esto, el Motor 1
  * produce decenas de skills estrechas y la librería se vuelve inservible
  * (el matching es por descripción, se diluye). Adaptado de hermes-agent
@@ -12,10 +20,10 @@
  * intervalo (~7d), first-run difiere.
  *
  * Dos fases por pasada:
- *   A. Transiciones automáticas (PURAS, sin LLM): active→stale→archived
- *      según el ancla de staleness de la telemetría. Reactiva si se volvió
- *      a usar. NUNCA borra — 'archived' es un flag reversible y la skill
- *      archivada simplemente deja de inyectarse.
+ *   A. Transiciones automáticas (PURAS, sin LLM, `runStaleTransitions`):
+ *      active→stale→archived según el ancla de staleness de la telemetría.
+ *      Reactiva si se volvió a usar. NUNCA borra — 'archived' es un flag
+ *      reversible y la skill archivada simplemente deja de inyectarse.
  *   B. Consolidación (LLM auxiliar): el modelo recibe los candidatos y
  *      RECOMIENDA consolidaciones en paraguas. Las recomendaciones van al
  *      REPORT.md para revisión humana — el Curator NO reescribe ni mergea
@@ -175,6 +183,59 @@ function writeReport(result: CuratorCycleResult, candidateList: string): string 
   }
 }
 
+export interface StaleTransitionsOptions {
+  now: number;
+  /** Umbral (días) tras el cual una skill activa pasa a 'stale'. */
+  staleDaysThreshold: number;
+  /** Umbral (días) tras el cual una skill pasa a 'archived'. */
+  archiveDaysThreshold: number;
+  /** Si true, el archivado SOLO dispara para skills que ya estaban en
+   *  'stale' (nunca directo desde 'active', aunque age > archiveDaysThreshold) —
+   *  fuerza el camino de dos pasos active→stale→archived en vez de saltar
+   *  directo a archived. Default false (comportamiento de runCuratorCycle:
+   *  archiveDaysThreshold suele ser mayor que staleDaysThreshold, así que en
+   *  la práctica ya pasa por 'stale' primero en un ciclo previo; este flag
+   *  es para callers como la fachada de skills/skill_curator.ts que usan un
+   *  ÚNICO umbral para ambas transiciones y necesitan preservar el paso
+   *  intermedio explícito). */
+  archiveOnlyFromStale?: boolean;
+}
+
+export interface StaleTransitionsResult { archived: string[]; stale: string[]; reactivated: string[]; }
+
+/**
+ * Fase A — transiciones automáticas de estado por antigüedad (sin LLM),
+ * PURA y reutilizable. Único punto de verdad para "¿cuándo una skill creada
+ * por el agente pasa a stale/archived/vuelve a active?" — reemplaza la
+ * lógica que antes vivía duplicada en skills/skill_curator.ts (F3.5: Curator
+ * unificado, ver ese archivo para la fachada fina que delega aquí).
+ *
+ * Reglas: solo skills `created_by==='agent'`; las `pinned` nunca se tocan;
+ * archived tiene prioridad sobre stale si ambos umbrales se superan; una
+ * skill 'stale' que volvió a usarse (age <= staleDaysThreshold) se reactiva.
+ */
+export function runStaleTransitions(opts: StaleTransitionsOptions): StaleTransitionsResult {
+  const result: StaleTransitionsResult = { archived: [], stale: [], reactivated: [] };
+  const archiveOnlyFromStale = opts.archiveOnlyFromStale ?? false;
+  for (const name of listAgentCreatedSkillNames()) {
+    const rec = getUsageRecord(name);
+    if (!rec || rec.pinned) continue; // las pinned se saltan completas
+    const age = ageDays(rec, opts.now);
+    const canArchive = !archiveOnlyFromStale || rec.state === 'stale';
+    if (age > opts.archiveDaysThreshold && rec.state !== 'archived' && canArchive) {
+      setSkillState(name, 'archived');
+      result.archived.push(name);
+    } else if (age > opts.staleDaysThreshold && rec.state === 'active') {
+      setSkillState(name, 'stale');
+      result.stale.push(name);
+    } else if (age <= opts.staleDaysThreshold && rec.state === 'stale') {
+      setSkillState(name, 'active'); // se volvió a usar
+      result.reactivated.push(name);
+    }
+  }
+  return result;
+}
+
 /**
  * Ejecuta una pasada del Curator. Best-effort: nunca lanza.
  * `now` es inyectable para tests del envejecimiento.
@@ -189,21 +250,10 @@ export async function runCuratorCycle(
   };
   try {
     // ── Fase A — transiciones automáticas (sin LLM) ──────────────────────
-    for (const name of listAgentCreatedSkillNames()) {
-      const rec = getUsageRecord(name);
-      if (!rec || rec.pinned) continue; // las pinned se saltan completas
-      const age = ageDays(rec, now);
-      if (age > archiveDays() && rec.state !== 'archived') {
-        setSkillState(name, 'archived');
-        result.archived.push(name);
-      } else if (age > staleDays() && rec.state === 'active') {
-        setSkillState(name, 'stale');
-        result.staled.push(name);
-      } else if (age <= staleDays() && rec.state === 'stale') {
-        setSkillState(name, 'active'); // se volvió a usar
-        result.reactivated.push(name);
-      }
-    }
+    const transitions = runStaleTransitions({ now, staleDaysThreshold: staleDays(), archiveDaysThreshold: archiveDays() });
+    result.archived = transitions.archived;
+    result.staled = transitions.stale;
+    result.reactivated = transitions.reactivated;
 
     // ── Fase B — consolidación (LLM auxiliar, recomendaciones) ───────────
     const surviving = listAgentCreatedSkillNames(); // ya excluye archived

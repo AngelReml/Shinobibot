@@ -6,6 +6,10 @@ import { randomUUID } from 'node:crypto';
 import { rmSync } from 'node:fs';
 import { MemoryStore, sharedMemoryStore } from '../memory_store.js';
 
+// Fuerza embeddings hash (determinísticos, sin red ni modelo ONNX) — evita
+// que store()/recall() intenten descargar Xenova/all-MiniLM-L6-v2.
+process.env.SHINOBI_EMBED_PROVIDER = 'hash';
+
 function freshStore(): { store: MemoryStore; dbPath: string } {
   const dbPath = join(tmpdir(), `shinobi-memstore-test-${randomUUID()}.db`);
   return { store: new MemoryStore({ db_path: dbPath }), dbPath };

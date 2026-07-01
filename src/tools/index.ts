@@ -7,21 +7,25 @@ import './run_command.js';
 import './list_dir.js';
 import './search_files.js';
 import './web_search.js';
-import './browser_click.js';
-import './browser_scroll.js';
-import './browser_click_position.js';
+// F0.5 (auditoría 2026-07): browser_click.ts / browser_click_position.ts /
+// browser_scroll.ts se importaban aquí (ejecutaban su top-level al
+// arrancar) pero NUNCA llamaban registerTool() — ~350 LOC de código muerto
+// activo. Su funcionalidad de click/scroll está cubierta por browser_act.ts
+// (subsistema Kage, ver abajo) — confirmado por grep antes de eliminar.
+// Los tres archivos se borraron del árbol junto con este import.
+//
 // Subsistema de navegador "Kage" (observe → act → verify). Ver
 // docs/BROWSER_SUBSYSTEM.md. Mapa de elementos con ref estable, acción anclada
 // con verificación, screencast e input-lock, consentimiento propio.
 import './browser_observe.js';
 import './browser_act.js';
 import './browser_session.js';
-import './cloud_mission.js'; // EXTIRPADO — stub vacío
+// F0.5: cloud_mission.js / n8n_invoke.js / n8n_list_catalog.js eran stubs
+// 'export {}' de tools EXTIRPADAS (Fase 2, 2026-06-12) que se seguían
+// importando sin necesidad — eliminados junto con los stubs.
 import './web_search_with_warmup.js';
 import './clean_extract.js';
 import './generate_document.js';
-import './n8n_invoke.js';
-import './n8n_list_catalog.js';
 import './skill_list.js';
 import './skill_request_generation.js';
 import './memory_tool.js';
@@ -71,14 +75,48 @@ import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 // HotPlugRegistry (hot_plug_registry.ts) es el sandbox isolated-vm para
 // plugins NO confiables; plugin_loader es el cargador principal de plugins
 // del operador con manifiestos validados.
+//
+// F1.2 (auditoría 2026-07, RANK #2): antes esta línea invocaba
+// `loadAllPlugins()` INCONDICIONALMENTE como side-effect del propio import
+// de este barrel — cualquier arranque del orquestador (web, CLI, gateway,
+// canales, TESTS) cargaba y ejecutaba sin sandbox cualquier plugin presente
+// en `<cwd>/plugins/`, sin el gate `SHINOBI_PLUGINS_ENABLED` que sí protege
+// la otra vía de entrada en `scripts/shinobi.ts`. Ahora ambas vías exigen el
+// mismo gate explícito (default OFF) — importar este barrel nunca ejecuta
+// plugins por sí solo.
+//
+// LIMITACIÓN CONOCIDA QUE SIGUE ABIERTA (ALTA-02, no cerrada por este fix):
+// `importPlugin` (plugin_loader.ts) sigue usando `import()` nativo, SIN el
+// sandbox isolated-vm que sí usa `hot_plug_registry.ts` para skills — un
+// plugin habilitado con SHINOBI_PLUGINS_ENABLED=1 sigue corriendo con
+// privilegios completos del proceso. Migrar plugin_loader a isolated-vm es
+// un cambio de arquitectura mayor (bridge de API entre el isolate y el
+// proceso host para que un plugin pueda de verdad registrar tools) que
+// queda fuera del alcance de este corte — lo que este fix cierra es el
+// bypass del gate de opt-in, no el sandboxing en sí. Ver DECISIONES.md (F1.2).
 import { loadAllPlugins } from '../plugins/plugin_loader.js';
 import { join } from 'path';
 
-// Cargar plugins del directorio `<cwd>/plugins/`. Si el directorio no existe
-// `discoverPlugins` devuelve listas vacías sin lanzar.
-loadAllPlugins(join(process.cwd(), 'plugins')).then(({ loaded, errors }) => {
-  if (loaded.length > 0) console.log(`[plugins] ${loaded.length} plugin(s) cargados.`);
-  for (const e of errors) console.warn(`[plugins] Error cargando ${e.manifestPath}: ${e.errors.join('; ')}`);
-}).catch((err: Error) => console.warn('[plugins] loadAllPlugins falló:', err.message));
+/**
+ * Carga los plugins de `<cwd>/plugins/` — SOLO si el operador lo activó
+ * explícitamente (`SHINOBI_PLUGINS_ENABLED=1`), igual que en
+ * `scripts/shinobi.ts`. Se expone como función (no side-effect de import)
+ * para que llamar a este módulo desde un test, un worker, o cualquier
+ * consumidor que solo necesite el registro de tools NUNCA dispare la carga
+ * de plugins como efecto colateral inesperado.
+ */
+export function maybeLoadPlugins(): void {
+  if (process.env.SHINOBI_PLUGINS_ENABLED !== '1') return;
+  loadAllPlugins(join(process.cwd(), 'plugins')).then(({ loaded, errors }) => {
+    if (loaded.length > 0) console.log(`[plugins] ${loaded.length} plugin(s) cargados (SIN sandbox isolated-vm — ver ALTA-02 en plugin_loader.ts).`);
+    for (const e of errors) console.warn(`[plugins] Error cargando ${e.manifestPath}: ${e.errors.join('; ')}`);
+  }).catch((err: Error) => console.warn('[plugins] loadAllPlugins falló:', err.message));
+}
+
+// Se invoca aquí (en vez de dejarlo como responsabilidad exclusiva de cada
+// entry point) para que CUALQUIER consumidor de este barrel que active el
+// flag reciba sus plugins — pero el gate de dentro de `maybeLoadPlugins()`
+// es lo que de verdad decide si algo se ejecuta, no el import.
+maybeLoadPlugins();
 
 export { getAllTools, getTool, toOpenAITools };

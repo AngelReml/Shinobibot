@@ -4,10 +4,26 @@
 // de codigo fuente al prompt para que el reviewer pueda detectar SQLi/XSS/
 // path traversal/etc. — cosas que el security_auditor estandar pierde porque
 // solo recibe el RepoReport sintetizado.
+//
+// F2.10 (auditoría 2026-07-01, RANK Alta): este blob se envía LITERAL a un
+// LLM externo (Opus, ver `model` abajo). Si el repo auditado tiene un
+// secreto mal ubicado (API key en un comentario, un `.env` que se cuela por
+// la heurística de extensión, una connection string con password), salía
+// tal cual hacia un tercero. Dos capas de mitigación:
+//   1. Exclusión de archivos: `.env*`/`*.pem`/`*.key`/`*.p12`/`*.pfx` y rutas
+//      de secretos NUNCA son candidatos (filtrado en `scoreFile`, antes de
+//      leer el contenido siquiera).
+//   2. Redacción de contenido: cada snippet pasa por `redactSecrets`
+//      (src/security/secret_redactor.ts, reforzado en F2.7 con patrones
+//      AWS/Azure/GCP) ANTES de entrar en el blob del prompt.
+// Se audita (audit_log) qué archivos se enviaron, ya redactados — nunca el
+// contenido crudo.
 
 import * as fs from 'fs';
 import * as path from 'path';
 import type { CommitteeRole } from './Committee.js';
+import { redactSecrets } from '../security/secret_redactor.js';
+import { logToolCall } from '../audit/audit_log.js';
 
 export const CODE_REVIEWER_MAX_CHARS = 32_000;   // ~8k tokens
 const PER_FILE_MAX_CHARS = 5_000;
@@ -36,9 +52,20 @@ const IGNORE_DIRS = new Set([
   'vendor', 'target', 'out',
 ]);
 
+// F2.10: rutas de secretos EXCLUIDAS por diseño — ni siquiera se leen, no
+// solo se redactan. Un `.env` filtrado por extensión (no está en
+// RISKY_EXTENSIONS de por sí, pero cubre variantes/edge-cases si esa lista
+// cambia) o una clave privada nunca deben ser "candidatos" para el reviewer.
+// OJO: el `$` solo se aplica al último grupo (extensiones). Anclar TODO el
+// primer grupo con `$` sería un bug — `.ssh[\\/]` debe matchear cualquier
+// RUTA que cuelgue de un directorio `.ssh/` (p.ej. `.ssh/id_rsa`), no solo
+// un path que termine literalmente en `.ssh/` sin nada detrás.
+const SECRET_PATH_PATTERN = /(^|[\\/])(\.env(\.[a-z0-9_-]+)?$|\.ssh[\\/]|authorized_keys[0-9]*$)|\.(pem|key|p12|pfx|crt|cer)$/i;
+
 interface CandidateFile { abs: string; rel: string; score: number }
 
 function scoreFile(rel: string): number {
+  if (SECRET_PATH_PATTERN.test(rel)) return 0; // F2.10: nunca candidato, pase lo que pase con la extensión.
   const ext = path.extname(rel).toLowerCase();
   if (!RISKY_EXTENSIONS.has(ext)) return 0;
   let score = 1;
@@ -92,15 +119,30 @@ export function buildCodeReviewBlob(repoAbs: string, maxChars = CODE_REVIEWER_MA
   const usedFiles: string[] = [];
   const parts: string[] = [];
   let chars = 0;
+  let totalRedactions = 0;
   for (const c of candidates) {
     const remaining = maxChars - chars;
     if (remaining < 500) break;
     const cap = Math.min(PER_FILE_MAX_CHARS, remaining - 200);
-    const body = readSnippet(c.abs, cap);
+    const raw = readSnippet(c.abs, cap);
+    // F2.10: redacta ANTES de entrar en el blob — el LLM externo nunca ve
+    // el secreto crudo, solo el placeholder de redactSecrets.
+    const { text: body, matches } = redactSecrets(raw);
+    totalRedactions += matches.length;
     const block = `\n--- ${c.rel} (risk_score=${c.score}) ---\n${body}\n`;
     parts.push(block);
     chars += block.length;
     usedFiles.push(c.rel);
+  }
+  // F2.10: audita que se envió código a un tercero — qué archivos, y
+  // cuántas redacciones se aplicaron (nunca el contenido en sí).
+  if (usedFiles.length > 0) {
+    logToolCall({
+      tool: 'code_reviewer_external_send',
+      args: { files: usedFiles, redactions: totalRedactions },
+      success: true,
+      durationMs: 0,
+    });
   }
   return { blob: parts.join(''), files: usedFiles };
 }

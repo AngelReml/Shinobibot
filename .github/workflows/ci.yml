@@ -37,3 +37,12 @@ jobs:
 
       - name: Vitest
         run: npm test
+
+      # F5.3/F5.5 (auditoría 2026-07-01): npm audit no necesita credenciales ni
+      # red externa aparte de la registry — seguro de correr en cada PR,
+      # incluidas forks. Bloqueante en severidad alta/crítica. Los gates
+      # F1/F2/F3 y los smokes D-015/016/017 (LLM real, coste por ejecución)
+      # viven aparte en gates.yml — informativos, gateados por la variable de
+      # repo SHINOBI_ENABLE_LLM_GATES, ver el propio gates.yml y DECISIONES.md.
+      - name: npm audit (producción, bloqueante en alto/crítico)
+        run: npm audit --production --audit-level=high

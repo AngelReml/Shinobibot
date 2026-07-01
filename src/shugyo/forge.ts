@@ -6,7 +6,9 @@
  *
  *   Capability + oracle cases + cage
  *     → synthesizeSkill (manifest + hash)
- *     → certifyInCage   (prueba en jaula revertible)
+ *     → certifyInCage   (prueba en jaula revertible — snapshot/restore de
+ *                         directorio vía fs.cpSync+SHA-256, NO sandbox de OS;
+ *                         ver shugyo/sandbox/revertible.ts)
  *     → LearnedSkill    ('certified' | 'discarded') + opcionalmente persiste
  *
  * El caller sigue siendo dueño del ciclo de vida de la jaula (cage.dispose()

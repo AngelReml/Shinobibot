@@ -21,7 +21,7 @@ function fileText(p: string): string { try { return fs.readFileSync(p, 'utf-8');
 
 async function p2() {
   console.log('═══ P2 — /read Shinobi ═══');
-  const r = await runRead('C:\\Users\\angel\\Desktop\\shinobibot', { label: 'p2_shinobi' });
+  const r = await runRead(process.cwd(), { label: 'p2_shinobi' });
   if (!r.ok) return log({ id: 'P2', status: 'FAIL', note: 'runRead failed' });
   const report = JSON.parse(fileText(path.join(r.missionDir, 'report.json')));
   const summary = JSON.stringify(report).toLowerCase();
@@ -32,7 +32,7 @@ async function p2() {
 
 async function p3() {
   console.log('═══ P3 — /read zod ═══');
-  const dest = 'C:\\Users\\angel\\Desktop\\test_repos\\zod';
+  const dest = path.join(os.homedir(), 'Desktop', 'test_repos', 'zod');
   if (!fs.existsSync(dest)) {
     const cl = spawnSync('git', ['clone', '--depth', '1', 'https://github.com/colinhacks/zod', dest], { encoding: 'utf-8' });
     if (cl.status !== 0) return log({ id: 'P3', status: 'FAIL', note: 'clone failed' });

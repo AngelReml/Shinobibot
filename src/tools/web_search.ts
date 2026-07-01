@@ -5,6 +5,7 @@
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { connectOrLaunchCDP } from './browser_cdp.js';
 import { extractDom, formatPageState } from './browser_engine.js';
+import { requestNavigationConsent, rememberNavigatedHost } from '../browser/consent.js';
 
 const webSearchTool: Tool = {
   name: 'web_search',
@@ -25,6 +26,27 @@ const webSearchTool: Tool = {
     const NAV_WAIT = (process.env.SHINOBI_NAV_WAIT as 'networkidle' | 'domcontentloaded' | 'load') || 'networkidle';
     const NAV_TIMEOUT = Number(process.env.SHINOBI_NAV_TIMEOUT_MS) || 45000;
     const NAV_SETTLE = Number(process.env.SHINOBI_NAV_SETTLE_MS) || 2000;
+
+    // F1.3 (auditoría 2026-07, RANK #4): web_search navegaba vía CDP sin
+    // pasar por NINGÚN gate de consentimiento, a diferencia de browser_act/
+    // browser_session — un bypass trivial del control. Se calcula el
+    // destino efectivo ANTES de navegar (mismo criterio que la lógica de
+    // abajo) y se pide consentimiento una sola vez, compartiendo el mismo
+    // `knownHosts` que KageSession (ver browser/consent.ts).
+    const isFullUrlPre = /^https?:\/\//i.test(args.query.trim());
+    const domainMatchPre = args.query.match(/([\w-]+\.(com|es|org|io|net|dev))/i);
+    const isYouTubePre = /youtube/i.test(args.query);
+    const effectiveTarget = isFullUrlPre
+      ? args.query.trim()
+      : isYouTubePre ? 'https://youtube.com'
+      : domainMatchPre ? `https://${domainMatchPre[1]}`
+      : ((process.env.SHINOBI_SEARCH_ENGINE || 'bing').toLowerCase() === 'ddg' ? 'https://html.duckduckgo.com' : 'https://www.bing.com');
+    const navConsent = await requestNavigationConsent(effectiveTarget);
+    if (!navConsent.allowed) {
+      return { success: false, output: '', error: `Navegación no permitida (${navConsent.reason}). No se navegó.` };
+    }
+    await rememberNavigatedHost(effectiveTarget);
+
     try {
       const browser = await connectOrLaunchCDP();
       const allContexts = browser.contexts();

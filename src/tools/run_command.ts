@@ -1,7 +1,6 @@
 /**
  * RunCommand Tool — Execute a shell command with safety checks
  */
-import { exec } from 'child_process';
 import { realpathSync } from 'fs';
 import { resolve as resolvePath, sep } from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
@@ -265,11 +264,10 @@ const runCommandTool: Tool = {
       return { success: false, output: '', error: sandboxError };
     }
 
-    // Sprint 1.4 — Multi-backend de ejecución. Si SHINOBI_RUN_BACKEND
-    // apunta a algo distinto de 'local', delegamos al backend pedido
-    // (docker, ssh, e2b, mock). La ruta `local` cae al
-    // exec directo de abajo para no añadir overhead a la mayoría de
-    // ejecuciones.
+    // Sprint 1.4 — Multi-backend de ejecución, seleccionable por
+    // SHINOBI_RUN_BACKEND (default 'local'). Si el operador pidió
+    // explícitamente un backend NO-local (docker/ssh/e2b/mock), se delega
+    // ahí sin más — esos backends no tienen concepto de "shell de Windows".
     const wantBackend = (process.env.SHINOBI_RUN_BACKEND || 'local').toLowerCase();
     if (wantBackend !== 'local') {
       const { sandboxRegistry } = await import('../sandbox/registry.js');
@@ -302,7 +300,9 @@ const runCommandTool: Tool = {
 
     // Fase 2 — D1 Windows: si el caller pide PowerShell, o si es auto y
     // estamos en Windows, enrutamos por runPowerShell (Base64 -EncodedCommand,
-    // sin inyección de cmd.exe). En Linux con 'auto' usamos el exec() normal.
+    // sin inyección de cmd.exe, y desde F1.1 también con env allowlist +
+    // redacción de output — ver _powershell.ts). Esta es la ruta real por
+    // defecto en el host Windows nativo del producto.
     const shellMode = (args.shell || 'auto').toLowerCase();
     const usePowerShell = shellMode === 'powershell' ||
       (shellMode === 'auto' && process.platform === 'win32');
@@ -322,23 +322,27 @@ const runCommandTool: Tool = {
       };
     }
 
-    return new Promise((resolve) => {
-      exec(args.command, { cwd, timeout, encoding: 'utf-8', maxBuffer: 1024 * 1024 }, (error, stdout, stderr) => {
-        const exitCode = error?.code ?? 0;
-        const output = [
-          `$ ${args.command}`,
-          stdout?.trim() || '',
-          stderr?.trim() ? `STDERR: ${stderr.trim()}` : '',
-          `Exit code: ${exitCode}`,
-        ].filter(Boolean).join('\n');
-
-        resolve({
-          success: !error,
-          output,
-          error: error ? `Command failed (exit ${exitCode}): ${stderr?.trim() || error.message}` : undefined,
-        });
-      });
-    });
+    // F1.1 (auditoría 2026-07): caso 'local' sin PowerShell (shell='cmd'
+    // explícito, o 'auto' en un host no-Windows). Antes esta rama tenía su
+    // PROPIO `exec()` inline, duplicado del de `LocalBackend` pero SIN sus
+    // defensas (env allowlist, redacción de output, blacklist/jail — las
+    // de arriba ya se aplicaron, pero el env/redacción NO existían aquí).
+    // Ahora delega en `LocalBackend` vía el mismo registry que usan los
+    // demás backends: una sola implementación de 'local' en todo el repo.
+    const { sandboxRegistry } = await import('../sandbox/registry.js');
+    const localBackend = sandboxRegistry().get('local')!;
+    const r = await localBackend.run({ command: args.command, cwd, timeoutMs: timeout });
+    const output = [
+      `$ ${args.command}`,
+      r.stdout?.trim() || '',
+      r.stderr?.trim() ? `STDERR: ${r.stderr.trim()}` : '',
+      `Exit code: ${r.exitCode}`,
+    ].filter(Boolean).join('\n');
+    return {
+      success: r.success,
+      output,
+      error: r.success ? undefined : `Command failed (exit ${r.exitCode}): ${r.stderr?.trim() || 'unknown error'}`,
+    };
   },
 };
 

@@ -3,11 +3,36 @@
  * Wires the loop's phases to the web arena + runner:
  *   measure  → run the SAFE tasks, grade vs oracle → curve point + gaps
  *              (external_effect tasks are DOCUMENTED, excluded from the curve)
- *   fabricate→ a candidate read_only web skill for the failing capability
+ *   fabricate→ ⚠ STUB EXPERIMENTAL (F3.4, 2026-07) — ver aviso abajo.
  *   certify  → prove the candidate solves its task in the closed dojo; on success
  *              it enters the repertoire (and the runner then solves that task)
  * The repertoire is shared with the runner so improvement is REAL: a certified
  * skill makes its task pass next measure. The external decoy never enters.
+ *
+ * ⚠ AVISO — fabricate() ES UN STUB, NO GENERA CÓDIGO REAL (F3.4):
+ *
+ *   `fabricate()` (abajo) NO invoca un LLM ni sintetiza ningún programa real:
+ *   devuelve directamente `{ skill_id, gap_id, declared_effects: 'read_only' }`
+ *   — un CandidateSkill vacío, sin cuerpo/procedimiento. Todo lo que
+ *   `certify()` puede probar es si ESE placeholder resuelve la tarea vía el
+ *   oráculo del dojo cerrado (fixtures locales en ./fixtures/*.html); no hay
+ *   generación de programa nueva en juego. Este dominio es un EJEMPLO de
+ *   cómo se conecta un Domain al loop de Kangeiko (measure→fabricate→certify),
+ *   no una implementación productiva del dominio "web".
+ *
+ *   Por qué se deja así (decisión F3.4, documentada): Kangeiko entero está
+ *   gateado OFF por defecto (`KANGEIKO_ENABLED`, ver src/kangeiko/config.ts —
+ *   fuera de este alcance). Implementar generación real de código aquí
+ *   (fabricate() invocando un LLM para sintetizar un programa ejecutable)
+ *   reabriría exactamente las preocupaciones de "código generado
+ *   ejecutándose automáticamente" que F3.1 acaba de cerrar con esfuerzo
+ *   considerable (AST + sandbox isolated-vm en src/skills/skill_loader.ts) —
+ *   sería alcance excesivo y arriesgado para esta tarea de remediación.
+ *   Mientras el motor siga off por defecto y este dominio siga marcado como
+ *   ejemplo/experimental, el riesgo real es bajo. Si en el futuro se decide
+ *   activar fabricate() real, DEBE pasar por las mismas capas de defensa
+ *   (auditor AST + sandbox) que cualquier otro código de skill generado
+ *   dinámicamente — no un camino separado sin blindaje.
  */
 
 import type { Domain, Gap, CandidateSkill, CertifyOutcome } from '../../types.js';
@@ -58,6 +83,11 @@ export function makeWebDomain(arena: WebTask[], rawRunner: WebRunner, opts: WebD
 
     async investigate(gap) { return { gap_id: gap.capability_id, summary: `how to: ${gap.capability_id}`, sources: [] }; },
 
+    // ⚠ STUB EXPERIMENTAL (F3.4) — no genera código/procedimiento real ni
+    // invoca un LLM. Devuelve un CandidateSkill vacío; certify() solo prueba
+    // este placeholder contra el oráculo del dojo cerrado. Ver el aviso
+    // completo en el banner del módulo antes de tratar esto como generación
+    // de skills productiva.
     async fabricate(k) { return { skill_id: `${k.gap_id}.v1`, gap_id: k.gap_id, declared_effects: 'read_only' }; },
 
     async certify(c): Promise<CertifyOutcome> {

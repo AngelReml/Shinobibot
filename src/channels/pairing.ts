@@ -6,14 +6,25 @@
 // Telegram…) pilota el agente completo (run_command, ficheros…). Esta gate sienta
 // una autorización entre el mensaje entrante y el orchestrator:
 //
-//   - mode 'open'      → sin gate (default; cero cambio para back-compat).
+//   - mode 'open'      → sin gate. Deliberadamente NO es el default (ver F2.4
+//                         abajo) — opt-in explícito para desarrollo local,
+//                         nunca para producción.
 //   - mode 'code'      → un remitente debe enviar el código de emparejamiento
 //                         (SHINOBI_PAIRING_CODE) una vez; queda emparejado.
 //   - mode 'allowlist' → solo identidades en SHINOBI_CHANNEL_ALLOWLIST.
-//   - mode 'closed'    → nadie (canal silenciado).
+//   - mode 'closed'    → nadie (canal silenciado). DEFAULT (ver F2.4).
 //
-// El modo se AUTO-detecta: si hay código o allowlist configurados, se activa la
-// gate; si no, queda 'open'. El operador puede forzar con SHINOBI_PAIRING_MODE.
+// F2.4 (auditoría 2026-07): antes el default sin configuración era 'open' —
+// cualquier canal de mensajería que el operador conectara (Discord/Slack/…)
+// quedaba SIN GATE hasta que explícitamente configurase código/allowlist. Un
+// operador que solo quería "probar a conectar Discord" exponía el agente
+// completo (run_command, ficheros) a cualquier usuario de ese servidor sin
+// darse cuenta. Ahora: el modo se AUTO-detecta igual (código → 'code',
+// allowlist → 'allowlist'), pero SIN NINGUNA configuración el default es
+// 'closed' (canal silenciado hasta que el operador emparee explícitamente).
+// 'open' sigue existiendo — sigue siendo válido para desarrollo local/tests
+// — pero requiere forzarlo a mano con SHINOBI_PAIRING_MODE=open; ya NUNCA es
+// lo que se obtiene "por no hacer nada".
 //
 // Identidad FIRMADA: cada identidad emparejada (channel:userId) se firma con HMAC
 // (SHINOBI_PAIRING_SECRET). El store persiste la firma; al cargar, una entrada
@@ -85,13 +96,20 @@ export function signIdentity(key: string): string {
   return createHmac('sha256', secret()).update(key).digest('hex').slice(0, 32);
 }
 
-/** Modo de pairing efectivo (auto-detectado de la config). */
+/**
+ * Modo de pairing efectivo (auto-detectado de la config).
+ *
+ * F2.4: el default sin NINGUNA configuración ya no es 'open' — es 'closed'.
+ * 'open' solo se obtiene con `SHINOBI_PAIRING_MODE=open` explícito (opt-in
+ * documentado para desarrollo local). Precedencia sin cambios: forzado por
+ * env > código configurado > allowlist configurada > default (closed).
+ */
 export function pairingMode(): PairingMode {
   const forced = (process.env.SHINOBI_PAIRING_MODE || '').toLowerCase();
   if (forced === 'open' || forced === 'code' || forced === 'allowlist' || forced === 'closed') return forced;
   if (process.env.SHINOBI_PAIRING_CODE) return 'code';
   if (process.env.SHINOBI_CHANNEL_ALLOWLIST) return 'allowlist';
-  return 'open';
+  return 'closed';
 }
 
 function allowlist(): Set<string> {

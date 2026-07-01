@@ -4,6 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { MemoryStore } from '../memory_store.js';
 
+// Fuerza embeddings hash (determinísticos, sin red ni modelo ONNX) — evita
+// que store()/recall() intenten descargar Xenova/all-MiniLM-L6-v2.
+process.env.SHINOBI_EMBED_PROVIDER = 'hash';
+
 /**
  * FASE C / 11.3 — provenance round-trips through SQLite (store → recall), and a
  * legacy item with no provenance comes back undefined (treated UNKNOWN /

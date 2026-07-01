@@ -7,7 +7,8 @@
 
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { connectOrLaunchCDP } from './browser_cdp.js';
-import { applyStealth, cleanExtract, visionAnalyze } from './browser_engine.js';
+import { cleanExtract, visionAnalyze } from './browser_engine.js';
+import { requestNavigationConsent, rememberNavigatedHost } from '../browser/consent.js';
 
 const cleanExtractTool: Tool = {
   name: 'clean_extract',
@@ -38,9 +39,16 @@ const cleanExtractTool: Tool = {
         return { success: false, output: '', error: `clean_extract requires a full URL with protocol (got "${args.url}")` };
       }
 
+      // F1.3 (auditoría 2026-07, RANK #4): misma clase de bypass que
+      // web_search.ts/web_search_with_warmup.ts.
+      const navConsent = await requestNavigationConsent(args.url);
+      if (!navConsent.allowed) {
+        return { success: false, output: '', error: `Navegación no permitida (${navConsent.reason}). No se navegó.` };
+      }
+      await rememberNavigatedHost(args.url);
+
       const browser = await connectOrLaunchCDP();
       const ctx = browser.contexts()[0] || (await browser.newContext());
-      await applyStealth(ctx);
 
       const waitMs = args.wait_after_load_ms ?? 3000;
       const page = await ctx.newPage();

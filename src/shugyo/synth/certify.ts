@@ -8,7 +8,9 @@
  * oracle bank; it is CERTIFIED only if it (a) passes every case AND (b) stays
  * within its declared_effects. A skill that "works" but touches something it did
  * NOT declare is NOT certified — the discrimination we learned in Sello FASE A/B,
- * now over real programs. Effects are enforced by the cage's state diff (11.2).
+ * now over real programs. Effects are enforced by the cage's state diff (11.2) —
+ * i.e. by comparing filesystem snapshots before/after, NOT by an OS-level sandbox
+ * intercepting syscalls while the command runs (see shugyo/sandbox/revertible.ts).
  */
 
 import * as crypto from 'node:crypto';

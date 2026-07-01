@@ -1,10 +1,12 @@
 // F1 gate — 5 audits del mismo SHA execa, verificar verdicts idénticos.
 import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { spawnSync } from 'child_process';
 import { runAudit } from '../src/audit/runAudit.js';
 
 async function main() {
-  const local = 'C:\\Users\\angel\\Desktop\\test_repos\\execa';
+  const local = path.join(os.homedir(), 'Desktop', 'test_repos', 'execa');
   let sha = 'f3a2e8481a1e9138de3895827895c834078b9456';
   if (fs.existsSync(local)) {
     const r = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: local, encoding: 'utf-8' });

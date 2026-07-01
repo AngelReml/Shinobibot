@@ -21,7 +21,7 @@ import { tokenBudget } from '../context/token_budget.js';
 import { LoopDetector, loopDetectorConfigFromEnv, failureModeAdvice } from './loop_detector.js';
 import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
-import { isDestructive, requestApproval, registerApprovedPath, clearSessionApprovals } from '../security/approval.js';
+import { isDestructive, raceApprovalWithTimeout, registerApprovedPath, clearSessionApprovals } from '../security/approval.js';
 import { integrityEnabled, runPreAction, runPostAction, reportClaimsSuccess } from '../integrity/engine.js';
 import { stepForToolCall } from '../integrity/registry.js';
 import type { ToolResult } from '../tools/tool_registry.js';
@@ -29,12 +29,13 @@ import { shadowDispatchEnabled, shadowClassifyAndRecord } from '../dispatch/shad
 import { refinerShadowEnabled, refineShadowForTask } from '../refiner/refiner_shadow.js';
 import { diagnoseError } from '../selfdebug/self_debug.js';
 import { recordToolPattern } from '../skills/pattern_wiring.js';
-import { IterationBudget } from './iteration_budget.js';
+import { IterationBudget, effectiveMaxIterations } from './iteration_budget.js';
+import { runExclusive } from './orchestrator_mutex.js';
 import { ProgressTracker, progressDetectionEnabled } from './progress_judge.js';
 import { MemoryReflector, reflectionEnabled } from '../context/memory_reflector.js';
 import { runBackgroundReview, backgroundReviewEnabled, reviewInProgress } from '../learning/background_review.js';
 import { loadSoul, personaSystemMessage, builtinSoul } from '../soul/soul.js';
-import type { AlcaynaAgentDef } from '../agents/agent_registry.js';
+import type { AgentDef } from '../agents/agent_registry.js';
 import { sanitizeToolCallArguments, repairMessageSequence, toolCallWasRepaired } from '../runtime/trajectory_helpers.js';
 import { capToolResultJson, TOOL_OUTPUT_MAX_CHARS } from '../context/tool_output_truncator.js';
 import { metrics } from '../observability/metrics.js';
@@ -54,14 +55,14 @@ export class ShinobiOrchestrator {
   private static memory = sharedMemory();
   private static contextBuilder = new ContextBuilder();
   private static activeModel: string | undefined = undefined;
-  /** Agente Alcayna activo en la sesión — null = modo normal. */
-  private static _activeAlcaynaAgent: AlcaynaAgentDef | null = null;
+  /** Agente especialista activo en la sesión — null = modo normal. */
+  private static _activeSpecialistAgent: AgentDef | null = null;
 
-  /** Activa un agente Alcayna para la sesión actual. null = desactivar. */
-  static setAlcaynaAgent(agent: AlcaynaAgentDef | null): void {
-    this._activeAlcaynaAgent = agent;
+  /** Activa un agente especialista para la sesión actual. null = desactivar. */
+  static setSpecialistAgent(agent: AgentDef | null): void {
+    this._activeSpecialistAgent = agent;
   }
-  static getAlcaynaAgent(): AlcaynaAgentDef | null { return this._activeAlcaynaAgent; }
+  static getSpecialistAgent(): AgentDef | null { return this._activeSpecialistAgent; }
 
   /**
    * Validates an event payload against its registered I/O contract.
@@ -215,7 +216,21 @@ export class ShinobiOrchestrator {
         error: `Max spawn depth reached (${currentDepth}/${maxDepth}). Aborting recursive execution.`
       };
     }
+    // F2.11 (auditoría 2026-07-01): antes, la exclusión mutua entre
+    // misiones concurrentes dependía enteramente de que el CALLER
+    // recordara envolver `process()` en `runExclusive` (orchestrator_mutex.ts)
+    // — un caller nuevo que lo olvidara corrompía el estado estático
+    // compartido (modelo activo, contadores, loop-detection) sin ningún
+    // aviso hasta que dos misiones chocaban. Ahora la adquisición vive AQUÍ
+    // — es imposible ejecutar el resto del loop sin pasar por el mutex, sea
+    // cual sea el entry point. runExclusive es reentrante (AsyncLocalStorage,
+    // ver el banner en orchestrator_mutex.ts) así que los call-sites
+    // existentes que YA envolvían process() externamente (web/server.ts,
+    // los canales) no deadlockean ni necesitan tocarse.
+    return runExclusive(() => this.processExclusive(input, opts));
+  }
 
+  private static async processExclusive(input: string, opts?: { userId?: string }): Promise<any> {
     console.log(`[Shinobi] Processing: ${input.slice(0, 50)}...`);
     this._turnsSinceMemory++;
 
@@ -400,13 +415,13 @@ export class ShinobiOrchestrator {
       }
     } catch (e) { console.error('[soul] persona inject failed:', (e as Error).message); }
 
-    // Agente Alcayna activo: inyecta su system_prompt como primer mensaje de
-    // sistema. El agente especializado sobreescribe el comportamiento general
-    // sin cambiar el loop ni las tools — es solo contexto de rol.
-    const alcaynaAgent = ShinobiOrchestrator._activeAlcaynaAgent;
-    if (alcaynaAgent) {
+    // Agente especialista activo: inyecta su system_prompt como primer mensaje
+    // de sistema. El agente especializado sobreescribe el comportamiento
+    // general sin cambiar el loop ni las tools — es solo contexto de rol.
+    const specialistAgent = ShinobiOrchestrator._activeSpecialistAgent;
+    if (specialistAgent) {
       currentMessages = [
-        { role: 'system', content: `[MODO ALCAYNA — ${alcaynaAgent.name}]\n${alcaynaAgent.system_prompt}` } as any,
+        { role: 'system', content: `[MODO ESPECIALISTA — ${specialistAgent.name}]\n${specialistAgent.system_prompt}` } as any,
         ...currentMessages,
       ];
     }
@@ -428,7 +443,16 @@ export class ShinobiOrchestrator {
     // P2 — iteration_budget: el cap de turnos del loop ahora es un
     // IterationBudget (consumible, con snapshot), configurable por env, en
     // vez de un `maxIterations = 10` hardcodeado.
-    const budget = new IterationBudget(Number(process.env.SHINOBI_MAX_ITERATIONS) || 10);
+    //
+    // F2.6 (auditoría 2026-07-01): `userIterationBudget(userId)` existía en
+    // multiuser_wiring.ts (setter + persistencia vía slash command) pero no
+    // tenía NINGÚN caller en todo `src/` — un operador podía configurar
+    // `maxIterationsPerSession` por usuario y el límite nunca se aplicaba
+    // (control de recursos/coste que aparentaba existir). `effectiveMaxIterations`
+    // (iteration_budget.ts) encapsula la precedencia: límite por usuario si
+    // está configurado (>0) → env → default 10. Sin userId, o sin
+    // restricción configurada, el comportamiento es idéntico al de antes.
+    const budget = new IterationBudget(effectiveMaxIterations(userId));
     let iteration = 0;
 
     // Anti-loop de navegación: si el bot llama repetidamente a tools de
@@ -604,16 +628,41 @@ export class ShinobiOrchestrator {
         // IS its report of the prior tool results; compare its success-claim to
         // what those tools really returned. Gated; flag/halt per policy. Detect
         // the insidious mode: "transferencia completada" when the tool failed.
+        //
+        // F1.5 (auditoría 2026-07-01, RANK #3): antes, un veredicto 'halt' aquí
+        // era puramente cosmético — se logueaba y el mensaje fabricado del
+        // agente llegaba INTACTO al usuario/memoria, sin ninguna consecuencia
+        // real. `responseMessage.content` todavía no se ha persistido ni
+        // devuelto en este punto del loop, así que es el único sitio seguro
+        // para intervenir sin reestructurar el orquestador: si el veredicto es
+        // 'halt' (modo enforce global, o tool destructiva vía
+        // effectiveModeForPostAction), se antepone una corrección VISIBLE antes
+        // de que el contenido se guarde/devuelva. No es un revert — el efecto
+        // del tool (si lo hubo) ya ocurrió y en general no es reversible de
+        // forma genérica — pero la mentira sobre ese efecto ya no pasa sin
+        // contestar. En modo 'flag' puro (tool no destructiva) el
+        // comportamiento no cambia: solo se loguea (FIX 0.14, no-disruptivo).
         if (integrityEnabled() && integrityPending.size > 0) {
           const claims = reportClaimsSuccess(String(responseMessage.content || ''));
+          const blocked: string[] = [];
           for (const [, p] of integrityPending) {
             const v = runPostAction({ tool: p.tool, real: p.real, reported: { claims_success: claims }, risk: 'low' });
             if (!v.ok) {
+              const detail = v.checks.filter((c) => !c.ok).map((c) => c.detail).join('; ');
               logToolCall({ tool: p.tool, args: {}, success: false, durationMs: Math.round(v.durationMs), error: `integrity_${v.flags.join('+')}` });
-              console.log(`  [🛡] integridad post-acción ${v.action}: ${v.flags.join(', ')} — ${v.checks.filter((c) => !c.ok).map((c) => c.detail).join('; ')} (${v.durationMs.toFixed(2)}ms)`);
+              console.log(`  [🛡] integridad post-acción ${v.action}: ${v.flags.join(', ')} — ${detail} (${v.durationMs.toFixed(2)}ms)`);
+              if (v.action === 'halt') blocked.push(`${p.tool} (${v.flags.join('+')}): ${detail}`);
             }
           }
           integrityPending.clear();
+          if (blocked.length > 0) {
+            const warning =
+              `⚠️ [Integridad — verificación automática] Se detectó una discrepancia entre lo que ` +
+              `este mensaje afirma y el resultado REAL de la(s) herramienta(s) ejecutadas: ` +
+              `${blocked.join(' | ')}. El texto original del agente se conserva a continuación, ` +
+              `pero NO debe asumirse como fiable respecto a esas herramientas.\n\n---\n\n`;
+            responseMessage.content = warning + String(responseMessage.content || '');
+          }
         }
 
         // If the LLM just responds with text, we are done
@@ -730,40 +779,18 @@ export class ShinobiOrchestrator {
               approvalVerdict.reason = 'argumentos reparados por el sanitizador tras JSON truncado — requiere confirmación';
               console.warn(`  [⚠] "${functionName}": argumentos reparados desde JSON truncado — forzando aprobación (ALTA-18)`);
             }
-            const approvalTimeoutMs = Number(process.env.SHINOBI_APPROVAL_TIMEOUT_MS) || 120_000;
-            let approved = false;
-            let isTimeout = false;
-            let timer: NodeJS.Timeout | undefined;
-
-            // SHINOBI_APPROVAL_TIMEOUT_ACTION: 'deny' (default, seguro) | 'approve' (⚠ PELIGROSO)
-            // Con 'approve', cualquier acción crítica se auto-aprueba tras el timeout si el
-            // usuario no responde — equivale a desactivar el gate para sesiones lentas.
-            const timeoutApprove = (process.env.SHINOBI_APPROVAL_TIMEOUT_ACTION || 'deny').toLowerCase() === 'approve';
-            if (timeoutApprove && approvalVerdict.destructive) {
-              console.warn(`[SECURITY] SHINOBI_APPROVAL_TIMEOUT_ACTION=approve — "${functionName}" se auto-aprobará en ${approvalTimeoutMs / 1000}s si no hay respuesta`);
-            }
-            const timeoutPromise = new Promise<boolean>((resolve) => {
-              timer = setTimeout(() => {
-                isTimeout = true;
-                resolve(timeoutApprove); // por defecto DENIEGA en timeout; usa SHINOBI_APPROVAL_TIMEOUT_ACTION=approve para el comportamiento antiguo
-              }, approvalTimeoutMs);
+            // F2.12 (auditoría 2026-07-01): la carrera aprobación-vs-timeout
+            // se extrajo a `raceApprovalWithTimeout` (security/approval.ts)
+            // para que sea directamente testeable sin levantar el loop
+            // completo — el test decorativo anterior (security_invariants.ts,
+            // bloque "Timeout→DENY") no ejercía esta lógica en absoluto.
+            const { approved, isTimeout } = await raceApprovalWithTimeout({
+              toolName: functionName,
+              args: functionArgs,
+              destructive: approvalVerdict.destructive,
+              reason: approvalVerdict.reason,
             });
-
-            try {
-              approved = await Promise.race([
-                requestApproval({
-                  toolName: functionName,
-                  args: functionArgs,
-                  destructive: approvalVerdict.destructive,
-                  reason: approvalVerdict.reason,
-                }),
-                timeoutPromise
-              ]);
-            } catch (err: any) {
-              // Si fue por otro error, approved queda false y se maneja
-            } finally {
-              if (timer) clearTimeout(timer);
-            }
+            const approvalTimeoutMs = Number(process.env.SHINOBI_APPROVAL_TIMEOUT_MS) || 120_000;
 
             if (!approved) {
               const denyReason = isTimeout
@@ -967,7 +994,7 @@ export class ShinobiOrchestrator {
                 `(${navConsecutiveCount} llamadas consecutivas a ${functionName} sin datos nuevos). ` +
                 `Cambia de estrategia: prueba una URL alternativa, usa browser_cdp para extraer ` +
                 `el DOM directamente, o reporta el fallo estructural al usuario.`;
-              console.log(`  [\u26D4] NAV_STALL_LOOP: ${functionName} x${navConsecutiveCount} — inyectando mensaje de ruptura`);
+              console.log(`  [⛔] NAV_STALL_LOOP: ${functionName} x${navConsecutiveCount} — inyectando mensaje de ruptura`);
               currentMessages.push({ role: 'user' as const, content: stallMsg });
               await this.memory.addMessage({ role: 'user', content: stallMsg });
               navConsecutiveCount = 0; // reset para evitar inyecciones repetidas

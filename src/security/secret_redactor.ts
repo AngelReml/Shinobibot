@@ -32,6 +32,13 @@
  *   - Env var line:  `<KEYNAME>=<value>` cuando el nombre indica clave
  *   - URL credentials: `scheme://user:pass@host` — credenciales embebidas en URI
  *   - Connection strings: variables cuyo nombre incluye url/uri/dsn/connection/conn/database
+ *   - AWS Secret Access Key: contexto `aws_secret_access_key`/`AWS_SECRET_ACCESS_KEY` (F2.7,
+ *     sin prefijo distintivo propio — a diferencia de AKIA/ASIA del Access Key ID, el Secret
+ *     Access Key es un blob base64 de 40 chars sin marca; detectarlo sin contexto de nombre
+ *     produciría demasiados falsos positivos, así que se ata al nombre de variable).
+ *   - Azure: `AccountKey=<base64>` de connection strings de Storage/Service Bus (F2.7).
+ *   - GCP: `private_key` de un service-account JSON (PEM con `\n` escapado, no salto de
+ *     línea real — el patrón `private-key-block` ya cubre el PEM con saltos reales) (F2.7).
  */
 
 export type SecretKind =
@@ -49,7 +56,10 @@ export type SecretKind =
   | 'private-key-block'
   | 'jwt'
   | 'env-secret-assignment'
-  | 'env-connection-string';
+  | 'env-connection-string'
+  | 'aws-secret-key'
+  | 'azure-account-key'
+  | 'gcp-service-account-key';
 
 interface RedactorPattern {
   kind: SecretKind;
@@ -72,6 +82,16 @@ const PATTERNS: RedactorPattern[] = [
   { kind: 'google-api-key', rx: /AIza[0-9A-Za-z_-]{35,40}/g },
   // AWS Access Key: AKIA<16> o ASIA<16>
   { kind: 'aws-access-key', rx: /\b(?:AKIA|ASIA)[A-Z0-9]{16}\b/g },
+  // AWS Secret Access Key (F2.7): sin prefijo propio, se ata al nombre de variable
+  // (aws_secret_access_key / AWS_SECRET_ACCESS_KEY) — igual que env-secret-assignment
+  // pero con `kind` explícito para trazabilidad. Va ANTES de env-secret-assignment para
+  // que el kind reportado sea el específico, no el genérico.
+  { kind: 'aws-secret-key', rx: /(aws_secret_access_key\s*[:=]\s*["']?)([A-Za-z0-9/+=]{40})/gi, group: 2 },
+  // Azure Storage/Service Bus connection string: el componente sensible es AccountKey=.
+  { kind: 'azure-account-key', rx: /(AccountKey\s*=\s*)([A-Za-z0-9/+=]{20,120})/gi, group: 2 },
+  // GCP service-account JSON key: private_key con \n ESCAPADO (json.dumps de una PEM), no
+  // salto de línea real — el patrón private-key-block de abajo cubre el caso con saltos reales.
+  { kind: 'gcp-service-account-key', rx: /-----BEGIN PRIVATE KEY-----(?:\\n|\\r\\n)[A-Za-z0-9+/=\\n\\r]{20,4000}?-----END PRIVATE KEY-----(?:\\n)?/g },
   // Slack: xoxb-/xoxa-/xoxp-/xoxr-/xoxs-/xapp- + cuerpo alfanumérico/guiones.
   { kind: 'slack-token', rx: /\bxox[abprs]-[A-Za-z0-9_-]{20,255}\b/g },
   // Discord bot token: 24+ . 6 . 27+ (base64url).

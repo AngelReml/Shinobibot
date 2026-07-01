@@ -1,5 +1,228 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-01 · Remediación post-auditoría — 4 tests rotos arreglados + build:exe reparado + SEA canónico roto documentado (no arreglado)
+
+Verificación de las 5 puertas (checkout → `npm ci` → `typecheck` → `test` →
+`build:exe` + arranque real) antes de commitear la remediación F0-F6. Puertas
+1-3 pasaron limpio a la primera. Puerta 4 (`npm run test`) falló con 10 tests
+en 6 archivos — las 6 causas raíz eran reales, no artefactos de sandbox
+(confirmado: CI corre en `windows-latest`, mismo SO donde reproduje todo):
+
+1. **`src/memory/{memory_store,provenance,curated_memory_isolation}.test.ts`
+   (5 tests, timeout 10s).** Causa: Sprint 1.1 (memoria vectorial) añadió
+   `@huggingface/transformers` como backend de embeddings local por defecto
+   (autodetect en `embedding_providers/factory.ts`) — el primer `store()`/
+   `recall()` intenta descargar el modelo ONNX `Xenova/all-MiniLM-L6-v2` (no
+   cacheado en esta máquina), y sin red o con red lenta cuelga hasta el
+   timeout de vitest. Fix: los 3 test files fuerzan
+   `SHINOBI_EMBED_PROVIDER=hash` al arrancar, igual que ya hacían
+   `temporal_memory.test.ts` y `embedding_providers.test.ts` — esos dos
+   archivos no tenían el problema porque ya seguían este patrón.
+2. **`src/committee/__tests__/apply_proposal.test.ts` (2 tests).** El helper
+   `buildValidDiff` del test reescribía las cabeceras del diff con
+   `startsWith("--- a/")` (prefijo exacto) — en Windows, `git diff --no-index`
+   cita las rutas (`--- "a/C:\Users\...`) porque contienen backslashes, así
+   que el prefijo exacto no matcheaba y quedaban rutas absolutas de Windows
+   sin reescribir → `git apply` las rechazaba con "invalid path". El código
+   de producción (`improvements.ts:357-359`, `computeDiffForProposal`) ya
+   usa el prefijo laxo (`startsWith("--- ")`) que sí soporta esto — el test
+   decía replicar "la misma técnica" pero no lo hacía. Fix: alineado el
+   helper del test con la técnica real de producción.
+3. **`src/tools/__tests__/audio_prohibited_uses_canonical.test.ts` (2
+   tests).** Bug real en `audio_transcribe.ts`, no solo del test: un path
+   POSIX (`/etc/passwd`, `/root/...`) pasado a un proceso Windows no lo
+   reconoce `path.resolve` como absoluto — lo cuelga del cwd, y el check
+   contra `ABSOLUTE_PROHIBITED_PATHS` (que compara sobre el path YA
+   resuelto) deja de matchear, cayendo en "archivo no encontrado" en vez de
+   rechazar por ruta prohibida. `src/utils/permissions.ts` ya tenía este
+   problema resuelto para `validatePath` (`looksLikeForeignAbsolutePath`,
+   descubierto en la verificación final anterior — ver más abajo), pero
+   `audio_transcribe.ts` no lo reutilizó al migrar a la lista canónica
+   (F2.9). Fix: se compara también el string crudo (sin `resolve()`) contra
+   las entradas POSIX de la lista canónica, sin extender el bloqueo a paths
+   foráneos que no están en la lista (para no romper el test de "no bloquea
+   de más").
+4. **`src/reader/__tests__/repo_map.test.ts` (1 test).**
+   `formatSearchResults` imprimía `relPath` crudo (de `path.relative()`, usa
+   `\` en Windows) en el texto para el LLM, en vez de normalizar a `/` como
+   ya hacían los demás tests del archivo al comparar. Fix: normaliza en
+   `repo_map.ts`, no solo en el test.
+
+Puerta 5 (`npm run build:exe` + arrancar `Shinobi.exe`) falló primero al
+compilar (esbuild sin loader para `.node`) y luego, tras corregir eso, al
+arrancar (2 crashes en cascada). Root cause común: `scripts/build_exe.ts`
+(ruta **no canónica** vía `@yao-pkg/pkg` — el propio fichero se documenta
+como tal, "nada en CI lo invoca") nunca se había re-validado end-to-end desde
+que Sprint 1.1 añadió `@huggingface/transformers`/`onnxruntime-node` y desde
+que `isolated-vm` (sandbox de skills) y los prompts madre de
+`src/agents/prompts/*.md` empezaron a hacer falta en runtime. Fixes en
+`scripts/build_exe.ts`: (a) `onnxruntime-node`, `@huggingface/transformers`
+e `isolated-vm` marcados `external` en esbuild + sus binarios nativos
+listados como assets de `pkg`, igual que ya se hacía con `better-sqlite3`;
+(b) `src/agents/prompts/*.md` copiado a `build/prompts/` (el bundle a un
+único `.cjs` colapsa `dirname(import.meta.url)` de TODOS los módulos a
+`build/`, así que `PROMPTS_DIR` dejaba de apuntar a `src/agents/prompts/`);
+(c) `src/utils/app_version.ts` — mismo colapso de profundidad de directorio:
+`resolve(__dirname, '../../package.json')` esperaba la profundidad original
+de `src/utils/`, y tras el bundle aterriza fuera del repo (el filesystem
+virtual de `pkg` remapea rutas absolutas 1:1). Se añadió un fallback (constante
+`__SHINOBI_APP_VERSION__` inyectada por esbuild `define`, con el mismo valor
+que ya lee `build_exe.ts` de `package.json`) que solo se usa si el `require`
+normal falla — en dev/CLI/tests el require de siempre sigue siendo la única
+fuente de verdad, nunca hay drift. Verificado real: `Shinobi.exe` arranca,
+sirve en `:3333`, responde HTTP 200. Degradación conocida y no bloqueante:
+el índice semántico vectorial queda deshabilitado dentro del `.exe`
+empaquetado (`import()` dinámico de `@huggingface/transformers` no funciona
+dentro del snapshot de `pkg` — límite conocido, no arreglado; `recall()`
+sigue funcionando vía markdown/keyword, `rebuildSemanticIndex()` ya está
+diseñado como best-effort y no lanza).
+
+**Hallazgo NO arreglado, dejado documentado a propósito:** la ruta
+canónica de release (`rebuild.cmd` → `build_sea.mjs` + Node SEA + postject,
+la que sí consume `.github/workflows/release.yml`) tiene un problema
+DISTINTO y más profundo, no un simple gap de empaquetado: dentro de un
+binario SEA, `require('better-sqlite3')` revienta con
+`ERR_UNKNOWN_BUILTIN_MODULE` — Node SEA no soporta `require()` de paquetes
+nativos de terceros de la forma normal (características conocidas de SEA,
+no un bug puntual de este repo). Añadir los mismos paquetes a `external` en
+`build_sea.mjs` corrige el error de compilación de esbuild (hecho), pero el
+`.exe` resultante sigue sin arrancar. Además: `release.yml` solo COMPILA
+(`node build_sea.mjs`) — nunca ejecuta el `.exe` resultante como smoke test,
+así que este problema pudo llevar roto un tiempo indeterminado sin que CI lo
+detectara. Arreglarlo de verdad requiere repensar cómo el SEA carga nativos
+(no es un one-liner) — queda como tarea aparte, priorizable.
+
+## 2026-07-01 · F5.3 — CI: npm audit añadido; gates F1/F2/F3 confirmados ya resueltos
+
+Verificación final: revisé si F5.3 (gates F1/F2/F3 + smokes D-015/016/017 sin
+correr en CI) seguía abierto. `ci.yml` por sí solo (tsc + vitest) no los
+ejecuta — pero **`.github/workflows/gates.yml` ya existe** (trabajo de una
+fase anterior de esta misma remediación, no de hoy) y resuelve F5.3
+correctamente: los 6 jobs (f1-gate, f2-gate, f3-gate, d015-smoke, d016-router-
+probe, d017-smoke) corren con `continue-on-error: true` (informativos, no
+bloqueantes), y los 5 que necesitan LLM/red están gateados detrás de la
+variable de repo `SHINOBI_ENABLE_LLM_GATES` (opt-in, no un secret — por
+defecto no corren). Los secrets de API key nunca se exponen a PRs de forks:
+es una garantía nativa de GitHub Actions para el evento `pull_request` (no
+`pull_request_target`), no algo que este workflow tenga que resolver por su
+cuenta. d017-smoke (approval gate + validatePath, determinista, sin LLM) corre
+siempre. Añadido hoy: `npm audit --production --audit-level=high` a `ci.yml`
+(bloqueante, sin secrets, sin coste — cubre la mitad de F5.3+F5.5 que sí
+faltaba). No se tocó `gates.yml` — ya estaba bien diseñado.
+
+## 2026-07-01 · Verificación final — 2 hallazgos nuevos fuera del plan original
+
+Durante la verificación final (tsc + suite completa + greps de DoD) aparecieron
+dos gaps que ni la auditoría ni el plan habían detectado. Se corrigen aquí en
+vez de dejarlos para una ronda futura, porque son de alcance pequeño y de la
+misma clase de riesgo que el resto de F0-F2.
+
+**1. `src/web/server.ts:294` — literal `'2.0.0'` huérfano (variante de F0.1).**
+El grep de DoD (`grep -rn "2.0.0" src/`) — más amplio que el que hacía el test
+original de F0.1, que solo cubría `scripts/`+`installer/` — encontró que el
+handler de onboarding web defaulteaba `ShinobiConfig.version` a `'2.0.0'`
+hardcodeado en vez de `APP_VERSION`. Campo write-only (no se lee en ningún
+sitio hoy), impacto bajo, pero mismo antipatrón que F0.1 ya había prohibido en
+otros 3 archivos. Corregido: usa `APP_VERSION`. Test ampliado en
+`src/utils/__tests__/version_consistency.test.ts` (assertion dirigida, no un
+grep ciego de `'2.0.0'` en todo `src/` — eso da falsos positivos con
+documentación de rangos semver como `^1.2.3 -> >=1.2.3 <2.0.0`).
+
+**2. `src/utils/permissions.ts` `validatePath` — paths absolutos de la
+convención de SO contraria se cuelan.** Encontrado por
+`capability_stress_2.test.ts` (test ya existente, no escrito hoy) fallando en
+este sandbox Linux: pasar `C:\Windows\System32` a un proceso Node en POSIX no
+lo reconoce como absoluto (`path.isAbsolute` es específico del SO) —
+`path.resolve` lo trataba como un segmento relativo colgado del cwd, colando
+tanto el check de "dentro del workspace" como `ABSOLUTE_PROHIBITED_PATHS`. En
+producción (Windows-native) esto no se manifiesta porque Node ya reconoce sus
+propios paths — pero Shinobi también soporta Remote Mode (VPS+Docker/SSH,
+Linux) y sandbox backends Linux, donde un tool call con un path Windows-style
+SÍ atravesaría un host Linux real. Mismo tipo de bug que ALTA-04 (symlinks) ya
+corrigió, pero en el eje "convención de SO" en vez de "destino de symlink".
+Corregido con `looksLikeForeignAbsolutePath()`: un string absoluto en la OTRA
+convención se trata como "fuera del workspace" (bypasseable solo por
+aprobación manual explícita, igual que el resto del check de traversal — NUNCA
+por resolución silenciosa). Test de regresión: el propio
+`capability_stress_2.test.ts`, que fallaba antes del fix y pasa después.
+
+## 2026-07-01 · F6 — Decisiones de producto (auditoría técnica exhaustiva)
+
+**F6.1 — Anti-bot/ToS. Decisión del usuario: separar del producto público
+(recomendación del plan).** El árbol público v1.0.0 incluía evasión
+anti-bot deliberada (spoofing de `navigator.webdriver`, `chrome.runtime`
+falso, plugins falsos, WebGL vendor/renderer, en `browser_engine.ts` líneas
+238-315 originales) y 27 scripts (`scripts/fiverr/`, `scripts/linkedin/`,
+`scripts/upwork/`, `scripts/notebooklm/`, `scripts/gemini/hola_gemini.ts`,
+más 2 sueltos) que automatizaban sesiones logueadas reales de terceros vía
+CDP. Riesgo real de ToS/legal para un producto distribuido públicamente; el
+agente core no necesita evasión anti-bot para su propuesta de valor.
+Ejecutado: código de stealth eliminado de `browser_engine.ts` y
+`web_search_with_warmup.ts` (que conserva warm-up + backoff + detección de
+bloqueo — robustez legítima, no evasión); `clean_extract.ts` ya no llama a
+la función de stealth retirada; los 27 scripts retirados de `scripts/` vía
+`git rm`. Todo lo retirado se entregó archivado (código original +
+scripts) al operador para uso privado, con instrucciones de reactivación.
+Test de regresión: `src/__tests__/no_stealth_in_public_tree.test.ts`
+(falla si se reintroduce la firma de stealth en el árbol público).
+Reversible: el operador puede reintroducirlo en su copia privada.
+
+**F6.2 — Backup no incluye `.env`.** `state_backup.ts` nunca incluyó
+`.env` (ni siquiera redactado) para evitar fuga de credenciales si el
+propio backup se ve comprometido — esto ya era así, pero no estaba
+documentado ni el usuario avisado al restaurar. Añadido: banner del
+módulo explícito, sección en el README.md generado por cada backup, aviso
+por `console.warn` al final de `restoreBackup()`. `DEFAULT_SOURCES`
+exportado para verificación directa. Test:
+`src/backup/__tests__/backup_sources_documented.test.ts`.
+
+**F6.3 — Fragmentación de memoria: documentar, no unificar.** El plan
+ofrecía una opción "S, mínima" (documentar los tres subsistemas de memoria
+— vault Markdown curado, índice semántico derivado, providers
+conversacionales) frente a una "L" (unificarlos tras una fachada común).
+Se tomó la opción S por su propio dimensionamiento en el plan: unificar es
+un cambio arquitectónico de alto riesgo sin beneficio de seguridad
+inmediato. Documentado en `src/memory/README.md`.
+
+## 2026-07-01 · F1 — Seguridad crítica: F1.2 diferido, F1.4 cerrado
+
+**F1.2 — Sandboxing real (isolated-vm) de `plugin_loader.ts`. Decisión del
+usuario: cerrar el resto del plan primero.** El bypass del gate de plugins
+SÍ está cerrado y verificado (`tools/index.ts`: plugins no se cargan salvo
+`SHINOBI_PLUGINS_ENABLED=1`, test `plugins_gate_default_off.test.ts`). Lo
+que falta es el sandboxing real: `importPlugin()` sigue usando
+`await import(url)` directo, sin `isolated-vm` — un plugin cargado (con el
+flag activo, opt-in) corre con los mismos privilegios que Shinobi, mitigado
+solo parcialmente por `setToolLoadSource('plugin')` contra sobrescritura de
+nombres de tools nativas. **Gap conocido y abierto.** Se cierra primero el
+resto del plan (F6 + verificación final) por decisión explícita del
+usuario; se intenta el sandboxing solo si queda margen de tiempo al final.
+
+**F1.4 — CDP sin autenticación en el navegador personal del usuario.**
+Encontrado ya remediado (sesión previa, sin test ni entrada en este log):
+`browser_cdp.ts` lanza un Chromium con `--user-data-dir` DEDICADO
+(`shinobiBrowserProfileDir()`, bajo `%LOCALAPPDATA%/Shinobi/browser-profile`),
+instancia separada del Chrome/Comet real del usuario — opción 1 (preferida)
+del plan, en vez de loopback+token. El CDP en :9222 sigue sin token, pero ya
+no expone una sesión logueada real del usuario. `setup_comet_cdp.ps1` y los
+scripts que dependían de él fueron retirados en F6.1. Cerrado ahora con
+test de regresión: `src/tools/__tests__/browser_cdp_dedicated_profile.test.ts`.
+
+## 2026-07-01 · F0.4 — Purga de branding real (Alcayna/Enterprise Edition/4.5.1)
+
+El repo público nombraba un negocio real de un cliente ("Repostería
+Alcayna", Cieza/Murcia) en 13 `system_prompt` de agentes especialistas
+(`agent_registry.ts`) y usaba versión/edición falsas ("ShinobiBot Enterprise
+Edition - Versión 4.5.1" en vez de `APP_VERSION` real). La tarea #2 de esta
+misma sesión había marcado F0.4 como hecho sin estarlo — corregido volviendo
+a las fuentes primarias (auditoría + plan) en vez de confiar en el estado
+del tracker. Renombrado completo `Alcayna*` → `Agent*`/`Specialist*` en
+`agent_registry.ts`, `orchestrator.ts`, `slash_commands.ts`,
+`intent_router.ts`, `scripts/shinobi.ts`; los 13 `system_prompt` se
+genericaron preservando estructura pero sin nombrar el negocio real;
+`/version` ahora usa `APP_VERSION` (fuente única en `package.json`). Test
+de regresión: `src/__tests__/no_residual_branding.test.ts`.
+
 ## 2026-06-29 · G2 — Shadow modes: criterio de promoción/matar documentado
 
 **Contexto:** Los dos shadow modes (dispatch affinity `src/dispatch/` y refiner

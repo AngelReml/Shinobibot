@@ -1,6 +1,8 @@
 // src/dispatch/intent_router.ts
 import { validatePayload, ProtocolViolation } from '../coordinator/contracts.js';
-import { ALCAYNA_AGENT_IDS, getAlcaynaAgentByKeyword } from '../agents/agent_registry.js';
+import { AGENT_IDS, getAgentByKeyword } from '../agents/agent_registry.js';
+// F0.1: versión única de verdad, leída de package.json (ver src/utils/app_version.ts).
+import { APP_VERSION } from '../utils/app_version.js';
 
 export interface IntentRouteResult {
   matched: boolean;
@@ -42,12 +44,12 @@ export class IntentRouter {
     {
       name: 'version',
       pattern: /^(versi[oó]n|version)(\??)$/i,
-      handler: () => 'ShinobiBot Enterprise Edition - Versión 4.5.1'
+      handler: () => `Shinobi v${APP_VERSION}`
     }
   ];
 
   public static isValidAgentNode(id: string): boolean {
-    return ALCAYNA_AGENT_IDS.has(id);
+    return AGENT_IDS.has(id);
   }
 
   /**
@@ -78,7 +80,7 @@ export class IntentRouter {
           return { matched: true, type: 'command', intentName: 'ping', response: 'pong' };
         }
         if (cmd === 'version') {
-          return { matched: true, type: 'command', intentName: 'version', response: 'ShinobiBot v4.5.1' };
+          return { matched: true, type: 'command', intentName: 'version', response: `Shinobi v${APP_VERSION}` };
         }
         if (cmd === 'help' || cmd === 'ayuda') {
           return {
@@ -95,14 +97,14 @@ export class IntentRouter {
       return { matched: false, type: 'none' };
     }
 
-    // 2. Activación de departamentos Alcayna (palabras clave exactas)
-    const alcaynaAgent = getAlcaynaAgentByKeyword(trimmed);
-    if (alcaynaAgent) {
+    // 2. Activación de departamentos especialistas (palabras clave exactas)
+    const specialistAgent = getAgentByKeyword(trimmed);
+    if (specialistAgent) {
       return {
         matched: true,
         type: 'agent_activation',
-        agentId: alcaynaAgent.id,
-        response: `Departamento ${alcaynaAgent.name} activado. ${alcaynaAgent.activationKeyword}.`,
+        agentId: specialistAgent.id,
+        response: `Departamento ${specialistAgent.name} activado. ${specialistAgent.activationKeyword}.`,
       };
     }
 

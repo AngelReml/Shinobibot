@@ -47,6 +47,12 @@ export interface SkillRecord {
   manifest_ref: string;               // declared_tools, declared_effects, I/O
   status: 'loaded' | 'isolated' | 'rejected';
   created_by: 'swarm' | 'manual';     // procedencia (regla de Hermes)
+  // HONESTIDAD (F2.13, auditoría 2026-07): 'sandboxed' es una etiqueta de
+  // PROCEDENCIA/POLÍTICA (la skill pasó por el mediador de mediator.ts, que
+  // valida cada syscall contra su manifiesto ANTES de delegar), NO una
+  // garantía de aislamiento de sistema operativo. Es el único valor posible
+  // hoy porque toda skill cargada por kaname pasa por el mediador — no
+  // implica namespace/container/VM/chroot. Ver banner de mediator.ts.
   isolation: 'sandboxed';
 }
 

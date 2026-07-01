@@ -35,6 +35,7 @@ import { ResidentLoop } from '../runtime/resident_loop.js';
 import { setSkillEventListener, skillManager } from '../skills/skill_manager.js';
 import { setDocumentEventListener, shouldOfferDocument, offerDocument } from '../documents/factory.js';
 import { loadConfig, saveConfig, reloadConfig, type ShinobiConfig } from '../runtime/first_run_wizard.js';
+import { APP_VERSION } from '../utils/app_version.js';
 import { getClient, getAllUserFacingClients, currentProvider, isProviderConfigured, invokeLLM as routedInvokeLLM } from '../providers/provider_router.js';
 import { EXTRA_MODEL_SUGGESTIONS } from '../providers/registry.js';
 import { tokenBudget } from '../context/token_budget.js';
@@ -291,7 +292,13 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
         language: prev?.language || 'es',
         memory_path: prev?.memory_path || path.join(process.env.APPDATA || process.env.HOME || '', 'Shinobi', 'memory'),
         onboarded_at: prev?.onboarded_at || new Date().toISOString(),
-        version: prev?.version || '2.0.0',
+        // F0.1 (auditoría 2026-07-01): antes hardcodeaba '2.0.0' — literal
+        // huérfano del bug de versión doble que package.json (1.0.0) ya
+        // no explica. Ahora usa la misma fuente única que el resto del
+        // producto (src/utils/app_version.ts). Este campo no se lee en
+        // ningún sitio hoy (solo se persiste en config.json), pero debe
+        // reflejar la versión real si algún día se usa para migraciones.
+        version: prev?.version || APP_VERSION,
         provider: provider as ShinobiConfig['provider'],
         provider_key: key,
         model_default: client.defaultModel(),

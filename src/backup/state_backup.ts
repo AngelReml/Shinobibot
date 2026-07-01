@@ -1,20 +1,29 @@
-// State Backup — backup/restore del estado de Shinobi (config, memoria, skills, audit redactado).
+// State Backup — backup/restore de settings/memoria/skills/audit(redactado) de Shinobi. NO incluye .env/secretos — ver abajo.
 // Prepara un staging dir que el operador empuja a su repo GitHub privado; sin push automático.
 /**
- * State Backup — backup/restore del estado completo de Shinobi a un repo
- * GitHub privado del usuario. Sprint 3.8 (parte 2).
+ * State Backup — backup/restore del estado de Shinobi (NO "completo": ver
+ * exclusiones abajo) a un repo GitHub privado del usuario. Sprint 3.8 (parte 2).
  *
- * Estado que se incluye en el backup:
- *   - `config/`        — settings.json, .env redactado, etc.
- *   - `memory/`        — bóveda Markdown curada (USER.md + MEMORY.md) + memory.json
- *   - `skills/approved/` — skills firmadas instaladas
- *   - `audit.jsonl` — log de operaciones (REDACTADO con secret_redactor)
+ * F6.2 (auditoría 2026-07-01): este banner antes decía "config, .env
+ * redactado" — pero `DEFAULT_SOURCES` (más abajo) NUNCA incluyó ningún
+ * `.env`, ni siquiera redactado. La decisión de no respaldar secretos es
+ * CORRECTA (evita que un backup en un repo privado se convierta en fuga de
+ * credenciales si ese repo se filtra); lo que estaba mal era la comunicación,
+ * que sugería al usuario que su `.env` SÍ quedaba cubierto. Corregido aquí y
+ * en el aviso de `restoreBackup()`.
  *
- * Estado que se OMITE (deliberadamente):
- *   - `node_modules/`
- *   - `.git/`
- *   - cualquier `.env` sin redactar
- *   - cualquier `.key`, `.pem`, `.p12`, `.pfx`
+ * Estado que SÍ se incluye en el backup (ver `DEFAULT_SOURCES`):
+ *   - `settings.json`, `package.json` — config NO sensible.
+ *   - `memory/USER.md`, `memory/MEMORY.md`, `memory.json` — bóveda curada.
+ *   - `skills/approved/` — skills firmadas instaladas.
+ *   - `audit.jsonl` — REDACTADO línea a línea con `secret_redactor` antes de copiar.
+ *   - `reflections/`.
+ *
+ * Estado que se OMITE SIEMPRE (deliberadamente, sin excepción):
+ *   - `.env` / `.env.*` — NUNCA se copia, ni redactado. El usuario debe
+ *     reponerlo manualmente tras un restore (ver aviso en `restoreBackup`).
+ *   - `node_modules/`, `.git/`.
+ *   - `.key`, `.pem`, `.p12`, `.pfx`, `.crt`, `.cer`.
  *
  * Implementación:
  *   - `createBackup(targetDir)`: copia + redacta a un staging dir.
@@ -69,7 +78,9 @@ export interface BackupManifest {
   redactionCount: number;
 }
 
-const DEFAULT_SOURCES: BackupSource[] = [
+// F6.2: exportado para que backup_sources_documented.test.ts pueda verificar
+// en código (no solo leyendo el banner a ojo) que ningún .env se cuela aquí.
+export const DEFAULT_SOURCES: BackupSource[] = [
   // Config minimal (no .env crudo).
   { relPath: 'settings.json' },
   { relPath: 'package.json' },
@@ -208,6 +219,13 @@ export function createBackup(opts: BackupOptions): BackupResult {
     '```',
     '',
     'Los secrets fueron REDACTADOS antes de copiar (audit.jsonl). Los archivos `.env`/`.key`/`.pem` se omiten explícitamente.',
+    '',
+    '## ⚠️ Este backup NO incluye tu .env',
+    '',
+    'Ningún `.env`/`.env.*` se copia jamás a este backup, ni siquiera redactado — es una decisión',
+    'deliberada para que un repo de backup filtrado nunca contenga credenciales activas.',
+    'Tras un `restore`, repón tu `.env` MANUALMENTE desde tu gestor de secretos habitual;',
+    'de lo contrario Shinobi arrancará sin API keys ni configuración de proveedor.',
   ].join('\n');
   writeFileSync(join(stagingDir, 'README.md'), readme, 'utf-8');
 
@@ -266,5 +284,12 @@ export function restoreBackup(opts: RestoreOptions): RestoreResult {
     copyFileSync(src, dst);
     restored++;
   }
+  // F6.2: el backup NUNCA incluyó .env (ver banner del módulo) — avisar
+  // explícitamente en cada restore para que el usuario no asuma que su
+  // configuración quedó completa y descubra en producción que faltan keys.
+  console.warn(
+    '[backup] Restore completado. Este backup NUNCA incluyó tu .env (decisión deliberada, ' +
+    'ver README.md del backup) — repón tu .env manualmente antes de arrancar Shinobi.'
+  );
   return { filesRestored: restored, filesSkipped: skipped, manifest };
 }

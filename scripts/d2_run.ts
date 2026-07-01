@@ -1,12 +1,13 @@
 // D.2 runner — ejecuta HierarchicalReader depth=2 contra el repo execa real,
 // renderiza el arbol de telemetria y persiste a missions/.
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { HierarchicalReader, renderTelemetryTree } from '../src/reader/HierarchicalReader.js';
 import { makeLLMClient } from '../src/reader/llm_adapter.js';
 
 async function main() {
-  const target = 'C:\\Users\\angel\\Desktop\\test_repos\\execa';
+  const target = path.join(os.homedir(), 'Desktop', 'test_repos', 'execa');
   if (!fs.existsSync(target)) {
     console.error(`[d2_run] target missing: ${target}`);
     process.exit(1);

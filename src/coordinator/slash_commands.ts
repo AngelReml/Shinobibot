@@ -673,31 +673,31 @@ ${pending.length} pending skill(s):`);
     return true;
   }
 
-  // /alcayna [list | status | reset]
-  if (trimmed.startsWith('/alcayna')) {
-    const { listAlcaynaAgents } = await import('../agents/agent_registry.js');
+  // /especialista [list | status | reset]
+  if (trimmed.startsWith('/especialista')) {
+    const { listAgents } = await import('../agents/agent_registry.js');
     const { ShinobiOrchestrator } = await import('../coordinator/orchestrator.js');
-    const sub = trimmed.slice('/alcayna'.length).trim();
+    const sub = trimmed.slice('/especialista'.length).trim();
     if (sub === 'reset' || sub === '') {
-      ShinobiOrchestrator.setAlcaynaAgent(null);
-      console.log('[Alcayna] Modo normal restaurado. Sin agente especializado activo.');
+      ShinobiOrchestrator.setSpecialistAgent(null);
+      console.log('[Especialista] Modo normal restaurado. Sin agente especializado activo.');
     } else if (sub === 'status') {
-      const active = ShinobiOrchestrator.getAlcaynaAgent();
+      const active = ShinobiOrchestrator.getSpecialistAgent();
       if (active) {
-        console.log(`[Alcayna] Agente activo: ${active.name} (${active.id})`);
+        console.log(`[Especialista] Agente activo: ${active.name} (${active.id})`);
         console.log(`  Capa: ${active.layer} | Modelo: ${active.recommendedModel}`);
         console.log(`  Tools permitidas: ${active.allowedTools.join(', ')}`);
       } else {
-        console.log('[Alcayna] Sin agente activo (modo normal).');
+        console.log('[Especialista] Sin agente activo (modo normal).');
       }
     } else if (sub === 'list') {
-      const agents = listAlcaynaAgents();
-      console.log(`[Alcayna] ${agents.length} departamentos disponibles:`);
+      const agents = listAgents();
+      console.log(`[Especialista] ${agents.length} departamentos disponibles:`);
       for (const a of agents) {
         console.log(`  • ${a.name} (${a.id}) — activa con: "${a.activationKeyword}"`);
       }
     } else {
-      console.log('Uso: /alcayna [list | status | reset]');
+      console.log('Uso: /especialista [list | status | reset]');
     }
     return true;
   }

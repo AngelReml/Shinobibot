@@ -16,6 +16,7 @@ import * as fs from 'fs';
 import { exec } from 'child_process';
 
 import * as path from 'path';
+import pkg from '../package.json' with { type: 'json' };
 import { loadConfig } from '../src/runtime/first_run_wizard.js';
 import { acquireLock, formatLockedError } from '../src/runtime/process_lock.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
@@ -26,9 +27,14 @@ import { startWebServer } from '../src/web/server.js';
 import { ChatStore } from '../src/web/chat_store.js';
 import { startGateway, parseAllowedUserIds } from '../src/gateway/index.js';
 import { lanWebChatInfo } from '../src/gateway/webchat_channel.js';
+import { installEgressRuntimeGuard } from '../src/egress/runtime_guard.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// F2.1 (CRIT-08, auditoría 2026-07-01) — mismo guard que scripts/shinobi.ts,
+// instalado antes de cualquier llamada de red del servidor web/gateway.
+installEgressRuntimeGuard();
 
 // pkg detection — process.pkg está definido cuando corremos como .exe empaquetado
 const IS_PKG = typeof (process as any).pkg !== 'undefined';
@@ -130,8 +136,10 @@ async function main() {
   }
 
   // Bloque 9 — extracción de assets si somos .exe empaquetado
-  // Versión hardcodeada para no depender de require('./package.json') en pkg.
-  const APP_VERSION = '2.0.0';
+  // F0.1: version leída de package.json en build time vía JSON import (esbuild
+  // la inlinea al bundle, así que no depende de resolver package.json en runtime
+  // dentro del .exe empaquetado — única fuente de verdad de versión).
+  const APP_VERSION = pkg.version;
   const runtimeDir = ensureRuntimeExtracted(APP_VERSION);
   let publicPath: string | undefined;
   if (runtimeDir) {

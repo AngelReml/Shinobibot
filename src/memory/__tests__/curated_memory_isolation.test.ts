@@ -9,6 +9,10 @@ import { randomUUID } from 'node:crypto';
 import { rmSync } from 'node:fs';
 import { curatedMemory, _resetCuratedMemoryInstances } from '../curated_memory.js';
 
+// Fuerza embeddings hash (determinísticos, sin red ni modelo ONNX) — appendEnv
+// pasa por ContradictionFilter.check(), que usa sharedMemoryStore() internamente.
+process.env.SHINOBI_EMBED_PROVIDER = 'hash';
+
 describe('curatedMemory(vault) — aislamiento por usuario (CRIT-12)', () => {
   const dirs: string[] = [];
   afterEach(() => {

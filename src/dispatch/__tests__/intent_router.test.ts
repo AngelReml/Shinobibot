@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { IntentRouter } from '../intent_router.js';
 import { performance } from 'perf_hooks';
+import { APP_VERSION } from '../../utils/app_version.js';
 
 describe('IntentRouter', () => {
   it('resuelve comandos deterministas explícitos (!ping, !version) de forma inmediata', async () => {
@@ -22,7 +23,10 @@ describe('IntentRouter', () => {
   it('resuelve otros comandos deterministas (!version, !status, !help)', async () => {
     const resVer = await IntentRouter.route('!version');
     expect(resVer.matched).toBe(true);
-    expect(resVer.response).toContain('ShinobiBot v4.5.1');
+    // F0.4: versión única de verdad (package.json vía APP_VERSION), no un
+    // literal hardcodeado ("ShinobiBot Enterprise Edition - Versión 4.5.1").
+    expect(resVer.response).toBe(`Shinobi v${APP_VERSION}`);
+    expect(resVer.response).not.toMatch(/enterprise edition|4\.5\.1/i);
 
     const resHelp = await IntentRouter.route('!help');
     expect(resHelp.matched).toBe(true);

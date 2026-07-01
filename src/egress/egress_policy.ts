@@ -20,21 +20,35 @@
  *
  * TODO fuera de esa allowlist es una violación de egress.
  *
- * LIMITACIÓN CONOCIDA (CRIT-08, auditoría 2026-06-30): este gate es
- * HONOR-BASED, no hay enforcement a nivel de red. `egressGate()` solo
- * devuelve `{allowed}`; no hace monkey-patch de `fetch`/`https.request`/
- * `axios` ni instala un middleware global que intercepte TODO el tráfico
- * saliente del proceso. Cualquier módulo que importe `axios`/`node:https`
- * directamente puede hacer egress real sin pasar por aquí — el único
- * mecanismo que detecta eso hoy es el test de invariante estático
- * (`src/egress/__tests__/egress_invariants.test.ts`), que escanea imports
- * en build/CI, no en runtime. Interceptar todo el tráfico de red del
- * proceso a nivel de socket/fetch es un cambio arquitectónico mayor, fuera
- * de alcance de este fix puntual. El punto de entrada centralizado real
- * (y el único caso, a fecha de esta nota, que invoca `egressGate()` desde
- * código de producción) es `src/channels/adapters/webhook_adapter.ts`
- * (ver ALTA-12) — ese es el modelo a seguir si se añaden más llamadas de
- * red ad-hoc: validar el destino y consultar el gate ANTES de la request.
+ * LIMITACIÓN CONOCIDA, PARCIALMENTE CERRADA (F2.1/CRIT-08, auditoría
+ * 2026-07-01 — actualiza la nota original de 2026-06-30): `egressGate()`
+ * en sí sigue siendo HONOR-BASED — solo devuelve `{allowed}`, no intercepta
+ * nada; el ÚNICO caller de producción sigue siendo
+ * `src/channels/adapters/webhook_adapter.ts` (ALTA-12) — y la allowlist de
+ * MÓDULOS ORIGEN de más arriba sigue sin enforcement en runtime: cualquier
+ * módulo que importe `axios`/`node:https` directamente puede saltarse esta
+ * lista, detectado solo por el lint estático de CI
+ * (`src/egress/__tests__/egress_invariants.test.ts`), no en runtime.
+ * Imponer esa allowlist de MÓDULOS por HOST de destino requeriría fijar los
+ * destinos de cada módulo — pero varios módulos legítimos (web_search, el
+ * instalador de skills, el gateway multi-proveedor) necesitan alcanzar
+ * destinos arbitrarios/dinámicos por diseño, así que ese enforcement
+ * específico sigue fuera de alcance (cambio de arquitectura mayor, no un
+ * fix puntual).
+ *
+ * LO QUE SÍ SE CERRÓ EN F2.1: `src/egress/runtime_guard.ts` instala un
+ * interceptor REAL a nivel de proceso (parchea `dns.lookup`/
+ * `dns.promises.lookup`/`net.Socket.prototype.connect`) que bloquea, sin
+ * importar qué módulo origina la llamada — incluido código importado
+ * dinámicamente o generado en runtime, el caso que el lint estático NUNCA
+ * puede cubrir — cualquier conexión saliente hacia una IP privada,
+ * reservada o de metadata cloud (RFC1918, link-local incl.
+ * 169.254.169.254). Es un guard de clase de amenaza (SSRF/exfiltración
+ * hacia la red interna), no un allowlist de host por módulo: complementario
+ * a esta allowlist honor-based, no un reemplazo. Se instala por defecto en
+ * los entry points (`scripts/shinobi.ts`, `scripts/shinobi_web.ts`,
+ * `scripts/shinobi-tui.tsx`); opt-out explícito con
+ * `SHINOBI_EGRESS_RUNTIME_GUARD=0`, documentado en DECISIONES.md si se usa.
  */
 
 export const EGRESS_ALLOWLIST: readonly string[] = [

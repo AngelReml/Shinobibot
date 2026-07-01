@@ -3,7 +3,23 @@
 // Tool: lanza un EQUIPO de subagentes que MUTAN ficheros EN PARALELO, cada uno
 // aislado en su propio worktree+contexto (sin pisarse). Cada miembro con cambios
 // deja su rama para fusionar. Ver agents/team.ts.
-
+//
+// F2.8 (auditoría 2026-07) — filtro DESTRUCTIVE_TOOLS: a diferencia de
+// run_swarm.ts (que filtra `DESTRUCTIVE_TOOLS` INLINE y visible en este
+// mismo fichero, ver src/tools/run_swarm.ts), el filtro de este tool vive
+// en `runTeam()` (src/agents/team.ts, líneas ~23-27 y ~118):
+//
+//   const WORKTREE_SAFE = new Set(['write_file', 'edit_file']);
+//   const box = requested.filter((x) => !(DESTRUCTIVE_TOOLS.has(x) && !WORKTREE_SAFE.has(x)));
+//
+// Misma fuente (`DESTRUCTIVE_TOOLS` de src/security/approval.ts) que usa
+// run_swarm — la diferencia real es que team.ts añade `WORKTREE_SAFE`:
+// write_file/edit_file NO se bloquean aquí porque cada miembro del equipo
+// escribe en su PROPIO worktree git aislado (confinado por
+// exec_context.ts), así que mutar ficheros es justo el propósito de esta
+// tool y es seguro — run_command SIGUE excluido siempre (un shell no se
+// confina con el contexto). Este comentario existe para que la simetría con
+// run_swarm sea evidente en revisión sin tener que saltar a otro fichero.
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { runTeam, type TeamTask } from '../agents/team.js';
 import { WorktreeManager } from '../agents/worktree.js';

@@ -9,6 +9,7 @@
  */
 
 import { getEmbeddingBackend, currentEmbeddingBackendName } from './embedding_providers/factory.js';
+import { cosineSimilarity } from './embedding_math.js';
 
 export class EmbeddingProvider {
   public static async embed(text: string): Promise<number[]> {
@@ -31,21 +32,13 @@ export class EmbeddingProvider {
   }
 
   /**
-   * Producto punto sobre vectores. Si están L2-normalizados (lo que
-   * hacen todos los backends del factory) esto equivale al cosine
-   * similarity y es ~2x más rápido que recalcular las normas.
+   * Cosine similarity sobre vectores. Si están L2-normalizados (lo que
+   * hacen todos los backends del factory) esto equivale al producto punto
+   * y es ~2x más rápido que recalcular las normas — pero la implementación
+   * (`embedding_math.ts`) calcula las normas explícitamente, así que es
+   * correcta también con vectores no normalizados.
    */
   public static cosineSimilarity(a: number[], b: number[]): number {
-    if (!a || !b || a.length !== b.length) return 0;
-    let dot = 0;
-    let na = 0;
-    let nb = 0;
-    for (let i = 0; i < a.length; i++) {
-      dot += a[i] * b[i];
-      na += a[i] * a[i];
-      nb += b[i] * b[i];
-    }
-    const denom = Math.sqrt(na) * Math.sqrt(nb);
-    return denom === 0 ? 0 : dot / denom;
+    return cosineSimilarity(a, b);
   }
 }

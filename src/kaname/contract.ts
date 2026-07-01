@@ -2,7 +2,9 @@
  * kaname/contract.ts — KN-02: la frontera de carga. Una skill se presenta con su
  * manifiesto (§6.1, ⚠ Sello §10) + su CSV; el cargador es el PORTERO: sin CSV válido
  * de Sello, la skill se rechaza — no entra a userspace. Reutiliza verifyCsvCertificate
- * (no reimplementa la verificación). Puro: el montaje aislado lo hace el catálogo.
+ * (no reimplementa la verificación). Puro: decide admisión sin ejecutar nada — el
+ * "montaje" en el catálogo (store.ts) es un registro en memoria/disco de qué skill
+ * quedó admitida, NO un montaje de sistema de ficheros aislado ni un sandbox de OS.
  */
 
 import { verifyCsvCertificate, type SkillCSVLike } from '../integrity/csv_verify.js';

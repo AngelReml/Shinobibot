@@ -16,7 +16,15 @@ try {
     target: 'node22',
     format: 'cjs',
     outfile: BUNDLE_FILE,
-    external: ['better-sqlite3', 'playwright-core', 'chromium-bidi'],
+    external: [
+      'better-sqlite3', 'playwright-core', 'chromium-bidi',
+      // Mismo problema de binding nativo (.node) que better-sqlite3 — esbuild
+      // no tiene loader para .node y rompe el bundle si intenta inlinearlos.
+      // require() los resuelve en runtime contra el node_modules/ real junto
+      // al exe, igual que ya hace better-sqlite3 (ver build_exe.ts para el
+      // mismo fix en la ruta de empaquetado alternativa con pkg).
+      'onnxruntime-node', '@huggingface/transformers', 'isolated-vm',
+    ],
     banner: {
       js: 'const { createRequire } = require("module"); const require_ = createRequire(__filename); const __importMetaUrl = require("url").pathToFileURL(__filename).href;'
     },

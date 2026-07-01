@@ -2,16 +2,27 @@
 //
 // Bloque 2 — motor central del browser. Centraliza lo que las 6 tools
 // individuales repetían inline: page-picker, extracción DOM, formateo de
-// estado, anti-detección. Añade capacidades nuevas: accessibility tree,
-// screenshot+rotación, clean extract (markdown), vision analyze (opt-in).
+// estado. Añade capacidades nuevas: accessibility tree, screenshot+rotación,
+// clean extract (markdown), vision analyze (opt-in).
 //
 // Las tools existentes (web_search, browser_click, browser_click_position,
 // browser_scroll, web_search_with_warmup) preservan su firma pública y
 // llaman al motor por dentro — output byte-idéntico para no romper tests E2E.
+//
+// F6.1 (auditoría 2026-07-01, decisión de producto): este módulo alojaba una
+// función de anti-detección (spoofing del identificador de automatización del
+// navegador, del objeto runtime, plugins falsos, vendor/renderer de gráficos)
+// — evasión anti-bot deliberada contra plataformas de terceros, cuyos ToS
+// probablemente la prohíben. Un producto público v1.0.0 no debe distribuir
+// esto por defecto: se retiró del árbol público (ver DECISIONES.md, F6.1;
+// el código original queda entregado al operador para su uso privado, fuera
+// de este repo). Los callers que la invocaban (`clean_extract.ts`,
+// `web_search_with_warmup.ts`) ya no aplican esa capa — siguen funcionando
+// como navegación/extracción normales, sin evasión.
 
 import * as fs from 'fs';
 import * as path from 'path';
-import type { Browser, BrowserContext, Page } from 'playwright';
+import type { Browser, Page } from 'playwright';
 import { invokeLLMViaOpenRouter } from '../cloud/openrouter_fallback.js';
 import { OPENROUTER_MODEL_HAIKU } from '../utils/model_defaults.js';
 
@@ -233,85 +244,6 @@ export async function getAccessibilityTree(page: Page, opts: AccessibilitySnapsh
     truncated = true;
   }
   return { text, element_count: counter, truncated };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Stealth (anti-detection) — extracted from web_search_with_warmup
-// ─────────────────────────────────────────────────────────────────────────────
-
-const STEALTH_INIT_SCRIPT = `
-// Patch 1: navigator.webdriver
-Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
-
-// Patch 2: chrome runtime mock
-if (!window.chrome) { window.chrome = {}; }
-if (!window.chrome.runtime) {
-  window.chrome.runtime = {
-    PlatformOs: { MAC: 'mac', WIN: 'win', ANDROID: 'android', CROS: 'cros', LINUX: 'linux', OPENBSD: 'openbsd' },
-    PlatformArch: { ARM: 'arm', X86_32: 'x86-32', X86_64: 'x86-64' },
-    PlatformNaclArch: { ARM: 'arm', X86_32: 'x86-32', X86_64: 'x86-64' },
-    RequestUpdateCheckStatus: { THROTTLED: 'throttled', NO_UPDATE: 'no_update', UPDATE_AVAILABLE: 'update_available' },
-    OnInstalledReason: { INSTALL: 'install', UPDATE: 'update', CHROME_UPDATE: 'chrome_update', SHARED_MODULE_UPDATE: 'shared_module_update' },
-    OnRestartRequiredReason: { APP_UPDATE: 'app_update', OS_UPDATE: 'os_update', PERIODIC: 'periodic' }
-  };
-}
-
-// Patch 3: plugins
-Object.defineProperty(navigator, 'plugins', {
-  get: () => {
-    const plugins = [
-      { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer', description: 'Portable Document Format' },
-      { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai', description: '' },
-      { name: 'Native Client', filename: 'internal-nacl-plugin', description: '' }
-    ];
-    return Object.assign(plugins, { item: (i) => plugins[i], namedItem: (n) => plugins.find(p => p.name === n) });
-  }
-});
-
-// Patch 4: languages
-Object.defineProperty(navigator, 'languages', { get: () => ['es-ES', 'es', 'en-US', 'en'] });
-
-// Patch 5: permissions API quirk
-const originalQuery = window.navigator.permissions && window.navigator.permissions.query;
-if (originalQuery) {
-  window.navigator.permissions.query = (parameters) => (
-    parameters.name === 'notifications'
-      ? Promise.resolve({ state: Notification.permission, onchange: null, addEventListener: () => {}, removeEventListener: () => {}, dispatchEvent: () => false })
-      : originalQuery(parameters)
-  );
-}
-
-// Patch 6: WebGL vendor/renderer
-const getParameter = WebGLRenderingContext.prototype.getParameter;
-WebGLRenderingContext.prototype.getParameter = function(parameter) {
-  if (parameter === 37445) return 'Intel Inc.';
-  if (parameter === 37446) return 'Intel Iris OpenGL Engine';
-  return getParameter.call(this, parameter);
-};
-
-// Patch 7: hairline feature
-try {
-  const elementDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight');
-  Object.defineProperty(HTMLDivElement.prototype, 'offsetHeight', {
-    ...elementDescriptor,
-    get: function() {
-      if (this.id === 'modernizr') return 1;
-      return elementDescriptor.get.apply(this);
-    }
-  });
-} catch (e) {}
-`;
-
-const stealthApplied = new WeakSet<BrowserContext>();
-
-export async function applyStealth(context: BrowserContext): Promise<void> {
-  if (stealthApplied.has(context)) return;
-  try {
-    await context.addInitScript(STEALTH_INIT_SCRIPT);
-  } catch {
-    // Already injected (init scripts can't be removed; second add is silent on some Playwright versions).
-  }
-  stealthApplied.add(context);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

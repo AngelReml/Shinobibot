@@ -3,10 +3,12 @@
  */
 import { config } from 'dotenv';
 import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 config();
 
 // Clean up fix_test folder so TEST C always creates fresh
-const fixTestPath = 'C:\\Users\\angel\\Desktop\\fix_test';
+const fixTestPath = path.join(os.homedir(), 'Desktop', 'fix_test');
 if (fs.existsSync(fixTestPath)) fs.rmdirSync(fixTestPath, { recursive: true });
 
 import { ShinobiOrchestrator } from '../src/coordinator/orchestrator.js';
@@ -22,7 +24,7 @@ const TESTS = [
   },
   {
     label: 'TEST C — Fix 3: Filesystem task → local execution',
-    input: 'Crea una carpeta llamada fix_test en C:\\Users\\angel\\Desktop',
+    input: `Crea una carpeta llamada fix_test en ${path.dirname(fixTestPath)}`,
   },
 ];
 

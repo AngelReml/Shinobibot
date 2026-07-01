@@ -1,12 +1,13 @@
 // A.4 runner — invoca el MISMO flujo que /read (runRead) sobre los 2 repos.
 // Vuelca los reports crudos en docs/A4_VALIDATION.md sin evaluar.
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { runRead } from '../src/reader/cli.js';
 
 const TARGETS = [
 
-  { label: 'execa', name: 'execa', path: 'C:\\Users\\angel\\Desktop\\test_repos\\execa' },
+  { label: 'execa', name: 'execa', path: path.join(os.homedir(), 'Desktop', 'test_repos', 'execa') },
 ];
 
 async function main() {

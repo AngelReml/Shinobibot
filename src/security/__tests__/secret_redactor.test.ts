@@ -170,3 +170,39 @@ describe('_internal exports', () => {
     expect(_internal.placeholder('openai-key')).toBe('<REDACTED:openai-key>');
   });
 });
+
+describe('redactSecrets — F2.7: patrones cloud adicionales (AWS Secret Key, Azure, GCP)', () => {
+  function fakeAwsSecretKey(): string { return 'A'.repeat(40); }
+  function fakeAzureAccountKey(): string { return 'B'.repeat(88) + '=='; }
+  function fakeGcpEscapedPem(): string {
+    return '-----BEGIN PRIVATE KEY-----\\n' + 'C'.repeat(64) + '\\n' + 'D'.repeat(64) + '\\n-----END PRIVATE KEY-----\\n';
+  }
+
+  it('AWS Secret Access Key (aws_secret_access_key=...) se redacta con kind explícito', () => {
+    const r = redactSecrets(`aws_secret_access_key=${fakeAwsSecretKey()}`);
+    expect(r.matches.some(m => m.kind === 'aws-secret-key')).toBe(true);
+    expect(r.text).not.toContain(fakeAwsSecretKey());
+  });
+
+  it('Azure Storage connection string (AccountKey=...) se redacta', () => {
+    const r = redactSecrets(`DefaultEndpointsProtocol=https;AccountName=foo;AccountKey=${fakeAzureAccountKey()};EndpointSuffix=core.windows.net`);
+    expect(r.matches.some(m => m.kind === 'azure-account-key')).toBe(true);
+    expect(r.text).not.toContain(fakeAzureAccountKey());
+  });
+
+  it('GCP service-account private_key con \\n escapado (JSON) se redacta', () => {
+    const json = `{"type":"service_account","private_key":"${fakeGcpEscapedPem()}"}`;
+    const r = redactSecrets(json);
+    expect(r.matches.some(m => m.kind === 'gcp-service-account-key')).toBe(true);
+    expect(r.text).not.toContain('CCCC');
+  });
+
+  it('AWS Secret Access Key sin contexto de nombre NO se redacta a ciegas (evita inundar falsos positivos)', () => {
+    // Un blob base64 de 40 chars flotando sin ningún nombre de variable
+    // alrededor no debería dispararse — demasiados falsos positivos
+    // (hashes, IDs, etc. tienen esa forma). Es una decisión consciente
+    // documentada en el banner del módulo.
+    const r = redactSecrets(`random unrelated blob: ${fakeAwsSecretKey()} end`);
+    expect(r.matches.some(m => m.kind === 'aws-secret-key')).toBe(false);
+  });
+});

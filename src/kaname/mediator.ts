@@ -4,7 +4,12 @@
  * ANTES de delegar al host real. Una tool no declarada, un efecto por encima del
  * declarado, o una ref fuera de scope → DENEGADO en runtime (no por buena voluntad
  * de la skill). Reutiliza la Capa 2 (classifyEffect/effectWithin). Es lo que hace
- * que "aislamiento" sea una propiedad enforced, no una esperanza.
+ * que el control de acceso a syscalls sea una propiedad enforced en código, no una
+ * esperanza — pero es mediación EN PROCESO (funciones TypeScript interceptando
+ * llamadas), no un sandbox de sistema operativo: la skill y el mediador comparten
+ * el mismo proceso Node y los mismos privilegios de OS. `SyscallDenied` bloquea
+ * la llamada NO declarada; no impide que código arbitrario dentro del mismo
+ * proceso esquive el mediador si no pasa por `KernelSyscalls`.
  */
 
 import { classifyEffect, effectWithin } from '../integrity/effects.js';

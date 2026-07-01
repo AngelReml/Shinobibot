@@ -1,37 +1,48 @@
 /**
- * Skill Auditor — verdict pre-install para skills externas.
+ * Skill Auditor — verdict pre-install/pre-carga para skills externas.
  *
- * Sprint 1.2: cuando alguien hace `shinobi skill install <url>`, antes de
- * mover los archivos a `skills/approved/` y firmarlos, este auditor
- * inspecciona el contenido y devuelve un verdict:
+ * Defensa real en CAPAS — la regex sola NO es suficiente y no debe tratarse
+ * como tal (ofuscación mínima como `globalThis['pro'+'cess']` o
+ * `String.fromCharCode(...)` la evade trivialmente):
  *
- *   - `clean`    → sin patrones sospechosos. El installer firma y aprueba.
- *   - `warning`  → patrones que merecen una mirada humana. El installer
- *                  exige confirmación explícita.
- *   - `critical` → patrones que aparecen exclusivamente en código
- *                  destructivo o malicioso. El installer rechaza con
- *                  explicación.
+ *   1. **AST (capa estructural, siempre activa para .js/.mjs/.cjs/.ts)**:
+ *      `auditor/ast_auditor.ts` recorre el árbol de sintaxis real
+ *      (`ts.createSourceFile` + walk de nodos, paquete `typescript` ya
+ *      presente en el repo — sin dependencia nueva). Detecta acceso a
+ *      `process`/`require`/`import()` dinámico/`eval`/`new Function`/
+ *      `child_process`/módulos `fs` y afines por su FORMA sintáctica, no por
+ *      texto — así que concatenación de strings o acceso vía
+ *      `globalThis[...]` con clave calculada no la esquiva.
  *
- * Dos capas de análisis:
+ *   2. **Regex (capa textual, ~90 patrones, siempre activa)**: sobre el
+ *      SKILL.md y cada archivo del bundle. Cubre señales que el AST no ve
+ *      (rutas de exfiltración, API keys hardcodeadas, comandos de shell
+ *      destructivos embebidos en strings, patrones de red).
  *
- *   1. **Estática (gratis, siempre activa)**: regex sobre el SKILL.md y
- *      cada archivo del bundle. Detecta tools destructivos, paths
- *      sospechosos, intentos de exfiltración (curl + env vars de keys),
- *      eval/Function dinámicos.
+ *   3. **Sandbox de ejecución (isolated-vm)**: incluso si algo pasa las
+ *      capas 1+2, `skill_loader.ts` NUNCA usa `import()` nativo sobre el
+ *      .mjs de la skill — lo ejecuta dentro de un isolate v8 aislado
+ *      (mismo patrón que `src/plugins/hot_plug_registry.ts`, 64MB, timeout),
+ *      así que aunque una skill maliciosa pasara el audit estático, corre
+ *      sin acceso al proceso host.
  *
- *   2. **LLM committee (opt-in via `SHINOBI_SKILL_AUDIT_LLM=1`)**:
- *      ejecuta el `Committee` (architecture + security + ux) sobre el
- *      SKILL.md. Devuelve un risk_level que se fusiona con el estático
- *      tomando el peor.
+ *   4. **Firma/checksum + aprobación humana**: capa de integridad —
+ *      cualquier tampering post-aprobación se detecta (`skill_signing.ts`).
+ *      NO es autenticación de autor (ver banner de ese módulo) — es una
+ *      capa más, no la única línea de defensa.
  *
- * La capa estática es suficiente para defenderse del 95% de skills
- * maliciosas. El committee LLM es para el detalle: un humano experto
- * detectaría exfil con prompting ofuscado, el static checker no.
+ *   5. **LLM committee (opt-in via `SHINOBI_SKILL_AUDIT_LLM=1`)**: ejecuta
+ *      el `Committee` (architecture + security + ux) sobre el SKILL.md.
+ *      Devuelve un risk_level que se fusiona con el estático tomando el peor.
+ *
+ * Ninguna capa individual es "suficiente" — el diseño asume que cada una
+ * puede fallar y depende de que las demás cubran el hueco.
  */
 
 import { readFileSync, statSync, readdirSync, existsSync } from 'fs';
 import { join, relative } from 'path';
 import { EXTENDED_CRITICAL, EXTENDED_WARNING } from './auditor/extended_patterns.js';
+import { scanAst, isAstScannable } from './auditor/ast_auditor.js';
 
 export type AuditVerdict = 'clean' | 'warning' | 'critical';
 
@@ -58,8 +69,6 @@ export interface AuditResult {
 const CRITICAL_PATTERNS: Array<{ rule: string; pattern: RegExp; reason: string }> = [
   {
     rule: 'rm-rf-root',
-    // Coincide con `rm -rf /`, `rm -rf ~`, `rm -rf $HOME...`. Los lookahead
-    // permiten que termine en EOL, espacio o un subdir.
     pattern: /\brm\s+-rf\s+(\/(?=\s|$|\w)|~(?=\s|$|\/)|\$HOME)/i,
     reason: 'borrado recursivo del root, home o variable equivalente',
   },
@@ -213,9 +222,6 @@ export function scanText(content: string, filePath: string): AuditFinding[] {
       });
     }
   }
-  // Patrones extendidos (~70, paridad densidad Hermes). Estaban definidos
-  // en auditor/extended_patterns.ts pero ningún path de producción los
-  // importaba — el auditor corría con solo 22 reglas. Aquí se unen.
   for (const pat of EXTENDED_CRITICAL) {
     const m = content.match(pat.pattern);
     if (m && m.index !== undefined) {
@@ -242,6 +248,9 @@ export function scanText(content: string, filePath: string): AuditFinding[] {
       });
     }
   }
+  if (isAstScannable(filePath)) {
+    out.push(...scanAst(content, filePath));
+  }
   return out;
 }
 
@@ -262,7 +271,6 @@ export function auditPath(rootPath: string): AuditResult {
       let entries: string[];
       try { entries = readdirSync(p); } catch { return; }
       for (const e of entries) {
-        // Skip node_modules, .git y carpetas ocultas para no escanear ruido.
         if (e === 'node_modules' || e === '.git' || e.startsWith('.')) continue;
         visit(join(p, e));
       }

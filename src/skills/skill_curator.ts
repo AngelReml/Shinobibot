@@ -1,4 +1,14 @@
-import { getUsageRecord, setSkillState, loadUsage, type SkillUsageRecord } from '../learning/skill_telemetry.js';
+// F3.5 (2026-07): fachada fina — el Curator canónico es
+// src/learning/skill_curator.ts (runStaleTransitions/runCuratorCycle).
+// Este módulo se mantiene SOLO por compatibilidad de la firma pública
+// `SkillCurator.curate(staleAgeMs)` que callers existentes (y su test)
+// esperan; ya NO reimplementa la lógica de transición — delega a
+// runStaleTransitions() con el mismo umbral para stale y archive, y
+// archiveOnlyFromStale:true para preservar el comportamiento original de
+// este wrapper (un único staleAgeMs, dos pasos: active→stale en una pasada,
+// stale→archived solo en una pasada posterior donde ya estaba 'stale' —
+// nunca active→archived directo).
+import { runStaleTransitions } from '../learning/skill_curator.js';
 
 export interface CurationResult {
   archived: string[];
@@ -6,52 +16,29 @@ export interface CurationResult {
 }
 
 /**
- * SkillCurator — Garbage collector for agent-created skills.
- * If an agent-created skill has not been used or viewed within the stale threshold,
- * it is transitioned to 'stale' or 'archived' state.
+ * SkillCurator — fachada de compatibilidad sobre el Curator canónico
+ * (src/learning/skill_curator.ts). Garbage collector for agent-created
+ * skills: if an agent-created skill has not been used within the stale
+ * threshold, it is transitioned to 'stale' or 'archived' state.
  */
 export class SkillCurator {
   /**
-   * Run the curation process.
+   * Run the curation process (delega a runStaleTransitions).
    * @param staleAgeMs The threshold age in milliseconds after which a skill is considered stale/inactive.
-   *                  Defaults to 30 days.
+   *                  Defaults to 30 days. Used as BOTH the stale and archive threshold,
+   *                  matching this facade's original single-pass behavior.
    */
   public static curate(staleAgeMs: number = 30 * 24 * 60 * 60 * 1000): CurationResult {
-    const usage = loadUsage();
-    const result: CurationResult = { archived: [], stale: [] };
-    const now = Date.now();
-
-    for (const [name, rec] of Object.entries(usage)) {
-      // Only curate skills created by the agent
-      if (rec.created_by !== 'agent') continue;
-      
-      // Skip if already archived
-      if (rec.state === 'archived') continue;
-
-      // Pinned skills are never curated/archived
-      if (rec.pinned) continue;
-
-      // Determine age/last activity
-      const lastActivityStr = rec.last_used_at || rec.last_viewed_at || rec.created_at;
-      const lastActivityTime = new Date(lastActivityStr).getTime();
-      const ageMs = now - lastActivityTime;
-
-      if (ageMs > staleAgeMs) {
-        if (rec.state === 'active') {
-          // Transition to stale first, or archive directly if we want strict GC
-          // Let's transition to stale, and if it's already stale and still unused, archive it.
-          setSkillState(name, 'stale');
-          rec.state = 'stale'; // update in-memory reference
-          result.stale.push(name);
-        } else if (rec.state === 'stale') {
-          // Transition stale to archived
-          setSkillState(name, 'archived');
-          rec.state = 'archived'; // update in-memory reference
-          result.archived.push(name);
-        }
-      }
-    }
-
-    return result;
+    const staleDaysThreshold = staleAgeMs / (24 * 60 * 60 * 1000);
+    const { archived, stale } = runStaleTransitions({
+      now: Date.now(),
+      staleDaysThreshold,
+      archiveDaysThreshold: staleDaysThreshold,
+      // preserva el comportamiento original de dos pasos: active→stale en
+      // una pasada, stale→archived solo en una pasada donde YA estaba stale
+      // (nunca active→archived directo con un único umbral).
+      archiveOnlyFromStale: true,
+    });
+    return { archived, stale };
   }
 }

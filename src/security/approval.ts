@@ -341,6 +341,56 @@ export async function requestApproval(input: ApprovalInput): Promise<boolean> {
   return allowed;
 }
 
+export interface ApprovalRaceResult {
+  approved: boolean;
+  isTimeout: boolean;
+}
+
+/**
+ * F2.12 (auditoría 2026-07-01): esta lógica vivía INLINE dentro del bucle
+ * de tools de `coordinator/orchestrator.ts` — no exportada, no testeable
+ * por separado. El único test que "probaba" el invariante "timeout →
+ * deniega" (`security_invariants.test.ts`, bloque "Timeout→DENY") comparaba
+ * `(process.env.SHINOBI_APPROVAL_TIMEOUT_ACTION || 'deny')` consigo mismo:
+ * tautológico, nunca ejecutaba esta función ni la del orquestador — si la
+ * ruta real se invertía, ese test seguía en verde. Extraída aquí, la MISMA
+ * función que usa el orquestador es directamente testeable (ver
+ * __tests__/approval_timeout_race.test.ts): mockear un asker que nunca
+ * resuelve, esperar el timeout real (ms bajos), y asserta sobre el
+ * resultado — no sobre una constante releída.
+ *
+ * `SHINOBI_APPROVAL_TIMEOUT_ACTION`: 'deny' (default, seguro) | 'approve'
+ * (⚠ PELIGROSO — auto-aprueba en timeout, equivale a desactivar el gate
+ * para sesiones lentas). `SHINOBI_APPROVAL_TIMEOUT_MS` (default 120000).
+ */
+export async function raceApprovalWithTimeout(input: ApprovalInput): Promise<ApprovalRaceResult> {
+  const approvalTimeoutMs = Number(process.env.SHINOBI_APPROVAL_TIMEOUT_MS) || 120_000;
+  const timeoutApprove = (process.env.SHINOBI_APPROVAL_TIMEOUT_ACTION || 'deny').toLowerCase() === 'approve';
+  if (timeoutApprove && input.destructive) {
+    console.warn(`[SECURITY] SHINOBI_APPROVAL_TIMEOUT_ACTION=approve — "${input.toolName}" se auto-aprobará en ${approvalTimeoutMs / 1000}s si no hay respuesta`);
+  }
+
+  let isTimeout = false;
+  let timer: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => {
+      isTimeout = true;
+      resolve(timeoutApprove); // por defecto DENIEGA en timeout
+    }, approvalTimeoutMs);
+    timer.unref?.(); // no debe mantener el proceso/test vivo si algo más termina antes
+  });
+
+  let approved = false;
+  try {
+    approved = await Promise.race([requestApproval(input), timeoutPromise]);
+  } catch {
+    // approved queda false — el caller lo trata como denegación.
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+  return { approved, isTimeout };
+}
+
 /**
  * Tras una aprobación CONCEDIDA, registra el path objetivo como aprobado
  * manualmente para esta sesión. Así `validatePath` deja pasar la escritura

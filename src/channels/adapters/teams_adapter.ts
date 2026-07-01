@@ -5,11 +5,21 @@
  *   - TEAMS_APP_ID         (Azure Bot registration App ID)
  *   - TEAMS_APP_PASSWORD   (client secret)
  *   - TEAMS_LISTEN_PORT    (default 3978)
+ *   - TEAMS_LISTEN_HOST    (default 127.0.0.1 — ver F2.4 abajo)
  *
  * El bot se registra en Azure como BotFramework, y Teams habla con él
  * vía HTTPS. Este adapter expone un servidor HTTP en LISTEN_PORT que
  * recibe mensajes; el operador necesita ngrok/cloudflare-tunnel o el
  * modo VPS de Shinobi para exponerlo a internet.
+ *
+ * F2.4 (auditoría 2026-07): antes el servidor HTTP arrancaba con
+ * `server.listen(port)` SIN host — Node por defecto bindea a `0.0.0.0`
+ * (todas las interfaces), exponiendo el endpoint `/api/messages` a
+ * cualquier host en la misma red/LAN, no solo a un túnel local. Igual que
+ * `webhook_adapter.ts` (que ya bindea a 127.0.0.1), este adapter ahora
+ * bindea a loopback por defecto — exponerlo a otras interfaces requiere
+ * configuración explícita vía `TEAMS_LISTEN_HOST` (p. ej. `0.0.0.0` si el
+ * operador sabe lo que hace y usa un firewall/reverse-proxy delante).
  */
 
 import type {
@@ -105,7 +115,10 @@ export class TeamsAdapter implements ChannelAdapter {
         }
       });
     });
-    this.server.listen(port);
+    // F2.4: loopback por defecto (paridad con webhook_adapter.ts). Solo se
+    // expone a otras interfaces si el operador lo pide explícito.
+    const host = process.env.TEAMS_LISTEN_HOST || '127.0.0.1';
+    this.server.listen(port, host);
     this.running = true;
   }
 

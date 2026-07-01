@@ -1,6 +1,15 @@
 // scripts/build_exe.ts
 //
-// Bloque 9 — Pipeline de compilación a Shinobi.exe + Shinobi-Setup.exe.
+// Bloque 9 — Pipeline de compilación ALTERNATIVO a Shinobi.exe + Shinobi-Setup.exe.
+//
+// F5.1 — NO CANÓNICO. La ruta de release real es: build_sea.mjs (esbuild) +
+// sea-config.json (Node SEA) + postject, tal como documenta rebuild.cmd en la
+// raíz del repo y consume .github/workflows/release.yml + installer/shinobi.iss.
+// Este script genera su PROPIO .exe vía @yao-pkg/pkg (ruta distinta: pkg en vez
+// de Node SEA) y su PROPIO installer.iss embebido — nada en CI lo invoca. Se
+// conserva como alternativa manual/experimental (empaqueta shinobi_web.ts en
+// vez de shinobi.ts), pero si sólo necesitas producir el instalador oficial,
+// usa `rebuild.cmd` + `installer\shinobi.iss`, no este script.
 //
 // Pasos:
 //   1. Limpiar build/
@@ -18,13 +27,17 @@ import * as path from 'path';
 import * as url from 'url';
 import { spawnSync } from 'child_process';
 import * as esbuild from 'esbuild';
+import pkg from '../package.json' with { type: 'json' };
 
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT = path.resolve(__dirname, '..');
 const BUILD = path.join(ROOT, 'build');
 
-const APP_VERSION = '2.0.0';
+// F0.1: package.json es la única fuente de verdad de versión — este script
+// corre con tsx (Node evalúa el import JSON directamente, resolveJsonModule
+// en tsconfig.json), no depende de un literal copiado a mano.
+const APP_VERSION = pkg.version;
 
 function log(msg: string): void {
   console.log(`[build] ${msg}`);
@@ -84,6 +97,20 @@ async function step2_bundle(): Promise<void> {
       '@nut-tree-fork/nut-js',
       'playwright',
       'playwright-core',
+      // Sprint 1.1 (memoria vectorial local) — @huggingface/transformers
+      // carga onnxruntime-node, cuyo binding requiere un .node en runtime
+      // (bin/napi-v6/<platform>/<arch>/*.node). esbuild no tiene loader para
+      // .node y rompe el bundle si intenta inlinearlo — igual que
+      // better-sqlite3, se deja external y su binario se empaqueta como
+      // asset de pkg en el step4 de más abajo.
+      'onnxruntime-node',
+      '@huggingface/transformers',
+      // src/plugins/ (hot-plug de skills) requiere isolated-vm para el
+      // sandbox — mismo problema de binding nativo (.node) que los de
+      // arriba, nunca se había empaquetado (el .exe fallaba al arrancar con
+      // "No native build was found... loaded from build/", verificado
+      // arrancando Shinobi.exe tras el build).
+      'isolated-vm',
     ],
     // Polyfill de import.meta.url para módulos ESM-style ahora bundleados a CJS:
     // expanding import.meta.url a una const inyectada en el banner que resuelve
@@ -92,6 +119,10 @@ async function step2_bundle(): Promise<void> {
     define: {
       'process.env.NODE_ENV': '"production"',
       'import.meta.url': '__shinobi_meta_url',
+      // Fallback de src/utils/app_version.ts cuando el require de
+      // package.json (ruta __dirname-relativa) no aterriza dentro del
+      // snapshot de pkg — ver comentario en ese fichero.
+      '__SHINOBI_APP_VERSION__': JSON.stringify(APP_VERSION),
     },
     banner: {
       js: 'const __shinobi_meta_url = require("url").pathToFileURL(__filename).toString();',
@@ -106,6 +137,13 @@ async function step2_bundle(): Promise<void> {
 async function step3_copyPublic(): Promise<void> {
   log('3) copy src/web/public/ → build/public/');
   copyTree(path.join(ROOT, 'src', 'web', 'public'), path.join(BUILD, 'public'));
+  // SpecialistAgent resuelve PROMPTS_DIR como dirname(import.meta.url)/prompts
+  // — tras el bundle a un único .cjs, eso apunta a build/prompts/ para TODOS
+  // los módulos (el .cjs vive en build/), no a src/agents/prompts/ original.
+  // Sin copiar los .md aquí, el .exe revienta al arrancar con
+  // "prompt madre no encontrado" (verificado arrancando Shinobi.exe).
+  log('   copy src/agents/prompts/ → build/prompts/');
+  copyTree(path.join(ROOT, 'src', 'agents', 'prompts'), path.join(BUILD, 'prompts'));
 }
 
 async function step4_pkg(): Promise<void> {
@@ -120,11 +158,16 @@ async function step4_pkg(): Promise<void> {
       scripts: ['shinobi-web.cjs'],
       assets: [
         'public/**/*',
+        'prompts/**/*',
         // Native modules — paths relativos a este package.json (en build/)
         '../node_modules/better-sqlite3/build/Release/*.node',
         '../node_modules/better-sqlite3/prebuilds/**/*',
         '../node_modules/@nut-tree-fork/**/*.node',
         '../node_modules/@nut-tree-fork/**/build/Release/*',
+        '../node_modules/onnxruntime-node/bin/napi-v6/win32/x64/*.node',
+        '../node_modules/onnxruntime-node/dist/**/*',
+        '../node_modules/@huggingface/transformers/**/*',
+        '../node_modules/isolated-vm/prebuilds/win32-x64/*.node',
       ],
       targets: ['node24-win-x64'],
       outputPath: '.',
@@ -179,7 +222,8 @@ function totalDirSize(dir: string): number {
 
 async function step6_installerScript(): Promise<void> {
   log('6) generar build/installer.iss');
-  const iss = `; installer.iss — generado por scripts/build_exe.ts
+  const iss = `; installer.iss — generado por scripts/build_exe.ts (ruta NO canónica — ver
+; installer\\shinobi.iss + rebuild.cmd para el instalador oficial de release).
 ; Compilar con: "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe" installer.iss
 
 #define MyAppName "Shinobi"
@@ -264,7 +308,9 @@ async function main() {
   await step6_installerScript();
   await step7_innoSetup();
   const dur = ((Date.now() - t0) / 1000).toFixed(1);
-  console.log(`\n[build] ✓ completado en ${dur}s\n`);
+  console.log(`
+[build] ✓ completado en ${dur}s
+`);
   console.log(`[build] Artifacts en ${BUILD}:`);
   for (const entry of fs.readdirSync(BUILD)) {
     const p = path.join(BUILD, entry);

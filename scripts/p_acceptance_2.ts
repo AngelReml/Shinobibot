@@ -24,7 +24,7 @@ async function clone(url: string, dest: string): Promise<boolean> {
 
 async function p12() {
   console.log('═══ P12 — /read java-design-patterns ═══');
-  const dest = 'C:\\Users\\angel\\Desktop\\test_repos\\patterns';
+  const dest = path.join(os.homedir(), 'Desktop', 'test_repos', 'patterns');
   if (!await clone('https://github.com/iluwatar/java-design-patterns', dest)) {
     return log({ id: 'P12', status: 'FAIL', note: 'clone failed' });
   }
@@ -42,7 +42,7 @@ async function p12() {
 
 async function p13() {
   console.log('═══ P13 — /read PHP repo (idioma diferente) ═══');
-  const dest = 'C:\\Users\\angel\\Desktop\\test_repos\\dotphp';
+  const dest = path.join(os.homedir(), 'Desktop', 'test_repos', 'dotphp');
   if (!await clone('https://github.com/lyrixx/DotPHP', dest)) {
     return log({ id: 'P13', status: 'FAIL', note: 'clone failed' });
   }

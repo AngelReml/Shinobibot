@@ -4,6 +4,7 @@
 // /ledger verify + /ledger export.
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
 import { runAudit } from '../src/audit/runAudit.js';
@@ -26,7 +27,7 @@ const TARGETS: { url: string; commit?: string }[] = [
 
 async function main() {
   // Pin execa SHA from local clone if available
-  const localExeca = 'C:\\Users\\angel\\Desktop\\test_repos\\execa';
+  const localExeca = path.join(os.homedir(), 'Desktop', 'test_repos', 'execa');
   let pinnedSha: string | undefined;
   if (fs.existsSync(localExeca)) {
     const r = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: localExeca, encoding: 'utf-8' });

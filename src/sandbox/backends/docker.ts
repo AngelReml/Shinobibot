@@ -5,6 +5,12 @@
  * (validateDockerImage, buildDockerRunArgs, runInDocker,
  * isDockerAvailable) para no duplicar. Aquí adaptamos a la interfaz
  * `RunBackend`.
+ *
+ * F2.2 (auditoría 2026-07): `buildDockerRunArgs` (en _docker_backend.ts)
+ * añade límites de memoria/CPU/PIDs + cap-drop=ALL + read-only rootfs +
+ * no-new-privileges a cada invocación de `docker run`, configurables vía
+ * SHINOBI_DOCKER_MEMORY / SHINOBI_DOCKER_CPUS / SHINOBI_DOCKER_PIDS_LIMIT.
+ * Ver test: src/sandbox/backends/__tests__/docker_backend_limits.test.ts.
  */
 
 import type { RunBackend, RunInput, RunOutput } from '../types.js';

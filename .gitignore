@@ -137,5 +137,8 @@ run_one_out.json
 audit.jsonl
 # CRIT-06: head persistido de la cadena de hashes del audit log — mismo runtime artifact.
 *.chainhead.json
+# F2.3 (auditoría 2026-07-01): ancla anti-truncado del audit log — mismo runtime
+# artifact que audit.jsonl/*.chainhead.json, no versionar.
+*.jsonl.anchor
 # Scratch de prompts de trabajo
 prompt.txt

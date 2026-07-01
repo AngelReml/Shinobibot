@@ -1,0 +1,172 @@
+name: Gates
+
+# F5.3 — corre los gates F1/F2/F3 (auditoria y auto-mejora) y los smokes
+# D-015/D-016/D-017 en cada push/PR a main. Complementa a ci.yml (tsc +
+# vitest), que sigue siendo el gate bloqueante real del merge.
+#
+# Política blocking vs informativo (decidida en la remediación F5.3):
+# TODOS estos jobs corren con `continue-on-error: true` — son INFORMATIVOS,
+# no bloqueantes. Además, los 5 jobs que requieren LLM/red externa (f1-gate,
+# f2-gate, f3-gate, d015-smoke, d016-router-probe) sólo se EJECUTAN si el repo
+# tiene la variable `SHINOBI_ENABLE_LLM_GATES=true` configurada (Settings →
+# Actions → Variables) — así no generan ruido rojo en cada PR de repos/forks
+# sin las secrets SHINOBI_PROVIDER_KEY configuradas. d017-smoke no requiere
+# esa variable porque no depende de LLM ni red. Razón de fondo de por qué
+# cada uno depende de una precondición que esta workflow no puede garantizar
+# en un runner limpio de CI:
+#   - f1_gate / f2_gate / f3_gate: hacen llamadas LLM reales (necesitan
+#     SHINOBI_PROVIDER_KEY) contra repos GitHub reales (red saliente).
+#     f1_gate además espera opcionalmente un clon local de execa en
+#     ~/Desktop/test_repos/execa (degrada con gracia si no existe, pero el
+#     pinning de SHA determinista se pierde).
+#   - d015_smoke: exige un config.json ya inicializado en
+#     %APPDATA%/Shinobi (via `shinobi` interactivo) y dispara al orquestador
+#     completo con LLM real.
+#   - d016_router_probe: exige un kernel corriendo en localhost:9900 (u
+#     otra URL via SHINOBI_ROUTER_URL) — servicio externo no disponible en
+#     el runner.
+#   - d017_smoke: es el único 100% determinista y sin red/LLM (ejercita
+#     src/security/approval.ts con un asker mockeado y restaura su propio
+#     config.json), pero se deja informativo igualmente porque no se pudo
+#     verificar localmente que pase limpio en un runner real antes de este
+#     cambio — subirlo a bloqueante debe ser una decisión separada una vez
+#     se confirme un run verde en Actions.
+#
+# Si en el futuro se quiere promover alguno a bloqueante, quitar
+# `continue-on-error: true` de ese job específico una vez tenga un historial
+# de runs verdes en Actions.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  d017-smoke:
+    name: Smoke D-017 (approval gate — determinista, sin red)
+    runs-on: windows-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci || npm install --no-audit --no-fund
+      - name: D-017 smoke
+        run: npx tsx scripts/d017_smoke.ts
+
+  f1-gate:
+    name: Gate F1 (audit determinismo — requiere LLM key)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    if: ${{ vars.SHINOBI_ENABLE_LLM_GATES == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci || npm install --no-audit --no-fund
+      - name: F1 gate
+        env:
+          SHINOBI_PROVIDER: ${{ secrets.SHINOBI_PROVIDER }}
+          SHINOBI_PROVIDER_KEY: ${{ secrets.SHINOBI_PROVIDER_KEY }}
+        run: npx tsx scripts/f1_gate.ts
+
+  f2-gate:
+    name: Gate F2 (audit DVWA security signals — requiere LLM key)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    if: ${{ vars.SHINOBI_ENABLE_LLM_GATES == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci || npm install --no-audit --no-fund
+      - name: F2 gate
+        env:
+          SHINOBI_PROVIDER: ${{ secrets.SHINOBI_PROVIDER }}
+          SHINOBI_PROVIDER_KEY: ${{ secrets.SHINOBI_PROVIDER_KEY }}
+        run: npx tsx scripts/f2_gate.ts
+
+  f3-gate:
+    name: Gate F3 (self-improve loop — requiere LLM key, muta y revierte working tree)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    if: ${{ vars.SHINOBI_ENABLE_LLM_GATES == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci || npm install --no-audit --no-fund
+      - name: F3 gate
+        env:
+          SHINOBI_PROVIDER: ${{ secrets.SHINOBI_PROVIDER }}
+          SHINOBI_PROVIDER_KEY: ${{ secrets.SHINOBI_PROVIDER_KEY }}
+        run: npx tsx scripts/f3_gate.ts
+
+  d015-smoke:
+    name: Smoke D-015 (orchestrator e2e — requiere config.json + LLM key)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    if: ${{ vars.SHINOBI_ENABLE_LLM_GATES == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci || npm install --no-audit --no-fund
+      - name: D-015 smoke
+        env:
+          SHINOBI_PROVIDER: ${{ secrets.SHINOBI_PROVIDER }}
+          SHINOBI_PROVIDER_KEY: ${{ secrets.SHINOBI_PROVIDER_KEY }}
+        run: npx tsx scripts/d015_smoke.ts
+
+  d016-router-probe:
+    name: Probe D-016 (router LLM — requiere kernel externo en localhost:9900)
+    runs-on: windows-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    if: ${{ vars.SHINOBI_ENABLE_LLM_GATES == 'true' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci || npm install --no-audit --no-fund
+      - name: D-016 router probe
+        env:
+          SHINOBI_ROUTER_URL: ${{ vars.SHINOBI_ROUTER_URL }}
+        run: npx tsx scripts/d016_router_probe.ts

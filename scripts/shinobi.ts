@@ -10,7 +10,7 @@ import * as readline from 'readline';
 import { ShinobiOrchestrator } from '../src/coordinator/orchestrator.js';
 import { handleSlashCommand } from '../src/coordinator/slash_commands.js';
 import { IntentRouter } from '../src/dispatch/intent_router.js';
-import { getAlcaynaAgent } from '../src/agents/agent_registry.js';
+import { getAgent } from '../src/agents/agent_registry.js';
 import { SkillLoader } from '../src/skills/skill_loader.js';
 import { skillManager } from '../src/skills/skill_manager.js';
 import { curatedMemory } from '../src/memory/curated_memory.js';
@@ -31,6 +31,16 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 config({ path: resolve(__dirname, '../.env') });
+
+// F2.1 (CRIT-08, auditoría 2026-07-01) — instala el guard de egress en
+// runtime ANTES de cualquier código que pueda hacer una llamada de red
+// (incluido el one-shot dispatch de más abajo). Import estático (no
+// dinámico): las importaciones ES se resuelven y ejecutan ANTES del código
+// top-level de este módulo, así que installEgressRuntimeGuard() corre aquí
+// de forma síncrona y determinista, sin ninguna carrera con main(). Ver
+// src/egress/runtime_guard.ts.
+import { installEgressRuntimeGuard } from '../src/egress/runtime_guard.js';
+installEgressRuntimeGuard();
 
 async function maybeRunOneShotCommand(): Promise<boolean> {
   const argv = process.argv.slice(2);
@@ -523,12 +533,12 @@ async function main() {
       const intentRes = await IntentRouter.route(trimmed);
       if (intentRes.matched) {
         if (intentRes.type === 'agent_activation' && intentRes.agentId) {
-          // E2: cableado real — activar el agente Alcayna en la sesión.
-          const agentDef = getAlcaynaAgent(intentRes.agentId);
+          // E2: cableado real — activar el agente especialista en la sesión.
+          const agentDef = getAgent(intentRes.agentId);
           if (agentDef) {
-            ShinobiOrchestrator.setAlcaynaAgent(agentDef);
-            console.log(`[Alcayna] Departamento ${agentDef.name} activado. Las siguientes respuestas usarán su persona especializada.`);
-            console.log(`         Para volver al modo normal: /alcayna reset`);
+            ShinobiOrchestrator.setSpecialistAgent(agentDef);
+            console.log(`[Especialista] Departamento ${agentDef.name} activado. Las siguientes respuestas usarán su persona especializada.`);
+            console.log(`         Para volver al modo normal: /especialista reset`);
           } else {
             console.log(intentRes.response ?? 'Agente activado.');
           }

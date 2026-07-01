@@ -77,6 +77,27 @@ export function validateDockerImage(image: string): string {
   return image;
 }
 
+// F2.2 (auditoría 2026-07): defaults conservadores de límites de recursos
+// para el container ephemeral. Antes de esto, `docker run` aislaba
+// FS/red pero NO memoria/CPU/PIDs ni privilegios — un comando dentro del
+// container podía agotar RAM/CPU del host (DoS) o escalar privilegios vía
+// capabilities Linux por defecto (CAP_SYS_ADMIN, etc. incluidas en el set
+// default de Docker). Todo configurable por env var, con fallback seguro.
+const DEFAULT_MEMORY = '512m';
+const DEFAULT_CPUS = '1';
+const DEFAULT_PIDS_LIMIT = '100';
+// Capabilities imprescindibles para que `sh -c "<command>"` siga funcionando
+// con comandos habituales (mkdir, chmod dentro del workspace montado, etc.)
+// tras el --cap-drop=ALL. CHOWN/DAC_OVERRIDE/FOWNER/SETUID/SETGID cubren la
+// gestión de ficheros/permisos normal de un shell no-root; NINGUNA de ellas
+// permite escapar el container ni tocar el host.
+const DEFAULT_CAP_ADD = ['CHOWN', 'DAC_OVERRIDE', 'FOWNER', 'SETUID', 'SETGID'];
+
+function envOr(name: string, fallback: string): string {
+  const v = process.env[name];
+  return v && v.trim() ? v.trim() : fallback;
+}
+
 /**
  * Construye los argumentos para `docker run`. NO ejecuta nada — facilita
  * tests sin levantar Docker.
@@ -89,6 +110,14 @@ export function validateDockerImage(image: string): string {
  *   - sh -c "<command>" — el caller no debe escapar shell args; el shell
  *     del container lo hace. (Defendido por la blacklist destructiva
  *     que ya filtró el comando antes de llegar aquí.)
+ *   - F2.2: límites de recursos (memoria/CPU/PIDs) + hardening de
+ *     privilegios (cap-drop=ALL + cap-add mínimo, read-only rootfs con
+ *     tmpfs para /tmp, no-new-privileges). Todo configurable por env var:
+ *       SHINOBI_DOCKER_MEMORY      (default "512m")
+ *       SHINOBI_DOCKER_CPUS        (default "1")
+ *       SHINOBI_DOCKER_PIDS_LIMIT  (default "100")
+ *     El memory-swap se fija IGUAL al memory limit (sin swap adicional),
+ *     así el límite de memoria es real y no bypasseable via swap.
  */
 export function buildDockerRunArgs(opts: {
   image: string;
@@ -98,10 +127,30 @@ export function buildDockerRunArgs(opts: {
 }): string[] {
   const image = validateDockerImage(opts.image);
   const network = opts.network === 'bridge' ? 'bridge' : 'none';
+  const memory = envOr('SHINOBI_DOCKER_MEMORY', DEFAULT_MEMORY);
+  const cpus = envOr('SHINOBI_DOCKER_CPUS', DEFAULT_CPUS);
+  const pidsLimit = envOr('SHINOBI_DOCKER_PIDS_LIMIT', DEFAULT_PIDS_LIMIT);
+  const capAddArgs = DEFAULT_CAP_ADD.flatMap((cap) => ['--cap-add', cap]);
   return [
     'run',
     '--rm',
     `--network=${network}`,
+    // ── Límites de recursos (F2.2) ──
+    '--memory', memory,
+    // memory-swap == memory ⇒ swap deshabilitado (el total memoria+swap no
+    // puede superar el límite de memoria; sin esto Docker permite swap
+    // ilimitado por defecto).
+    '--memory-swap', memory,
+    '--cpus', cpus,
+    '--pids-limit', pidsLimit,
+    // ── Hardening de privilegios (F2.2) ──
+    '--cap-drop', 'ALL',
+    ...capAddArgs,
+    '--security-opt', 'no-new-privileges',
+    '--read-only',
+    // /tmp escribible vía tmpfs (muchos comandos de shell lo necesitan) sin
+    // comprometer el resto del rootfs, que queda read-only.
+    '--tmpfs', '/tmp',
     '-v',
     `${opts.cwd}:/workspace`,
     '-w',

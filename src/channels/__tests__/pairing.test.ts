@@ -43,12 +43,12 @@ describe('identidad firmada', () => {
   });
 });
 
-// Regresión ALTA-24 (auditoría 2026-07-01): sin SHINOBI_PAIRING_SECRET, antes
-// se usaba el literal público 'shinobi-default-pairing-secret' — cualquiera
-// que leyera el código fuente podía forjar firmas válidas. Ahora se genera
+// Regresion ALTA-24 (auditoria 2026-07-01): sin SHINOBI_PAIRING_SECRET, antes
+// se usaba el literal publico 'shinobi-default-pairing-secret' - cualquiera
+// que leyera el codigo fuente podia forjar firmas validas. Ahora se genera
 // un secreto aleatorio y se persiste para ser estable entre reinicios.
-describe('secreto generado cuando SHINOBI_PAIRING_SECRET no está configurado (ALTA-24)', () => {
-  it('nunca usa el literal público hardcodeado', () => {
+describe('secreto generado cuando SHINOBI_PAIRING_SECRET no esta configurado (ALTA-24)', () => {
+  it('nunca usa el literal publico hardcodeado', () => {
     delete process.env.SHINOBI_PAIRING_SECRET;
     process.env.SHINOBI_PAIRING_SECRET_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'shinobi-pairsecret-')), 'secret');
     _resetGeneratedSecretCache();
@@ -81,15 +81,23 @@ describe('secreto generado cuando SHINOBI_PAIRING_SECRET no está configurado (A
 });
 
 describe('pairingMode', () => {
-  it('open por defecto; auto-detecta code/allowlist; forzable', () => {
-    expect(pairingMode()).toBe('open');
+  // F2.4 (auditoria 2026-07): el default sin configuracion paso de 'open' a
+  // 'closed' - 'open' sin gate nunca debe ser lo que se obtiene "por no
+  // hacer nada" en un canal de mensajeria real. Sigue auto-detectando
+  // code/allowlist, y sigue siendo forzable por env (incluido 'open' como
+  // opt-in explicito para desarrollo).
+  it('closed por defecto; auto-detecta code/allowlist; forzable (incluido open como opt-in)', () => {
+    expect(pairingMode()).toBe('closed');
     process.env.SHINOBI_PAIRING_CODE = '1234';
     expect(pairingMode()).toBe('code');
     delete process.env.SHINOBI_PAIRING_CODE;
     process.env.SHINOBI_CHANNEL_ALLOWLIST = 'discord:u1';
     expect(pairingMode()).toBe('allowlist');
+    delete process.env.SHINOBI_CHANNEL_ALLOWLIST;
     process.env.SHINOBI_PAIRING_MODE = 'closed';
     expect(pairingMode()).toBe('closed');
+    process.env.SHINOBI_PAIRING_MODE = 'open';
+    expect(pairingMode()).toBe('open');
   });
 });
 
@@ -105,10 +113,10 @@ describe('PairingStore', () => {
     expect(new PairingStore(p).isPaired('discord:u1')).toBe(false);
   });
 
-  it('descarta entradas con firma inválida (paired.json manipulado)', () => {
+  it('descarta entradas con firma invalida (paired.json manipulado)', () => {
     const { store, path: p } = tmpStore();
     store.pair('discord:legit');
-    // Manipulación: añade una identidad sin firma válida.
+    // Manipulacion: anade una identidad sin firma valida.
     const raw = JSON.parse(fs.readFileSync(p, 'utf-8'));
     raw.paired.push({ key: 'discord:evil', signature: 'firma-falsa', pairedAt: 'x' });
     fs.writeFileSync(p, JSON.stringify(raw));
@@ -119,35 +127,45 @@ describe('PairingStore', () => {
 });
 
 describe('authorizeIncoming', () => {
-  it('open → siempre permitido', () => {
+  it('open (opt-in explicito) -> siempre permitido', () => {
+    process.env.SHINOBI_PAIRING_MODE = 'open';
     expect(authorizeIncoming('discord', 'u', 'hola').allowed).toBe(true);
   });
 
-  it('closed → denegado con aviso', () => {
+  it('closed -> denegado con aviso', () => {
     process.env.SHINOBI_PAIRING_MODE = 'closed';
     const d = authorizeIncoming('discord', 'u', 'hola');
     expect(d.allowed).toBe(false);
     expect(d.reply).toMatch(/silenciado/i);
   });
 
-  it('allowlist → solo identidades de la lista', () => {
+  // F2.4: sin NINGUNA configuracion, el default ya no es 'open' - es
+  // 'closed'. Un canal recien conectado sin codigo/allowlist queda
+  // silenciado hasta que el operador lo configure explicitamente.
+  it('closed por defecto (sin configuracion) -> denegado con aviso de silenciado', () => {
+    const d = authorizeIncoming('discord', 'u', 'hola');
+    expect(d.allowed).toBe(false);
+    expect(d.reply).toMatch(/silenciado/i);
+  });
+
+  it('allowlist -> solo identidades de la lista', () => {
     process.env.SHINOBI_CHANNEL_ALLOWLIST = 'discord:ok';
     expect(authorizeIncoming('discord', 'ok', 'hi').allowed).toBe(true);
     expect(authorizeIncoming('discord', 'malo', 'hi').allowed).toBe(false);
   });
 
-  it('code → empareja con el código y luego permite', () => {
+  it('code -> empareja con el codigo y luego permite', () => {
     process.env.SHINOBI_PAIRING_CODE = 'SECRETO';
     const { store } = tmpStore();
-    // sin código → challenge
+    // sin codigo -> challenge
     const a = authorizeIncoming('discord', 'u1', 'hola', store);
     expect(a.allowed).toBe(false);
     expect(a.reply).toMatch(/emparejar/i);
-    // con el código → empareja (no procesa el mensaje del código)
+    // con el codigo -> empareja (no procesa el mensaje del codigo)
     const b = authorizeIncoming('discord', 'u1', 'SECRETO', store);
     expect(b.allowed).toBe(false);
     expect(b.paired).toBe(true);
-    // siguiente mensaje → permitido
+    // siguiente mensaje -> permitido
     expect(authorizeIncoming('discord', 'u1', 'haz algo', store).allowed).toBe(true);
     // otro usuario sigue sin estar emparejado
     expect(authorizeIncoming('discord', 'u2', 'haz algo', store).allowed).toBe(false);

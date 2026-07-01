@@ -2,18 +2,26 @@
  * kagemusha/ingest/transcripts.ts — the thin wrapper (dossier §6.2).
  *
  * Downloading transcripts is NOT a subsystem; it's a command. Responsibility:
- * invoke `yt-dlp` as a subprocess (via the existing run_command tool — no new
- * spawn lib), then import the resulting .srt/.vtt to the corpus with provenance
- * USER_DIRECT (the user chose the channel). No manifest, no CSV, no sandbox: it's
- * a read into a local folder, risk is nil. The approval gate allows it without a
- * pause (it doesn't touch .env/.ssh/secrets/payment).
+ * invoke `yt-dlp` as a subprocess, then import the resulting .srt/.vtt to the
+ * corpus with provenance USER_DIRECT (the user chose the channel). No manifest,
+ * no CSV, no sandbox: it's a read into a local folder, risk is nil. The approval
+ * gate allows it without a pause (it doesn't touch .env/.ssh/secrets/payment).
+ *
+ * SEC-F4.2 (2026-07-01): `opts.channel` used to be interpolated directly into a
+ * shell string ("`${channelUrl(opts.channel)}`" inside a joined command run via
+ * a shell). A channel value like `foo; rm -rf ~` or `$(...)` would execute
+ * arbitrary shell code the moment this path is invoked. Fixed by (1) validating
+ * `opts.channel` against a strict allowlist BEFORE any command is built, and (2)
+ * invoking yt-dlp via `execFile` with a discrete argv array and NO shell —
+ * `opts.channel` (or the URL derived from it) is passed as one inert argv
+ * element, never interpolated into a string that a shell parses.
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
+import { execFile } from 'node:child_process';
 import { parseSubtitles, estimateTokens } from './srt_parser.js';
-import { kageSubprocess } from '../adapters.js';
 import type { Channel, Transcript, Provenance } from '../types.js';
 import { KagemushaStore } from '../store/store.js';
 
@@ -24,25 +32,71 @@ export interface IngestOptions {
   outDir: string;
 }
 
+/**
+ * SEC-F4.2 — strict allowlist for a YouTube channel identifier. Accepts:
+ *   - a bare handle (with or without leading "@"): letters/digits/._- , 1-100 chars
+ *   - a legacy channel id: "UC" followed by 22 URL-safe base64 chars
+ *   - a full https://www.youtube.com/... or https://youtu.be/... URL (no other host)
+ * Anything else (shell metacharacters, `;`, `$(`, backticks, spaces, other hosts,
+ * etc.) is rejected BEFORE any command is built. This is the primary defense;
+ * execFile (no shell) is the secondary one.
+ */
+const HANDLE_RE = /^@?[A-Za-z0-9_.-]{1,100}$/;
+const CHANNEL_ID_RE = /^UC[A-Za-z0-9_-]{22}$/;
+const YT_URL_RE = /^https:\/\/(www\.youtube\.com|youtu\.be|m\.youtube\.com)\/[A-Za-z0-9_.\-\/@?=&%]{1,300}$/;
+
+export class InvalidChannelError extends Error {
+  constructor(value: string) {
+    super(`kagemusha: opts.channel rejected by validator (not a valid YouTube handle/id/URL): ${JSON.stringify(value)}`);
+    this.name = 'InvalidChannelError';
+  }
+}
+
+/** Validate a channel identifier. Throws InvalidChannelError if it doesn't match the allowlist. */
+export function assertValidChannel(channel: string): void {
+  if (typeof channel !== 'string' || channel.length === 0) throw new InvalidChannelError(String(channel));
+  if (HANDLE_RE.test(channel) || CHANNEL_ID_RE.test(channel) || YT_URL_RE.test(channel)) return;
+  throw new InvalidChannelError(channel);
+}
+
 function channelUrl(handle: string): string {
-  if (/^https?:\/\//.test(handle)) return handle;
+  if (/^https:\/\//.test(handle)) return handle;
   const h = handle.startsWith('@') ? handle : `@${handle}`;
   return `https://www.youtube.com/${h}/videos`;
 }
 
+/** Run yt-dlp via execFile (no shell) with a discrete argv array. */
+function runYtDlp(args: string[], timeoutMs: number): Promise<{ success: boolean; output: string; error?: string }> {
+  return new Promise((resolve) => {
+    execFile('yt-dlp', args, { timeout: timeoutMs, maxBuffer: 16 * 1024 * 1024, windowsHide: true }, (err, stdout, stderr) => {
+      if (err) {
+        resolve({ success: false, output: String(stdout ?? ''), error: `${err.message}${stderr ? `\n${stderr}` : ''}` });
+        return;
+      }
+      resolve({ success: true, output: String(stdout ?? '') });
+    });
+  });
+}
+
 /** Build + run the yt-dlp command (dossier §6.1). Returns the subtitle files found. */
 export async function downloadChannelTranscripts(opts: IngestOptions): Promise<{ files: string[]; ranSuccessfully: boolean; error?: string }> {
+  // SEC-F4.2: reject before building anything — never let an unvalidated value
+  // reach argv construction, let alone a shell string.
+  assertValidChannel(opts.channel);
+
   const langs = (opts.langs ?? ['es', 'en']).join(',');
   fs.mkdirSync(opts.outDir, { recursive: true });
   const outTmpl = path.join(opts.outDir, '%(channel)s/%(upload_date)s-%(id)s-%(title).80s.%(ext)s');
-  const max = opts.max ? `--playlist-end ${opts.max}` : '';
-  const cmd = [
-    'yt-dlp', '--skip-download', '--write-subs', '--write-auto-subs',
-    `--sub-langs "${langs},${langs}-orig"`, '--sub-format vtt', '--convert-subs srt',
-    max, `--output "${outTmpl}"`, `"${channelUrl(opts.channel)}"`,
-  ].filter(Boolean).join(' ');
 
-  const r = await kageSubprocess(cmd, { timeout: 600_000 });
+  const args = [
+    '--skip-download', '--write-subs', '--write-auto-subs',
+    '--sub-langs', `${langs},${langs}-orig`,
+    '--sub-format', 'vtt', '--convert-subs', 'srt',
+  ];
+  if (opts.max) args.push('--playlist-end', String(opts.max));
+  args.push('--output', outTmpl, channelUrl(opts.channel));
+
+  const r = await runYtDlp(args, 600_000);
   const files = listSubtitleFiles(opts.outDir);
   return { files, ranSuccessfully: r.success, error: r.error };
 }

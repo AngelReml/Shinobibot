@@ -1,5 +1,6 @@
 // Retry P13 (PHP repo replacement), P15 (longpaths), P16 (deeper inspection), P17 (variance).
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { spawnSync } from 'child_process';
 import { runRead } from '../src/reader/cli.js';
@@ -13,12 +14,12 @@ function fileText(p: string): string { try { return fs.readFileSync(p, 'utf-8');
 
 async function p13_retry() {
   console.log('═══ P13-retry — usando repo PHP alternativo (Composer) ═══');
-  const dest = 'C:\\Users\\angel\\Desktop\\test_repos\\composer';
+  const dest = path.join(os.homedir(), 'Desktop', 'test_repos', 'composer');
   if (!fs.existsSync(dest)) {
     const cl = spawnSync('git', ['clone', '--depth', '1', 'https://github.com/composer/composer', dest], { encoding: 'utf-8' });
     if (cl.status !== 0) {
       // Fallback a un repo Go pequeño y conocido
-      const dest2 = 'C:\\Users\\angel\\Desktop\\test_repos\\cobra';
+      const dest2 = path.join(os.homedir(), 'Desktop', 'test_repos', 'cobra');
       const cl2 = spawnSync('git', ['clone', '--depth', '1', 'https://github.com/spf13/cobra', dest2], { encoding: 'utf-8' });
       if (cl2.status !== 0) return log({ id: 'P13', status: 'FAIL', note: 'both PHP and Go fallbacks failed to clone' });
       const r = await runRead(dest2, { label: 'p13_cobra' });
@@ -40,7 +41,7 @@ async function p13_retry() {
 async function p15_retry() {
   console.log('═══ P15-retry — FizzBuzzEnterprise con longpaths ═══');
   // Try cloning with longpaths enabled.
-  const dest = 'C:\\Users\\angel\\Desktop\\test_repos\\fizzbuzz_ee';
+  const dest = path.join(os.homedir(), 'Desktop', 'test_repos', 'fizzbuzz_ee');
   if (!fs.existsSync(dest)) {
     const cl = spawnSync('git', ['-c', 'core.longpaths=true', 'clone', '--depth', '1', 'https://github.com/EnterpriseQualityCoding/FizzBuzzEnterpriseEdition', dest], { encoding: 'utf-8' });
     if (cl.status !== 0) return log({ id: 'P15', status: 'FAIL', note: `clone failed even with longpaths: ${(cl.stderr || cl.stdout).slice(0, 150)}` });

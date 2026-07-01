@@ -27,3 +27,7 @@ export { renderMarkdown, FileSink, type ReportSink } from './synth/render.js';
 export { listExportedSymbols, buildCodebaseIndex, type SymbolEntry } from './contrast/codebase_index.js';
 export { mapFindingToModule, overlapScore, type ContrastJudge } from './contrast/contrast.js';
 export { runMission, resumeMission, type PhaseHandlers, type MissionResult } from './mission/mission.js';
+export {
+  runKagemusha, KagemushaDisabledError, runKagemushaToolDescriptor,
+  type RunKagemushaOptions, type RunKagemushaToolShape,
+} from './trigger.js';

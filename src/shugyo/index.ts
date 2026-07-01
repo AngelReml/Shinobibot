@@ -1,8 +1,21 @@
-// Nivel 4 — Shugyo (修行): el explorador, aprende programas en jaula revertible → skills certificadas por Sello. Aditivo, gated SHUGYO_ENABLED.
+// Nivel 4 — Shugyo (修行): el explorador, aprende programas en jaula revertible (snapshot/restore de directorio, NO sandbox de OS) → skills certificadas por Sello. Aditivo, gated SHUGYO_ENABLED.
 /**
  * shugyo — barrel. Level-4: the explorer. Learns to operate programs in a
  * revertible cage and distills certified skills via Sello. Additive + gated by
  * SHUGYO_ENABLED (default off). Docile programs first; ◆ canvas/vision out of v1.
+ *
+ * HONESTY (F2.13, auditoría 2026-07): "cage"/"jaula" here is a DIRECTORY
+ * SNAPSHOT/RESTORE mechanism (fs.cpSync copy before, wipe+restore after — see
+ * sandbox/revertible.ts `DirCageSandbox`), identified by a SHA-256 content hash
+ * of the tracked files. It is NOT an OS/process sandbox: no container, no VM, no
+ * namespace, no chroot, no seccomp. The actual command EXECUTION inside the cage
+ * reuses the plain shell backend (`sandboxRegistry().get('local')` by default —
+ * same `child_process.exec` as everywhere else), so a command run during
+ * exploration has the SAME OS privileges as the Shinobi process itself; what the
+ * cage guarantees is that the WORKING DIRECTORY is always restored to a known
+ * state afterward — not that the command was contained while it ran. Real OS-level
+ * isolation (routing through the docker.ts sandbox backend, F2.2) is future work,
+ * not implemented today.
  */
 export * from './config.js';
 export * from './types.js';

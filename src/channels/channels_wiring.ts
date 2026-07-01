@@ -31,7 +31,9 @@ let _started = false;
  */
 async function orchestratorHandler(msg: IncomingMessage): Promise<OutgoingMessage | null> {
   // Capa de confianza: un remitente no autorizado NO llega al orchestrator.
-  // En modo 'open' (default) esto es passthrough; con código/allowlist gatea.
+  // F2.4: el default es 'closed' (canal silenciado hasta emparejar) —
+  // 'open' (passthrough) es opt-in explícito vía SHINOBI_PAIRING_MODE=open,
+  // ya no lo que se obtiene por defecto sin configurar nada.
   const auth = authorizeIncoming(msg.channelId, msg.target.userId, msg.text);
   if (!auth.allowed) return auth.reply ? { text: auth.reply } : null;
 
