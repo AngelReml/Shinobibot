@@ -100,7 +100,30 @@ export class ResourceGovernor {
   private readonly cfg: GovernorConfig;
 
   constructor(cfg: GovernorConfig) {
-    this.cfg = cfg;
+    // Copia defensiva: vamos a poder clampear minConcurrency abajo y no
+    // queremos mutar el objeto de config del caller.
+    this.cfg = { ...cfg };
+
+    // MEDIA-13 (auditoría 2026-06-30): invariante minConcurrency <=
+    // maxConcurrency. Sin esta validación, `effectiveWidth()` puede devolver
+    // un ancho mayor que el cap duro (ej: max=2, min=8 → retorna 8),
+    // exactamente lo que el governor existe para impedir. Clampeamos en vez
+    // de lanzar (un config inválido no debe tumbar el arranque del proceso)
+    // y avisamos fuerte para que sea diagnosticable.
+    if (this.cfg.minConcurrency !== undefined && this.cfg.minConcurrency > this.cfg.maxConcurrency) {
+      console.warn(`[ResourceGovernor] minConcurrency (${this.cfg.minConcurrency}) > maxConcurrency (${this.cfg.maxConcurrency}) — clampeando minConcurrency a maxConcurrency para no violar el cap duro.`);
+      this.cfg.minConcurrency = this.cfg.maxConcurrency;
+    }
+
+    // BAJA-01: con perTenantCap=0, `tenantRunning < cfg.perTenantCap` (0 < 0)
+    // es siempre false → decideAdmission nunca retorna 'run' → deadlock
+    // silencioso (todo se encola hasta llenar la cola y luego se rechaza
+    // todo). No cambiamos la semántica aquí (podría haber un uso legítimo de
+    // "0 = bloquear todo" como kill-switch de emergencia) — solo lo hacemos
+    // diagnosticable en vez de un fallo indetectable.
+    if (this.cfg.perTenantCap === 0) {
+      console.warn('[ResourceGovernor] perTenantCap=0: NINGUNA tarea será admitida nunca (deadlock por diseño, no es un bug de admisión). Si la intención era "sin límite por operador", usa un valor alto en su lugar.');
+    }
   }
 
   /** Señal de presión externa (0..1): CPU/mem/latencia. Encoge el ancho. */

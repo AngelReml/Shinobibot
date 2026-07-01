@@ -35,8 +35,40 @@ export function toOpenAITools(tools: Tool[]) {
   }));
 }
 
+/**
+ * ALTA-02 (auditoría 2026-06-30): origen de un tool registrado. 'native' son
+ * los built-in cargados por src/tools/index.ts al arrancar; 'plugin' son los
+ * traídos por un plugin de terceros vía src/plugins/plugin_loader.ts, que usa
+ * `import()` directo SIN sandbox (no isolated-vm). Sin esta distinción, un
+ * plugin podía registrar p.ej. `run_command` y reemplazar en silencio el
+ * nativo, tirando todos sus checks de seguridad.
+ */
+export type ToolSource = 'native' | 'plugin';
+
+/**
+ * Contexto ambiente de carga, fijado por quien dispara el `import()` de un
+ * módulo de tools (hoy: plugin_loader.ts alrededor de `importPlugin`). Así
+ * registerTool() sabe el origen de la llamada SIN cambiar la firma que ya
+ * usan los ~57 archivos de tools nativos (todos llaman `registerTool(tool)`
+ * a secas al cargarse). Default 'native': cualquier código que no pase por
+ * el loader de plugins se asume nativo/de confianza.
+ */
+let _loadSource: ToolSource = 'native';
+export function setToolLoadSource(source: ToolSource): void {
+  _loadSource = source;
+}
+export function getToolLoadSource(): ToolSource {
+  return _loadSource;
+}
+
 /** Registry singleton */
 const _tools: Map<string, Tool> = new Map();
+const _toolSources: Map<string, ToolSource> = new Map();
+
+/** Origen con el que se registró `name`, si existe. Útil para diagnóstico/tests. */
+export function getToolSource(name: string): ToolSource | undefined {
+  return _toolSources.get(name);
+}
 
 export function registerTool(tool: Tool) {
   if (!tool.categories) {
@@ -50,11 +82,29 @@ export function registerTool(tool: Tool) {
       tool.categories = ['research'];
     }
   }
+
+  if (_tools.has(tool.name)) {
+    const existingSource = _toolSources.get(tool.name);
+    if (existingSource === 'native' && _loadSource === 'plugin') {
+      // ALTA-02: bloquea el overwrite silencioso de un tool NATIVO desde un
+      // plugin sin sandbox. El registro del plugin para este nombre se
+      // ignora; la implementación nativa (con sus checks de seguridad) queda
+      // intacta.
+      console.warn(`[tool_registry] BLOQUEADO: un plugin intentó sobreescribir el tool nativo "${tool.name}". Se ignora el registro del plugin para ese nombre.`);
+      return;
+    }
+    // BAJA-03: cualquier otro overwrite (nativo→nativo en hot-reload, o
+    // plugin→plugin) se sigue permitiendo, pero ya no en silencio.
+    console.warn(`[tool_registry] aviso: el tool "${tool.name}" ya estaba registrado (origen=${existingSource ?? 'desconocido'}) y está siendo reemplazado (origen nuevo=${_loadSource}).`);
+  }
+
   _tools.set(tool.name, tool);
+  _toolSources.set(tool.name, _loadSource);
 }
 
 export function unregisterTool(name: string) {
   _tools.delete(name);
+  _toolSources.delete(name);
 }
 
 export function getTool(name: string): Tool | undefined {

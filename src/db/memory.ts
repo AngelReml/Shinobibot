@@ -13,6 +13,12 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+/** BAJA-05: normaliza para la comparación de deduplicación — no se usa para almacenar. */
+function normalizeForDedup(content: string): string {
+  if (typeof content !== 'string') return content;
+  return content.trim().replace(/\s+/g, ' ');
+}
+
 export class Memory {
   private filePath: string;
   private maxHistory: number = 30; // Limit history to prevent context overflow
@@ -63,12 +69,17 @@ export class Memory {
     };
 
     // Simple deduplication for exact rapid consecutive user messages (like the JWT example)
+    // BAJA-05: la comparación usaba igualdad EXACTA de strings, así que
+    // "haz X " vs "haz X" evadían la deduplicación — bajo retries
+    // automáticos el historial se llenaba de mensajes casi idénticos.
+    // Normalizamos (trim + colapsar whitespace) SOLO para la comparación; el
+    // mensaje que se guarda (`newMessage`) sigue siendo el original, sin tocar.
     const lastMsg = messages[messages.length - 1];
     if (
         lastMsg &&
         lastMsg.role === 'user' &&
         newMessage.role === 'user' &&
-        lastMsg.content === newMessage.content
+        normalizeForDedup(lastMsg.content) === normalizeForDedup(newMessage.content)
     ) {
         // Skip duplicate
         return;

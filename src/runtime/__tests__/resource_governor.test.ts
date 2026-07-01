@@ -3,7 +3,7 @@
 // Tests del motor E8 (governor). Pure cores + invariante de concurrencia real.
 // Cero imports pesados → corre en cualquier plataforma.
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   effectiveWidth, decideAdmission, ResourceGovernor, GovernorShedError,
   type GovernorConfig, type AdmissionState,
@@ -77,5 +77,33 @@ describe('ResourceGovernor — el centro no se pierde bajo presión (刃 sobre �
     const g = new ResourceGovernor(cfg);
     await expect(g.run('op', async () => { throw new Error('boom'); })).rejects.toThrow('boom');
     expect(g.snapshot().running).toBe(0);
+  });
+});
+
+// Regresión MEDIA-13 / BAJA-01 (auditoría 2026-07-01).
+describe('ResourceGovernor — invariantes de config (MEDIA-13 / BAJA-01)', () => {
+  it('MEDIA-13: minConcurrency > maxConcurrency se clampea, no viola el cap duro', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const g = new ResourceGovernor({ maxConcurrency: 2, perTenantCap: 5, maxQueue: 10, minConcurrency: 8 });
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+    // effectiveWidth(load=1) usa minConcurrency — con el bug retornaría 8 (> cap duro de 2).
+    expect(effectiveWidth((g as any).cfg, 1)).toBeLessThanOrEqual(2);
+  });
+
+  it('MEDIA-13: no muta el objeto de config original del caller', () => {
+    const original: GovernorConfig = { maxConcurrency: 2, perTenantCap: 5, maxQueue: 10, minConcurrency: 8 };
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    new ResourceGovernor(original);
+    warnSpy.mockRestore();
+    expect(original.minConcurrency).toBe(8); // el caller no ve su objeto mutado
+  });
+
+  it('BAJA-01: perTenantCap=0 avisa que ninguna tarea será admitida (deadlock diagnosticable)', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    new ResourceGovernor({ maxConcurrency: 4, perTenantCap: 0, maxQueue: 10, minConcurrency: 1 });
+    expect(warnSpy).toHaveBeenCalled();
+    expect(warnSpy.mock.calls.some((c) => String(c[0]).includes('perTenantCap=0'))).toBe(true);
+    warnSpy.mockRestore();
   });
 });

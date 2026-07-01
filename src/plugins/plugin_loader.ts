@@ -17,12 +17,28 @@
  * OpenClaw (plugin SDK con 100+ types exportados): Shinobi requiere un
  * manifest explícito, valida fail-fast, y el side-effect lo elige el
  * caller (el plugin no tiene poder global por sí solo).
+ *
+ * LIMITACIÓN CONOCIDA (ALTA-02, auditoría 2026-06-30): `importPlugin` usa
+ * `import(url)` directo — el módulo importado corre con acceso COMPLETO a
+ * Node.js, sin el sandbox `isolated-vm` que sí se usa en
+ * `hot_plug_registry.ts` para el flujo de hot-plug de plugins NO confiables.
+ * Migrar este loader a isolated-vm es un cambio de alcance mayor (rehace por
+ * completo cómo un plugin expone tools/efectos hacia el proceso host) y
+ * queda fuera del alcance de este fix puntual. Lo que SÍ se corrige aquí es
+ * el daño concreto y acotado: un plugin sin sandbox podía registrar un tool
+ * con el mismo nombre que uno nativo (p.ej. `run_command`) y reemplazarlo en
+ * silencio, tirando sus checks de seguridad. `importPlugin` ahora marca el
+ * contexto de carga como 'plugin' (ver `setToolLoadSource` en
+ * `tool_registry.ts`) mientras evalúa el módulo, para que `registerTool()`
+ * pueda bloquear ese overwrite concreto. Esto NO sustituye al sandboxing —
+ * es un cinturón mínimo sobre el riesgo más dañino y barato de explotar.
  */
 
 import { readFileSync, existsSync, statSync, readdirSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { pathToFileURL } from 'url';
 import { validateManifest, type PluginManifest, type ValidationResult } from './plugin_manifest.js';
+import { setToolLoadSource } from '../tools/tool_registry.js';
 
 export interface DiscoveredPlugin {
   manifestPath: string;
@@ -109,7 +125,18 @@ export function discoverPlugins(rootDir: string): DiscoveryResult {
  */
 export async function importPlugin(plugin: DiscoveredPlugin): Promise<unknown> {
   const url = pathToFileURL(plugin.entryAbsPath).href;
-  return await import(url);
+  // ALTA-02: marca el contexto de carga como 'plugin' mientras el módulo se
+  // evalúa. Si el código del plugin llama a registerTool() durante el import
+  // (igual que hacen los tools nativos al cargarse), tool_registry.ts puede
+  // distinguirlo de un tool nativo y bloquear el overwrite de uno existente.
+  // SIEMPRE se restaura a 'native' en el finally, incluso si el import lanza,
+  // para no dejar el registry marcado como 'plugin' para cargas posteriores.
+  setToolLoadSource('plugin');
+  try {
+    return await import(url);
+  } finally {
+    setToolLoadSource('native');
+  }
 }
 
 /** Conveniencia: discover + import secuencial, con errores agregados. */

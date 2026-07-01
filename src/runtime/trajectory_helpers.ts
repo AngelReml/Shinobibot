@@ -3,6 +3,29 @@
 export const _TOOL_CALL_ARGUMENTS_CORRUPTION_MARKER = 'repaired_by_sanitizer';
 
 /**
+ * ALTA-18 (auditoría 2026-06-30): el marcador de corrupción NO es decorativo.
+ * Cuando `sanitizeToolCallArguments()` repara argumentos JSON truncados
+ * añadiendo `{`/`}` a ciegas, el resultado puede parsear como JSON válido con
+ * un significado distinto al que el LLM realmente generó (ej: argumentos de
+ * `run_command` reparados a partir de basura, ejecutando un comando
+ * destructivo sin que haya pasado por la clasificación/aprobación reales).
+ *
+ * CONSUMIDOR OBLIGATORIO: el código que DESPACHA la tool call después de
+ * llamar a `sanitizeToolCallArguments()` (hoy: `src/coordinator/orchestrator.ts`
+ * y `src/coordinator/swarm_worker.ts`, justo antes del tool_loop) DEBE
+ * comprobar `toolCallWasRepaired(tc)` y, si es `true`, FORZAR el flujo de
+ * aprobación completo (tratar la call como `destructive: true`)
+ * independientemente de la clasificación normal de la tool. Ese enforcement
+ * vive fuera de este archivo (`trajectory_helpers.ts` solo repara texto, no
+ * despacha nada) — este helper es el contrato estable para que cualquier
+ * consumidor lo detecte sin tener que conocer el nombre exacto del campo
+ * interno `_corruption_marker`.
+ */
+export function toolCallWasRepaired(toolCall: any): boolean {
+  return !!toolCall && toolCall._corruption_marker === _TOOL_CALL_ARGUMENTS_CORRUPTION_MARKER;
+}
+
+/**
  * Normaliza y convierte un array de mensajes a un formato texto estandarizado.
  * Útil para exportar trazas de entrenamiento (trajectories) y telemetría.
  */
@@ -117,6 +140,12 @@ export function repairMessageSequence(messages: any[]): any[] {
           // Se ignora mensaje tool huérfano
           console.warn(`[Sanitizer] Tool message huérfano descartado: ${m.name || m.tool_call_id}`);
         }
+      } else {
+        // MEDIA-14: tool message como PRIMER elemento del array (repaired
+        // está vacío, no hay ningún assistant previo del que colgar). Antes
+        // se descartaba en silencio — el agente perdía contexto sin saberlo.
+        // Se loguea igual que el caso de tool huérfano de arriba.
+        console.warn(`[Sanitizer] Tool message inicial (sin assistant previo) descartado: ${m.name || m.tool_call_id}`);
       }
     }
   }
