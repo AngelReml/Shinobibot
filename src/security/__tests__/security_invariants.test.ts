@@ -15,6 +15,7 @@ import {
   requestApproval,
   setApprovalMode,
   setApprovalAsker,
+  setApprovalPreGate,
   isDestructive,
   getApprovalMode,
   clearSessionApprovals,
@@ -22,6 +23,9 @@ import {
   type ApprovalMode,
 } from '../approval.js';
 import { verifySkillText } from '../../skills/skill_signing.js';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -39,12 +43,14 @@ describe('INVARIANTE DE SEGURIDAD TRANSVERSAL (E1 — Íntegro)', () => {
     clearSessionApprovals();
     // Sin asker por defecto — simula entorno sin UI (daemon / headless)
     setApprovalAsker(null);
+    setApprovalPreGate(null);
   });
 
   afterEach(() => {
     process.env = { ...ORIGINAL_ENV };
     clearSessionApprovals();
     setApprovalAsker(null);
+    setApprovalPreGate(null);
   });
 
   // ── 1. Modo default ──────────────────────────────────────────────────────
@@ -206,6 +212,104 @@ describe('INVARIANTE DE SEGURIDAD TRANSVERSAL (E1 — Íntegro)', () => {
         destructive: false,
       });
       expect(allowed).toBe(true);
+    });
+  });
+
+  // ── 9. Regresión auditoría 2026-07-01: "siempre" no debe convertirse en
+  //      un bypass permanente de comandos críticos futuros, ni silenciar el
+  //      gate de familia. Reproduce el incidente real encontrado por los
+  //      subagentes de auditoría (no una versión idealizada del bug).
+
+  describe('9. sessionAlwaysApproved no bypasea futuros run_command críticos ni el family gate', () => {
+    it('aprobar "siempre" un run_command crítico no autoaprueba un run_command crítico DISTINTO después', async () => {
+      setApprovalMode('critical');
+      let calls = 0;
+      setApprovalAsker(async () => {
+        calls++;
+        return calls === 1 ? 'always' : 'no';
+      });
+
+      // 1) usuario aprueba "siempre" para un login (gh auth login).
+      const first = await requestApproval({
+        toolName: 'run_command',
+        args: { command: 'gh auth login' },
+        destructive: true,
+        reason: 'login / credenciales de un servicio',
+      });
+      expect(first).toBe(true);
+      expect(calls).toBe(1);
+
+      // 2) ataque: un run_command DISTINTO y destructivo (rm -rf) llega
+      // después. Con el bug, isCriticalPath nunca cubría run_command → bypass
+      // silencioso sin volver a preguntar. Debe volver a consultar al asker.
+      const second = await requestApproval({
+        toolName: 'run_command',
+        args: { command: 'rm -rf /workspace' },
+        destructive: true,
+        reason: 'borrado recursivo/forzado',
+      });
+      expect(calls).toBe(2); // el asker SÍ fue consultado de nuevo
+      expect(second).toBe(false); // y esta vez el usuario (mock) dijo "no"
+    });
+
+    it('el family preGate sigue aplicándose tras un "siempre" concedido para la misma tool', async () => {
+      setApprovalMode('critical');
+      setApprovalAsker(async () => 'always');
+
+      // 1) sin preGate activo, el usuario owner aprueba "siempre" escribir en
+      // output.txt (ruta/contenido NO crítico — isCriticalPath queda false).
+      const first = await requestApproval({
+        toolName: 'write_file',
+        args: { path: 'output.txt', content: 'hola' },
+        destructive: true,
+        reason: 'escritura de prueba',
+      });
+      expect(first).toBe(true);
+
+      // 2) ahora se instala el gate de familia (usuario restringido). Con el
+      // bug, sessionAlwaysApproved.has('write_file') retornaba ANTES de
+      // consultar _preGate → el gate de familia quedaba muerto. Debe denegar.
+      setApprovalPreGate(async () => false);
+      const second = await requestApproval({
+        toolName: 'write_file',
+        args: { path: 'output.txt', content: 'hola' },
+        destructive: true,
+        reason: 'escritura de prueba',
+      });
+      expect(second).toBe(false);
+    });
+  });
+
+  // ── 10. Regresión ALTA-05/MEDIA-06: el preGate de familia debe aplicarse
+  //       incluso a tools que classifyCritical NUNCA marca como destructivas
+  //       (spawn_agent no tiene clasificación crítica propia, pero SÍ es un
+  //       SHELL_TOOL para family_wiring — noShell debe bloquearlo igual).
+
+  describe('10. preGate de familia aplica también a tools no-críticas (spawn_agent)', () => {
+    afterEach(() => {
+      delete process.env.SHINOBI_USERS_ROOT;
+    });
+
+    it('un usuario family con noShell es bloqueado en spawn_agent aunque destructive=false', async () => {
+      const { userRegistry, familyApprovalGate, _resetMultiuserWiring } = await import('../../multiuser/multiuser_wiring.js');
+      _resetMultiuserWiring();
+      process.env.SHINOBI_USERS_ROOT = join(tmpdir(), `shinobi-test-${randomUUID()}`);
+      userRegistry().createFamily({ userId: 'kid5', displayName: 'Kid5' });
+      const gate = familyApprovalGate('kid5')!;
+
+      setApprovalMode('critical');
+      setApprovalPreGate(gate);
+      setApprovalAsker(async () => 'yes'); // si llegara al asker, el test estaría mal diseñado
+
+      // El orchestrator real llama isDestructive('spawn_agent', {}) → classifyCritical
+      // no tiene caso para spawn_agent → destructive:false. Con el bug, eso bastaba
+      // para que requestApproval retornara true ANTES de consultar _preGate.
+      const allowed = await requestApproval({
+        toolName: 'spawn_agent',
+        args: {},
+        destructive: false,
+      });
+      expect(allowed).toBe(false);
     });
   });
 });

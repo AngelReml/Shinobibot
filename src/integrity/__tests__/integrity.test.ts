@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { verifyCsvCertificate, hashArtifactFile } from '../csv_verify.js';
+import { verifyCsvCertificate, hashArtifactFile, canonicalHashPorted } from '../csv_verify.js';
 import { classifyEffect, effectWithin } from '../effects.js';
 import { check11_1, check11_2, check11_3, check11_4 } from '../checks.js';
 import { runPreAction, runPostAction, reportClaimsSuccess } from '../engine.js';
@@ -37,8 +38,55 @@ describe('csv_verify — self-contained CSV verification', () => {
     expect(r.this_hash_ok).toBe(false);
     expect(r.ok).toBe(false);
   });
+
+  // Regresión ALTA-16 (auditoría 2026-07-01): antes, la firma se verificaba
+  // contra `integrity.this_hash` (ALMACENADO), no contra el hash RECOMPUTADO.
+  // Modificar contenido firmado dejando `this_hash`/`signature` intactos hacía
+  // `this_hash_ok:false` (correcto) pero `signature_ok:true` (engañoso — la
+  // firma seguía siendo válida sobre el valor almacenado sin tocar). Cualquier
+  // consumidor que solo mirase `signature_ok` concluía erróneamente que el
+  // certificado era auténtico.
+  it('ALTA-16: tampering deja this_hash/signature intactos → signature_ok también debe caer', () => {
+    const t = JSON.parse(JSON.stringify(csv));
+    t.subject.skill_artifact_hash = 'sha256:deadbeef'.padEnd(t.subject.skill_artifact_hash.length, '0');
+    // this_hash/signature NO se tocan — siguen siendo los del CSV original.
+    const r = verifyCsvCertificate(t);
+    expect(r.this_hash_ok).toBe(false);
+    expect(r.signature_ok).toBe(false); // antes del fix, esto era `true` (engañoso)
+    expect(r.ok).toBe(false);
+  });
   it('artifact fixture hashes to the certified skill_artifact_hash', () => {
     expect(hashArtifactFile(artifactPath)).toBe(csv.subject.skill_artifact_hash);
+  });
+
+  // Regresión auditoría 2026-07-01: sin pinning, `integrity.verifier_pubkey` se
+  // lee del propio certificado siendo verificado (su SUBJECT, no una AUTORIDAD).
+  // Cualquiera puede generar un keypair fresco, auto-firmar un CSV CERTIFIED, y
+  // pasar this_hash_ok + signature_ok + certified — los tres TRUE sin que el
+  // certificado provenga de ningún verificador real. Reproduce el ataque exacto
+  // (no una versión idealizada): keypair nuevo, hash recomputado correctamente,
+  // firma válida sobre ese hash, verdict CERTIFIED — self-contained y consistente
+  // en todo menos en QUIÉN firmó.
+  it('un CSV auto-firmado con un verifier_pubkey no confiable se rechaza (ok=false) aunque hash y firma sean internamente válidos', () => {
+    const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+    const forged: any = {
+      csv_version: '0.1',
+      subject: { skill_id: 'evil.v1', skill_artifact_hash: 'sha256:deadbeef' },
+      verdict: 'CERTIFIED',
+      integrity: { verifier_pubkey: publicKey.export({ type: 'spki', format: 'pem' }).toString() },
+    };
+    const hashable = JSON.parse(JSON.stringify(forged));
+    delete hashable.integrity.this_hash; delete hashable.integrity.signature;
+    const this_hash = `sha256:${canonicalHashPorted(hashable)}`;
+    forged.integrity.this_hash = this_hash;
+    forged.integrity.signature = { alg: 'ed25519', sig_hex: crypto.sign(null, Buffer.from(this_hash, 'utf-8'), privateKey).toString('hex') };
+
+    const r = verifyCsvCertificate(forged);
+    expect(r.this_hash_ok).toBe(true);   // el atacante calculó el hash correctamente
+    expect(r.signature_ok).toBe(true);   // y firmó correctamente con SU propia clave
+    expect(r.certified).toBe(true);      // y declaró CERTIFIED
+    expect(r.pubkey_trusted).toBe(false); // pero esa clave no está pinneada
+    expect(r.ok).toBe(false);             // → el certificado completo se rechaza
   });
 });
 
@@ -156,9 +204,26 @@ describe('check 11.4 — reported == real (post-action)', () => {
     expect(reportClaimsSuccess('done ✅')).toBe(true);
     expect(reportClaimsSuccess('the operation failed, retrying with other args')).toBe(false);
   });
-  it('engine post-action halts a fabrication at enforce/high risk', () => {
+  it('engine post-action halts a fabrication under SHINOBI_INTEGRITY=enforce', () => {
+    process.env.SHINOBI_INTEGRITY = 'enforce';
+    try {
+      const v = runPostAction({ tool: 't', real: { success: false, output: 'err' }, reported: { claims_success: true }, risk: 'high' });
+      expect(v.ok).toBe(false); expect(v.action).toBe('halt'); expect(v.flags).toContain('FABRICATION');
+    } finally {
+      delete process.env.SHINOBI_INTEGRITY;
+    }
+  });
+
+  // Regresión CRIT-13 (auditoría 2026-07-01): risk='high' NO debe forzar 'halt'
+  // en modo 'flag' (default) — el contrato documentado de 'flag' es "nunca
+  // bloquea". Antes del fix, esta misma llamada con mode='flag' devolvía
+  // action:'halt' igual que con mode='enforce', violando el propio docstring.
+  it('CRIT-13: en modo flag (default), una FABRICATION de risk=high NO bloquea — solo flag', () => {
+    delete process.env.SHINOBI_INTEGRITY; // asegura default 'flag'
     const v = runPostAction({ tool: 't', real: { success: false, output: 'err' }, reported: { claims_success: true }, risk: 'high' });
-    expect(v.ok).toBe(false); expect(v.action).toBe('halt'); expect(v.flags).toContain('FABRICATION');
+    expect(v.ok).toBe(false);
+    expect(v.flags).toContain('FABRICATION');
+    expect(v.action).toBe('flag'); // NO 'halt' — flag mode es no-disruptivo por contrato
   });
 });
 
@@ -173,22 +238,38 @@ describe('C7 — write_file bound to certified fs.write.v1 (real binding)', () =
     expect(v.checks.find((c) => c.check === '11.2')!.ok).toBe(true);   // path in scope
     expect(v.ok).toBe(true); expect(v.action).toBe('proceed');
   });
-  it('protected path (out_of_scope) → 11.2 SCOPE_VIOLATION, halt at high risk', () => {
-    const v = runPreAction(stepForToolCall('write_file', { path: '.env' }, { outOfScope: true, risk: 'high' }));
-    const c2 = v.checks.find((c) => c.check === '11.2')!;
-    expect(c2.ok).toBe(false); expect(c2.flag).toBe('SCOPE_VIOLATION');
-    expect(v.flags).toContain('SCOPE_VIOLATION'); expect(v.action).toBe('halt');
+  it('protected path (out_of_scope) → 11.2 SCOPE_VIOLATION, halt under SHINOBI_INTEGRITY=enforce', () => {
+    process.env.SHINOBI_INTEGRITY = 'enforce';
+    try {
+      const v = runPreAction(stepForToolCall('write_file', { path: '.env' }, { outOfScope: true, risk: 'high' }));
+      const c2 = v.checks.find((c) => c.check === '11.2')!;
+      expect(c2.ok).toBe(false); expect(c2.flag).toBe('SCOPE_VIOLATION');
+      expect(v.flags).toContain('SCOPE_VIOLATION'); expect(v.action).toBe('halt');
+    } finally {
+      delete process.env.SHINOBI_INTEGRITY;
+    }
   });
 });
 
-describe('engine — clean proceeds, each violation halts at high risk', () => {
+describe('engine — clean proceeds, violations halt only under enforce (CRIT-13: flag nunca bloquea)', () => {
   it('CLEAN → ok + proceed, no flags', () => {
     const v = runPreAction(step(baseSkill));
     expect(v.ok).toBe(true); expect(v.action).toBe('proceed'); expect(v.flags).toEqual([]);
   });
-  it('violation at high risk → halt with the flag', () => {
+  it('violation bajo SHINOBI_INTEGRITY=enforce → halt con el flag', () => {
+    process.env.SHINOBI_INTEGRITY = 'enforce';
+    try {
+      const v = runPreAction(step(null));
+      expect(v.ok).toBe(false); expect(v.action).toBe('halt');
+      expect(v.flags).toContain('UNVERIFIED_SKILL');
+    } finally {
+      delete process.env.SHINOBI_INTEGRITY;
+    }
+  });
+  it('CRIT-13: la MISMA violación de risk=high en modo flag (default) → flag, NO halt', () => {
+    delete process.env.SHINOBI_INTEGRITY;
     const v = runPreAction(step(null));
-    expect(v.ok).toBe(false); expect(v.action).toBe('halt');
+    expect(v.ok).toBe(false); expect(v.action).toBe('flag');
     expect(v.flags).toContain('UNVERIFIED_SKILL');
   });
 });

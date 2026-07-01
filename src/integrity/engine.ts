@@ -6,10 +6,16 @@
  *
  * Aggregates the pre-action checks (11.1 + 11.2) into a verdict and applies
  * policy. Hooks into the agent loop are ADDITIVE and gated by SHINOBI_INTEGRITY:
- *   flag    (default) → run checks, record violations, but never block.
+ *   flag    (default) → run checks, record violations, but NEVER block —
+ *            incluido el contexto de risk='high' (FIX 0.14: el modo flag es
+ *            aditivo/no disruptivo POR CONTRATO; antes de la auditoría
+ *            2026-07-01 (CRIT-13) `step.risk === 'high'` forzaba 'halt' aun
+ *            en modo flag, justo lo opuesto de lo documentado aquí — un
+ *            operador en flag para auditoría pasiva en staging podía ver su
+ *            agente detenerse en producción sin previo aviso).
  *   off              → layer is a no-op; production behaviour unchanged.
- *   enforce          → block (halt) the action on any violation.
- * Policy also blocks on high-risk context regardless of mode (dossier 11.x).
+ *   enforce          → block (halt) the action on any violation, regardless
+ *            of risk — éste es el ÚNICO modo que bloquea.
  *
  * The post-action hook exists as a seam (for 11.4 in a later increment) and runs
  * no checks yet.
@@ -44,7 +50,10 @@ export function runPreAction(step: IntegrityStep): IntegrityVerdict {
 
   const mode = integrityMode();
   let action: IntegrityVerdict['action'] = 'proceed';
-  if (!ok) action = (mode === 'enforce' || step.risk === 'high') ? 'halt' : 'flag';
+  // CRIT-13 (auditoría 2026-07-01): `step.risk === 'high'` forzaba 'halt' aun
+  // en modo 'flag', violando el contrato documentado arriba (flag = nunca
+  // bloquea). El ÚNICO criterio de bloqueo es el modo activo.
+  if (!ok) action = mode === 'enforce' ? 'halt' : 'flag';
 
   return { ok, action, checks, flags, durationMs };
 }
@@ -61,7 +70,7 @@ export function runPostAction(input: PostActionInput): IntegrityVerdict {
 
   const mode = integrityMode();
   let action: IntegrityVerdict['action'] = 'proceed';
-  if (!ok) action = (mode === 'enforce' || input.risk === 'high') ? 'halt' : 'flag';
+  if (!ok) action = mode === 'enforce' ? 'halt' : 'flag';
 
   return { ok, action, checks, flags, durationMs };
 }

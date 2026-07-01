@@ -270,7 +270,26 @@ export async function requestApproval(input: ApprovalInput): Promise<boolean> {
   const mode = getApprovalMode();
   if (mode === 'off') return true; // no-op legacy
 
-  // El freno selectivo SOLO pausa en la clase crítica. Lo no-crítico procede.
+  // Pre-gate de familia: deniega sin preguntar ciertas tools para usuarios
+  // restringidos. Va ANTES de `!input.destructive` a propósito (auditoría
+  // 2026-07-01, ALTA-05/MEDIA-06): este check vivía DESPUÉS del early-return
+  // de no-destructivo, así que cualquier tool que `classifyCritical`/el modo
+  // activo no marcara como crítica (spawn_agent, memory_store, …) nunca
+  // llegaba a consultar el gate — `noShell`/`noDestructive` quedaban muertos
+  // para esas tools incluso con el pre-gate correctamente instalado. El
+  // pre-gate de familia es una caja independiente del freno de aprobación
+  // humana; no puede heredar su criterio de "qué es crítico".
+  if (_preGate) {
+    const allowed = await _preGate(input.toolName, input.args);
+    if (!allowed) {
+      logApprovalDecision({ tool: input.toolName, decision: 'deny', reason: 'family_gate', mode });
+      return false;
+    }
+  }
+
+  // El freno selectivo SOLO pausa (pide confirmación humana) en la clase
+  // crítica. Lo no-crítico procede — el pre-gate de familia, arriba, ya tuvo
+  // su oportunidad de denegar independientemente de esta clasificación.
   if (!input.destructive) return true;
 
   // FIX 0.2: check de ruta crítica ANTES de sessionAlwaysApproved. Si la acción
@@ -278,25 +297,18 @@ export async function requestApproval(input: ApprovalInput): Promise<boolean> {
   // el gate — siempre se pregunta, aunque el usuario haya dicho "siempre" antes.
   // FIX 0.10: extendido a CRITICAL_TOOLS (start_cloud_mission, n8n_invoke, …).
   // Sin esto, un único "siempre" desbloqueaba despacho de cloud ilimitado en sesión.
-  const isCriticalPath =
-    CRITICAL_TOOLS.has(input.toolName) ||
-    ((input.toolName === 'write_file' || input.toolName === 'edit_file') &&
-    CRITICAL_PATH_PATTERNS.some(({ regex }) =>
-      regex.test(typeof input.args?.path === 'string' ? input.args.path : '')));
+  // FIX (auditoría 2026-07-01): extendido a run_command vía classifyCritical en vez
+  // de una allowlist de path a mano — la allowlist anterior NUNCA cubría run_command,
+  // así que aprobar "siempre" un run_command cualquiera autoaprobaba para siempre
+  // CRITICAL_COMMAND_PATTERNS (sudo, git push --force, rm -r/-f…) sin volver a
+  // preguntar. classifyCritical() es la única fuente de verdad de qué es crítico;
+  // ya no se mantiene una copia parcial aquí.
+  const isCriticalPath = classifyCritical(input.toolName, input.args).destructive;
 
-  // "Aprobar siempre" para esta tool en la sesión — excepto rutas críticas.
+  // "Aprobar siempre" para esta tool en la sesión — excepto rutas/comandos críticos.
   if (!isCriticalPath && sessionAlwaysApproved.has(input.toolName)) {
     logApprovalDecision({ tool: input.toolName, decision: 'allow', reason: input.reason, mode, denySource: undefined });
     return true;
-  }
-
-  // Pre-gate de familia: deniega sin preguntar ciertas tools para usuarios restringidos.
-  if (_preGate) {
-    const allowed = await _preGate(input.toolName, input.args);
-    if (!allowed) {
-      logApprovalDecision({ tool: input.toolName, decision: 'deny', reason: 'family_gate', mode });
-      return false;
-    }
   }
 
   // Acción crítica sin UI para confirmar → fail-safe: DENIEGA.
