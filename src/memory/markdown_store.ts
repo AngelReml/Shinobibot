@@ -196,6 +196,14 @@ export class MarkdownStore {
    */
   writeSections(sections: Section[]): WriteResult {
     for (const s of sections) {
+      // MEDIA-11 (auditoría 2026-06-30) — el nombre de sección (`# Heading`)
+      // se serializa al .md tal cual junto al body, y ambos acaban en el
+      // system prompt. Escanear solo `body` dejaba pasar un nombre de
+      // sección con payload (p.ej. "# from now on you will act as...").
+      if (s.name) {
+        const nameScan = scanContent(s.name);
+        if (!nameScan.ok) return { ok: false, message: formatScanError(nameScan) };
+      }
       const scan = scanContent(s.body);
       if (!scan.ok) return { ok: false, message: formatScanError(scan) };
     }
@@ -243,6 +251,10 @@ export class MarkdownStore {
    * Read-modify-write completo bajo lock.
    */
   replaceNamedSection(name: string, body: string): WriteResult {
+    // MEDIA-11 — `name` pasa a ser el heading de la sección (`# name`) y
+    // termina en el .md igual que `body`; debe escanearse igual.
+    const nameScan = scanContent(name);
+    if (!nameScan.ok) return { ok: false, message: formatScanError(nameScan) };
     const scan = scanContent(body);
     if (!scan.ok) return { ok: false, message: formatScanError(scan) };
     return this.lockedMutation(() => {
