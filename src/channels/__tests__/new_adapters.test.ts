@@ -10,7 +10,7 @@ const ENV_KEYS = [
   'SIGNAL_PHONE_NUMBER', 'SIGNAL_CLI_BIN', 'SIGNAL_ALLOWED_NUMBERS',
   'MATRIX_HOMESERVER_URL', 'MATRIX_ACCESS_TOKEN', 'MATRIX_BOT_USER_ID', 'MATRIX_ALLOWED_ROOMS',
   'TEAMS_APP_ID', 'TEAMS_APP_PASSWORD', 'TEAMS_LISTEN_PORT',
-  'SHINOBI_WEBHOOK_ENABLED', 'WEBHOOK_LISTEN_PORT', 'WEBHOOK_SHARED_SECRET',
+  'SHINOBI_WEBHOOK_ENABLED', 'WEBHOOK_LISTEN_PORT', 'WEBHOOK_SHARED_SECRET', 'WEBHOOK_CALLBACK_URL',
 ];
 
 beforeEach(() => { for (const k of ENV_KEYS) delete process.env[k]; });
@@ -201,10 +201,11 @@ describe('WebhookAdapter', () => {
   it('procesa POST con body válido', async () => {
     process.env.SHINOBI_WEBHOOK_ENABLED = '1';
     process.env.WEBHOOK_LISTEN_PORT = '13901';
+    process.env.WEBHOOK_SHARED_SECRET = 's3cret-13901';
     const a = new WebhookAdapter();
     await a.start(async (msg) => ({ text: 'eco: ' + msg.text }));
     try {
-      const r = await httpPost(13901, '/webhook/incoming', { text: 'hola', userId: 'u1' });
+      const r = await httpPost(13901, '/webhook/incoming', { text: 'hola', userId: 'u1' }, 'Bearer s3cret-13901');
       expect(r.status).toBe(200);
       expect(r.body.text).toBe('eco: hola');
       expect(a.status().receivedCount).toBe(1);
@@ -215,10 +216,11 @@ describe('WebhookAdapter', () => {
   it('rechaza JSON inválido con 400', async () => {
     process.env.SHINOBI_WEBHOOK_ENABLED = '1';
     process.env.WEBHOOK_LISTEN_PORT = '13902';
+    process.env.WEBHOOK_SHARED_SECRET = 's3cret-13902';
     const a = new WebhookAdapter();
     await a.start(async () => ({ text: 'x' }));
     try {
-      const r = await httpPost(13902, '/webhook/incoming', 'not-json');
+      const r = await httpPost(13902, '/webhook/incoming', 'not-json', 'Bearer s3cret-13902');
       expect(r.status).toBe(400);
       expect(r.body.error).toBe('invalid_json');
     } finally { await a.stop(); }
@@ -227,11 +229,39 @@ describe('WebhookAdapter', () => {
   it('rechaza body sin text con 400', async () => {
     process.env.SHINOBI_WEBHOOK_ENABLED = '1';
     process.env.WEBHOOK_LISTEN_PORT = '13903';
+    process.env.WEBHOOK_SHARED_SECRET = 's3cret-13903';
     const a = new WebhookAdapter();
     await a.start(async () => ({ text: 'x' }));
     try {
-      const r = await httpPost(13903, '/webhook/incoming', { userId: 'u' });
+      const r = await httpPost(13903, '/webhook/incoming', { userId: 'u' }, 'Bearer s3cret-13903');
       expect(r.status).toBe(400);
+    } finally { await a.stop(); }
+  });
+
+  it('ALTA-14: rechaza con 503 si WEBHOOK_SHARED_SECRET no está configurado', async () => {
+    process.env.SHINOBI_WEBHOOK_ENABLED = '1';
+    process.env.WEBHOOK_LISTEN_PORT = '13906';
+    delete process.env.WEBHOOK_SHARED_SECRET;
+    const a = new WebhookAdapter();
+    await a.start(async () => ({ text: 'x' }));
+    try {
+      const r = await httpPost(13906, '/webhook/incoming', { text: 'hola' });
+      expect(r.status).toBe(503);
+      expect(r.body.error).toBe('webhook_disabled_no_secret');
+    } finally { await a.stop(); }
+  });
+
+  it('ALTA-15: marca userId del payload como claim no verificado en metadata', async () => {
+    process.env.SHINOBI_WEBHOOK_ENABLED = '1';
+    process.env.WEBHOOK_LISTEN_PORT = '13907';
+    process.env.WEBHOOK_SHARED_SECRET = 's3cret-13907';
+    const a = new WebhookAdapter();
+    let capturedTarget: any;
+    await a.start(async (msg) => { capturedTarget = msg.target; return { text: 'ok' }; });
+    try {
+      await httpPost(13907, '/webhook/incoming', { text: 'hola', userId: 'claimed-admin' }, 'Bearer s3cret-13907');
+      expect(capturedTarget.userId).toBe('claimed-admin');
+      expect(capturedTarget.metadata._unverifiedClaimedUserId).toBe(true);
     } finally { await a.stop(); }
   });
 
@@ -260,6 +290,73 @@ describe('WebhookAdapter', () => {
       const ok = await httpPost(13905, '/webhook/incoming', { text: 'x' }, 'Bearer topsecret');
       expect(ok.status).toBe(200);
     } finally { await a.stop(); }
+  });
+
+  it('ALTA-13: rechaza body que excede el límite de tamaño con 413', async () => {
+    process.env.SHINOBI_WEBHOOK_ENABLED = '1';
+    process.env.WEBHOOK_LISTEN_PORT = '13908';
+    process.env.WEBHOOK_SHARED_SECRET = 's3cret-13908';
+    const a = new WebhookAdapter();
+    await a.start(async () => ({ text: 'x' }));
+    try {
+      const hugeText = 'a'.repeat(2 * 1024 * 1024); // 2 MiB > límite de 1 MiB
+      const r = await httpPost(13908, '/webhook/incoming', { text: hugeText }, 'Bearer s3cret-13908');
+      expect(r.status).toBe(413);
+    } finally { await a.stop(); }
+  });
+
+  // ── CRIT-10: SSRF vía WEBHOOK_CALLBACK_URL ──
+  describe('send() — validación anti-SSRF de WEBHOOK_CALLBACK_URL', () => {
+    afterEach(() => { delete process.env.WEBHOOK_CALLBACK_URL; });
+
+    it('rechaza IP literal de metadata cloud (169.254.169.254)', async () => {
+      process.env.WEBHOOK_CALLBACK_URL = 'http://169.254.169.254/latest/meta-data/';
+      const a = new WebhookAdapter();
+      await expect(a.send({ channelId: 'webhook', conversationId: 'x' }, { text: 't' }))
+        .rejects.toThrow(/privada|reservada/);
+    });
+
+    it('rechaza localhost por string', async () => {
+      process.env.WEBHOOK_CALLBACK_URL = 'http://localhost:6379/';
+      const a = new WebhookAdapter();
+      await expect(a.send({ channelId: 'webhook', conversationId: 'x' }, { text: 't' }))
+        .rejects.toThrow();
+    });
+
+    it('rechaza loopback literal (127.0.0.1)', async () => {
+      process.env.WEBHOOK_CALLBACK_URL = 'http://127.0.0.1:5432/';
+      const a = new WebhookAdapter();
+      await expect(a.send({ channelId: 'webhook', conversationId: 'x' }, { text: 't' }))
+        .rejects.toThrow(/privada|reservada/);
+    });
+
+    it('rechaza rango privado 10.0.0.0/8', async () => {
+      process.env.WEBHOOK_CALLBACK_URL = 'http://10.1.2.3/';
+      const a = new WebhookAdapter();
+      await expect(a.send({ channelId: 'webhook', conversationId: 'x' }, { text: 't' }))
+        .rejects.toThrow(/privada|reservada/);
+    });
+
+    it('rechaza rango privado 192.168.0.0/16', async () => {
+      process.env.WEBHOOK_CALLBACK_URL = 'http://192.168.1.1/';
+      const a = new WebhookAdapter();
+      await expect(a.send({ channelId: 'webhook', conversationId: 'x' }, { text: 't' }))
+        .rejects.toThrow(/privada|reservada/);
+    });
+
+    it('rechaza protocolo no-http(s) (file:)', async () => {
+      process.env.WEBHOOK_CALLBACK_URL = 'file:///etc/passwd';
+      const a = new WebhookAdapter();
+      await expect(a.send({ channelId: 'webhook', conversationId: 'x' }, { text: 't' }))
+        .rejects.toThrow(/protocolo/);
+    });
+
+    it('rechaza URL malformada', async () => {
+      process.env.WEBHOOK_CALLBACK_URL = 'not-a-url';
+      const a = new WebhookAdapter();
+      await expect(a.send({ channelId: 'webhook', conversationId: 'x' }, { text: 't' }))
+        .rejects.toThrow(/no es una URL válida/);
+    });
   });
 
   it('send síncrono es no-op (no rompe channelRegistry.send)', async () => {

@@ -92,6 +92,15 @@ const VALID_INTENTS: ReadonlySet<A2AIntentKind> = new Set([
   'ping', 'capability_invoke', 'memory_query', 'mission_handoff', 'health',
 ]);
 
+/**
+ * Ventana de frescura para envelopes (MEDIA-12, auditoría 2026-06-30).
+ * Un envelope HMAC-firmado capturado por un atacante se podía reproducir
+ * indefinidamente porque `ts` solo se validaba como string, sin comprobar
+ * formato ni antigüedad. ±5 min cubre desfases de reloj razonables entre
+ * agentes sin abrir una ventana de replay demasiado amplia.
+ */
+export const ENVELOPE_FRESHNESS_WINDOW_MS = 5 * 60 * 1000;
+
 export function isValidEnvelope(x: unknown): x is A2AEnvelope {
   if (!x || typeof x !== 'object') return false;
   const e = x as Record<string, unknown>;
@@ -100,6 +109,13 @@ export function isValidEnvelope(x: unknown): x is A2AEnvelope {
   if (typeof e.to !== 'string' || !e.to) return false;
   if (typeof e.intent !== 'string' || !VALID_INTENTS.has(e.intent as A2AIntentKind)) return false;
   if (typeof e.ts !== 'string') return false;
+  // MEDIA-12: `ts` debe ser una fecha ISO válida y estar dentro de la
+  // ventana de frescura — rechaza envelopes con timestamp inválido,
+  // demasiado viejo (replay) o demasiado en el futuro.
+  const tsMs = Date.parse(e.ts);
+  if (Number.isNaN(tsMs)) return false;
+  const ageMs = Date.now() - tsMs;
+  if (Math.abs(ageMs) > ENVELOPE_FRESHNESS_WINDOW_MS) return false;
   return true;
 }
 

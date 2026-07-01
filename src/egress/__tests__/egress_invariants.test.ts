@@ -127,4 +127,52 @@ describe('INVARIANTE DE EGRESS (E3 — Soberano)', () => {
     expect(result.allowed).toBe(true);
     expect(result.useLocalModel).toBe(true);
   });
+
+  // ── CRIT-09 / ALTA-11: bypass por substring ya no funciona ──
+  it('CRIT-09/ALTA-11: rechaza source con prefijo de allowlist en medio del path (bypass por substring)', async () => {
+    const { egressGate, isEgressAuthorized } = await import('../egress_policy.js');
+    const evilSource = 'src/evil/wrappers/src/providers/proxy.ts';
+    // Antes del fix: 'src/evil/wrappers/src/providers/proxy.ts'.includes('src/providers/') === true → bypass.
+    expect(evilSource.includes('src/providers/')).toBe(true);
+
+    const result = egressGate({
+      destination: 'evil.example.com',
+      source: evilSource,
+      reason: 'intento de bypass via substring',
+    });
+    expect(result.allowed).toBe(false);
+    expect(isEgressAuthorized(evilSource)).toBe(false);
+  });
+
+  it('CRIT-09/ALTA-11: rechaza otras variantes de substring-bypass', async () => {
+    const { isEgressAuthorized } = await import('../egress_policy.js');
+    expect(isEgressAuthorized('not_src/providers/fake.ts')).toBe(false);
+    expect(isEgressAuthorized('lib/fake_src/providers/fake.ts')).toBe(false);
+  });
+
+  it('CRIT-09/ALTA-11: normaliza separadores Windows (\\\\) antes de anclar', async () => {
+    const { egressGate } = await import('../egress_policy.js');
+    const result = egressGate({
+      destination: 'api.anthropic.com',
+      source: 'src\\providers\\anthropic_client.ts',
+      reason: 'LLM call en Windows (path con backslashes)',
+    });
+    expect(result.allowed).toBe(true);
+  });
+
+  it('CRIT-09/ALTA-11: normaliza ./ inicial antes de anclar', async () => {
+    const { egressGate } = await import('../egress_policy.js');
+    const result = egressGate({
+      destination: 'api.anthropic.com',
+      source: './src/providers/anthropic_client.ts',
+      reason: 'LLM call con ./ inicial',
+    });
+    expect(result.allowed).toBe(true);
+  });
+
+  // ── ALTA-12: webhook_adapter está en la allowlist para su egress opt-in real ──
+  it('ALTA-12: src/channels/adapters/webhook_adapter.ts está autorizado en la allowlist', async () => {
+    const { isEgressAuthorized } = await import('../egress_policy.js');
+    expect(isEgressAuthorized('src/channels/adapters/webhook_adapter.ts')).toBe(true);
+  });
 });

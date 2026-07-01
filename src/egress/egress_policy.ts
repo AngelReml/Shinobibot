@@ -19,6 +19,22 @@
  * - src/skills/registry/   — instalación de skills desde fuente conocida
  *
  * TODO fuera de esa allowlist es una violación de egress.
+ *
+ * LIMITACIÓN CONOCIDA (CRIT-08, auditoría 2026-06-30): este gate es
+ * HONOR-BASED, no hay enforcement a nivel de red. `egressGate()` solo
+ * devuelve `{allowed}`; no hace monkey-patch de `fetch`/`https.request`/
+ * `axios` ni instala un middleware global que intercepte TODO el tráfico
+ * saliente del proceso. Cualquier módulo que importe `axios`/`node:https`
+ * directamente puede hacer egress real sin pasar por aquí — el único
+ * mecanismo que detecta eso hoy es el test de invariante estático
+ * (`src/egress/__tests__/egress_invariants.test.ts`), que escanea imports
+ * en build/CI, no en runtime. Interceptar todo el tráfico de red del
+ * proceso a nivel de socket/fetch es un cambio arquitectónico mayor, fuera
+ * de alcance de este fix puntual. El punto de entrada centralizado real
+ * (y el único caso, a fecha de esta nota, que invoca `egressGate()` desde
+ * código de producción) es `src/channels/adapters/webhook_adapter.ts`
+ * (ver ALTA-12) — ese es el modelo a seguir si se añaden más llamadas de
+ * red ad-hoc: validar el destino y consultar el gate ANTES de la request.
  */
 
 export const EGRESS_ALLOWLIST: readonly string[] = [
@@ -34,6 +50,7 @@ export const EGRESS_ALLOWLIST: readonly string[] = [
   'src/skills/anthropic_skill_installer', // descarga de skills desde GitHub
   'src/gateway/',                        // gateway LLM multi-proveedor (ollama/groq/openai)
   'src/utils/vision_client',             // cliente vision LLM (OpenRouter/OpenAI)
+  'src/channels/adapters/webhook_adapter.ts', // callback HTTP opt-in del operador (WEBHOOK_CALLBACK_URL), validado anti-SSRF (CRIT-10)
 ] as const;
 
 /** Términos de import que implican llamada de red directa. */
@@ -82,6 +99,23 @@ export interface EgressResult {
 }
 
 /**
+ * Normaliza un path de módulo para comparación segura contra la allowlist:
+ * unifica separadores de Windows (`\`) a `/` y quita el `./` inicial.
+ *
+ * CRIT-09/ALTA-11 (auditoría 2026-06-30): antes se comparaba con
+ * `sourceModule.includes(prefix)`, lo que permite bypass por substring
+ * (p.ej. `'src/evil/wrappers/src/providers/proxy.ts'.includes('src/providers/')`
+ * es `true`). `source` lo provee libremente el caller, así que `includes()`
+ * no es una comparación de seguridad válida — hay que anclar al INICIO
+ * del string normalizado con `startsWith()`.
+ */
+function normalizeSourcePath(p: string): string {
+  let s = String(p).replace(/\\/g, '/');
+  while (s.startsWith('./')) s = s.slice(2);
+  return s;
+}
+
+/**
  * Gate de egress: evalúa si una llamada de red está autorizada.
  * Todos los providers y módulos autorizados llaman esto antes de salir.
  *
@@ -89,7 +123,8 @@ export interface EgressResult {
  *   está justificada. Para datos sensibles, marca useLocalModel=true.
  */
 export function egressGate(req: EgressRequest): EgressResult {
-  const isAllowlisted = EGRESS_ALLOWLIST.some(prefix => req.source.includes(prefix));
+  const normalizedSource = normalizeSourcePath(req.source);
+  const isAllowlisted = EGRESS_ALLOWLIST.some(prefix => normalizedSource.startsWith(prefix));
 
   if (!isAllowlisted) {
     return {
@@ -113,5 +148,6 @@ export function egressGate(req: EgressRequest): EgressResult {
  * Versión simplificada para checks rápidos.
  */
 export function isEgressAuthorized(sourceModule: string): boolean {
-  return EGRESS_ALLOWLIST.some(prefix => sourceModule.includes(prefix));
+  const normalizedSource = normalizeSourcePath(sourceModule);
+  return EGRESS_ALLOWLIST.some(prefix => normalizedSource.startsWith(prefix));
 }

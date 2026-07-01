@@ -35,6 +35,26 @@ describe('isValidEnvelope', () => {
     expect(isValidEnvelope(null)).toBe(false);
     expect(isValidEnvelope(undefined)).toBe(false);
   });
+
+  // ── MEDIA-12: freshness window (anti-replay) ──
+  it('rechaza ts con formato no-ISO / no parseable', () => {
+    expect(isValidEnvelope(makeEnv({ ts: 'not-a-date' }))).toBe(false);
+  });
+
+  it('rechaza ts demasiado viejo (replay de envelope capturado)', () => {
+    const old = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // 10 min atrás
+    expect(isValidEnvelope(makeEnv({ ts: old }))).toBe(false);
+  });
+
+  it('rechaza ts demasiado en el futuro', () => {
+    const future = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10 min adelante
+    expect(isValidEnvelope(makeEnv({ ts: future }))).toBe(false);
+  });
+
+  it('acepta ts dentro de la ventana de frescura (±5 min)', () => {
+    const recent = new Date(Date.now() - 2 * 60 * 1000).toISOString(); // 2 min atrás
+    expect(isValidEnvelope(makeEnv({ ts: recent }))).toBe(true);
+  });
 });
 
 describe('generateTraceId', () => {

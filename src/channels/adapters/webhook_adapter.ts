@@ -11,17 +11,112 @@
  *
  * Variables:
  *   - WEBHOOK_LISTEN_PORT (default 3334)
- *   - WEBHOOK_SHARED_SECRET (opcional, requerido en `Authorization: Bearer`)
+ *   - WEBHOOK_SHARED_SECRET (REQUERIDO; sin ella el endpoint rechaza todo
+ *     con 503 — ver ALTA-14, auditoría 2026-06-30)
+ *   - WEBHOOK_CALLBACK_URL (opcional; validada anti-SSRF antes de usarse,
+ *     ver CRIT-10)
  *
  * Diseñado para que el operador conecte cualquier sistema HTTP con
  * minimal setup.
  */
 
 import { createServer, type IncomingMessage as HttpReq, type ServerResponse, type Server } from 'http';
+import { lookup as dnsLookup } from 'dns/promises';
+import { isIP } from 'net';
 import type {
   ChannelAdapter, IncomingMessage, MessageHandler,
   OutgoingMessage, ChannelTarget,
 } from '../types.js';
+import { egressGate } from '../../egress/egress_policy.js';
+
+/** ALTA-13: límite de tamaño del body entrante (consistente con express.json({limit:'1mb'})
+ *  usado en src/web/server.ts y src/gateway/index.ts). Evita DoS por OOM con bodies gigantes. */
+const MAX_BODY_BYTES = 1024 * 1024; // 1 MiB
+
+/**
+ * CRIT-10 (auditoría 2026-06-30): bloquea destinos privados/loopback/link-local
+ * para evitar SSRF vía WEBHOOK_CALLBACK_URL (p.ej. http://169.254.169.254/...
+ * para robar credenciales IAM, o http://localhost:6379 contra servicios internos).
+ *
+ * Cubre IPv4 (127.0.0.0/8, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16,
+ * 169.254.0.0/16, 0.0.0.0/8) e IPv6 (::1, fc00::/7, fe80::/10, ::ffff:<v4>).
+ */
+function isPrivateOrLoopbackIp(ip: string): boolean {
+  const v4 = ip.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const a = parseInt(v4[1], 10);
+    const b = parseInt(v4[2], 10);
+    if (a === 127) return true;            // loopback
+    if (a === 10) return true;             // 10.0.0.0/8
+    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
+    if (a === 192 && b === 168) return true; // 192.168.0.0/16
+    if (a === 169 && b === 254) return true; // link-local (incluye metadata cloud)
+    if (a === 0) return true;              // 0.0.0.0/8
+    return false;
+  }
+  const norm = ip.toLowerCase();
+  if (norm === '::1') return true;                       // loopback v6
+  if (norm.startsWith('fc') || norm.startsWith('fd')) return true; // fc00::/7 ULA
+  if (norm.startsWith('fe80:')) return true;             // link-local v6
+  if (norm.startsWith('::ffff:')) {
+    const mapped = norm.slice('::ffff:'.length);
+    return isPrivateOrLoopbackIp(mapped);
+  }
+  return false;
+}
+
+/**
+ * Valida WEBHOOK_CALLBACK_URL antes de usarla como destino HTTP real.
+ * Rechaza protocolos distintos de http(s) y hosts que resuelvan a rangos
+ * privados/loopback/link-local.
+ *
+ * LIMITACIÓN (documentada, CRIT-10): el lookup DNS se hace una vez al
+ * validar, no hay protección contra DNS-rebinding (que el hostname
+ * resuelva a una IP pública en este check y a una privada milisegundos
+ * después, en la conexión TCP real). Mitigar eso de forma robusta
+ * requeriría fijar la IP resuelta y forzar la conexión a esa IP exacta
+ * (pinning), que está fuera de alcance de este fix puntual.
+ */
+async function assertCallbackUrlIsSafe(rawUrl: string): Promise<void> {
+  let url: URL;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new Error('[webhook] WEBHOOK_CALLBACK_URL no es una URL válida');
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new Error(`[webhook] WEBHOOK_CALLBACK_URL: protocolo no permitido (${url.protocol})`);
+  }
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+
+  // Bloqueo rápido por string para los casos obvios, incluso si por lo
+  // que sea el lookup DNS de abajo no llegara a ejecutarse.
+  if (hostname === 'localhost' || hostname === '0.0.0.0') {
+    throw new Error(`[webhook] WEBHOOK_CALLBACK_URL apunta a un host local prohibido: ${hostname}`);
+  }
+
+  if (isIP(hostname)) {
+    if (isPrivateOrLoopbackIp(hostname)) {
+      throw new Error(`[webhook] WEBHOOK_CALLBACK_URL apunta a una IP privada/reservada prohibida: ${hostname}`);
+    }
+    return;
+  }
+
+  // Hostname (no IP literal): resolvemos DNS para evitar que un nombre
+  // público en apariencia resuelva a una IP privada (SSRF vía DNS).
+  try {
+    const results = await dnsLookup(hostname, { all: true });
+    for (const r of results) {
+      if (isPrivateOrLoopbackIp(r.address)) {
+        throw new Error(`[webhook] WEBHOOK_CALLBACK_URL (${hostname}) resuelve a IP privada/reservada prohibida: ${r.address}`);
+      }
+    }
+  } catch (e: any) {
+    if (e instanceof Error && e.message.startsWith('[webhook]')) throw e;
+    // No se pudo resolver el hostname: no hay egress real posible, dejamos
+    // que la propia conexión HTTP falle más abajo con su propio error.
+  }
+}
 
 export class WebhookAdapter implements ChannelAdapter {
   readonly id = 'webhook' as const;
@@ -57,6 +152,16 @@ export class WebhookAdapter implements ChannelAdapter {
 
   async start(handler: MessageHandler): Promise<void> {
     if (!this.isConfigured()) throw new Error('SHINOBI_WEBHOOK_ENABLED no es 1');
+    // ALTA-14 (auditoría 2026-06-30): sin shared secret el endpoint queda
+    // abierto sin autenticación. No bloqueamos el arranque (otros canales
+    // pueden depender de status()/stop() funcionando), pero el handler de
+    // requests rechaza TODO con 503 mientras no haya secreto configurado.
+    if (!process.env.WEBHOOK_SHARED_SECRET) {
+      console.warn(
+        '[webhook] WEBHOOK_SHARED_SECRET no configurado — el endpoint /webhook/incoming ' +
+        'rechazará TODAS las peticiones con 503 hasta que se configure un secreto.'
+      );
+    }
     this.handler = handler;
     this.port = parseInt(process.env.WEBHOOK_LISTEN_PORT ?? '3334', 10);
 
@@ -74,18 +179,40 @@ export class WebhookAdapter implements ChannelAdapter {
       res.end('not_found');
       return;
     }
+    // ALTA-14: sin secreto configurado, el endpoint está deshabilitado de
+    // facto — rechazamos todo en vez de quedar abierto sin autenticación.
     const secret = process.env.WEBHOOK_SHARED_SECRET;
-    if (secret) {
-      const auth = req.headers.authorization ?? '';
-      if (auth !== `Bearer ${secret}`) {
-        res.statusCode = 401;
-        res.end(JSON.stringify({ error: 'unauthorized' }));
-        return;
-      }
+    if (!secret) {
+      res.statusCode = 503;
+      res.end(JSON.stringify({ error: 'webhook_disabled_no_secret' }));
+      return;
+    }
+    const auth = req.headers.authorization ?? '';
+    if (auth !== `Bearer ${secret}`) {
+      res.statusCode = 401;
+      res.end(JSON.stringify({ error: 'unauthorized' }));
+      return;
     }
 
+    // ALTA-13: límite de bytes mientras se lee el body — evita DoS por OOM
+    // con un body arbitrariamente grande (antes se acumulaba sin límite).
     let body = '';
-    for await (const chunk of req) body += chunk.toString('utf-8');
+    let bytes = 0;
+    let tooLarge = false;
+    for await (const chunk of req) {
+      bytes += chunk.length;
+      if (bytes > MAX_BODY_BYTES) {
+        tooLarge = true;
+        break;
+      }
+      body += chunk.toString('utf-8');
+    }
+    if (tooLarge) {
+      res.statusCode = 413;
+      res.end(JSON.stringify({ error: 'payload_too_large' }));
+      req.destroy();
+      return;
+    }
     let payload: any;
     try { payload = JSON.parse(body); }
     catch {
@@ -99,6 +226,12 @@ export class WebhookAdapter implements ChannelAdapter {
       return;
     }
 
+    // ALTA-15 (auditoría 2026-06-30): `payload.userId` lo declara libremente
+    // el caller que conoce el shared secret (que es único por integración,
+    // no por usuario) — NO es una identidad verificada. Lo propagamos como
+    // claim sin verificar y lo marcamos explícitamente en metadata para que
+    // cualquier consumidor downstream sepa que no puede confiar en él para
+    // autorización.
     const incoming: IncomingMessage = {
       channelId: this.id,
       text: payload.text,
@@ -106,7 +239,10 @@ export class WebhookAdapter implements ChannelAdapter {
         channelId: this.id,
         conversationId: payload.conversationId ?? 'webhook-default',
         userId: payload.userId,
-        metadata: payload.metadata,
+        metadata: {
+          ...(payload.metadata ?? {}),
+          ...(payload.userId !== undefined ? { _unverifiedClaimedUserId: true } : {}),
+        },
       },
       receivedAt: new Date().toISOString(),
     };
@@ -144,6 +280,24 @@ export class WebhookAdapter implements ChannelAdapter {
       // No-op: sin callback URL no hay destino; el adapter queda silencioso.
       return;
     }
+
+    // CRIT-10: rechaza protocolos no-http(s) y destinos privados/loopback/
+    // link-local (SSRF) ANTES de tocar la red.
+    await assertCallbackUrlIsSafe(callbackUrl);
+
+    // ALTA-12: este es el único egress real de este adapter — pasa por el
+    // gate E3 antes de salir. `src/channels/adapters/webhook_adapter.ts`
+    // está en EGRESS_ALLOWLIST precisamente para este caso opt-in del
+    // operador (ver src/egress/egress_policy.ts).
+    const gate = egressGate({
+      source: 'src/channels/adapters/webhook_adapter.ts',
+      destination: callbackUrl,
+      reason: 'callback saliente configurado por el operador vía WEBHOOK_CALLBACK_URL',
+    });
+    if (!gate.allowed) {
+      throw new Error(`[webhook] egress bloqueado: ${gate.reason}`);
+    }
+
     const body = JSON.stringify({
       text: msg.text,
       metadata: msg.metadata,
