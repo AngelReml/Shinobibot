@@ -2,9 +2,10 @@
  * RunCommand Tool — Execute a shell command with safety checks
  */
 import { exec } from 'child_process';
+import { realpathSync } from 'fs';
 import { resolve as resolvePath, sep } from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
-import { isDangerousCommand } from '../utils/permissions.js';
+import { isDangerousCommand, ABSOLUTE_PROHIBITED_PATHS } from '../utils/permissions.js';
 import { contextCwd, contextWorkspaceRoot } from '../agents/exec_context.js';
 import { runPowerShell } from './_powershell.js';
 
@@ -52,17 +53,71 @@ const DESTRUCTIVE_PATTERNS: RegExp[] = [
 const DESTRUCTIVE_MSG =
   'Comando rechazado: esta acción podría dañar el sistema. Pide al usuario que lo haga manualmente si es necesario.';
 
-// Comandos puramente de lectura/build que pueden operar fuera del workspace
-// raíz (ej. tsc compilando un proyecto adyacente, git status en otro repo).
-// `node`/`npx` se EXCLUYEN a propósito: ejecutan código arbitrario y burlarían
-// el sandbox de cwd (hallazgo HIGH de la auditoría 2026-05-16).
-const READONLY_LEADERS = new Set(['git', 'tsc']);
+const PROHIBITED_PATH_MSG =
+  'Comando rechazado: hace referencia a una ruta de sistema sensible bloqueada.';
+
+// ALTA-01 (auditoría 2026-06-30): `git`/`tsc` ya NO se eximen en bloque del
+// check de `cwd` — `git clone <url> /fuera`, `git config --global ...` o
+// `tsc --outDir /fuera` no son read-only y escapaban el sandbox. Solo un
+// subconjunto de subcomandos de git verdaderamente de solo lectura puede
+// operar fuera del workspace raíz (ej. `git status`/`git log` en otro repo).
+const GIT_READONLY_SUBCOMMANDS = new Set([
+  'status', 'log', 'diff', 'show', 'rev-parse', 'ls-files',
+  'describe', 'blame', 'shortlog', 'ls-remote',
+]);
+
+function isGitReadonlyInvocation(command: string): boolean {
+  if (firstToken(command) !== 'git') return false;
+  const rest = command.trim().replace(/^["']?git["']?/i, '').trim();
+  const sub = (rest.match(/^[^\s"']+/)?.[0] || '').toLowerCase();
+  return GIT_READONLY_SUBCOMMANDS.has(sub);
+}
 
 function normalizeDir(p: string): string {
-  // resolvePath devuelve absoluto. Quitamos separador final para comparar
-  // prefijos sin falsos positivos (C:\work vs C:\work2).
+  // resolvePath devuelve absoluto (puramente léxico). CRIT-03: un symlink
+  // creado DENTRO del workspace puede apuntar a `/etc` o `C:\Windows`; el SO
+  // sigue ese symlink al hacer `chdir()` en exec(), así que comparar solo la
+  // ruta léxica deja pasar el ataque. `realpathSync` resuelve symlinks igual
+  // que hará el proceso real. Si el path no existe todavía, se usa la forma
+  // léxica como fallback (comportamiento previo).
   const abs = resolvePath(p);
-  return abs.endsWith(sep) ? abs.slice(0, -1) : abs;
+  let real = abs;
+  try {
+    real = realpathSync(abs);
+  } catch {
+    // No existe (aún) — sin symlink que resolver, se mantiene `abs`.
+  }
+  return real.endsWith(sep) ? real.slice(0, -1) : real;
+}
+
+/**
+ * Colapsa subshells POSIX `$(...)` (balanceados, incluso anidados) y bloques
+ * entre backticks `` `...` `` a cadena vacía. CRIT-01: el atacante usa un
+ * subshell vacío para partir un token destructivo en dos sin romper la
+ * sintaxis (`rm$(echo -n) -rf /workspace` se ejecuta como `rm -rf /workspace`
+ * pero el regex `\brm\s+-[a-z]*[rf]` no lo detecta porque no hay whitespace
+ * inmediato tras `rm`). Colapsar el subshell a vacío reconstruye el comando
+ * tal y como lo verá el shell en el peor caso y permite que los patrones
+ * destructivos lo detecten.
+ */
+function collapseSubshells(command: string): string {
+  const withoutBackticks = command.replace(/`[^`]*`/g, '');
+  let out = '';
+  for (let i = 0; i < withoutBackticks.length; i++) {
+    if (withoutBackticks[i] === '$' && withoutBackticks[i + 1] === '(') {
+      let depth = 1;
+      let j = i + 2;
+      while (j < withoutBackticks.length && depth > 0) {
+        if (withoutBackticks[j] === '(') depth++;
+        else if (withoutBackticks[j] === ')') depth--;
+        j++;
+      }
+      i = j - 1; // salta todo el subshell, se sustituye por cadena vacía
+      continue;
+    }
+    out += withoutBackticks[i];
+  }
+  return out;
 }
 
 function isInside(child: string, parent: string): boolean {
@@ -82,12 +137,65 @@ export function checkDestructive(command: string): string | null {
   // Normaliza: quita comillas, backticks y el `^` de escape de cmd.exe para
   // que evasiones triviales (ki"ll, t^askkill, k`i`ll) no esquiven la lista.
   const norm = command.replace(/['"`^]/g, '');
-  for (const pat of DESTRUCTIVE_PATTERNS) {
-    if (pat.test(norm)) return DESTRUCTIVE_MSG;
+  // CRIT-01: además de la normalización de arriba (que solo quita los
+  // caracteres de comilla/backtick mantiendo su contenido — necesario para
+  // detectar `k`i`ll`), evaluamos una segunda variante con los subshells
+  // `$(...)`/`` `...` `` colapsados a vacío, que es como se ejecutaría en el
+  // peor caso (`rm$(echo -n) -rf` → `rm -rf`). Un comando se bloquea si
+  // CUALQUIERA de las dos variantes hace match.
+  const collapsed = collapseSubshells(command).replace(/['"^]/g, '');
+  for (const variant of [norm, collapsed]) {
+    for (const pat of DESTRUCTIVE_PATTERNS) {
+      if (pat.test(variant)) return DESTRUCTIVE_MSG;
+    }
+    // Segunda capa: patrones destructivos de utils/permissions.
+    if (isDangerousCommand(variant)) return DESTRUCTIVE_MSG;
   }
-  // Segunda capa: patrones destructivos de utils/permissions.
-  if (isDangerousCommand(norm)) return DESTRUCTIVE_MSG;
   return null;
+}
+
+/**
+ * CRIT-02: `ABSOLUTE_PROHIBITED_PATHS` (de utils/permissions, la misma lista
+ * que bloquea `read_file`/`write_file`) no se comprobaba contra el texto del
+ * comando — `cat /etc/shadow` o `curl file:///etc/passwd` pasaban libres
+ * porque `checkSandbox` solo mira el argumento `cwd`, nunca el cuerpo del
+ * comando. Buscamos cada ruta prohibida como substring de palabra completa
+ * (el carácter inmediatamente antes/después, si existe, no puede ser
+ * alfanumérico ni `_`) para no bloquear de más (ej. `/etc/passwd-old`) ni de
+ * menos (comillas/backslashes alrededor).
+ */
+export function checkProhibitedPaths(command: string): string | null {
+  const lowered = command.toLowerCase();
+  // Un carácter de "continuación de nombre" (alfanumérico, `_`, `-`, `.`)
+  // inmediatamente antes/después NO es un boundary — así "/etc/passwd-old.bak"
+  // (un archivo distinto, con prefijo compartido) no se confunde con
+  // "/etc/passwd". Separadores de path, espacios, comillas, fin de cadena, etc.
+  // sí cuentan como boundary.
+  const isBoundary = (ch: string) => ch === '' || !/[a-z0-9_\-.]/i.test(ch);
+  for (const prohibited of ABSOLUTE_PROHIBITED_PATHS) {
+    const needle = prohibited.toLowerCase();
+    let from = 0;
+    while (true) {
+      const idx = lowered.indexOf(needle, from);
+      if (idx === -1) break;
+      const before = idx > 0 ? lowered[idx - 1] : '';
+      const after = idx + needle.length < lowered.length ? lowered[idx + needle.length] : '';
+      if (isBoundary(before) && isBoundary(after)) return PROHIBITED_PATH_MSG;
+      from = idx + 1;
+    }
+  }
+  return null;
+}
+
+// MEDIA-01: tope superior de timeout — sin cap, `{timeout: 2147483647}` sobre
+// un comando bloqueante (`sleep infinity`, `nc -l 4444`) monopolizaba el
+// proceso indefinidamente. 5 minutos es generoso para builds/instalaciones
+// normales sin permitir un DoS de disponibilidad.
+export const MAX_TIMEOUT_MS = 300_000;
+
+/** Aplica el default (30s) y el cap superior (`MAX_TIMEOUT_MS`) al timeout pedido. */
+export function clampTimeout(requested: number | undefined): number {
+  return Math.min(requested || 30_000, MAX_TIMEOUT_MS);
 }
 
 /** Devuelve mensaje de error si el cwd cae fuera del sandbox, o null si pasa. */
@@ -101,9 +209,14 @@ export function checkSandbox(command: string, cwd: string): string | null {
   if (workspaceRoot && isInside(target, workspaceRoot)) return null;
   if (isInside(target, shinobiRoot)) return null;
 
-  // Excepción: comandos de solo lectura/build pueden operar en rutas de
-  // proyecto aunque queden fuera del workspace raíz.
-  if (READONLY_LEADERS.has(firstToken(command))) return null;
+  // Excepción: ALTA-01 — solo subcomandos de git VERDADERAMENTE read-only
+  // (status/log/diff/show/...) pueden operar fuera del workspace raíz. Antes
+  // se eximía el binario `git` (y `tsc`) entero, lo que dejaba pasar
+  // `git clone <url> /fuera`, `git config --global core.sshCommand "..."` o
+  // `tsc --outDir /fuera` sin validar `cwd`. `tsc` ya no tiene excepción:
+  // escribe artefactos arbitrarios y no hay un subconjunto read-only que
+  // distinguir como con git.
+  if (isGitReadonlyInvocation(command)) return null;
 
   return 'Comando rechazado: solo puedo ejecutar comandos dentro del workspace de Shinobi.';
 }
@@ -123,16 +236,28 @@ const runCommandTool: Tool = {
   },
 
   requiresConfirmation(args: { command: string }) {
-    return isDangerousCommand(args.command);
+    // MEDIA-04: `checkDestructive` bloquea en duro con 24 patrones (más la
+    // lista de `isDangerousCommand`), pero antes solo se pedía confirmación
+    // con los 8 patrones de `isDangerousCommand`. Eso dejaba comandos como
+    // `pkill`/`taskkill`/`reboot` fallar en silencio: el usuario nunca veía
+    // que el agente lo intentó. Pedimos confirmación si CUALQUIERA de las
+    // dos detecta riesgo, así el intento siempre es visible antes o junto
+    // con el bloqueo duro.
+    return isDangerousCommand(args.command) || checkDestructive(args.command) !== null;
   },
 
   async execute(args: { command: string; cwd?: string; timeout?: number; shell?: string }): Promise<ToolResult> {
-    const timeout = args.timeout || 30_000;
+    const timeout = clampTimeout(args.timeout);
     const cwd = args.cwd || contextCwd();
 
     const destructiveError = checkDestructive(args.command);
     if (destructiveError) {
       return { success: false, output: '', error: destructiveError };
+    }
+
+    const prohibitedPathError = checkProhibitedPaths(args.command);
+    if (prohibitedPathError) {
+      return { success: false, output: '', error: prohibitedPathError };
     }
 
     const sandboxError = checkSandbox(args.command, cwd);

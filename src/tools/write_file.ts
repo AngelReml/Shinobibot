@@ -24,7 +24,12 @@ const writeFileTool: Tool = {
     const filePath = resolveInContext(args.path);
     const root = path.resolve(contextWorkspaceRoot());
     const scratchPath = path.resolve(root, 'scratch');
-    if (filePath.startsWith(scratchPath)) return false;
+    // MEDIA-03: `startsWith` pelado hacía que "scratch-evil" (hermano cuyo
+    // nombre EMPIEZA por "scratch") pasara el filtro de "es scratch", porque
+    // "/ws/scratch-evil/x".startsWith("/ws/scratch") es true. Comparamos con
+    // el propio directorio o con el prefijo + separador de path, para que
+    // solo "scratch" (y lo que cuelga de él) quede exento de confirmación.
+    if (filePath === scratchPath || filePath.startsWith(scratchPath + path.sep)) return false;
     // Overwriting existing files requires confirmation
     return fs.existsSync(filePath);
   },
@@ -33,6 +38,16 @@ const writeFileTool: Tool = {
     const filePath = resolveInContext(args.path);
     const check = validatePath(filePath, 'write');
     if (!check.allowed) return { success: false, output: '', error: check.reason };
+
+    // MEDIA-02: `read_file` limita a 500KB pero `write_file` no tenía ningún
+    // tope — el LLM podía escribir un archivo de varios GB y agotar disco.
+    // El límite es más alto que el de lectura (10MB) porque `write_file` se
+    // usa también para generar documentos/datos legítimamente más grandes
+    // que código fuente, no solo para editar ficheros de texto pequeños.
+    const byteSize = Buffer.byteLength(args.content, 'utf-8');
+    if (byteSize > 10_000_000) {
+      return { success: false, output: '', error: `Content too large (${(byteSize / 1_000_000).toFixed(1)}MB). Max allowed is 10MB.` };
+    }
 
     try {
       const dir = path.dirname(filePath);

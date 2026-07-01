@@ -1,3 +1,4 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import { contextWorkspaceRoot } from '../agents/exec_context.js';
 
@@ -25,6 +26,34 @@ function isInsideDir(parent: string, child: string): boolean {
   // rel === '' → es el propio directorio. rel que empieza por '..' o es
   // absoluto → está fuera.
   return rel === '' || (!rel.startsWith('..' + path.sep) && rel !== '..' && !path.isAbsolute(rel));
+}
+
+/**
+ * ALTA-04: resuelve symlinks de `p` antes de comparar contra el workspace o
+ * las rutas prohibidas. `path.resolve` es léxico — un symlink CREADO DENTRO
+ * del workspace que apunte a `/etc/shadow` o `C:\Windows\System32` pasaba el
+ * check de "está dentro del workspace" porque la comparación se hacía sobre
+ * la ruta del symlink, no sobre su destino real. `fs.realpathSync` resuelve
+ * symlinks a nivel OS igual que hace `fs.readFileSync`/`writeFileSync`, así
+ * que la comprobación queda alineada con lo que el SO realmente va a tocar.
+ *
+ * Si `p` no existe todavía (write_file creando un archivo nuevo), no hay
+ * symlink que resolver sobre el propio archivo — se resuelve el directorio
+ * padre (que sí puede ser, o contener, un symlink) y se reconstruye la ruta
+ * con el basename original. Si ni el padre existe, se devuelve `p` tal cual
+ * (ruta léxica normal, sin symlinks involucrados).
+ */
+function resolveRealPath(p: string): string {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    try {
+      const realParent = fs.realpathSync(path.dirname(p));
+      return path.join(realParent, path.basename(p));
+    } catch {
+      return p;
+    }
+  }
 }
 
 /**
@@ -85,11 +114,19 @@ export function validatePath(requestedPath: string, mode: 'read' | 'write' = 're
   // Aprobación manual: si el usuario autorizó explícitamente este path en el
   // chat, el límite del workspace se desbloquea SOLO para esa operación. La
   // lista ABSOLUTE_PROHIBITED_PATHS de más abajo sigue siendo un bloqueo duro.
+  // Se comprueba sobre la ruta léxica (la que el usuario aprobó), no sobre el
+  // destino del symlink.
   const manuallyApproved = sessionApprovedPaths.has(resolvedPath);
+
+  // ALTA-04: resolvemos symlinks ANTES de comparar contra el workspace y las
+  // rutas prohibidas — ver `resolveRealPath`. `realRoot` también se resuelve
+  // por si el propio workspace root cuelga de un symlink.
+  const realPath = resolveRealPath(resolvedPath);
+  const realRoot = resolveRealPath(root);
 
   // Directory traversal check — usa path.relative para que un directorio
   // hermano con prefijo común NO pase el filtro (bug C5 de la auditoría).
-  if (!manuallyApproved && !isInsideDir(root, resolvedPath)) {
+  if (!manuallyApproved && !isInsideDir(realRoot, realPath)) {
     return {
       allowed: false,
       reason: `Access denied: Path ${resolvedPath} is outside the workspace root (${root}). ` +
@@ -98,8 +135,10 @@ export function validatePath(requestedPath: string, mode: 'read' | 'write' = 're
   }
 
   // Prevent accessing sensitive system files directly. Se comprueba con
-  // límite de segmento (no startsWith pelado) para no rechazar de más.
-  const lowered = resolvedPath.toLowerCase();
+  // límite de segmento (no startsWith pelado) para no rechazar de más, y
+  // sobre `realPath` para que un symlink dentro del workspace que apunte a
+  // una ruta prohibida no se cuele (ALTA-04).
+  const lowered = realPath.toLowerCase();
   const hit = ABSOLUTE_PROHIBITED_PATHS.some(p => {
     const lp = p.toLowerCase();
     return lowered === lp || lowered.startsWith(lp + '\\') || lowered.startsWith(lp + '/');
