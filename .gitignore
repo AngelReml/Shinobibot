@@ -134,5 +134,7 @@ run_one_out.json
 
 # Runtime artifact (append-only audit log) — no se versiona (precedente 01e5ae7)
 audit.jsonl
+# CRIT-06: head persistido de la cadena de hashes del audit log — mismo runtime artifact.
+*.chainhead.json
 # Scratch de prompts de trabajo
 prompt.txt

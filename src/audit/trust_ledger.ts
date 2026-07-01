@@ -20,6 +20,7 @@ import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { classifyFailureMode } from '../coordinator/loop_detector.js';
 import type { AuditEvent, ToolCallEvent } from './audit_log.js';
+import { verifyChain, toLines } from './audit_chain.js';
 
 export interface ToolTrust {
   tool: string;
@@ -42,6 +43,16 @@ export interface TrustReport {
   tools: ToolTrust[];
   /** Nº de eventos tool_call considerados. */
   fromEvents: number;
+  /**
+   * ALTA-09: si el log fuente pasó la verificación de hash-chain
+   * (`verifyChain`, CRIT-06/ALTA-08). `undefined` cuando el report viene de
+   * `computeToolTrust()` directo (sobre eventos en memoria, sin fichero de
+   * origen que verificar — p.ej. tests). `false` significa que el log tiene
+   * líneas sin cadena válida (vacío, inyectado, o tocado a mano): los
+   * scores siguen calculados pero el caller NO debería confiar en ellos
+   * ciegamente para decisiones automáticas (ranking/routing) sin avisar.
+   */
+  chainVerified?: boolean;
 }
 
 /** Parsea texto JSONL en eventos de audit; salta líneas corruptas. */
@@ -126,17 +137,30 @@ function defaultLogPath(): string {
     : resolve(process.cwd(), 'audit.jsonl');
 }
 
-/** Carga el trust report desde el audit.jsonl en disco (vacío si no existe). */
+/**
+ * Carga el trust report desde el audit.jsonl en disco (vacío si no existe).
+ *
+ * ALTA-09: antes de confiar en las líneas, verifica la integridad de la
+ * cadena de hashes (`verifyChain`, ver audit_chain.ts/audit_log.ts). Sin
+ * esto, cualquiera con acceso de escritura al fichero podía inyectar líneas
+ * `tool_call`/`success:true` falsas para inflar el score de una tool — el
+ * loader las habría agregado igual que las reales. Ahora el resultado de la
+ * verificación se expone en `chainVerified` (campo aditivo) para que el
+ * caller decida si confía en un score no verificado; no se descarta el
+ * report porque varios callers (curator, routing) prefieren degradar con
+ * aviso a quedarse sin señal alguna.
+ */
 export function loadTrustReport(path?: string): TrustReport {
   const p = path ? resolve(path) : defaultLogPath();
-  if (!existsSync(p)) return { tools: [], fromEvents: 0 };
+  if (!existsSync(p)) return { tools: [], fromEvents: 0, chainVerified: true };
   let text = '';
   try {
     text = readFileSync(p, 'utf-8');
   } catch {
-    return { tools: [], fromEvents: 0 };
+    return { tools: [], fromEvents: 0, chainVerified: false };
   }
-  return computeToolTrust(parseAuditLines(text));
+  const chainVerified = verifyChain(toLines(text)).valid;
+  return { ...computeToolTrust(parseAuditLines(text)), chainVerified };
 }
 
 /**
