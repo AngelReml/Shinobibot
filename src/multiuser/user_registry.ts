@@ -18,7 +18,7 @@
  * en modo VPS sirve a un equipo sin filtraciones cruzadas.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, statSync } from 'fs';
 import { resolve, join } from 'path';
 
 export type UserRole = 'owner' | 'collaborator' | 'guest' | 'family';
@@ -74,12 +74,34 @@ export class UserRegistry {
   private readonly stateFile: string;
   private readonly root: string;
   private state: RegistryState;
+  /** MEDIA-07: mtime de `users.json` en la última carga (propia o externa). */
+  private stateMtimeMs = 0;
 
   constructor(rootDir: string) {
     this.root = resolve(rootDir);
     this.stateFile = join(this.root, 'users.json');
     if (!existsSync(this.root)) mkdirSync(this.root, { recursive: true });
     this.state = this.load();
+    this.stateMtimeMs = this.currentMtime();
+  }
+
+  private currentMtime(): number {
+    try { return existsSync(this.stateFile) ? statSync(this.stateFile).mtimeMs : 0; } catch { return 0; }
+  }
+
+  /**
+   * MEDIA-07: el registry cargaba `users.json` una única vez al construirse y
+   * nunca lo releía — un cambio hecho en disco (p.ej. el operador revoca un
+   * collaborator a mano editando el JSON) era invisible hasta reiniciar el
+   * proceso. Barato: un `statSync` por acceso; solo relee el JSON completo si
+   * el mtime cambió desde la última carga (propia o externa).
+   */
+  private maybeReload(): void {
+    const mtime = this.currentMtime();
+    if (mtime !== this.stateMtimeMs) {
+      this.state = this.load();
+      this.stateMtimeMs = mtime;
+    }
   }
 
   private load(): RegistryState {
@@ -104,17 +126,21 @@ export class UserRegistry {
     const tmp = this.stateFile + '.tmp';
     writeFileSync(tmp, JSON.stringify(this.state, null, 2), 'utf-8');
     renameSync(tmp, this.stateFile);
+    this.stateMtimeMs = this.currentMtime(); // no confundir nuestra propia escritura con un cambio externo
   }
 
   list(): UserRecord[] {
+    this.maybeReload();
     return [...this.state.users];
   }
 
   get(userId: string): UserRecord | null {
+    this.maybeReload();
     return this.state.users.find(u => u.userId === userId) ?? null;
   }
 
   ownerId(): string | undefined {
+    this.maybeReload();
     return this.state.ownerId;
   }
 
@@ -176,7 +202,14 @@ export class UserRegistry {
     const u = this.get(userId);
     if (!u) throw new Error(`usuario no existe: ${userId}`);
     if (patch.displayName !== undefined) u.displayName = patch.displayName;
-    if (patch.restrictions !== undefined) u.restrictions = patch.restrictions;
+    if (patch.restrictions !== undefined) {
+      // ALTA-07: `update(userId, {restrictions: {}})` reemplazaba el objeto
+      // entero — todos los campos booleanos quedaban `undefined`, y checks
+      // tipo `if (r.noShell && ...)` evaluaban `false` silenciosamente,
+      // desactivando TODAS las restricciones sin error. Merge en vez de
+      // reemplazo: un `{}` vacío ya no borra nada, solo no cambia nada.
+      u.restrictions = { ...FAMILY_DEFAULTS, ...(u.restrictions ?? {}), ...patch.restrictions };
+    }
     if (patch.metadata !== undefined) u.metadata = { ...(u.metadata ?? {}), ...patch.metadata };
     this.save();
     return u;
@@ -242,7 +275,13 @@ export class UserRegistry {
       return true; // collaborator on self → read/write
     }
     // cross-user
-    if (a.role === 'collaborator' && action === 'read') return true;
+    if (a.role === 'collaborator' && action === 'read') {
+      // ALTA-06: un collaborator podía leer memory.json/USER.md/MEMORY.md/
+      // soul.md de CUALQUIER usuario, incluido el owner. Sigue pudiendo leer
+      // a otros collaborators/guests (modelo de equipo), pero nunca al owner.
+      const t = this.get(target);
+      return !!t && t.role !== 'owner';
+    }
     return false;
   }
 }

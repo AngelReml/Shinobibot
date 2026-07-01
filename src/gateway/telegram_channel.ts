@@ -14,6 +14,7 @@
 
 import { Bot, type BotConfig } from 'grammy';
 import { ShinobiOrchestrator } from '../coordinator/orchestrator.js';
+import { runExclusive } from '../coordinator/orchestrator_mutex.js';
 import type { ChatStore } from '../web/chat_store.js';
 
 export interface TelegramChannelOptions {
@@ -100,7 +101,12 @@ export async function startTelegramChannel(opts: TelegramChannelOptions): Promis
     opts.chatStore.add(sessionId, 'user', text, null);
     const taggedInput = `[ORIGIN: telegram:${userId}] ${text}`;
     try {
-      const result: any = await ShinobiOrchestrator.process(taggedInput);
+      // Mutex global del orchestrator (mismo runExclusive que WebChat y la
+      // API HTTP): sin esto, un mensaje de Telegram podía correr en paralelo
+      // con una sesión WebSocket que tiene `_preGate` de familia instalado,
+      // pisándolo o quedando sin serializar el estado estático del
+      // orchestrator (CRIT-05).
+      const result: any = await runExclusive(async () => ShinobiOrchestrator.process(taggedInput));
       const response = result?.response
         ? String(result.response)
         : (result?.output ? String(result.output) : JSON.stringify(result));

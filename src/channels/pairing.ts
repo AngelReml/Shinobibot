@@ -20,7 +20,7 @@
 // con firma inválida (paired.json manipulado a mano) se descarta. Da una
 // identidad estable y no falsificable sin el secreto.
 
-import { createHmac } from 'crypto';
+import { createHmac, randomBytes } from 'crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { dirname, resolve, join } from 'path';
 
@@ -31,8 +31,53 @@ export function identityKey(channelId: string, userId?: string): string {
   return `${channelId}:${userId ?? 'anon'}`;
 }
 
+let _cachedGeneratedSecret: string | null = null;
+
+function secretPath(): string {
+  return process.env.SHINOBI_PAIRING_SECRET_PATH
+    ? resolve(process.env.SHINOBI_PAIRING_SECRET_PATH)
+    : join(process.cwd(), '.shinobi', 'pairing_secret');
+}
+
+/**
+ * ALTA-24 (auditoría 2026-07-01): sin `SHINOBI_PAIRING_SECRET`, se usaba un
+ * default HARDCODEADO y PÚBLICO ('shinobi-default-pairing-secret', visible en
+ * el código fuente) — cualquier atacante que lo conociera podía forjar firmas
+ * HMAC válidas para cualquier identidad y fabricar entradas en `paired.json`.
+ * Ahora: sin env var, se genera un secreto aleatorio fuerte (32 bytes) la
+ * PRIMERA vez y se persiste en `.shinobi/pairing_secret` (0600) — estable
+ * entre reinicios, único por instalación, nunca público.
+ */
 function secret(): string {
-  return process.env.SHINOBI_PAIRING_SECRET || 'shinobi-default-pairing-secret';
+  const fromEnv = process.env.SHINOBI_PAIRING_SECRET;
+  if (fromEnv) return fromEnv;
+  if (_cachedGeneratedSecret) return _cachedGeneratedSecret;
+
+  const p = secretPath();
+  try {
+    if (existsSync(p)) {
+      const existing = readFileSync(p, 'utf-8').trim();
+      if (existing) { _cachedGeneratedSecret = existing; return existing; }
+    }
+  } catch { /* cae a generar uno nuevo */ }
+
+  const fresh = randomBytes(32).toString('hex');
+  try {
+    const dir = dirname(p);
+    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+    writeFileSync(p, fresh, { encoding: 'utf-8', mode: 0o600 });
+  } catch {
+    // best-effort: si no se puede persistir a disco, sigue siendo un secreto
+    // ALEATORIO para este proceso (mejor que el default público conocido),
+    // aunque cambiaría entre reinicios sin persistencia.
+  }
+  _cachedGeneratedSecret = fresh;
+  return fresh;
+}
+
+/** Test helper: descarta el secreto generado cacheado en memoria. */
+export function _resetGeneratedSecretCache(): void {
+  _cachedGeneratedSecret = null;
 }
 
 /** Firma HMAC-SHA256 (truncada) de una identidad. */

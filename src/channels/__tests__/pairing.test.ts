@@ -3,15 +3,17 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { createHmac } from 'crypto';
 import {
   identityKey,
   signIdentity,
   pairingMode,
   PairingStore,
   authorizeIncoming,
+  _resetGeneratedSecretCache,
 } from '../pairing.js';
 
-const PAIRING_ENVS = ['SHINOBI_PAIRING_MODE', 'SHINOBI_PAIRING_CODE', 'SHINOBI_CHANNEL_ALLOWLIST', 'SHINOBI_PAIRING_SECRET', 'SHINOBI_PAIRING_PATH'];
+const PAIRING_ENVS = ['SHINOBI_PAIRING_MODE', 'SHINOBI_PAIRING_CODE', 'SHINOBI_CHANNEL_ALLOWLIST', 'SHINOBI_PAIRING_SECRET', 'SHINOBI_PAIRING_PATH', 'SHINOBI_PAIRING_SECRET_PATH'];
 const saved: Record<string, string | undefined> = {};
 
 beforeEach(() => {
@@ -38,6 +40,43 @@ describe('identidad firmada', () => {
     const a = signIdentity('k');
     process.env.SHINOBI_PAIRING_SECRET = 'otro';
     expect(signIdentity('k')).not.toBe(a);
+  });
+});
+
+// Regresión ALTA-24 (auditoría 2026-07-01): sin SHINOBI_PAIRING_SECRET, antes
+// se usaba el literal público 'shinobi-default-pairing-secret' — cualquiera
+// que leyera el código fuente podía forjar firmas válidas. Ahora se genera
+// un secreto aleatorio y se persiste para ser estable entre reinicios.
+describe('secreto generado cuando SHINOBI_PAIRING_SECRET no está configurado (ALTA-24)', () => {
+  it('nunca usa el literal público hardcodeado', () => {
+    delete process.env.SHINOBI_PAIRING_SECRET;
+    process.env.SHINOBI_PAIRING_SECRET_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'shinobi-pairsecret-')), 'secret');
+    _resetGeneratedSecretCache();
+    const sigWithDefault = createHmac('sha256', 'shinobi-default-pairing-secret').update('k').digest('hex').slice(0, 32);
+    expect(signIdentity('k')).not.toBe(sigWithDefault);
+  });
+
+  it('el secreto generado es estable entre "reinicios" (persistido en disco)', () => {
+    delete process.env.SHINOBI_PAIRING_SECRET;
+    process.env.SHINOBI_PAIRING_SECRET_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'shinobi-pairsecret-')), 'secret');
+    _resetGeneratedSecretCache();
+    const sig1 = signIdentity('estable');
+    _resetGeneratedSecretCache(); // simula un "reinicio" del proceso (cache en memoria perdida)
+    const sig2 = signIdentity('estable');
+    expect(sig2).toBe(sig1); // el fichero persistido da el MISMO secreto
+  });
+
+  it('instalaciones distintas (paths distintos) obtienen secretos distintos', () => {
+    delete process.env.SHINOBI_PAIRING_SECRET;
+    process.env.SHINOBI_PAIRING_SECRET_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'shinobi-pairsecret-a-')), 'secret');
+    _resetGeneratedSecretCache();
+    const sigA = signIdentity('k');
+
+    process.env.SHINOBI_PAIRING_SECRET_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'shinobi-pairsecret-b-')), 'secret');
+    _resetGeneratedSecretCache();
+    const sigB = signIdentity('k');
+
+    expect(sigA).not.toBe(sigB);
   });
 });
 

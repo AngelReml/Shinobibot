@@ -32,8 +32,13 @@ export function userRegistry(): UserRegistry {
  * la cabecera se ignora y todo se atribuye al owner — sin aislamiento falso.
  *
  * Incluso con la cabecera habilitada, solo puede crear/seleccionar usuarios
- * `guest`: un header que apunte a una cuenta `owner`/`collaborator` existente
- * NO concede ese rol (cae al owner).
+ * `guest` o reusar una cuenta `family` ya dada de alta por el operador: un
+ * header que apunte a una cuenta `owner`/`collaborator` existente NO concede
+ * ese rol (cae al owner). `family` SÍ es seleccionable — es un rol RESTRINGIDO
+ * (caja cerrada via familyApprovalGate), no uno privilegiado; bloquearlo aquí
+ * dejaría el modo familia inalcanzable por cualquier canal (bug, no diseño:
+ * `createFamily` no tendría ningún caller que pudiera activar sus
+ * restricciones).
  */
 export function resolveUser(userId?: string, displayName?: string): UserRecord {
   const reg = userRegistry();
@@ -47,14 +52,45 @@ export function resolveUser(userId?: string, displayName?: string): UserRecord {
   const id = (userId || '').trim().toLowerCase();
   if (id && isValidUserId(id)) {
     let rec = reg.get(id);
-    // Un header no puede escalar a una cuenta privilegiada existente.
-    if (rec && rec.role !== 'guest') return owner();
-    if (!rec) rec = reg.create({ userId: id, displayName: displayName || id, role: 'guest' });
+    // Un header no puede escalar a una cuenta PRIVILEGIADA existente
+    // (owner/collaborator). `family` es restringido, no privilegiado — se
+    // deja pasar para que sus restricciones puedan aplicarse de verdad.
+    if (rec && rec.role !== 'guest' && rec.role !== 'family') return owner();
+    if (!rec) {
+      // ALTA-25 (auditoría 2026-07-01): sin cap, cada `X-Shinobi-User` único
+      // creaba un guest nuevo sin límite (entrada en users.json + directorio
+      // en disco) — DoS por agotamiento de disco / degradación de
+      // `list()` O(N). Con el cap alcanzado, la petición se atiende como
+      // guest EFÍMERO (no persiste en el registry ni crea directorio) en vez
+      // de crear uno más — sigue funcionando, solo pierde continuidad de
+      // identidad entre peticiones.
+      const maxGuests = Number(process.env.SHINOBI_MAX_GUESTS) || 50;
+      const guestCount = reg.list().filter((u) => u.role === 'guest').length;
+      if (guestCount >= maxGuests) {
+        console.warn(`[multiuser] límite de guests (${maxGuests}) alcanzado — "${id}" se atiende como guest efímero, sin alta en el registry.`);
+        return {
+          userId: id,
+          displayName: displayName || id,
+          role: 'guest',
+          createdAt: new Date().toISOString(),
+          userDir: EPHEMERAL_GUEST_DIR,
+        };
+      }
+      rec = reg.create({ userId: id, displayName: displayName || id, role: 'guest' });
+    }
     reg.touchActive(id);
     return rec;
   }
   return owner();
 }
+
+/**
+ * Directorio placeholder para guests efímeros (ALTA-25, cap alcanzado) — NO
+ * se crea en disco automáticamente; cualquier operación de escritura real
+ * bajo este path fallaría de forma segura (fail-closed) en vez de escribir
+ * silenciosamente en un directorio compartido/inesperado.
+ */
+const EPHEMERAL_GUEST_DIR = join(process.env.SHINOBI_USERS_ROOT || join(process.cwd(), 'users'), '_overflow_ephemeral');
 
 /** Test helper: reinicia el singleton. */
 export function _resetMultiuserWiring(): void { _registry = null; }
@@ -91,7 +127,11 @@ export function familyApprovalGate(userId: string): ((tool: string, args: any) =
     }
     if (r.noCriticalPaths && (tool === 'write_file' || tool === 'edit_file')) {
       const p = typeof args?.path === 'string' ? args.path : '';
-      const SENSITIVE = /(^|[\\/])(\.env|\.ssh[\\/]|\.bashrc|\.profile|\.zshrc|authorized_keys)|(\.pem|\.key|\.crt|\.p12|\.pfx)$/i;
+      // MEDIA-08 (auditoría 2026-07-01): la regex original solo cubría `.env`
+      // EXACTO (no `.env.local`/`.env.production`/`.env.staging`) y
+      // `authorized_keys` exacto (no `authorized_keys2`). Un usuario family
+      // con noCriticalPaths podía escribir esas variantes libremente.
+      const SENSITIVE = /(^|[\\/])(\.env(\.[a-z0-9_-]+)?|\.ssh[\\/]|\.bashrc|\.profile|\.zshrc|authorized_keys[0-9]*)|(\.pem|\.key|\.crt|\.p12|\.pfx)$/i;
       if (SENSITIVE.test(p)) return false; // caja: sin rutas críticas
     }
     return true;

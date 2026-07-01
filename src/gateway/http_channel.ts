@@ -12,8 +12,10 @@
 
 import { Router } from 'express';
 import { ShinobiOrchestrator } from '../coordinator/orchestrator.js';
+import { runExclusive } from '../coordinator/orchestrator_mutex.js';
+import { setApprovalPreGate } from '../security/approval.js';
 import type { ChatStore } from '../web/chat_store.js';
-import { resolveUser } from '../multiuser/multiuser_wiring.js';
+import { resolveUser, familyApprovalGate } from '../multiuser/multiuser_wiring.js';
 
 export interface HttpChannelOptions {
   chatStore: ChatStore;
@@ -43,12 +45,29 @@ export function createHttpChannelRouter(opts: HttpChannelOptions): Router {
     const userHeader = typeof req.headers['x-shinobi-user'] === 'string'
       ? (req.headers['x-shinobi-user'] as string) : undefined;
     const user = resolveUser(userHeader);
+    // G3 — modo familia: el canal WebSocket monta este mismo gate (server.ts).
+    // Sin esto, un usuario `family` con noShell/noDestructive vía HTTP API no
+    // tenía NINGUNA restricción (CRIT-04).
+    const fGate = user.role === 'family' ? familyApprovalGate(user.userId) : null;
 
     try {
       opts.chatStore.add(sessionId, 'user', text, null);
       // Origin tag — el LLM lo lee como parte del input y sabe el contexto.
       const taggedInput = `[ORIGIN: ${originLabel} USER: ${user.userId} (${user.role})] ${text}`;
-      const result: any = await ShinobiOrchestrator.process(taggedInput);
+      // Mutex global del orchestrator: serializa esta petición con WebChat y
+      // los demás canales (mismo runExclusive que server.ts), e instala el
+      // pre-gate de familia SOLO dentro de la sección exclusiva — sin esto,
+      // _preGate es estado global compartido y dos requests concurrentes de
+      // canales distintos pueden pisarse el gate (CRIT-05).
+      const result: any = await runExclusive(async () => {
+        if (fGate) setApprovalPreGate(fGate);
+        try {
+          // CRIT-12/ALTA-20: bóveda de memoria del usuario resuelto, no la del owner.
+          return await ShinobiOrchestrator.process(taggedInput, { userId: user.userId });
+        } finally {
+          if (fGate) setApprovalPreGate(null);
+        }
+      });
       const response = result?.response
         ? String(result.response)
         : (result?.output ? String(result.output) : JSON.stringify(result));
