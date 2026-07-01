@@ -13,6 +13,7 @@ tmp/
 *.bak
 # === Benchmark === (resultados de runtime; config puede llevar API keys)
 bench-results/
+bench_results/
 bench.config.json
 # === Estado vivo (regenerable con `node estado.mjs`) ===
 ESTADO.md

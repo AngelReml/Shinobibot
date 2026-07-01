@@ -431,6 +431,17 @@
       "proposed": false,
       "firstSeenAt": "2026-06-29T17:58:17.829Z",
       "lastSeenAt": "2026-06-29T17:58:17.829Z"
+    },
+    {
+      "signature": "docs_agent_run→docs_agent_run",
+      "tools": [
+        "docs_agent_run",
+        "docs_agent_run"
+      ],
+      "count": 1,
+      "proposed": false,
+      "firstSeenAt": "2026-06-30T09:50:21.253Z",
+      "lastSeenAt": "2026-06-30T09:50:21.253Z"
     }
   ]
 }
