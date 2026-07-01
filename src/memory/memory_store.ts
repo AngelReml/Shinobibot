@@ -203,6 +203,19 @@ export class MemoryStore {
       stmt.run(r.entry.id, queryText, r.score, now);
       updateStmt.run(now, r.entry.id);
     }
+    // BAJA-04 (auditoría 2026-07-01): `recall_log` crecía sin purga
+    // programada — una fila por cada resultado de cada búsqueda, degradando
+    // I/O en el WAL bajo uso intensivo. Purga probabilística (1%) en vez de
+    // en cada inserción, para no añadir overhead constante: mantiene la
+    // tabla acotada a las últimas ~5000 filas sin un scheduler separado.
+    if (Math.random() < 0.01) this.pruneRecallLog();
+  }
+
+  /** Mantiene `recall_log` acotado a las últimas `keep` filas (BAJA-04). Público para tests deterministas (la purga real es probabilística, ver recordRecall). */
+  public pruneRecallLog(keep: number = 5000): void {
+    this.db.prepare(
+      `DELETE FROM recall_log WHERE id NOT IN (SELECT id FROM recall_log ORDER BY id DESC LIMIT ?)`,
+    ).run(keep);
   }
 
   public forget(id: string): boolean {
@@ -248,6 +261,11 @@ export class MemoryStore {
     return contextSection(results, maxChars);
   }
 
+  /** Nº total de filas en recall_log — usado por tests de la purga BAJA-04. */
+  public recallLogCount(): number {
+    return (this.db.prepare('SELECT COUNT(*) as c FROM recall_log').get() as any).c;
+  }
+
   public stats(): { total: number; recent_recalls: number; categories: string[] } {
     const total = (this.db.prepare('SELECT COUNT(*) as c FROM memories').get() as any).c;
     const recent = (this.db.prepare(`SELECT COUNT(*) as c FROM recall_log WHERE timestamp > datetime('now', '-1 day')`).get() as any).c;
@@ -265,8 +283,23 @@ export class MemoryStore {
 // SQLite — abrir dos `better-sqlite3` sobre memory.db competiría por el WAL.
 
 let _sharedStore: MemoryStore | null = null;
+let _sharedStoreWarned = false;
 
 export function sharedMemoryStore(): MemoryStore {
+  // ALTA-21 (auditoría 2026-07-01): en modo multi-usuario (mismo flag que
+  // habilita resolveUser() a asignar userIds no-owner — SHINOBI_TRUST_USER_HEADER),
+  // cualquier caller legacy que use el store COMPARTIDO en vez de
+  // `getMemoryStore(userId)` mezcla el índice de recall del owner con el de
+  // otros usuarios. No hay forma de bloquear el uso indebido sin romper
+  // callers single-user legítimos, así que se avisa (una vez por proceso)
+  // para que sea diagnosticable.
+  if (process.env.SHINOBI_TRUST_USER_HEADER === '1' && !_sharedStoreWarned) {
+    _sharedStoreWarned = true;
+    console.warn(
+      '[memory_store] sharedMemoryStore() usado con SHINOBI_TRUST_USER_HEADER=1 (modo multi-usuario) — ' +
+      'este caller debería migrar a getMemoryStore(userId) para no mezclar el índice de recall entre usuarios.',
+    );
+  }
   if (!_sharedStore) _sharedStore = new MemoryStore();
   return _sharedStore;
 }

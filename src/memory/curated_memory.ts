@@ -139,6 +139,13 @@ export interface CuratedMemoryOptions {
   cwd?: string;
   userLimit?: number;
   memoryLimit?: number;
+  /**
+   * Override directo del directorio donde viven USER.md/MEMORY.md — gana
+   * sobre `cwd`. Usado por la factory multi-usuario (`curatedMemory(userId)`)
+   * para aislar la bóveda de cada usuario FUERA del cwd del proyecto (que
+   * sigue siendo, sin cambios, la bóveda del owner).
+   */
+  memoryDir?: string;
 }
 
 export class CuratedMemory {
@@ -163,7 +170,12 @@ export class CuratedMemory {
 
   constructor(opts: CuratedMemoryOptions = {}) {
     this.cwd = opts.cwd ?? process.cwd();
-    this.memoryDir = path.join(this.cwd, 'memory');
+    // CRIT-12: `opts.memoryDir` (bóveda aislada por usuario) tiene prioridad
+    // sobre `cwd` — antes de este fix, el campo existía en la interfaz pero
+    // el constructor lo ignoraba por completo y SIEMPRE derivaba memoryDir de
+    // `cwd`, así que dos instancias con `memoryDir` distinto seguían leyendo
+    // y ESCRIBIENDO el mismo USER.md/MEMORY.md del owner.
+    this.memoryDir = opts.memoryDir ?? path.join(this.cwd, 'memory');
     this.userLimit = opts.userLimit ?? USER_LIMIT;
     this.memoryLimit = opts.memoryLimit ?? MEM_LIMIT;
     this.userStore = new MarkdownStore({
@@ -422,11 +434,45 @@ export class CuratedMemory {
   }
 }
 
-// ─── Singleton ───────────────────────────────────────────────────────────────
+// ─── Factory por usuario (CRIT-12) ────────────────────────────────────────────
+//
+// Antes, `curatedMemory()` era un singleton global SIN distinción de usuario:
+// ContextBuilder.buildMessages() inyectaba el snapshot del OWNER (USER.md con
+// nombre real, restricciones personales, notas privadas) en el system prompt
+// de CUALQUIER usuario — Alice y Bob en modo multi-usuario recibían el perfil
+// completo del owner. Ahora `curatedMemory({key, memoryDir})` devuelve una
+// instancia AISLADA por usuario (bóveda en `<userDir>/memory/`, fuera del cwd
+// del proyecto). Sin argumento: singleton preexistente ligado al cwd del
+// proyecto — comportamiento sin cambios para CLI/WebChat single-user.
+//
+// Deliberadamente NO acepta un `userId` crudo aquí — resolverlo a un
+// `memoryDir` requiere `multiuser/user_registry`, y este módulo no debe
+// depender de multiuser/ (evita acoplar memoria a multiusuario para el caso
+// común de un solo usuario). Ese resuelto lo hace el caller (ver
+// `context_builder.ts`, que sí conoce el registry).
 
-let _instance: CuratedMemory | null = null;
+const _instances = new Map<string, CuratedMemory>();
+const OWNER_KEY = '__owner__';
 
-export function curatedMemory(): CuratedMemory {
-  if (!_instance) _instance = new CuratedMemory();
-  return _instance;
+export interface UserVaultRef {
+  /** Clave de caché — normalmente el userId. */
+  key: string;
+  /** Directorio donde viven USER.md/MEMORY.md de este usuario. */
+  memoryDir: string;
+}
+
+export function curatedMemory(vault?: UserVaultRef): CuratedMemory {
+  const cacheKey = vault?.key ?? OWNER_KEY;
+  let inst = _instances.get(cacheKey);
+  if (!inst) {
+    inst = vault ? new CuratedMemory({ memoryDir: vault.memoryDir }) : new CuratedMemory();
+    inst.loadAtBoot();
+    _instances.set(cacheKey, inst);
+  }
+  return inst;
+}
+
+/** Test helper: descarta las instancias cacheadas (no toca disco). */
+export function _resetCuratedMemoryInstances(): void {
+  _instances.clear();
 }

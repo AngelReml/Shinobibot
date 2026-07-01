@@ -1,7 +1,7 @@
 import { TaskQueueStore, type TaskItem } from '../persistence/task_queue.js';
 import { invokeLLM as routedInvokeLLM, currentProvider } from '../providers/provider_router.js';
 import { getTool, toOpenAITools } from '../tools/index.js';
-import { sanitizeToolCallArguments, repairMessageSequence } from '../runtime/trajectory_helpers.js';
+import { sanitizeToolCallArguments, repairMessageSequence, toolCallWasRepaired } from '../runtime/trajectory_helpers.js';
 import { capToolResultJson } from '../context/tool_output_truncator.js';
 import { metrics } from '../observability/metrics.js';
 import { calculateCost } from './orchestrator.js';
@@ -151,6 +151,14 @@ export class SwarmWorker {
               // FIX 0.3: gate de aprobación para operaciones destructivas en modo headless.
               // En swarm el asker es null → requestApproval deniega automáticamente si es destructivo.
               const swarmVerdict = isDestructive(fnName, parsedArgs);
+              // ALTA-18 (auditoría 2026-07-01): argumentos reparados desde JSON
+              // truncado por sanitizeToolCallArguments() fuerzan el flujo de
+              // aprobación aunque la clasificación normal no marque la tool como
+              // destructiva — ver trajectory_helpers.ts (toolCallWasRepaired).
+              if (toolCallWasRepaired(call) && !swarmVerdict.destructive) {
+                swarmVerdict.destructive = true;
+                swarmVerdict.reason = 'argumentos reparados por el sanitizador tras JSON truncado — requiere confirmación';
+              }
               if (swarmVerdict.destructive) {
                 const swarmApproved = await requestApproval({
                   toolName: fnName,

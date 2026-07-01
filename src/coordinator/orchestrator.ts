@@ -35,7 +35,7 @@ import { MemoryReflector, reflectionEnabled } from '../context/memory_reflector.
 import { runBackgroundReview, backgroundReviewEnabled, reviewInProgress } from '../learning/background_review.js';
 import { loadSoul, personaSystemMessage, builtinSoul } from '../soul/soul.js';
 import type { AlcaynaAgentDef } from '../agents/agent_registry.js';
-import { sanitizeToolCallArguments, repairMessageSequence } from '../runtime/trajectory_helpers.js';
+import { sanitizeToolCallArguments, repairMessageSequence, toolCallWasRepaired } from '../runtime/trajectory_helpers.js';
 import { capToolResultJson, TOOL_OUTPUT_MAX_CHARS } from '../context/tool_output_truncator.js';
 import { metrics } from '../observability/metrics.js';
 import dotenv from 'dotenv';
@@ -201,7 +201,11 @@ export class ShinobiOrchestrator {
     };
   }
 
-  static async process(input: string): Promise<any> {
+  // ALTA-20/CRIT-12: `userId` opcional selecciona la bóveda de memoria curada
+  // de ESE usuario (ver ContextBuilder.buildMessages) en vez de la del owner.
+  // Backward-compatible: los callers existentes que no lo pasan mantienen el
+  // comportamiento previo (bóveda del owner, ligada al cwd del proyecto).
+  static async process(input: string, opts?: { userId?: string }): Promise<any> {
     const currentDepth = Number(process.env.SHINOBI_SPAWN_DEPTH || '0');
     const maxDepth = Number(process.env.SHINOBI_MAX_SPAWN_DEPTH || '3');
     if (currentDepth >= maxDepth) {
@@ -234,7 +238,7 @@ export class ShinobiOrchestrator {
       const useBestOfN = process.env.SHINOBI_BEST_OF_N === '1';
       const work = () => useBestOfN
         ? ShinobiOrchestrator.runBestOfNForTask(input)
-        : this.executeToolLoop(input, toolSequence);
+        : this.executeToolLoop(input, toolSequence, opts?.userId);
       try {
         result = governorDisabled
           ? await work()
@@ -349,8 +353,8 @@ export class ShinobiOrchestrator {
     return this._memoryReflector;
   }
 
-  private static async executeToolLoop(input: string, toolSequence: string[] = []): Promise<any> {
-    let currentMessages = await this.contextBuilder.buildMessages(input);
+  private static async executeToolLoop(input: string, toolSequence: string[] = [], userId?: string): Promise<any> {
+    let currentMessages = await this.contextBuilder.buildMessages(input, userId);
 
     // FASE C / C2 — 11.4 (reported == real). Real tool results from the PREVIOUS
     // iteration, keyed by tool_call_id; compared against the agent's next report.
@@ -712,6 +716,20 @@ export class ShinobiOrchestrator {
             // devuelve como resultado de la tool para que el LLM lo vea y se
             // adapte — el loop NO se rompe.
             const approvalVerdict = isDestructive(functionName, functionArgs);
+            // ALTA-18 (auditoría 2026-07-01): si `sanitizeToolCallArguments()`
+            // reparó argumentos JSON truncados a ciegas (añadiendo `{`/`}`),
+            // el resultado puede parsear como JSON válido con un significado
+            // distinto al que el LLM realmente generó — ej. argumentos de
+            // `run_command` reconstruidos desde basura, ejecutando un comando
+            // destructivo sin haber pasado por la clasificación/aprobación
+            // reales si esa clasificación diera un falso negativo. Forzamos el
+            // flujo de aprobación completo independientemente de lo que
+            // classifyCritical/isDestructive hayan decidido.
+            if (toolCallWasRepaired(toolCall) && !approvalVerdict.destructive) {
+              approvalVerdict.destructive = true;
+              approvalVerdict.reason = 'argumentos reparados por el sanitizador tras JSON truncado — requiere confirmación';
+              console.warn(`  [⚠] "${functionName}": argumentos reparados desde JSON truncado — forzando aprobación (ALTA-18)`);
+            }
             const approvalTimeoutMs = Number(process.env.SHINOBI_APPROVAL_TIMEOUT_MS) || 120_000;
             let approved = false;
             let isTimeout = false;

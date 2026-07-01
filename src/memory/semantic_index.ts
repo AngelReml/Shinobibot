@@ -12,7 +12,7 @@
 // El índice queda congelado para la sesión (coherente con el snapshot frozen
 // de CuratedMemory): los cambios mid-sesión se ven al siguiente reinicio.
 
-import { curatedMemory } from './curated_memory.js';
+import { curatedMemory, type UserVaultRef } from './curated_memory.js';
 import { sharedMemoryStore, type MemoryStore } from './memory_store.js';
 
 export interface ReindexResult {
@@ -28,10 +28,16 @@ export interface ReindexResult {
  *
  * @param store - Opcional. Store aislado del usuario (getMemoryStore(userId)).
  *   Si se omite, usa el singleton compartido.
+ * @param vault - ALTA-22 (auditoría 2026-07-01): opcional. Bóveda de la que
+ *   leer las entradas (`curatedMemory(vault)`). ANTES, se leía SIEMPRE del
+ *   singleton del owner (`curatedMemory()`) sin importar qué `store` se
+ *   pasara — un `store` por-usuario acababa indexando las notas del OWNER
+ *   bajo el nombre del usuario. Debe ir de la mano de `store`: mismo usuario
+ *   en ambos, o el índice de un usuario contendría el contenido de otro.
  */
-export async function rebuildSemanticIndex(store?: MemoryStore): Promise<ReindexResult> {
+export async function rebuildSemanticIndex(store?: MemoryStore, vault?: UserVaultRef): Promise<ReindexResult> {
   try {
-    const entries = curatedMemory().memoryEntries();
+    const entries = curatedMemory(vault).memoryEntries();
     const indexed = await (store ?? sharedMemoryStore()).reindexFromMarkdown(entries);
     return { ok: true, indexed };
   } catch (e: any) {

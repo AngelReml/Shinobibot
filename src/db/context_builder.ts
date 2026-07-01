@@ -1,7 +1,8 @@
 import OpenAI from 'openai';
+import * as path from 'path';
 import { SYSTEM_PROMPT } from '../constants/prompts.js';
 import { Memory, sharedMemory } from '../db/memory.js';
-import { curatedMemory } from '../memory/curated_memory.js';
+import { curatedMemory, type UserVaultRef } from '../memory/curated_memory.js';
 
 /**
  * Drop orphan tool messages and strip dangling assistant.tool_calls before
@@ -82,7 +83,28 @@ export class ContextBuilder {
     this.memory = filePath ? sharedMemory(filePath) : sharedMemory();
   }
 
-  async buildMessages(userInput: string): Promise<any[]> {
+  /**
+   * ALTA-20/CRIT-12: `userId` (opcional) selecciona la bóveda curada de ESE
+   * usuario en vez de la del owner. Sin `userId` (CLI/WebChat single-user)
+   * el comportamiento es idéntico al preexistente. Resuelto aquí (no en
+   * curated_memory.ts) porque requiere `multiuser/user_registry` — memory/
+   * no debe depender de multiuser/ para el caso común de un solo usuario.
+   */
+  private async resolveUserVault(userId?: string): Promise<UserVaultRef | undefined> {
+    if (!userId) return undefined;
+    try {
+      const { userRegistry } = await import('../multiuser/multiuser_wiring.js');
+      const reg = userRegistry();
+      if (userId === reg.ownerId()) return undefined; // el owner sigue usando el singleton de cwd
+      const rec = reg.get(userId);
+      if (!rec) return undefined; // usuario desconocido → no se inventa una bóveda nueva
+      return { key: userId, memoryDir: path.join(rec.userDir, 'memory') };
+    } catch {
+      return undefined; // multiuser/ no cableado en este entorno
+    }
+  }
+
+  async buildMessages(userInput: string, userId?: string): Promise<any[]> {
     const rawHistory = await this.memory.getMessages();
 
     // Map internal history to OpenAI format
@@ -104,7 +126,8 @@ export class ContextBuilder {
     // The snapshot is captured at boot and stays constant for the session
     // (preserves prefix cache). `appendEnv` is the documented exception that
     // refreshes mid-session.
-    const curatedSnapshot = curatedMemory().getSnapshot();
+    const vault = await this.resolveUserVault(userId);
+    const curatedSnapshot = curatedMemory(vault).getSnapshot();
 
     const messages = [
       ...(curatedSnapshot ? [{ role: 'system', content: curatedSnapshot }] : []),
