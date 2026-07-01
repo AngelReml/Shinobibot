@@ -7,13 +7,14 @@ import * as crypto from 'node:crypto';
 import { KanameStore } from '../store.js';
 import { loadIntoCatalog, unloadSkill, runOracleBattery, admitToUserspace, canPromote, promoteKernel, revertKernel, type OracleRunner } from '../evolution.js';
 import { coreHash } from '../immutability.js';
-import { canonicalHashPorted, type SkillCSVLike } from '../../integrity/csv_verify.js';
+import { canonicalHashPorted, addTrustedVerifierPubkey, type SkillCSVLike } from '../../integrity/csv_verify.js';
 import type { SkillManifestLite, KernelVersion } from '../types.js';
 
 /** Build a genuinely valid (CERTIFIED + signed) CSV for a skill — matches verifyCsvCertificate. */
 function validCsv(skillId: string): SkillCSVLike {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
   const pub = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+  addTrustedVerifierPubkey(pub); // testea con un verificador pinneado, no con cualquiera auto-firmado
   const csv: any = { csv_version: '1', subject: { skill_id: skillId, skill_artifact_hash: 'sha256:x' }, verdict: 'CERTIFIED', integrity: { verifier_pubkey: pub } };
   const hashable = JSON.parse(JSON.stringify(csv));
   delete hashable.integrity.this_hash; delete hashable.integrity.signature;

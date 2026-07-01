@@ -15,7 +15,7 @@ import { makeMediator, SyscallDenied, type KernelHost } from '../mediator.js';
 import { KanameStore } from '../store.js';
 import { admitToUserspace, runOracleBattery, promoteKernel, revertKernel, type OracleRunner } from '../evolution.js';
 import { orchestrateSwarm, type LaunchClaude } from '../swarm.js';
-import { canonicalHashPorted, type SkillCSVLike } from '../../integrity/csv_verify.js';
+import { canonicalHashPorted, addTrustedVerifierPubkey, type SkillCSVLike } from '../../integrity/csv_verify.js';
 import type { SkillManifestLite, KernelVersion } from '../types.js';
 
 const stores: KanameStore[] = [];
@@ -24,7 +24,9 @@ afterEach(() => { while (stores.length) stores.pop()!.close(); });
 
 function validCsv(skillId: string): SkillCSVLike {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
-  const csv: any = { csv_version: '1', subject: { skill_id: skillId, skill_artifact_hash: 'sha256:x' }, verdict: 'CERTIFIED', integrity: { verifier_pubkey: publicKey.export({ type: 'spki', format: 'pem' }).toString() } };
+  const pub = publicKey.export({ type: 'spki', format: 'pem' }).toString();
+  addTrustedVerifierPubkey(pub); // testea con un verificador pinneado, no con cualquiera auto-firmado
+  const csv: any = { csv_version: '1', subject: { skill_id: skillId, skill_artifact_hash: 'sha256:x' }, verdict: 'CERTIFIED', integrity: { verifier_pubkey: pub } };
   const h = JSON.parse(JSON.stringify(csv)); delete h.integrity.this_hash; delete h.integrity.signature;
   const this_hash = 'sha256:' + canonicalHashPorted(h);
   csv.integrity.this_hash = this_hash;

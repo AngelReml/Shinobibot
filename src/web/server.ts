@@ -26,7 +26,7 @@ import { WebSocketServer } from 'ws';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { randomUUID } from 'crypto';
+import { randomUUID, timingSafeEqual } from 'crypto';
 
 import { ShinobiOrchestrator } from '../coordinator/orchestrator.js';
 import { handleSlashCommand, SLASH_COMMANDS } from '../coordinator/slash_commands.js';
@@ -102,6 +102,38 @@ export interface StartWebServerOptions {
    *  path.join(__dirname, 'public'). Necesario para builds pkg.exe que
    *  extraen los assets a APPDATA (Bloque 9). */
   publicPath?: string;
+}
+
+// MEDIA-05 (auditoría 2026-07-01): comparación timing-safe — `!==` filtra el
+// token carácter a carácter vía canal de tiempo. Las longitudes distintas se
+// rechazan antes de timingSafeEqual (que lanza si los buffers no miden igual).
+// A nivel de módulo (no closure) para que sea testeable sin levantar el server.
+export function tokensEqual(received: unknown, expected: string): boolean {
+  if (typeof received !== 'string' || !received) return false;
+  const a = Buffer.from(received);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
+
+// CRIT-14 (auditoría 2026-07-01, completa lo que aeb7ca3 dejó pendiente):
+// /api/approval puede desactivar TODOS los gates de seguridad con
+// {"mode":"off"}. CSRF (aeb7ca3) bloquea el vector de página web maliciosa,
+// pero cualquier caller directo con acceso de red al puerto (curl, otro
+// proceso local) podía seguir golpeándolo sin más que el CSRF token, que es
+// público vía GET /api/csrf-token sin auth. Si el operador configuró
+// SHINOBI_ADMIN_TOKEN (igual que protege /admin/*), exígelo aquí también —
+// defensa en profundidad real, no solo anti-CSRF. Si NO está configurado, se
+// preserva el comportamiento actual (solo CSRF) para no romper el modo
+// single-user por defecto, que normalmente no configura admin token.
+export function requireAdminTokenIfConfigured(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  const adminToken = process.env.SHINOBI_ADMIN_TOKEN;
+  if (!adminToken) { next(); return; }
+  if (!tokensEqual(req.headers['x-admin-token'], adminToken)) {
+    res.status(401).json({ ok: false, error: 'SHINOBI_ADMIN_TOKEN requerido (x-admin-token)' });
+    return;
+  }
+  next();
 }
 
 /**
@@ -414,7 +446,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
   });
 
   // Cambiar modo del candado (§11). El gate persiste en config.json.
-  app.post('/api/approval', requireCsrf, (req, res) => {
+  app.post('/api/approval', requireCsrf, requireAdminTokenIfConfigured, (req, res) => {
     const mode = String(req.body?.mode || '').toLowerCase();
     if (!['on', 'smart', 'critical', 'off'].includes(mode)) {
       res.status(400).json({ ok: false, error: 'modo inválido (on|smart|critical|off)' });
@@ -518,8 +550,7 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
     console.warn('[SECURITY] SHINOBI_ADMIN_TOKEN not set — admin dashboard disabled');
   } else {
     app.use('/admin', (req, res, next) => {
-      const token = req.headers['x-admin-token'];
-      if (token !== adminToken) { res.status(401).json({ error: 'unauthorized' }); return; }
+      if (!tokensEqual(req.headers['x-admin-token'], adminToken)) { res.status(401).json({ error: 'unauthorized' }); return; }
       next();
     });
     app.get('/admin/dashboard', async (_req, res) => {
@@ -811,7 +842,9 @@ export async function startWebServer(opts: StartWebServerOptions = {}): Promise<
             finalResponse = `Comando no reconocido: ${cmd}. Quita la "/" si querías hablar con el LLM, o tipea uno de los comandos válidos.`;
           }
         } else {
-          const result: any = await ShinobiOrchestrator.process(text);
+          // CRIT-12/ALTA-20: pasa el userId resuelto para que el contexto use
+          // la bóveda de memoria de ESE usuario, no la del owner por defecto.
+          const result: any = await ShinobiOrchestrator.process(text, { userId: user.userId });
           if (result?.response) finalResponse = String(result.response);
           else if (result?.output) finalResponse = String(result.output);
           else finalResponse = JSON.stringify(result, null, 2);
