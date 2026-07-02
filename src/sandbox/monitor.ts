@@ -22,9 +22,11 @@
 //     src/sandbox/ vuelve a tocar `sandboxRegistry`.
 //
 //   TODAVÍA NO (etapas posteriores, declarado sin adornos):
-//   - E3: mandatos de capacidad. El parámetro `mandate` ya existe en la firma para
-//     fijar el contrato público, pero pasarlo DENIEGA (`mandate_not_enforceable`):
-//     fail-closed antes que fingir un enforcement que no está implementado.
+//   - E3.a+E3.b HECHO: mandatos de capacidad. Pasar un mandato (explícito o de misión)
+//     ENFORCEA de verdad (`./mandate.js`): efecto fuera del mandato ⇒
+//     `capability_not_granted`/`mandate_expired`. La EMISIÓN por misión está cableada,
+//     operador-controlada (`SHINOBI_MANDATE`, default-off ⇒ paridad legado). Queda la
+//     FIRMA del mandato (E3.c, depende de P2) y que P4 derive el mínimo por misión.
 //   - E4: backend confinado por defecto. El default sigue siendo `local` (con su
 //     defensa propia F1.1: blacklist + env allowlist + redacción — intacta, §9).
 //   - E4/E5: `fs.read`/`fs.write`/`net`/`input` existen en el TIPO para que el
@@ -42,6 +44,7 @@
 import type { BackendId, RunOutput } from './types.js';
 import { sandboxRegistry } from './registry.js';
 import { redactSecrets } from '../security/secret_redactor.js';
+import { checkMandate, currentMandate, type Mandate } from './mandate.js';
 
 // ── El efecto como dato tipado ────────────────────────────────────────────────────
 
@@ -96,20 +99,17 @@ export interface InputEffect extends EffectBase { readonly kind: 'input'; }
 
 export type Effect = ShellEffect | FsReadEffect | FsWriteEffect | NetEffect | InputEffect;
 
-/**
- * Mandato de capacidades (P1.E3, plan de frontera §Pilar 1). La firma pública ya
- * lo acepta para que el contrato no cambie cuando E3 llegue, pero E1-E2 NO sabe
- * enforcearlo — y por eso pasarlo DENIEGA en vez de ignorarse en silencio.
- */
-export interface Mandate {
-  readonly capabilities: readonly string[];
-}
+// El tipo `Mandate` y el enforcement (`checkMandate`) viven en `./mandate.js`
+// (E3.a). Se re-exporta aquí para no romper imports que lo tomaban del monitor —
+// el contrato público del chokepoint no cambia.
+export type { Mandate } from './mandate.js';
 
 export type EffectDenialCode =
   | 'backend_unavailable'      // backend pedido no registrado / id desconocido
   | 'invalid_effect'           // el Effect está mal formado (raw+args, argv no componible, timeout inválido…)
   | 'unsupported_kind'         // kind declarado en el tipo pero sin mediación real todavía (E4/E5)
-  | 'mandate_not_enforceable'  // se pasó un mandato y E3 no existe: fail-closed, no fingir
+  | 'capability_not_granted'   // (E3.a) el efecto cae fuera del mandato de capacidades de la misión
+  | 'mandate_expired'          // (E3.a) el mandato caducó (expiresAt en el pasado): re-emisión requerida
   | 'backend_faulted';         // el backend LANZÓ (no devolvió fallo): el monitor degrada limpio, no propaga
 
 export type EffectResult =
@@ -295,19 +295,23 @@ function deny(code: EffectDenialCode, detail: string): EffectResult {
  *     fail-open. `mandate` presente ⇒ denial explícita hasta que E3 exista.
  */
 export async function mediatedEffect(effect: Effect, mandate?: Mandate): Promise<EffectResult> {
-  const result = await _decideAndRun(effect, mandate);
+  // Mandato efectivo (E3): el explícito manda; si no hay, se toma el de la misión
+  // activa (`currentMandate`, AsyncLocalStorage). Sin ninguno ⇒ undefined ⇒ rama
+  // legado (sin enforcement), idéntica al comportamiento de E1-E2.
+  const effective = mandate ?? currentMandate();
+  const result = await _decideAndRun(effect, effective);
   emitEffectAudit(effect, result);   // fail-open: nunca altera `result`
   return result;
 }
 
 /** El núcleo de decisión+ejecución. `mediatedEffect` lo envuelve con el audit. */
 async function _decideAndRun(effect: Effect, mandate?: Mandate): Promise<EffectResult> {
+  // E3.a — enforcement de capacidades. Si hay mandato (explícito o de misión), el
+  // efecto debe estar cubierto por él; si no, se DENIEGA antes de tocar backend.
+  // Sin mandato ⇒ rama legado (paridad con E1-E2). El check es puro (`checkMandate`).
   if (mandate !== undefined) {
-    return deny(
-      'mandate_not_enforceable',
-      'P1.E3 (mandatos de capacidad) no está implementado: el monitor no finge enforcement. ' +
-        'Ejecuta sin mandato (legado) o implementa E3 antes de pasar uno.',
-    );
+    const verdict = checkMandate(effect, mandate);
+    if (!verdict.granted) return deny(verdict.code, verdict.detail);
   }
 
   if (effect.kind !== 'shell') {

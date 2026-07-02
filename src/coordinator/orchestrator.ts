@@ -31,6 +31,10 @@ import { diagnoseError } from '../selfdebug/self_debug.js';
 import { recordToolPattern } from '../skills/pattern_wiring.js';
 import { IterationBudget, effectiveMaxIterations } from './iteration_budget.js';
 import { runExclusive } from './orchestrator_mutex.js';
+import { runWithMandate, parseMandateSpec } from '../sandbox/mandate.js';
+import { logMandate } from '../audit/audit_log.js';
+import { getDeviceIdentity } from '../attest/device_identity.js';
+import { signMandate } from '../attest/mandate_sign.js';
 import { ProgressTracker, progressDetectionEnabled } from './progress_judge.js';
 import { MemoryReflector, reflectionEnabled } from '../context/memory_reflector.js';
 import { runBackgroundReview, backgroundReviewEnabled, reviewInProgress } from '../learning/background_review.js';
@@ -227,7 +231,34 @@ export class ShinobiOrchestrator {
     // ver el banner en orchestrator_mutex.ts) así que los call-sites
     // existentes que YA envolvían process() externamente (web/server.ts,
     // los canales) no deadlockean ni necesitan tocarse.
-    return runExclusive(() => this.processExclusive(input, opts));
+    // E3.b (plan de frontera) — emisión del mandato de capacidades POR MISIÓN.
+    // Se toma de la config del operador (`SHINOBI_MANDATE`, p.ej. "shell:*,fs.read:/data";
+    // TTL opcional `SHINOBI_MANDATE_TTL_MS`). Sin config ⇒ undefined ⇒ rama legado
+    // (paridad total con E1-E2). Con mandato, la misión entera corre bajo
+    // `runWithMandate`: el monitor (mediatedEffect) rechaza todo efecto fuera de él,
+    // least-privilege por misión SIN que ningún caller tenga que pasarlo. La policy
+    // real (qué mínimo por misión) llega con P4; esto es el gancho operador-controlado.
+    const mandate = parseMandateSpec(process.env.SHINOBI_MANDATE, {
+      ttlMs: process.env.SHINOBI_MANDATE_TTL_MS ? Number(process.env.SHINOBI_MANDATE_TTL_MS) : undefined,
+    });
+    const run = () => runExclusive(() => this.processExclusive(input, opts));
+    if (mandate) {
+      // E3.c — firma el mandato con la identidad de dispositivo (Ed25519) para que el
+      // evento mission.start sea verificable por terceros (Modo Cristal/P2). Best-effort:
+      // si la firma falla, se audita el mandato SIN firma (nunca tumba la misión — el
+      // enforcement de E3.a/b no depende de la firma).
+      let signature: string | undefined;
+      let devicePublicKeyPem: string | undefined;
+      try {
+        const id = getDeviceIdentity();
+        const s = signMandate(mandate, id.privateKeyPem, id.publicKeyPem);
+        signature = s.signature;
+        devicePublicKeyPem = s.publicKeyPem;
+      } catch { /* firma best-effort */ }
+      logMandate({ capabilities: mandate.capabilities, expiresAt: mandate.expiresAt, userId: opts?.userId, signature, devicePublicKeyPem });
+      return runWithMandate(mandate, run);
+    }
+    return run();
   }
 
   private static async processExclusive(input: string, opts?: { userId?: string }): Promise<any> {

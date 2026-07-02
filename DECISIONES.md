@@ -1,5 +1,152 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · P2 (Modo Cristal, primer incremento) — verificador standalone del mandato firmado
+
+Sobre la firma de E3.c, primer trozo del Pilar 2: `src/attest/verify.ts` — un tercero toma un evento
+`mission_start` del audit (o su línea JSONL) y verifica, con SOLO la pública embebida, que el mandato de
+esa misión fue firmado por esta instalación y no se alteró; sin acceso a la máquina ni confianza en
+Shinobi. `verifyMissionStart`/`verifyMissionStartLine` reutilizan `verifyMandateSignature` (nuevo en
+`mandate_sign.ts`: recomputa el hash canónico del mandato y verifica la firma) — cero cripto nueva.
+
+Alcance honesto: verifica AUTENTICIDAD+INTEGRIDAD del mandato. NO prueba que la misión respetara el
+mandato (cruzar los efectos auditados contra el mandato es el Recibo de Misión completo, P2.E5 —
+pendiente, se apoyará aquí). Verificado (regla #2): `tsc` 0; mutación de `verifyMandateSignature`
+(siempre true) → 4 rojos (mandato/firma/clave/basura manipulados) → restaurar → verde. Ficheros:
+`src/attest/verify.ts` (net-new), `src/attest/mandate_sign.ts` (+`verifyMandateSignature`),
+`src/attest/__tests__/mandate_sign.test.ts` (ampliado). NO commiteado: el git del mount está bloqueado
+por `.git/HEAD.lock`/`index.lock` obsoletos e irremovibles desde Linux (`Operation not permitted`) — el
+commit se hace en Windows tras `del .git\HEAD.lock .git\index.lock`.
+
+## 2026-07-03 · P1.E3.b + E3.c — Emisión por misión (operador-controlada) + firma Ed25519 del mandato
+
+Continuación directa de la entrada de abajo (E3.a). Aquella dejó "fuera de alcance" la EMISIÓN por misión
+(a P4) y la FIRMA (a P2). Tras revisión se implementan ambas hasta donde son verificables sin salir del
+orden de dependencias; esta entrada SUPERSEDE aquel "fuera de alcance".
+
+**E3.b — EMISIÓN por misión (operador-controlada, default-off):**
+- `mandate.ts::parseMandateSpec(spec, {ttlMs, now})` — parsea `SHINOBI_MANDATE` (capacidades separadas
+  por comas, p.ej. "shell:*,fs.read:/data") → `Mandate`. Vacío/undefined/solo-comas ⇒ undefined ⇒ rama
+  legado. `SHINOBI_MANDATE_TTL_MS` fija `expiresAt`.
+- `coordinator/orchestrator.ts::process()` envuelve la misión en `runWithMandate(mandate, …)` cuando hay
+  mandato → el monitor rechaza todo efecto fuera de él (least-privilege por misión sin que ningún caller
+  lo pase; cierra la fragilidad "disciplina del caller"). **Default-off**: sin `SHINOBI_MANDATE`,
+  `process()` corre como antes (paridad total, ~2126 tests intactos).
+- `audit_log.ts`: nuevo evento `mission_start` (`logMandate`) — el mandato queda en el audit al arrancar
+  la misión (base del "Modo Cristal"/P2). Añadido al union SIN tocar `buildChain` (§9 intacta).
+- **Por qué operador-controlado y no automático:** DERIVAR el mínimo por misión es P4 (policy). Sin P4, un
+  mínimo adivinado rompería al agente y un máximo sería teatro. El gancho permite activar least-privilege
+  HOY a conciencia; P4 lo hará automático. Nada altera el comportamiento por defecto.
+
+**E3.c — FIRMA Ed25519 del mandato (reutiliza la primitiva, no reinventa cripto):**
+- `src/attest/device_identity.ts` — identidad de dispositivo: par Ed25519 load-or-create (reusa
+  `provenance_v2.generateProvenanceKeypair`), persistido en JSON 0600. **Seam honesto:** el cifrado en
+  reposo con DPAPI (Windows) es el P2.E1 completo y queda PENDIENTE; el backend de fichero funciona en
+  cualquier plataforma y es sobre lo que DPAPI se enchufa. La privada nunca se audita ni va al backup.
+- `src/attest/mandate_sign.ts` — `signMandate`/`verifyMandate` (SHA-256 del canónico → firma Ed25519 →
+  verificación con la pública; node:crypto directo, mismo patrón que provenance_v2). Un tercero verifica
+  con solo la pública; falsificar sin la privada es inviable.
+- La emisión (E3.b) firma el mandato y adjunta `signature` + `devicePublicKeyPem` al evento
+  `mission_start`. Best-effort: si la firma falla, se audita sin firma (el ENFORCEMENT de E3.a/b no
+  depende de la firma). **Modelo de amenaza honesto:** la firma prueba autenticidad+integridad, NO
+  incorruptibilidad de un proceso ya comprometido (idéntico a provenance_v2).
+
+**Fuera de alcance (verdad, no pereza):**
+- **Verificación de la firma en el punto de enforcement** (que el monitor rechace un mandato ambiente mal
+  firmado): no cableada; hoy la firma sirve al recibo/audit (Modo Cristal), no al gate. Refinamiento de
+  P2/E3.c-full.
+- **DPAPI en reposo** (Windows) para la privada: pendiente (seam listo).
+- **E4** (backend confinado, ruta PowerShell): sin cambios, solo verificable en Windows.
+
+**Verificación (regla #1 y #2 — datos medidos):**
+- `tsc --noEmit` sobre el árbol real = **0 errores** (mandate/monitor/orchestrator/audit_log/attest + 3
+  ficheros de test).
+- **Mutation testing (regla #2), evidencia real** (`node --experimental-strip-types`, cripto/lógica pura):
+  - E3.a `checkMandate`: mutar "ignorar mandato" → 4 rojos → restaurar → ALL_PASS.
+  - E3.b `parseMandateSpec`: mutar "vacío ⇒ mandato" (rompería paridad) → 2 rojos → restaurar → ALL_PASS.
+  - E3.c `verifyMandate`: mutar "siempre válido" → 3 rojos (mandato/firma/clave) → restaurar → ALL_PASS.
+- Invariante E1-E2 intacto: `grep sandboxRegistry` fuera de `src/sandbox/` = 0.
+- **Pendiente de verificación canónica en Windows por el operador:** `npm run test` (vitest 4) de
+  `sandbox/__tests__` + `attest/__tests__`. vitest 4 (rolldown) y esbuild hacen core dump en el sandbox
+  Linux; se verificó con tsc + node (la doctrina fija Windows como la prueba autoritativa).
+
+**Ficheros nuevos:** `src/attest/device_identity.ts`, `src/attest/mandate_sign.ts`,
+`src/attest/__tests__/mandate_sign.test.ts`. **Modificados:** `src/sandbox/mandate.ts`,
+`src/sandbox/monitor.ts` (banner), `src/coordinator/orchestrator.ts` (emisión+firma en `process()`),
+`src/audit/audit_log.ts` (evento `mission_start`), `src/sandbox/__tests__/mandate_least_privilege.test.ts`.
+NO commiteado (regla #4): diff preparado, a la espera del operador.
+
+## 2026-07-03 · P1.E3.a — Mandatos de capacidad: enforcement real en el monitor (retira `mandate_not_enforceable`)
+
+Continuación de P1.E1-E2 (entradas de abajo). E1-E2 dejó el hook `mediatedEffect(effect, mandate?)`
+pero pasar un mandato DENEGABA en bloque (`mandate_not_enforceable`): fail-closed antes que fingir.
+Esta sesión implementa **E3.a**, el enforcement real de least-privilege, y retira aquella negación.
+Alcance deliberado: E3.a + el MECANISMO de transporte por misión (E3.b). NO se implementó la EMISIÓN
+del mandato por misión (queda a P4) ni la FIRMA del mandato (E3.c, queda a P2). Ver "Fuera de alcance".
+
+**Qué se construyó:**
+- `src/sandbox/mandate.ts` (net-new): `checkMandate(effect, mandate, now?)` PURO. Una capacidad es el
+  string `"kind:scope"` — la forma que el plan de frontera ya usa (`shell:workspace`, `net:...`,
+  `fs.write:./out`) y alineada con el vocabulario de scope de kaname (`mediator.ts::scoped()`), no una
+  segunda gramática divergente. Cobertura: `*` comodín; igualdad; prefijo de ruta CON frontera de
+  separador (`shell:/ws` cubre `/ws` y `/ws/sub` pero NO `/ws-secretos` — cierra por construcción el
+  bug de prefijo suelto tipo scratch/scratch-evil). Caducidad (`expiresAt`) enforced. Capacidad
+  malformada se ignora (nunca concede por accidente).
+- `src/sandbox/monitor.ts`: `_decideAndRun`, si hay mandato, llama `checkMandate` y DENIEGA
+  (`capability_not_granted` / `mandate_expired`) el efecto no cubierto ANTES de tocar backend. Retirado
+  `mandate_not_enforceable` del union `EffectDenialCode` (reemplazado por los dos códigos reales).
+  `mandate === undefined` ⇒ rama legado (sin enforcement): PARIDAD TOTAL con E1-E2 (los 6 callers
+  migrados y los ~2126 tests que no pasan mandato no cambian de comportamiento).
+- **Mecanismo E3.b (transporte por misión), DORMIDO por defecto**: `runWithMandate`/`currentMandate`
+  (AsyncLocalStorage propio en `sandbox/`, mismo patrón que `agents/exec_context.ts`, sin inversión de
+  capas). `mediatedEffect` toma el mandato explícito o, si no hay, el de la misión activa. Cierra la
+  fragilidad "disciplina del caller": el enforcement es ambiente, no opcional. SIN emisor en producción
+  ⇒ `currentMandate()` es undefined ⇒ paridad legado.
+
+**Por qué NO toca la libertad del agente (freedom-neutral por defecto):** sin mandato explícito y sin
+emisor de misión, NADA cambia — el agente corre exactamente como en E1-E2. El enforcement solo actúa
+cuando alguien concede un mandato a propósito. Es capacidad opt-in, no una nueva restricción global.
+
+**Fuera de alcance, explícito (no se tocó y por qué):**
+- **E3.b EMISIÓN (mission.start).** Emitir el mandato mínimo por misión necesita una policy que decida
+  QUÉ capacidades recibe cada misión (Pilar 4). Sin P4, un mandato amplio sería teatro y uno estrecho
+  rompería al agente. El mecanismo está listo; la emisión se cablea con P4. No se cableó el orquestador
+  (1056 LOC, estado estático) a ciegas — y menos a través de un mount que trunca ficheros.
+- **E3.c FIRMA del mandato.** El plan pide firmarlo con la clave de dispositivo (P2.E1
+  `device_identity`), que aún no existe. E3.a emite/enforcea sin firma; elevarlo a Ed25519 es E3.c y
+  depende de P2. No se finge una firma.
+- **Ruta PowerShell** sigue fuera del monitor (E4, solo verificable en Windows) — sin cambios.
+
+**Verificación (regla #1 y #2 — datos medidos en este entorno):**
+- **Entorno:** vitest 4 (rolldown) y esbuild hacen core dump / mueren en este sandbox Linux; el runner
+  canónico se corre en Windows (doctrina: el verde del sandbox no es la prueba final). La lógica de
+  E3.a es JS-puro, así que se verificó con `tsc` (agnóstico de plataforma) + ejecución con
+  `node --experimental-strip-types`.
+- `tsc --noEmit -p tsconfig.json` sobre el árbol real (fuente de verdad) = **0 errores** (con
+  `mandate.ts` + `monitor.ts` + los 2 tests colocados).
+- **Mutation testing (regla #2), evidencia real** sobre `checkMandate` (la lógica de least-privilege):
+  - REAL (checker íntegro) → harness ALL_PASS (exit 0).
+  - MUTADO (`return {granted:true}` al inicio de `checkMandate` = "ignorar el mandato", la mutación
+    canónica del plan) → **4 aserciones rojas** (no cubierto, caducado, frontera de prefijo,
+    malformada) → exit 1.
+  - RESTAURADO (byte-idéntico al mount, `diff` vacío) → ALL_PASS de nuevo.
+- `grep mandate_not_enforceable` en producto = **0** (solo la mención histórica en el banner de
+  `mandate.ts`). `grep sandboxRegistry` fuera de `src/sandbox/` sigue = 0 (E1-E2 intacto).
+- **Pendiente de verificación canónica en Windows por el operador:** `npm run test` (vitest 4) del lote
+  `sandbox/__tests__`: el net-new `mandate_least_privilege.test.ts` y el actualizado
+  `monitor_is_unbypassable.test.ts` deben pasar; correr su mutación en el runner canónico.
+
+**Ficheros:** `src/sandbox/mandate.ts` (net-new), `src/sandbox/monitor.ts` (enforcement + fallback
+ambiente + códigos), `src/sandbox/__tests__/mandate_least_privilege.test.ts` (net-new, mutación del
+plan), `src/sandbox/__tests__/monitor_is_unbypassable.test.ts` (actualizado: el contrato del mandato
+pasó de "deniega en bloque" a "enforcea").
+
+**Nota de entorno (fail-loud):** (1) el índice de git del repo está desincronizado (ficheros de
+`src/sandbox/` como `D` en índice + `??` en disco) — el artefacto de corrupción de índice que el prompt
+forense lista, NO trabajo perdido (ficheros íntegros en disco, verificado por contenido y tsc). (2) las
+file-tools truncaron `monitor.ts` al escribir en el mount; se restauró desde `git show HEAD` +
+reaplicación de ediciones con `diff` byte-a-byte vacío. Ambos son riesgos de entorno del HANDOFF, no del
+cambio. NO se commiteó (regla #4): diff preparado, a la espera del operador.
+
 ## 2026-07-02 · P1 hardening — 3 mejoras de robustez del Monitor de Referencia (resiliencia + audit + validación de entrada)
 
 Segunda pasada sobre P1.E1-E2 (entrada de arriba): tras entregar el chokepoint, una

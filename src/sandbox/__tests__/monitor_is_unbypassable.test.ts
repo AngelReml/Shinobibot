@@ -11,9 +11,9 @@
 //      decorativo en vez de dar verde silencioso.
 //   2. CHOKEPOINT VIVO (no decorativo): `mediatedEffect` ejecuta de verdad
 //      a través del backend resuelto. Mutación: romper la resolución → rojo.
-//   3. FAIL-CLOSED en las fronteras no implementadas: mandato presente
-//      (E3) ⇒ denegado; kind no-shell (E4/E5) ⇒ denegado; efecto malformado
-//      ⇒ denegado; backend desconocido ⇒ denegado sin fallback a local.
+//   3. FAIL-CLOSED en las fronteras: mandato presente SIN la capacidad ⇒
+//      denegado (E3.a, capability_not_granted); kind no-shell (E4/E5) ⇒ denegado;
+//      efecto malformado ⇒ denegado; backend desconocido ⇒ denegado sin fallback.
 //      Mutación: ignorar el mandato en silencio → rojo.
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { readFileSync, readdirSync, statSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
@@ -116,8 +116,9 @@ describe('P1 — chokepoint vivo y fail-closed', () => {
     expect(monitorStats().mediated).toBe(1);
   });
 
-  it('mandato presente ⇒ DENEGADO (E3 no implementado: no se finge enforcement)', async () => {
-    sandboxRegistry().register(new MockBackend({ id: 'mock' }));
+  it('mandato presente que NO cubre el efecto ⇒ capability_not_granted, NO ejecuta (E3.a)', async () => {
+    let ran = 0;
+    sandboxRegistry().register(new MockBackend({ id: 'mock', scriptedOutput: () => { ran++; return { stdout: '', stderr: '', exitCode: 0 }; } }));
     const res = await mediatedEffect(
       {
         kind: 'shell',
@@ -128,12 +129,13 @@ describe('P1 — chokepoint vivo y fail-closed', () => {
         backendId: 'mock',
         reversible: false,
       },
-      { capabilities: ['shell:workspace'] },
+      { capabilities: ['fs.read:/nada'] }, // un mandato que NO cubre un efecto shell
     );
     expect(res.ok).toBe(false);
-    if (!res.ok) expect(res.code).toBe('mandate_not_enforceable');
+    if (!res.ok) expect(res.code).toBe('capability_not_granted');
+    expect(ran).toBe(0);                        // el efecto NO llegó al backend
     expect(monitorStats().denied).toBe(1);
-    expect(monitorStats().mediated).toBe(0); // y NO se ejecutó nada
+    expect(monitorStats().mediated).toBe(0);
   });
 
   it('kinds declarados pero sin mediación real (fs/net/input) ⇒ DENEGADOS', async () => {

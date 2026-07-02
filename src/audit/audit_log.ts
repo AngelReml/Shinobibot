@@ -40,7 +40,7 @@ import { redactSecrets } from '../security/secret_redactor.js';
 import { buildChain, toLines, GENESIS } from './audit_chain.js';
 import { maybeAnchor, checkAnchorIntegrity, type AnchorIntegrityResult } from './audit_anchor.js';
 
-export type AuditEventKind = 'tool_call' | 'loop_abort' | 'failover' | 'approval_decision' | 'effect';
+export type AuditEventKind = 'tool_call' | 'loop_abort' | 'failover' | 'approval_decision' | 'effect' | 'mission_start';
 
 export interface ToolCallEvent {
   kind: 'tool_call';
@@ -121,7 +121,25 @@ export interface EffectEvent {
   userId?: string;
 }
 
-export type AuditEvent = ToolCallEvent | LoopAbortEvent | FailoverEvent | ApprovalDecisionEvent | EffectEvent;
+/**
+ * P1.E3 (plan de frontera) — el mandato de capacidades con que ARRANCA una misión
+ * (`ShinobiOrchestrator.process`). Hace visible en el audit con qué least-privilege
+ * corrió cada misión (base del "Modo Cristal"/P2). La FIRMA del mandato (E3.c) es
+ * posterior y depende de P2; este evento registra el mandato tal cual se emitió.
+ */
+export interface MissionStartEvent {
+  kind: 'mission_start';
+  ts: string;
+  capabilities: string[];
+  expiresAt?: number;
+  userId?: string;
+  /** E3.c — firma Ed25519 (hex) del mandato, si la identidad de dispositivo firmó. */
+  signature?: string;
+  /** E3.c — pública Ed25519 (SPKI/PEM) del dispositivo; el verificador no necesita más. */
+  devicePublicKeyPem?: string;
+}
+
+export type AuditEvent = ToolCallEvent | LoopAbortEvent | FailoverEvent | ApprovalDecisionEvent | EffectEvent | MissionStartEvent;
 
 const ARGS_PREVIEW_CAP = 200;
 
@@ -452,6 +470,29 @@ export function logEffect(args: {
     durationMs: args.durationMs === undefined ? undefined : Math.max(0, Math.round(args.durationMs)),
     sessionId: args.sessionId,
     userId: args.userId,
+  });
+}
+
+/**
+ * P1.E3.b — registra el mandato de capacidades con que arranca una misión
+ * (`mission_start`). Best-effort/fail-open igual que el resto del audit: si la
+ * escritura falla NO lanza (un fallo de audit no debe tumbar una misión).
+ */
+export function logMandate(args: {
+  capabilities: readonly string[];
+  expiresAt?: number;
+  userId?: string;
+  signature?: string;
+  devicePublicKeyPem?: string;
+}): boolean {
+  return writeAuditEvent({
+    kind: 'mission_start',
+    ts: new Date().toISOString(),
+    capabilities: [...args.capabilities],
+    expiresAt: args.expiresAt,
+    userId: args.userId,
+    signature: args.signature,
+    devicePublicKeyPem: args.devicePublicKeyPem,
   });
 }
 
