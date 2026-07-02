@@ -121,6 +121,37 @@ export function checkMandate(effect: Effect, mandate: Mandate, now: number = Dat
   };
 }
 
+/** Un efecto ya ejecutado tal como lo registra un Recibo de Misión: kind + scope + decisión. */
+export interface ExecutedEffect {
+  readonly kind: string;
+  readonly scope: string;
+  readonly decision: 'allow' | 'deny';
+}
+
+/**
+ * ¿Todos los efectos PERMITIDOS de una misión caben en su mandato? Es la prueba
+ * central del "Modo Cristal" (P2.E5): con enforcement correcto (E3.a), ningún efecto
+ * permitido debería exceder el mandato — si un verificador encuentra uno que sí, es
+ * evidencia de que el gate se saltó o rompió. Los efectos DENEGADOS no cuentan (no
+ * ocurrieron). Verifica COBERTURA histórica (reusa `scopeCovers`), no la caducidad
+ * (que es sobre validez presente, no sobre si un efecto pasado estaba cubierto). Puro.
+ */
+export function effectsWithinMandate(
+  effects: readonly ExecutedEffect[],
+  mandate: Mandate,
+): { ok: boolean; offending?: ExecutedEffect } {
+  for (const e of effects) {
+    if (e.decision !== 'allow') continue;
+    const granted = mandate.capabilities.some((cap) => {
+      const i = cap.indexOf(':');
+      if (i < 0) return false;
+      return cap.slice(0, i) === e.kind && scopeCovers(cap.slice(i + 1), e.scope);
+    });
+    if (!granted) return { ok: false, offending: e };
+  }
+  return { ok: true };
+}
+
 /**
  * Emisor pre-P4 (operador-controlado): parsea la especificación de mandato de la
  * config (`SHINOBI_MANDATE`) — capacidades separadas por comas, p.ej.

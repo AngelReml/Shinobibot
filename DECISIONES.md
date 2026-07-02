@@ -1,5 +1,25 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · P2.E5 — Recibo de Misión: prueba de NO-EXCESO del mandato (la corona del Modo Cristal)
+
+Sobre P2 (verificador) y E3 (mandatos firmados): el Recibo de Misión. `src/attest/mission_receipt.ts` —
+`buildMissionReceipt` emite un artefacto FIRMADO (Ed25519) que empaqueta {missionId, mandato, efectos
+(kind+scope+decisión), modelos, raíz del hash-chain del audit}; `verifyMissionReceipt` lo valida con SOLO
+la pública y prueba tres cosas: autenticidad (firma), integridad (raíz del audit, opcional cruzando el
+JSONL), y NO-EXCESO — que ningún efecto PERMITIDO cayó fuera del mandato (`effectsWithinMandate`, nuevo en
+`mandate.ts`, reusa `scopeCovers`). Es "compruébalo tú, criptográficamente", no "confía".
+
+Reutiliza TODO: la primitiva Ed25519 (node:crypto, igual que provenance_v2/mandate_sign), la raíz de
+cadena del audit (`audit_chain`), y la cobertura de mandato (`scopeCovers`). Cero cripto/mandato nuevos.
+Alcance honesto: prueba integridad+autenticidad+no-exceso; NO incorruptibilidad de un proceso comprometido
+ANTES de firmar (modelo CT-like, igual que provenance_v2). Pendiente: EMITIR el recibo al cerrar misión
+(cablear el cierre de `orchestrator` con los efectos recogidos del audit) — el builder ya está listo.
+
+Verificado (regla #2): `tsc` 0; mutación de `effectsWithinMandate` (siempre ok) → 2 rojos (permitido
+fuera / frontera de prefijo) → restaurar → verde. Ficheros: `src/attest/mission_receipt.ts` (net-new),
+`src/attest/__tests__/mission_receipt.test.ts` (net-new), `src/sandbox/mandate.ts` (+`effectsWithinMandate`).
+Verificación canónica vitest pendiente en Windows.
+
 ## 2026-07-03 · P2 (Modo Cristal, primer incremento) — verificador standalone del mandato firmado
 
 Sobre la firma de E3.c, primer trozo del Pilar 2: `src/attest/verify.ts` — un tercero toma un evento
