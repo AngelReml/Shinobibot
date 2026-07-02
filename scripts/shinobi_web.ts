@@ -28,6 +28,7 @@ import { ChatStore } from '../src/web/chat_store.js';
 import { startGateway, parseAllowedUserIds } from '../src/gateway/index.js';
 import { lanWebChatInfo } from '../src/gateway/webchat_channel.js';
 import { installEgressRuntimeGuard } from '../src/egress/runtime_guard.js';
+import { installEffectAudit } from '../src/sandbox/audit_wiring.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -35,6 +36,9 @@ const __dirname = dirname(__filename);
 // F2.1 (CRIT-08, auditoría 2026-07-01) — mismo guard que scripts/shinobi.ts,
 // instalado antes de cualquier llamada de red del servidor web/gateway.
 installEgressRuntimeGuard();
+// P1 — audit de efectos del monitor (mismo patrón que el egress guard). Ver
+// src/sandbox/audit_wiring.ts. Solo arranque real; no-op en tests.
+installEffectAudit();
 
 // pkg detection — process.pkg está definido cuando corremos como .exe empaquetado
 const IS_PKG = typeof (process as any).pkg !== 'undefined';

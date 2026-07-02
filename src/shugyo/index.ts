@@ -9,8 +9,8 @@
  * sandbox/revertible.ts `DirCageSandbox`), identified by a SHA-256 content hash
  * of the tracked files. It is NOT an OS/process sandbox: no container, no VM, no
  * namespace, no chroot, no seccomp. The actual command EXECUTION inside the cage
- * reuses the plain shell backend (`sandboxRegistry().get('local')` by default —
- * same `child_process.exec` as everywhere else), so a command run during
+ * goes through the P1 reference monitor (`mediatedEffect()`, default backend
+ * `local` — same `child_process.exec` as everywhere else), so a command run during
  * exploration has the SAME OS privileges as the Shinobi process itself; what the
  * cage guarantees is that the WORKING DIRECTORY is always restored to a known
  * state afterward — not that the command was contained while it ran. Real OS-level

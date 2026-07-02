@@ -8,7 +8,7 @@
  * without actually shelling out in CI.
  */
 
-import { sandboxRegistry } from '../sandbox/registry.js';
+import { mediatedEffect } from '../sandbox/monitor.js';
 import { runDiagnostics } from '../lsp/diagnostics.js';
 import { verifyCsvCertificate, type SkillCSVLike } from '../integrity/csv_verify.js';
 import type { ExamResult } from './types.js';
@@ -19,11 +19,19 @@ export { verifyCsvCertificate } from '../integrity/csv_verify.js';
 
 export type CmdRunner = (command: string, cwd?: string, timeoutMs?: number) => Promise<{ success: boolean; stdout: string; stderr: string }>;
 
+// P1.E2 (plan de frontera): vitest/tsc/lint corren a través del Monitor de
+// Referencia (backend local por defecto), no del registry directo.
 const defaultRunner: CmdRunner = async (command, cwd = process.cwd(), timeoutMs = 600_000) => {
-  const backend = sandboxRegistry().get('local');
-  if (!backend) return { success: false, stdout: '', stderr: 'no local backend' };
-  const r = await backend.run({ command, cwd, timeoutMs });
-  return { success: r.success, stdout: r.stdout, stderr: r.stderr };
+  const res = await mediatedEffect({
+    kind: 'shell',
+    rawCommandLine: true,
+    target: command,
+    cwd,
+    timeoutMs,
+    reversible: false,
+  });
+  if (!res.ok) return { success: false, stdout: '', stderr: 'no local backend' };
+  return { success: res.run.success, stdout: res.run.stdout, stderr: res.run.stderr };
 };
 
 // ── Pure parsers (the testable core of the runner seams) ────────────────────────

@@ -8,13 +8,14 @@
  *     ante rate limits del plan (§7.3).
  *   - createWorktree/removeWorktree: workspaces git disjuntos por worker (sin colisión).
  *
- * Toda ejecución de subproceso pasa por un `Exec` inyectable (default = sandbox local
- * real), así el módulo es testeable sin Claude/git de verdad y seguro por construcción.
+ * Toda ejecución de subproceso pasa por un `Exec` inyectable (default = monitor
+ * P1 sobre el sandbox local real), así el módulo es testeable sin Claude/git de
+ * verdad y seguro por construcción.
  */
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { sandboxRegistry } from '../sandbox/registry.js';
+import { mediatedEffect } from '../sandbox/monitor.js';
 import { requestApproval, isReadOnly, type Asker } from '../security/approval.js';
 import { effectRank } from '../integrity/effects.js';
 import type { KernelHost } from './mediator.js';
@@ -23,12 +24,22 @@ import type { Artifact, ProtectedAction, SkillEvent, SwarmWorker } from './types
 
 export type Exec = (command: string, cwd: string, timeoutMs: number) => Promise<{ success: boolean; stdout: string; stderr: string }>;
 
-/** Default executor: the real local sandbox backend (no new spawn lib). */
+/**
+ * Default executor: P1.E2 (plan de frontera) — el subproceso (git/claude)
+ * corre a través del Monitor de Referencia (backend local por defecto),
+ * no del registry directo. Mismo comportamiento, camino mediado.
+ */
 export const defaultExec: Exec = async (command, cwd, timeoutMs) => {
-  const backend = sandboxRegistry().get('local');
-  if (!backend) return { success: false, stdout: '', stderr: 'no local backend' };
-  const r = await backend.run({ command, cwd, timeoutMs });
-  return { success: r.success, stdout: r.stdout, stderr: r.stderr };
+  const res = await mediatedEffect({
+    kind: 'shell',
+    rawCommandLine: true,
+    target: command,
+    cwd,
+    timeoutMs,
+    reversible: false,
+  });
+  if (!res.ok) return { success: false, stdout: '', stderr: 'no local backend' };
+  return { success: res.run.success, stdout: res.run.stdout, stderr: res.run.stderr };
 };
 
 // ── KernelHost real (fs + tools + approval) ──────────────────────────────────────

@@ -1,5 +1,201 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-02 · P1 hardening — 3 mejoras de robustez del Monitor de Referencia (resiliencia + audit + validación de entrada)
+
+Segunda pasada sobre P1.E1-E2 (entrada de arriba): tras entregar el chokepoint, una
+revisión encontró tres fallos propios y los convirtió en mejora sustancial, con el
+criterio de "más robusto/sólido/resiliente SIN sacrificar libertad del agente". Ninguna
+cambia el contrato de decisión del monitor (mismos allow/deny para las mismas entradas):
+son aditivas y freedom-neutral. NO se commiteó (regla #4).
+
+**Mejora 1 — Resiliencia: el chokepoint nunca propaga una excepción de backend.**
+`mediatedEffect` hacía `await backend.run()` sin `try/catch`. El contrato de `RunBackend`
+es DEVOLVER un `RunOutput` (con `success:false` ante fallo), no lanzar — pero un backend
+real puede lanzar (daemon docker que muere a mitad, driver e2b que tira, bug de un backend).
+Esa excepción subía sin capturar a callers (chizu/kaname/shitsuji/shugyo) que esperan un
+objeto-resultado, no un throw. Ahora se captura → `EffectResult {ok:false,
+code:'backend_faulted', detail}`. Degrada limpio en vez de tumbar al caller. Happy path
+intacto.
+
+**Mejora 2 — Observabilidad: el monitor AUDITA cada efecto (cumple el mandato de P1, cierra
+un hueco real).** El Pilar 1 dice que el chokepoint "autoriza, confina, redacta, AUDITA y
+hace reversible". E1-E2 dejó fuera el audit. Además había un hueco medido: las ejecuciones
+de shell de shugyo/kaname/shitsuji/chizu/kagami eran INVISIBLES al audit — esquivaban
+`run_command`, que es donde el orchestrator audita (`logToolCall`). Ahora que todas pasan
+por el monitor, es su punto natural de observación. Diseño:
+- **Sink inyectable con default no-op** (`setEffectAuditSink`). Los ~2126 tests NO lo
+  instalan ⇒ CERO escrituras, CERO cruft en el repo (evita justo el `?? audit.jsonl` suelto
+  que la Ola 1 tuvo que limpiar). Instalado solo en el arranque real.
+- **`src/sandbox/audit_wiring.ts::installEffectAudit()`** conecta el sink con `logEffect`.
+  El monitor queda desacoplado de la capa de audit (sink genérico); el wiring es el único
+  glue, y solo lo importan los entry scripts (no los tests).
+- **Nuevo kind `effect` en `audit_log.ts`** vía el mismo `writeAuditEvent` → hash-chain,
+  anclaje anti-truncado y redacción intactos (§9 respetada: se AÑADE una variante al union,
+  no se toca `buildChain` ni el core de escritura).
+- **Redacción defensiva + recorte del `targetPreview` en el propio monitor** (no solo en el
+  sink) — un comando con una AWS key sale redactado antes de tocar el sink.
+- **Fail-open total**: un sink que lanza, o un `logEffect` que falla, JAMÁS bloquea ni
+  altera el efecto (best-effort, igual que el resto del audit).
+- **Cableado en `scripts/shinobi.ts` y `scripts/shinobi_web.ts`**, junto a
+  `installEgressRuntimeGuard()` (mismo patrón: capa instalada al boot). Alimenta el "Modo
+  Cristal" (P2).
+
+**Mejora 3 — Hardening de entrada del Effect.** `timeoutMs` no-finito (NaN/±Infinity) o
+negativo, y `target` vacío/blanco en modo `rawCommandLine`, ahora se rechazan como
+`invalid_effect` (fail-closed) en vez de colarse al backend con comportamiento indefinido.
+`timeoutMs=0` se permite a propósito (Node lo trata como "sin timeout"; el tope de duración
+es competencia de E3, no del tipado). El modo argv ya rechazaba target vacío vía
+`composeShellCommand`; el modo raw lo hace ahora con la misma postura.
+
+**Por qué NO tocan la libertad del agente:** ninguna bloquea un comando que antes se
+permitía. La resiliencia solo cambia el manejo de un throw (que antes crasheaba). El audit
+solo registra. El hardening solo rechaza entradas malformadas (timeout basura, comando
+vacío) que ningún caller legítimo produce — de hecho todos los callers reales pasan
+timeouts válidos y comandos no vacíos.
+
+**Fuera de alcance, honesto:** la ruta PowerShell bajo el monitor sigue fuera — NO por
+scope sino porque **no es verificable en este sandbox Linux** (no hay `powershell.exe`), y
+enviar cambios no verificables a la ruta por defecto de Windows sería "construir sobre
+arena". Sigue siendo el ítem top de E4.
+
+**Verificación (regla #1 y #2 — datos medidos):**
+- Suite completa reconstruida y corrida en Linux (deps nativas rolldown/swc/better-sqlite3/
+  isolated-vm reconstruidas): **2126 passed / 13 skipped**, sumado sobre 6 shards. Era 2110
+  → **+16 = exactamente `monitor_resilience.test.ts`**; cero regresión. Los 2 únicos fallos
+  siguen siendo `browser/__tests__/kage_g4` y `kage_e2e` (binario Playwright ausente en el
+  sandbox, ajeno — medido: `browserType.launch: Executable doesn't exist`).
+- `tsc --noEmit` = **0 errores**.
+- `grep sandboxRegistry` fuera de `src/sandbox/` en producto = **0** (sigue).
+- Tests de `audit/__tests__` + `sandbox/__tests__` = **99/99** (el nuevo kind `effect` no
+  rompió ningún test del hash-chain).
+- **Mutation testing (regla #2), evidencia real:**
+  - M-A (quitar el try/catch de resiliencia) → 2 tests rojos ("backend que LANZA"/"que
+    rechaza") → restaurar (diff vacío) → 16/16 verde.
+  - M-B (neutralizar la validación de timeout) → 5 tests rojos (NaN/±Inf/-1/-0.001) →
+    restaurar → verde.
+  - M-C (no llamar al sink) → 3 tests rojos (captura/redacción/recorte) → restaurar → verde.
+
+**Ficheros:** `src/sandbox/monitor.ts` (resiliencia+hardening+sink), `src/audit/audit_log.ts`
+(kind `effect` + `logEffect`), `src/sandbox/audit_wiring.ts` (net-new, glue),
+`scripts/shinobi.ts` + `scripts/shinobi_web.ts` (cableado boot),
+`src/sandbox/__tests__/monitor_resilience.test.ts` (net-new, 16 tests).
+
+## 2026-07-02 · Plan de Frontera P1.E1+E2 — Monitor de Referencia Único: `mediatedEffect()` y migración de los 8 callers a offenders=0
+
+Continuación directa de la Ola 1 (entrada de arriba). Aquella dejó el **ratchet**
+(`monitor_bypass_ratchet.test.ts`) congelando 8 bypasses conocidos. Esta sesión
+construye lo que el ratchet anticipaba: **P1.E1** (el chokepoint tipado) y **P1.E2**
+(migrar los 8 y apretar el ratchet a `[]`). Alcance deliberado: SOLO E1+E2. **NO** se
+tocó E3 (mandatos de capacidad), E4 (backend confinado por defecto / AppContainer) ni
+E5 (egress broker) — son (L) en el propio plan, tocan superficie de OS/policy y
+apresurarlas sería "construir sobre arena". Ver "Fuera de alcance" abajo.
+
+**Divergencias vs. el contexto recibido, verificadas por lectura directa (no adivinadas, regla #4):**
+
+1. **HEAD real = `4927bce`** ("Ola 1: ratchet P1.E1 + docs"), no `a651452`. El árbol
+   partía sucio en 3 ficheros pre-existentes (`DECISIONES.md`, `audit_log.test.ts`,
+   `?? BRIEFING_ESTADO_2026-07-01.md`) — **no** los tocó esta tarea (salvo este append).
+2. **De los "8 callers de `.run()` directo", solo 6 invocan `.run()`.** `spawn_agent.ts`
+   solo hacía `sandboxRegistry().get('e2b')?.isConfigured()` (probe de config, sin efecto)
+   y `shugyo/index.ts` solo **mencionaba** el símbolo en su banner de honestidad F2.13.
+   El ratchet cuenta ocurrencias textuales de `sandboxRegistry`, así que los 8 debían
+   llegar a cero igualmente — pero el mapeo a `Effect` difiere por caller (abajo).
+3. Nombre real del fichero: `shugyo/sandbox/revertible.ts` (el contexto decía `reversible.ts`).
+
+**E1 — `src/sandbox/monitor.ts` (net-new, 267 LOC).** `mediatedEffect(effect, mandate?) →
+EffectResult`, con el efecto modelado como DATO tipado (`Effect = {kind:
+'shell'|'fs.read'|'fs.write'|'net'|'input', target, args?, reversible}`), no como string
+interpolado. Posturas de diseño, todas **fail-closed** y documentadas en el propio fichero:
+
+- **Modo argv seguro + modo raw explícito.** `composeShellCommand(target, args)` quotea
+  con el álgebra del shell (POSIX single-quote completo; win32 quoting del runtime C).
+  Un argumento hostil (`x; rm -rf ~`, `$(...)`, backticks) viaja LITERAL al programa —
+  cierra por construcción la clase de inyección de F4.2. El modo `rawCommandLine:true`
+  existe y es explícito: es lo que los 6 callers legados pasan (líneas de shell completas);
+  ocultarlo sería mentir, y declararlo como dato es lo que permitirá a la policy de E3
+  distinguir "shell crudo a conciencia" de "argv seguro".
+- **win32 no-quoteable ⇒ `invalid_effect` (deny), no fingir.** cmd.exe expande `%VAR%`/`!`
+  incluso entre comillas; argumentos con `% ! CR LF NUL` se RECHAZAN en vez de aplicar un
+  escape imposible.
+- **`mandate` presente ⇒ `mandate_not_enforceable` (deny).** E3 no existe; el monitor NO
+  finge enforcement. La firma pública ya acepta el mandato para que el contrato no cambie
+  cuando E3 llegue, pero pasarlo hoy deniega.
+- **kinds no-shell ⇒ `unsupported_kind` (deny).** `fs.*`/`net`/`input` están en el tipo
+  (contrato del plan) pero su mediación real es E4/E5; ejecutarlos deniega, no ejecuta.
+- **Backend desconocido ⇒ `backend_unavailable` (deny), sin fallback silencioso a local**
+  (paridad con la postura previa de `run_command.ts`).
+- **Cero validación de contenido nueva y cero IO nuevo en el camino caliente.** El
+  `LocalBackend` conserva intacta su defensa propia F1.1 (blacklist + env allowlist +
+  redacción) — §9 no-regresión respetada. El monitor E1-E2 es chokepoint estructural +
+  tipado, no una segunda policía; la policía es E3.
+
+`run_command.ts` (sus 2 rutas que tocaban el registry: backend no-local y fallback local)
+enrutado por `mediatedEffect`. Se conserva el `await import()` dinámico: hay un ciclo real
+de módulos (`sandbox/backends/local.ts` importa los checks DE `run_command.ts`).
+
+**E2 — migración de los 8, uno a uno, con la suite corrida tras cada uno.** Mapeo:
+
+| Caller | Uso real | Migración |
+|---|---|---|
+| `tools/run_command.ts` | 2 rutas registry | `mediatedEffect` shell/raw (local + no-local) |
+| `tools/spawn_agent.ts` | probe `isConfigured('e2b')` | `backendConfigured('e2b')` (helper read-only del monitor) |
+| `chizu/adapters.ts` | discovery read-only | shell/raw, `reversible:false` |
+| `kagami/adapters.ts` | vitest/tsc/lint | shell/raw, `reversible:false` |
+| `kaname/live.ts` | git/claude subproc | shell/raw, `reversible:false` |
+| `shugyo/sandbox/revertible.ts` | jaula de exploración | shell/raw, **`reversible:true`** (snapshot/restore del caller) |
+| `shitsuji/live.ts` | skill certificada en jaula | shell/raw, `backendId` de opts, **`reversible:true`** |
+| `shugyo/index.ts` | mención en banner | banner reescrito → "P1 reference monitor" |
+
+Los seams inyectables existentes (`CmdRunner`/`Exec`/`CageExecutor`/`SandboxInvokeOptions`)
+se conservan intactos — solo cambia el cuerpo del ejecutor por defecto. Tras migrar los 8,
+`monitor_bypass_ratchet.test.ts` pasó de baseline de 8 a `KNOWN_BASELINE = []` (modo warn →
+modo blocking: el ratchet ahora exige CERO usos, no "no crecer").
+
+**Fuera de alcance, explícito (no se tocó y por qué):**
+
+- **P1.E3/E4/E5.** Mandatos de capacidad, backend confinado por defecto (AppContainer/WSL2),
+  egress broker. (L) cada uno; superficie de OS/policy amplia. Los "hooks" existen (param
+  `mandate`, campo `reversible`, kinds en el tipo) pero fail-closed hasta implementarlos.
+- **La ruta PowerShell de `run_command` NO pasa por el monitor.** Es la ruta real por
+  defecto en Windows y va directa a `runPowerShell()` (execFile + Base64, ya con env
+  allowlist + redacción F1.1). Llevarla al monitor invertiría la capa tools↔sandbox y
+  excede E1-E2 — el criterio medible del plan es la superficie `sandboxRegistry`, que sí
+  llegó a 0. Queda como ruta de efecto no-mediada, pendiente de E4. **Decisión consultada y
+  aprobada por el operador** en el checkpoint de diseño previo a implementar.
+
+**Verificación (regla #1 y #2 — datos medidos, no "debería"):**
+
+- **La suite real de vitest SÍ se corrió en este entorno**, superando el caveat de la Ola 1.
+  El bloqueo era `node_modules` con binarios nativos `win32-x64`; se resolvió reconstruyendo
+  para linux-x64 las 4 deps nativas (rolldown, @swc/core, better-sqlite3 vía prebuild,
+  isolated-vm vía node-gyp) en una copia del árbol. `mediatedEffect` es JS puro, así que la
+  equivalencia es fiel.
+- **Criterio 1 — `grep 'sandboxRegistry'` fuera de `src/sandbox/` en código de producto = 0**
+  (medido). Solo persiste en `src/sandbox/` (su casa) y en `tools/__tests__/spawn_agent.test.ts`
+  (infra de test que registra un backend fake en el singleton; el ratchet excluye `__tests__`).
+- **Criterio 2 — ratchet en verde con `KNOWN_BASELINE = []`** (medido).
+- **Criterio 3 — suite: 2110 passed / 13 skipped / 0 fallos propios** (sumado sobre 6 shards).
+  Los 2 únicos ficheros que fallan son `browser/__tests__/kage_g4.test.ts` y `kage_e2e.test.ts`,
+  ambos por `browserType.launch: Executable doesn't exist … chrome-headless-shell` (binario
+  Playwright que no descargó en este sandbox). Medido que ninguno referencia
+  sandbox/monitor/registry: **fallo 100% ambiental, ajeno a P1**; en el CI Windows corren.
+- **Criterio 4 — `tsc --noEmit` = 0 errores** (medido).
+- **Criterio 5 — mutation testing (regla #2), evidencia real:**
+  - `effect_no_shell_injection.test.ts` (13 tests). Mutación M2: degradar `composeShellCommand`
+    a `[target, ...args].join(' ')`. Resultado: **9 tests en rojo**, incl. el E2E real POSIX
+    "`x; touch canario` crea el canario" (`AssertionError: INYECCIÓN: el shell ejecutó el
+    payload`). Restaurado (`diff` vacío contra fuente) → **13/13 verde**. El test incluye su
+    propio sensor: la rama "concatenación naïve SÍ crea el canario" prueba que el harness
+    distingue (no es decorativo).
+  - `monitor_is_unbypassable.test.ts` (8 tests). Mutación M1: plantar `src/evil_bypass_mutation.ts`
+    con `sandboxRegistry()` directo → **ratchet y test de completitud en rojo** (con un
+    fixture sintético que auto-verifica el sensor). Mutación M3: `if (false && mandate…)` para
+    ignorar el mandato → **test "mandato ⇒ deny" en rojo**. Ambas restauradas → verde, `diff` vacío.
+
+**Invariantes §9 no-regresión:** intactos. Gate de aprobación fail-closed, hash-chain del
+audit, isolated-vm de skills, HMAC de canales — ninguno tocado. La defensa F1.1 del
+`LocalBackend` sigue en su sitio; el monitor la envuelve, no la sustituye.
+
 ## 2026-07-02 · Arranque del Plan de Frontera — Ola 1 (Paso 0 verificado + P6.E1 + ratchet P1.E1)
 
 Ejecución del `PLAN_FRONTERA_2026` en el orden que el propio plan manda. NO se
@@ -572,78 +768,4 @@ ejecución — coste > beneficio para un label de texto.
   + adaptador eigenai). shinobi es uno de los AGENTES que evalúa.
 - shinobi expone scripts/run_one.ts (runner headless: prompt -> JSON {content,
   tool_calls, latency_ms, signature=provenance, loop_aborts, ok}). PUSHEADO a shinobi.
-- OpenGravity: nuevo adapters/shinobi/client.py (run_inference que invoca run_one) +
-  run_bench.py --agent (eigenai|shinobi). COMMIT LOCAL en OpenGravity rama
-  chore/cleanup (sin push — otro repo, lo decide el usuario).
-- VALIDADO end-to-end: `python run_bench.py --agent shinobi --smoke` -> ledger entry
-  real con la firma de provenance de shinobi.
-- PENDIENTE: adaptadores Hermes/OpenClaw iguales (su install+keys = bloque b);
-  opcional portar las tareas con check determinista (coding/safety) al schema de OG.
-
-## 2026-06-08 · Bloque (a) del benchmark — sustancialmente completo
-- 4.2/4.3/4.4: métricas-titular instrumentadas (bucles abortados, safety, auto-corr).
-- Gate selectivo COMPLETO en el harness (mide safety real, no solo hard-block).
-- Tarea loop-demo + fix output de abort → corrida real muestra BUCLES ABORTADOS=1.
-- estado.mjs (FASE 0): genera ESTADO.md desde verdad de fuente.
-- FASE 3.4: Team a escala (8 agentes en paralelo, cero contaminación).
-- Tabla real shinobi: 100% (6/6), safety 2/2, bucles abortados 1, 0 errores.
-- ~1149 tests verde. QUEDA de (a): 3.2 web robusto (iframes/shadow/waits — browser).
-- QUEDA (b): correr Hermes/OpenClaw reales (su install+keys+tokens; harness listo).
-
-## 2026-06-08 · Benchmark FASE 3 (parcial) + FASE 4.1 (joya)
-- FASE 3.1: LSP SEMÁNTICO (chequeo de tipos por fichero, whitelist anti-FP).
-- FASE 3.5: curator (patrón repetido → skill verificada+firmada vía E2).
-- FASE 4.1: PAQUETE DE AUTONOMÍA DEMOSTRABLE (provenance.ts) — por tarea, prueba
-  firmada HMAC {prompt, resultado, resumen audit, veredicto, hash}; cualquiera
-  recomputa hash+firma y detecta manipulación. El titular "único con prueba
-  verificable". Hermes/OpenClaw no lo emiten.
-- Pendiente FASE 3: 3.2 web robusto (iframes/shadow/waits — necesita browser real),
-  3.3 MCP a escala (servidores reales), 3.4 Team a escala (stress).
-
-## 2026-06-08 · Benchmark FASE 1 ✅ y FASE 2 ✅ (construidas + validadas)
-- FASE 1: harness `src/bench/` (runner aislado, checks deterministas, adaptadores
-  shinobi/mock/CLI, suite coding/tool_use/autonomy/safety, reporte, config de
-  competidores, escritor de resultados, `npm run bench:compare`). Smoke REAL:
-  shinobi 4/4, safety 1/1, 0 errores.
-- FASE 2.A: verificación OBJETIVA (gate duro de tests en código, pre-gate de E1).
-- FASE 2.B: trust-score E3 ordena las tools anunciadas (sustrato→comportamiento).
-- FASE 2.C: integridad SHA-256 de skills DESCARGADAS (fail-closed; cierra gap OpenClaw).
-- ~1135 tests verde. Siguiente: FASE 3 (LSP semántico, web robusto, MCP a escala, Team).
-- PENDIENTE EXTERNO: correr Hermes/OpenClaw reales necesita su install + API keys
-  (harness ya listo vía bench.config.json); SWE-bench/escala/red-team = mayor esfuerzo.
-
-## 2026-06-08 · Plan de preparación para benchmark público
-- Objetivo fijado: shinobi debe poder afirmarse "mejor opción" con DATOS reproducibles
-  vs Hermes (Nous) y OpenClaw, en benchmark público. Coste no es restricción.
-- Plan completo en `BENCHMARK_READINESS_PLAN.md` (6 fases + claims irrefutables).
-- Tesis: ganar por verificabilidad/seguridad/provenance/auto-corrección MEDIDAS, no
-  por nº de features; producir los datos con un harness que corre a los 3 en igualdad.
-
-## 2026-06-08 · Auditoría REAL de competidores (corrige claims previos)
-- Auditados con file:line (no grep ciego) OpenClaw, Hermes, Claude Code-leak para 3
-  capacidades. Resultado que CORRIGE mis "🥇 único":
-  - **A auto-verificación**: nadie en código; Claude Code tiene verificador adversarial
-    pero por prompt y flag-off para terceros. shinobi: única en CÓDIGO+default (grado).
-  - **B trust-substrate**: nadie computa trust-score por tool desde historial→ranking;
-    OpenClaw/Hermes solo circuit-breakers de credenciales. shinobi: lidera esta forma.
-  - **C firma de capacidades**: NO exclusivo — OpenClaw verifica integridad SHA-256 de
-    skills/plugins descargados (fail-closed); Hermes cosign su tool. shinobi: variante.
-- Lección reforzada: no afirmar "único"/"verificado" sin auditar con la misma
-  profundidad. Probar ausencia es caro; "no encontrado" ≠ "ausente".
-
-## 2026-06-07/08 · Construido y validado esta tanda (todo en main, pusheado)
-- Cimiento: agent_loop · spawn_agent · E1 (verifier+verified_agent) · worktrees · sandbox.
-- Motores: E2 fábrica de skills firmadas+auditadas · E3 audit-as-substrate (trust) ·
-  E4 enjambre · ToolSearch sobre E3 · deferred-tools · Team (paralelo real, ALS) ·
-  MCP (cliente) · LSP (diagnósticos al escribir) · capa de confianza en canales (pairing+HMAC).
-- Seguridad: gate de aprobación SELECTIVO (clase crítica: credenciales/secreto/cuenta/
-  gasto + borrado masivo) reconvirtiendo el no-op FIX-002; fail-safe deniega sin asker.
-- Auditoría FIX-004 (trunca memoria), FIX-006 (logs gateados), FIX-007 (.gitignore);
-  FIX-005 moot. 3 bugs de producción de paso (loop-detector inerte, NUL en server.ts,
-  isDockerAvailable sin daemon).
-- Estado: ~1117 tests + 1 skip, typecheck limpio. main ↔ origin/main sincronizado.
-- Smokes reales: MCP stdio, deferred end-to-end, LSP (tsc real), canal+pairing+orchestrator.
-
-## Decisión abierta (pendiente del usuario)
-- ¿Relajar el hard-block de `run_command` para que un borrado recursivo APROBADO se
-  ejecute (coherencia "me pide permiso, yo acepto"), o mantener el doble freno actual?
+- OpenGravity: nuevo 

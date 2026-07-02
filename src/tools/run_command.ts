@@ -268,12 +268,24 @@ const runCommandTool: Tool = {
     // SHINOBI_RUN_BACKEND (default 'local'). Si el operador pidió
     // explícitamente un backend NO-local (docker/ssh/e2b/mock), se delega
     // ahí sin más — esos backends no tienen concepto de "shell de Windows".
+    // P1.E1 (plan de frontera): la ejecución entra por el Monitor de
+    // Referencia (`mediatedEffect`), no tocando el registry directo. El
+    // import dinámico se conserva: hay un ciclo real de módulos
+    // (sandbox/backends/local.ts importa los checks DE este fichero).
     const wantBackend = (process.env.SHINOBI_RUN_BACKEND || 'local').toLowerCase();
     if (wantBackend !== 'local') {
-      const { sandboxRegistry } = await import('../sandbox/registry.js');
-      const backend = sandboxRegistry().get(wantBackend as any);
-      if (backend) {
-        const r = await backend.run({ command: args.command, cwd, timeoutMs: timeout });
+      const { mediatedEffect } = await import('../sandbox/monitor.js');
+      const res = await mediatedEffect({
+        kind: 'shell',
+        rawCommandLine: true,
+        target: args.command,
+        cwd,
+        timeoutMs: timeout,
+        backendId: wantBackend,
+        reversible: false,
+      });
+      if (res.ok) {
+        const r = res.run;
         const output = [
           `$ ${args.command} (backend=${r.backend}, ${r.durationMs}ms)`,
           r.stdout?.trim() || '',
@@ -327,11 +339,25 @@ const runCommandTool: Tool = {
     // PROPIO `exec()` inline, duplicado del de `LocalBackend` pero SIN sus
     // defensas (env allowlist, redacción de output, blacklist/jail — las
     // de arriba ya se aplicaron, pero el env/redacción NO existían aquí).
-    // Ahora delega en `LocalBackend` vía el mismo registry que usan los
-    // demás backends: una sola implementación de 'local' en todo el repo.
-    const { sandboxRegistry } = await import('../sandbox/registry.js');
-    const localBackend = sandboxRegistry().get('local')!;
-    const r = await localBackend.run({ command: args.command, cwd, timeoutMs: timeout });
+    // Delega en `LocalBackend` (única implementación de 'local' del repo),
+    // desde P1.E1 a través del Monitor de Referencia — mismo backend, mismo
+    // RunInput, cero cambio de comportamiento; solo cambia el camino.
+    const { mediatedEffect } = await import('../sandbox/monitor.js');
+    const res = await mediatedEffect({
+      kind: 'shell',
+      rawCommandLine: true,
+      target: args.command,
+      cwd,
+      timeoutMs: timeout,
+      backendId: 'local',
+      reversible: false,
+    });
+    if (!res.ok) {
+      // Solo alcanzable si 'local' desapareciera del registry (imposible con
+      // registerDefaults, posible en tests que lo vacían): fail-loud.
+      return { success: false, output: '', error: `Backend 'local' no disponible: ${res.detail}` };
+    }
+    const r = res.run;
     const output = [
       `$ ${args.command}`,
       r.stdout?.trim() || '',

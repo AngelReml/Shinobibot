@@ -21,7 +21,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import { invokeLLM } from '../providers/provider_router.js';
-import { sandboxRegistry } from '../sandbox/registry.js';
+import { mediatedEffect } from '../sandbox/monitor.js';
 import type { CloudResponse, LLMChatPayload } from '../cloud/types.js';
 import type { NLParse, IntentParser } from './understand.js';
 import type { SkillInvoker, SkillInvocation } from './runtime.js';
@@ -88,9 +88,21 @@ export function makeSandboxInvoke(opts: SandboxInvokeOptions = {}): SkillInvoker
   return async (step: PlanStep, ctx: { workDir: string }): Promise<SkillInvocation> => {
     const command = String((step.inputs as any).command ?? '').trim();
     if (!command) return { success: false, output: `paso ${step.step_id} sin inputs.command para ejecutar`, tool: 'run_command' };
-    const backend = sandboxRegistry().get(opts.backendId ?? 'local');
-    if (!backend) return { success: false, output: `backend ${opts.backendId ?? 'local'} no disponible`, tool: 'run_command' };
-    const r = await backend.run({ command, cwd: ctx.workDir, timeoutMs: opts.timeoutMs ?? 30_000 });
+    // P1.E2 (plan de frontera): la skill certificada corre a través del Monitor
+    // de Referencia, no del registry directo. `reversible: true` es la
+    // declaración del caller: corre en la jaula (workDir) y el commit al mundo
+    // real es reversible vía makeFsCommit (backup + uncommit).
+    const res = await mediatedEffect({
+      kind: 'shell',
+      rawCommandLine: true,
+      target: command,
+      cwd: ctx.workDir,
+      timeoutMs: opts.timeoutMs ?? 30_000,
+      backendId: opts.backendId ?? 'local',
+      reversible: true,
+    });
+    if (!res.ok) return { success: false, output: `backend ${opts.backendId ?? 'local'} no disponible`, tool: 'run_command' };
+    const r = res.run;
     return {
       success: r.success,
       output: r.success ? r.stdout : `error: ${r.stderr}`,

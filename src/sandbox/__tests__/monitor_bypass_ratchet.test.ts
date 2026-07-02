@@ -22,19 +22,15 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..', '..'); // src/sandbox/__tests__/ -> repo root
 
-// Callers directos de `sandboxRegistry` FUERA de src/sandbox/, verificados el
-// 2026-07-02 por lectura directa del árbol. Esta es la deuda conocida que P1.E2
-// migrará al monitor. El objetivo es que esta lista sólo pueda ENCOGER.
-const KNOWN_BASELINE = new Set<string>([
-  'src/chizu/adapters.ts',
-  'src/kagami/adapters.ts',
-  'src/kaname/live.ts',
-  'src/shitsuji/live.ts',
-  'src/shugyo/index.ts',
-  'src/shugyo/sandbox/revertible.ts',
-  'src/tools/run_command.ts',
-  'src/tools/spawn_agent.ts',
-]);
+// P1.E2 COMPLETADO (2026-07-02): los 8 callers directos de la línea base
+// original (chizu/adapters, kagami/adapters, kaname/live, shitsuji/live,
+// shugyo/index, shugyo/sandbox/revertible, tools/run_command,
+// tools/spawn_agent) migraron a `mediatedEffect()` / `backendConfigured()`
+// de src/sandbox/monitor.ts. La base queda VACÍA: el ratchet pasó de modo
+// warn (no crecer) a modo blocking (cero usos fuera de src/sandbox/).
+// Si necesitas un bypass legítimo, justifícalo en DECISIONES.md — pero la
+// respuesta correcta casi siempre es añadir lo que falta al monitor.
+const KNOWN_BASELINE = new Set<string>([]);
 
 const NEEDLE = 'sandboxRegistry';
 

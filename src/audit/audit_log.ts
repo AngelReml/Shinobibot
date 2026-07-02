@@ -40,7 +40,7 @@ import { redactSecrets } from '../security/secret_redactor.js';
 import { buildChain, toLines, GENESIS } from './audit_chain.js';
 import { maybeAnchor, checkAnchorIntegrity, type AnchorIntegrityResult } from './audit_anchor.js';
 
-export type AuditEventKind = 'tool_call' | 'loop_abort' | 'failover' | 'approval_decision';
+export type AuditEventKind = 'tool_call' | 'loop_abort' | 'failover' | 'approval_decision' | 'effect';
 
 export interface ToolCallEvent {
   kind: 'tool_call';
@@ -93,7 +93,35 @@ export interface ApprovalDecisionEvent {
   userId?: string;
 }
 
-export type AuditEvent = ToolCallEvent | LoopAbortEvent | FailoverEvent | ApprovalDecisionEvent;
+/**
+ * P1 (Monitor de Referencia) — un efecto de ejecución mediado por
+ * `sandbox/monitor.ts::mediatedEffect`. Lo emite el sink instalado por
+ * `installEffectAudit()` (src/sandbox/audit_wiring.ts) en el arranque real.
+ * Antes, las ejecuciones de shell de shugyo/kaname/shitsuji/chizu/kagami no
+ * pasaban por `run_command` y por tanto NO se auditaban; el monitor las hace
+ * visibles. `targetPreview` llega ya redactado y recortado desde el monitor.
+ */
+export interface EffectEvent {
+  kind: 'effect';
+  ts: string;
+  /** shell | fs.read | fs.write | net | input */
+  effectKind: string;
+  backendId: string;
+  /** Comando/target REDACTADO y recortado (nunca crudo). */
+  targetPreview: string;
+  reversible: boolean;
+  decision: 'allow' | 'deny';
+  /** Código de denial si decision==='deny'. */
+  code?: string;
+  /** Éxito del backend si decision==='allow'. */
+  success?: boolean;
+  durationMs?: number;
+  sessionId?: string;
+  /** Usuario (slug multi-user) que disparó el efecto, si se conoce. */
+  userId?: string;
+}
+
+export type AuditEvent = ToolCallEvent | LoopAbortEvent | FailoverEvent | ApprovalDecisionEvent | EffectEvent;
 
 const ARGS_PREVIEW_CAP = 200;
 
@@ -388,6 +416,40 @@ export function logApprovalDecision(args: {
     reason: args.reason,
     mode: args.mode,
     denySource: args.denySource,
+    sessionId: args.sessionId,
+    userId: args.userId,
+  });
+}
+
+/**
+ * P1 — registra un efecto mediado por el monitor. Best-effort/fail-open igual
+ * que el resto del audit: si la escritura falla NO lanza (un fallo de audit no
+ * debe tumbar un efecto). `targetPreview` debe venir ya redactado del monitor;
+ * `writeAuditEvent` además redacta el evento completo antes de persistir.
+ */
+export function logEffect(args: {
+  effectKind: string;
+  backendId: string;
+  targetPreview: string;
+  reversible: boolean;
+  decision: 'allow' | 'deny';
+  code?: string;
+  success?: boolean;
+  durationMs?: number;
+  sessionId?: string;
+  userId?: string;
+}): boolean {
+  return writeAuditEvent({
+    kind: 'effect',
+    ts: new Date().toISOString(),
+    effectKind: args.effectKind,
+    backendId: args.backendId,
+    targetPreview: args.targetPreview,
+    reversible: args.reversible,
+    decision: args.decision,
+    code: args.code,
+    success: args.success,
+    durationMs: args.durationMs === undefined ? undefined : Math.max(0, Math.round(args.durationMs)),
     sessionId: args.sessionId,
     userId: args.userId,
   });

@@ -167,9 +167,11 @@ const spawnAgent: Tool = {
         };
       }
     } else if (sandbox === 'e2b') {
-      const { sandboxRegistry } = await import('../sandbox/registry.js');
-      const b = sandboxRegistry().get('e2b');
-      if (!b || !b.isConfigured()) {
+      // P1.E2 (plan de frontera): probe de disponibilidad vía el Monitor de
+      // Referencia (read-only, sin efecto alguno) — el registry ya no se toca
+      // directo desde fuera de src/sandbox/.
+      const { backendConfigured } = await import('../sandbox/monitor.js');
+      if (!backendConfigured('e2b')) {
         return {
           success: false, output: '',
           error: 'sandbox="e2b" no configurado (define E2B_API_KEY). No se ejecuta en el host por seguridad.',

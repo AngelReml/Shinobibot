@@ -6,18 +6,27 @@
  * the approval gate. Command execution is injectable → parsers tested without shell.
  */
 
-import { sandboxRegistry } from '../sandbox/registry.js';
+import { mediatedEffect } from '../sandbox/monitor.js';
 import { parseUninstallJson, parseAppxJson, parseWingetList } from './discovery/parsers.js';
 import type { SourceBatch } from './discovery/fuse.js';
 import type { AppCard, RawApp, DiscoverySourceName } from './types.js';
 
 export type CmdRunner = (command: string, timeoutMs?: number) => Promise<{ success: boolean; stdout: string; stderr: string }>;
 
+// P1.E2 (plan de frontera): la ejecución real pasa por el Monitor de
+// Referencia, no por el registry directo. Comandos de discovery read-only,
+// backend local por defecto — mismo comportamiento que antes, otro camino.
 const defaultRunner: CmdRunner = async (command, timeoutMs = 60_000) => {
-  const backend = sandboxRegistry().get('local');
-  if (!backend) return { success: false, stdout: '', stderr: 'no local backend' };
-  const r = await backend.run({ command, cwd: process.cwd(), timeoutMs });
-  return { success: r.success, stdout: r.stdout, stderr: r.stderr };
+  const res = await mediatedEffect({
+    kind: 'shell',
+    rawCommandLine: true,
+    target: command,
+    cwd: process.cwd(),
+    timeoutMs,
+    reversible: false,
+  });
+  if (!res.ok) return { success: false, stdout: '', stderr: 'no local backend' };
+  return { success: res.run.success, stdout: res.run.stdout, stderr: res.run.stderr };
 };
 
 /** The read-only PowerShell/winget commands per source (the live Windows seam). */

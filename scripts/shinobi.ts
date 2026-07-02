@@ -42,6 +42,14 @@ config({ path: resolve(__dirname, '../.env') });
 import { installEgressRuntimeGuard } from '../src/egress/runtime_guard.js';
 installEgressRuntimeGuard();
 
+// P1 (Monitor de Referencia) — instala el audit de efectos: a partir de aquí,
+// TODO efecto mediado por sandbox/monitor.ts (shell de run_command, shugyo,
+// kaname, shitsuji, chizu, kagami) queda registrado (redactado, hash-chained,
+// fail-open). Solo en el arranque real — los tests no importan este módulo, así
+// que el sink permanece no-op en CI. Ver src/sandbox/audit_wiring.ts.
+import { installEffectAudit } from '../src/sandbox/audit_wiring.js';
+installEffectAudit();
+
 async function maybeRunOneShotCommand(): Promise<boolean> {
   const argv = process.argv.slice(2);
 

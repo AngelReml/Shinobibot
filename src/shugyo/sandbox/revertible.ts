@@ -8,8 +8,9 @@
  * wipe/restore, content-addressed by a SHA-256 hash of the tracked files in
  * `state()`) — the lightest option in §7.2, the one whose gate we can meet by
  * execution. The EXECUTION of an action is delegated to the existing sandbox
- * RunBackend (reuse, not a new isolation) — `defaultExecutor` below calls
- * `sandboxRegistry().get('local')`, i.e. plain `child_process.exec` with NO OS-level
+ * RunBackend (reuse, not a new isolation) — `defaultExecutor` below goes through
+ * the P1 reference monitor (`mediatedEffect`, default backend `local`), i.e.
+ * plain `child_process.exec` with NO OS-level
  * confinement (no container, no VM, no namespace). So TODAY: isolation = directory
  * snapshot/restore only; the command itself runs with full host privileges while
  * it's executing — the cage only guarantees the FILESYSTEM STATE is restored
@@ -26,19 +27,31 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
-import { sandboxRegistry } from '../../sandbox/registry.js';
+import { mediatedEffect } from '../../sandbox/monitor.js';
 import { executionPolicy } from '../explore/reversibility.js';
 import type { Affordance, ActionTrial, StateSnapshot } from '../types.js';
 
 /** Run a command in a working dir → success/stdout. Pluggable (local/docker/e2b). */
 export type CageExecutor = (command: string, cwd: string, timeoutMs: number) => Promise<{ success: boolean; stdout: string; stderr: string }>;
 
-/** Default executor: reuse the existing local sandbox backend (no new spawn lib). */
+/**
+ * Default executor: P1.E2 (plan de frontera) — la acción de exploración corre a
+ * través del Monitor de Referencia (backend local por defecto), no del registry
+ * directo. `reversible: true` es la declaración HONESTA del caller: la jaula
+ * garantiza snapshot/restore del directorio de trabajo tras cada acción (ese es
+ * su contrato), no confinamiento del proceso mientras corre.
+ */
 const defaultExecutor: CageExecutor = async (command, cwd, timeoutMs) => {
-  const backend = sandboxRegistry().get('local');
-  if (!backend) return { success: false, stdout: '', stderr: 'no local backend' };
-  const r = await backend.run({ command, cwd, timeoutMs });
-  return { success: r.success, stdout: r.stdout, stderr: r.stderr };
+  const res = await mediatedEffect({
+    kind: 'shell',
+    rawCommandLine: true,
+    target: command,
+    cwd,
+    timeoutMs,
+    reversible: true,
+  });
+  if (!res.ok) return { success: false, stdout: '', stderr: 'no local backend' };
+  return { success: res.run.success, stdout: res.run.stdout, stderr: res.run.stderr };
 };
 
 export interface RevertibleSandbox {
