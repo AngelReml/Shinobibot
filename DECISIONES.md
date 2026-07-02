@@ -1,5 +1,77 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-02 · Arranque del Plan de Frontera — Ola 1 (Paso 0 verificado + P6.E1 + ratchet P1.E1)
+
+Ejecución del `PLAN_FRONTERA_2026` en el orden que el propio plan manda. NO se
+implementó el plan entero (son 38-56 semanas-persona por su propia estimación, con
+orden de dependencias duro P1→…→P5). Se ejecutó el **Paso 0 obligatorio** (regla #4:
+re-verificar cada "Estado hoy" contra el árbol vivo) y el track barato/seguro de la
+Ola 1. Postura de fondo: no se aterriza un chokepoint de ejecución (P1 rewire) ni
+capas que no se puedan **correr y verificar** en este entorno — sería construir sobre
+arena, justo lo que el plan prohíbe.
+
+**Correcciones al §1 del plan encontradas por lectura directa (a651452, 2026-07-02):**
+
+1. **F5.4 (rutas hardcodeadas) — no aplica.** `grep 'C:\Users' scripts/` = **0**.
+   El conteo "36 scripts" de la auditoría estaba viejo. Divergencia 1 del plan resuelta:
+   ya no hay rutas absolutas de Windows en `scripts/`.
+2. **F0.4 (branding) — ya cerrado, no barrer.** `src/__tests__/no_residual_branding.test.ts`
+   YA existe, pasa, y está bien scopeado: prohíbe los términos exactos (`Alcayna`,
+   `Enterprise Edition`, `4.5.1`, `OpenGravity`) en código de producto. Los ~22 hits en
+   `src/` son (a) tests-guardia que asertan su ausencia, y (b) claves de compat
+   **minúsculas** `opengravity_*` del importador Hermes (`from_hermes.ts`, `first_run_wizard.ts`,
+   `web/server.ts`), que son funcionales y NO branding — el ban es case-sensitive por
+   diseño, así conviven. Los 344 hits repo-wide están en `docs/`/`missions/`/`proposals/`
+   (historia legítima). **Decisión: NO se barre nada; reescribir docs históricos sería
+   falsificar.** Igual, `no_stealth_in_public_tree.test.ts` (D1/F6.1) ya existe.
+3. **F0.3 (docs desincronizadas) — mucho menor de lo que el plan implica.** Las cifras
+   ESTRUCTURALES de `CLAUDE.md`/`AGENTS.md` (459 ficheros de producto, 60681 LOC, 235→236
+   de test, 62 tools) ya eran **correctas**. Lo único stale era el **pulso git volátil**
+   (último commit `67e80fc`→`a651452`, estado del árbol), que cambia en cada commit y por
+   diseño no se puede gatear. `estado.mjs` NO necesitaba "arreglar el conteo recursivo":
+   ya recorre recursivamente. **Acción:** regenerado `CLAUDE.md`/`AGENTS.md`/`ESTADO.md`
+   con `node context.mjs` + `node estado.mjs --no-tests`.
+4. **Gate anti-drift F0.3 — ya existe.** `src/__tests__/estado_generator.test.ts` re-corre
+   ambos generadores y asserta que los conteos de los `.md` == escaneo real de `src/`. Es el
+   `docs_in_sync.test.ts` que pedía P6.E1, y mejor (regenera). **Decisión: NO añadir un
+   segundo test redundante.** Se creó uno y se **retiró** al descubrir el existente —
+   además habría sido flaky (compite con el `beforeAll` que regenera del test existente).
+
+**Entregable net-new de esta ola — ratchet de P1.E1:**
+
+- `src/sandbox/__tests__/monitor_bypass_ratchet.test.ts`. P1 exige que TODO efecto de
+  ejecución pase por un chokepoint único; su criterio de aceptación final es
+  `grep 'sandboxRegistry' fuera de src/sandbox/` == 0. Hoy hay **8 callers directos**
+  (`chizu/adapters`, `kagami/adapters`, `kaname/live`, `shitsuji/live`, `shugyo/index`,
+  `shugyo/sandbox/revertible`, `tools/run_command`, `tools/spawn_agent`). Migrarlos es
+  P1.E2 (semanas). Mientras tanto el ratchet **fija esa línea base y falla si aparece un 9º**
+  bypass, y avisa si una entrada de la base ya se migró (para apretar). Convierte la deuda
+  de "disciplina del caller" en un invariante de CI que sólo puede encoger.
+
+**Verificación (regla #2, adaptada al entorno):** `vitest` NO corre en el sandbox de
+tooling Linux — `node_modules` trae binarios nativos `win32-x64` (rolldown/better-sqlite3/
+isolated-vm), que no cargan en linux-x64; el test existente `no_residual_branding.test.ts`
+falla idéntico. CI corre en `windows-latest`, donde sí corren. Verificado aquí por
+**equivalente en Node puro** (sin deps nativas): ratchet en verde con 8 offenders todos en
+base, y en **rojo bajo mutación** (inyectar un 9º bypass lo detecta). `tsc --noEmit`
+terminó **sin errores** en el fichero nuevo. Doc↔árbol re-verificado: 459 prod / 236 test
+== escaneo real.
+
+**Lo que queda (explícito, no se tocó):** P1.E2-E5 (chokepoint real + mandatos + backend
+confinado + egress broker), P2/P3/P4/P5 completos, P6.E2-E4 (build). Requieren entorno con
+tests ejecutables y son el grueso multi-semana del plan.
+
+**Addendum (misma sesión, ya en Windows real):** lo verificado por equivalente en Node puro
+se re-verificó con `vitest` de verdad — `monitor_bypass_ratchet.test.ts`,
+`estado_generator.test.ts` y `no_residual_branding.test.ts` en verde (14/14), y la suite
+completa **219 ficheros / 2101 tests pasan** (1 skip), 51s. De paso se encontró y arregló un
+bug de higiene de test: `src/audit/__tests__/audit_log.test.ts` (test "path con caracteres
+reservados de Windows") escribía `SHINOBI_AUDIT_LOG_PATH` como una ruta relativa
+(`<invalid>|*?.jsonl`), que en este filesystem a veces SÍ se acepta y escribe un
+`audit.jsonl` real en la raíz del repo (el `?? <invalid>|*?.jsonl` que aparecía suelto en
+`git status`). Fix: la ruta ahora vive bajo `os.tmpdir()` y se limpia en un `finally`, igual
+que el resto del fichero. 19/19 tests de `audit_log.test.ts` siguen en verde.
+
 ## 2026-07-01 · Remediación post-auditoría — 4 tests rotos arreglados + build:exe reparado + SEA canónico roto documentado (no arreglado)
 
 Verificación de las 5 puertas (checkout → `npm ci` → `typecheck` → `test` →
