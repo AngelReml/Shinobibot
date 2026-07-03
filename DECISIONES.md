@@ -1,5 +1,55 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · P1.E4 PARCIAL — ruta PowerShell cerrada por el monitor; Job Object NO se envía (sin verificar)
+
+**Parte 1 (CERRADA): la ruta PowerShell de `run_command.ts` ya no esquiva `mediatedEffect`.**
+Era la brecha real de mayor tráfico documentada en `monitor.ts` (`shell:'auto'` en win32 —
+el comportamiento POR DEFECTO del producto en su host nativo — llamaba a `runPowerShell()`
+directo). Nuevo `src/sandbox/backends/powershell.ts` (`PowerShellBackend`) envuelve
+`runPowerShell()` detrás del contrato `RunBackend`, registrado en `sandboxRegistry()` como
+`'powershell'` (`BackendId` extendido). `run_command.ts` ahora arma un `ShellEffect` con
+`backendId:'powershell'` y lo pasa por `mediatedEffect` — mismo `runPowerShell()` por debajo
+(misma defensa F1.1: `-EncodedCommand` sin inyección, env allowlist, redacción), cero cambio
+de comportamiento observable, solo cambia el camino: ahora auditado, con el mismo chokepoint
+que `'local'`. `cwd` sigue sin aplicarse en modo PowerShell (paridad exacta con el
+comportamiento previo — no es una regresión, es lo que ya hacía `run_command.ts` antes).
+
+Verificado (regla #2): `tsc --noEmit` 0 errores. Test real (sin mocks) contra
+`powershell.exe`: `PowerShellBackend.run()` ejecuta y devuelve stdout/exitCode reales.
+Mutación: revertido temporalmente `run_command.ts` a llamar `PowerShellBackend` DIRECTO
+(bypass de `mediatedEffect`, el mismo patrón de bug que tenía antes) → los dos tests nuevos
+que assertan `monitorStats().mediated` se ponen ROJOS → restaurado → verdes. Suite completa:
+**232 test files passed, 2211 tests passed, 3 skipped**. Ficheros: `src/sandbox/types.ts`
+(`BackendId` +`'powershell'`), `src/sandbox/backends/powershell.ts` (nuevo),
+`src/sandbox/registry.ts` (lo registra), `src/tools/run_command.ts` (rama `usePowerShell`
+reescrita), `src/sandbox/monitor.ts` (comentario de arquitectura actualizado — ya no dice que
+la ruta PowerShell está fuera del monitor), `src/sandbox/__tests__/sandbox_registry.test.ts`
+(+`PowerShellBackend`, conteo de defaults 4→5), `src/tools/__tests__/run_command.test.ts`
+(+3 tests de enrutamiento por el monitor).
+
+**Parte 2 (NO ENVIADA, con honestidad — regla del repo): confinamiento nativo vía Job Object.**
+Se investigó y prototipó `CreateJobObject`/`SetInformationJobObject`/`AssignProcessToJobObject`
+vía P/Invoke desde PowerShell (`Add-Type` con C# embebido, mismo transporte `-EncodedCommand`
+que el resto del repo — sin dependencia nativa nueva de Node). Hallazgo empírico en ESTE
+entorno de desarrollo: el proceso PowerShell YA está anidado dentro de un Job Object externo
+(`IsProcessInJob` devuelve `true` ANTES de crear el nuestro — consistente con el hallazgo
+previo de esta sesión de que el entorno es una sandbox de build, no una máquina Windows
+"pelada"). `AssignProcessToJobObject` de un job anidado devuelve éxito (Windows 8+ soporta
+jobs anidados), pero en la prueba directa un límite `JOB_OBJECT_LIMIT_PROCESS_MEMORY` de 8MB
+sobre el proceso NO impidió una asignación+touch de 200MB (debería haber fallado la reserva
+de páginas). No se pudo aislar la causa (¿contabilidad de commit distinta bajo el job externo
+de este sandbox? ¿alguna interacción con el hypervisor del entorno?) con el presupuesto de
+esta sesión, y la validación del límite de nº de procesos (`ACTIVE_PROCESS`) quedó bloqueada
+por un guardrail del propio harness de ejecución de comandos (falso positivo ajeno a Windows).
+
+Regla explícita del encargo: *"si Job Object/AppContainer no contiene un vector, repórtalo,
+no lo finjas"*. No se ha comiteado código de confinamiento por Job Object — enviarlo sin
+verificación real sería precisamente fingir la jaula que esta nota prohíbe. El default de
+ejecución sigue siendo `local`/`powershell` con la defensa F1.1 intacta (blacklist + env
+allowlist + redacción), SIN aislamiento de proceso adicional. Pendiente para un corte
+posterior, idealmente verificado en una máquina Windows sin anidamiento de job previo
+(fuera de este sandbox de desarrollo) antes de comitear cualquier código de confinamiento.
+
 ## 2026-07-03 · P2.E3.c CERRADA — DPAPI cifra en reposo la identidad de dispositivo
 
 Cierra el seam documentado en `src/attest/device_identity.ts`: hasta ahora la privada

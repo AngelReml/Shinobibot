@@ -23,7 +23,7 @@
  * operador decidir qué backend activar.
  */
 
-export type BackendId = 'local' | 'docker' | 'ssh' | 'e2b' | 'mock';
+export type BackendId = 'local' | 'docker' | 'ssh' | 'e2b' | 'mock' | 'powershell';
 
 export interface RunInput {
   command: string;

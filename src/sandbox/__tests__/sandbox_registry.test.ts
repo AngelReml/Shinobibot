@@ -3,6 +3,7 @@ import { sandboxRegistry, _resetSandboxRegistry, MockBackend } from '../registry
 import { LocalBackend } from '../backends/local.js';
 import { SSHBackend } from '../backends/ssh.js';
 import { E2BBackend } from '../backends/e2b.js';
+import { PowerShellBackend } from '../backends/powershell.js';
 
 beforeEach(() => {
   _resetSandboxRegistry();
@@ -14,9 +15,9 @@ afterEach(() => {
 });
 
 describe('SandboxRegistry — defaults', () => {
-  it('registra los 4 backends por defecto', () => {
+  it('registra los 5 backends por defecto', () => {
     const ids = sandboxRegistry().list().map(b => b.id).sort();
-    expect(ids).toEqual(['docker', 'e2b', 'local', 'ssh']);
+    expect(ids).toEqual(['docker', 'e2b', 'local', 'powershell', 'ssh']);
   });
 });
 
@@ -37,6 +38,32 @@ describe('LocalBackend (real exec)', () => {
     expect(r.success).toBe(false);
     expect(r.exitCode).toBe(7);
     expect(r.backend).toBe('local');
+  });
+});
+
+describe('PowerShellBackend (real powershell.exe, win32)', () => {
+  const itWin = process.platform === 'win32' ? it : it.skip;
+
+  itWin('ejecuta un comando trivial y devuelve stdout', async () => {
+    const b = new PowerShellBackend();
+    const r = await b.run({ command: "Write-Output 'shinobi-ps'", cwd: process.cwd(), timeoutMs: 15000 });
+    expect(r.success).toBe(true);
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain('shinobi-ps');
+    expect(r.backend).toBe('powershell');
+    expect(r.durationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  itWin('comando que falla devuelve success false', async () => {
+    const b = new PowerShellBackend();
+    const r = await b.run({ command: 'exit 7', cwd: process.cwd(), timeoutMs: 15000 });
+    expect(r.success).toBe(false);
+    expect(r.backend).toBe('powershell');
+  });
+
+  it('isConfigured refleja el platform real', () => {
+    const b = new PowerShellBackend();
+    expect(b.isConfigured()).toBe(process.platform === 'win32');
   });
 });
 

@@ -27,13 +27,17 @@
 //     `capability_not_granted`/`mandate_expired`. La EMISIÓN por misión está cableada,
 //     operador-controlada (`SHINOBI_MANDATE`, default-off ⇒ paridad legado). Queda la
 //     FIRMA del mandato (E3.c, depende de P2) y que P4 derive el mínimo por misión.
-//   - E4: backend confinado por defecto. El default sigue siendo `local` (con su
-//     defensa propia F1.1: blacklist + env allowlist + redacción — intacta, §9).
+//   - E4 (PARCIAL, 2026-07-03): la ruta PowerShell de `run_command.ts` — el camino de
+//     MAYOR tráfico real en el host Windows nativo del producto (`shell:'auto'` en
+//     win32) — YA NO esquiva el monitor: entra vía el backend `powershell`
+//     (`backends/powershell.ts`, envuelve `runPowerShell()`). Queda pendiente el
+//     confinamiento nativo (Job Object/AppContainer) — el default sigue siendo
+//     `local`/`powershell` SIN aislamiento de proceso más allá de la defensa F1.1
+//     (blacklist + env allowlist + redacción, intacta, §9). Ver DECISIONES.md.
 //   - E4/E5: `fs.read`/`fs.write`/`net`/`input` existen en el TIPO para que el
 //     contrato sea el del plan, pero ejecutar esos kinds DENIEGA (`unsupported_kind`)
-//     hasta que su mediación real exista. La ruta PowerShell de run_command y el
-//     resto de efectos no-shell del árbol siguen fuera de este monitor (documentado
-//     en DECISIONES.md 2026-07-02).
+//     hasta que su mediación real exista. El resto de efectos no-shell del árbol
+//     siguen fuera de este monitor (documentado en DECISIONES.md 2026-07-02).
 //
 // El monitor NO añade validación de contenido en E1-E2 (eso rompería paridad de
 // comportamiento con los 6 callers migrados): la defensa de contenido vive en el

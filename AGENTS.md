@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-07-03T18:46:49.008Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-07-03T19:42:30.267Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** remediacion-2026-07-01 · **Arbol:** SUCIO (4 cambios)
-- **Ultimo commit:** 068c17b ALTA-02 cerrada: sandboxing real (isolated-vm) de plugin_loader.ts
-- **Tamano:** 473 ficheros de codigo (62361 LOC), 249 de test
+- **Version:** 1.0.0 · **Rama:** remediacion-2026-07-01 · **Arbol:** SUCIO (7 cambios)
+- **Ultimo commit:** cb80b2a P2.E3.c cerrada: DPAPI cifra en reposo la identidad de dispositivo
+- **Tamano:** 474 ficheros de codigo (62435 LOC), 249 de test
 - **Inventario (escaneo real):** ~61 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -68,7 +68,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/refiner/` | 4 | Barrel del refinador de prompts en camino caliente (FASE 1). Shadow mode: |
 | `src/replay/` | 1 | Mission Replay — reconstruye y opcionalmente re-ejecuta (dry-run) una sesión desde audit.jsonl. |
 | `src/runtime/` | 8 | Remote Mode (Sprint 3.5) — Shinobi desplegado en un VPS vía SSH+Docker; las tools corren allí. |
-| `src/sandbox/` | 12 | P1.E1 (plan de frontera 2026-07-01) — Monitor de Referencia Único: `mediatedEffect()`. |
+| `src/sandbox/` | 13 | P1.E1 (plan de frontera 2026-07-01) — Monitor de Referencia Único: `mediatedEffect()`. |
 | `src/security/` | 2 | D-017 — gate selectivo de aprobación: modos on/smart/critical/off (default critical). |
 | `src/selfdebug/` | 1 | Self-Debug — convierte cada fallo de tool en un diagnostic report estructurado y accionable. |
 | `src/sentinel/` | 15 | Sentinel — slash command /sentinel: watch de fuentes, ask semántico, propuestas, council y digest. |

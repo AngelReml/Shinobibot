@@ -6,7 +6,6 @@ import { resolve as resolvePath, sep } from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { isDangerousCommand, ABSOLUTE_PROHIBITED_PATHS } from '../utils/permissions.js';
 import { contextCwd, contextWorkspaceRoot } from '../agents/exec_context.js';
-import { runPowerShell } from './_powershell.js';
 
 // Patrones destructivos NO configurables por el LLM. Si el command (tras
 // normalizar) hace match con cualquiera de estos, se rechaza antes de
@@ -311,16 +310,39 @@ const runCommandTool: Tool = {
     }
 
     // Fase 2 — D1 Windows: si el caller pide PowerShell, o si es auto y
-    // estamos en Windows, enrutamos por runPowerShell (Base64 -EncodedCommand,
-    // sin inyección de cmd.exe, y desde F1.1 también con env allowlist +
-    // redacción de output — ver _powershell.ts). Esta es la ruta real por
-    // defecto en el host Windows nativo del producto.
+    // estamos en Windows, enrutamos por el backend 'powershell' (Base64
+    // -EncodedCommand, sin inyección de cmd.exe, y desde F1.1 también con env
+    // allowlist + redacción de output — ver _powershell.ts). Esta es la ruta
+    // real por defecto en el host Windows nativo del producto.
+    //
+    // P1.E4 (plan de frontera 2026-07-01): antes esta rama llamaba a
+    // `runPowerShell()` directo — la única brecha real del monitor en Windows
+    // (documentada en `monitor.ts`), porque era el camino de MAYOR tráfico
+    // del producto y el único que esquivaba `mediatedEffect`. Ahora entra por
+    // el Monitor de Referencia igual que el resto: mismo `runPowerShell()`
+    // por debajo (`PowerShellBackend`), cero cambio de comportamiento, solo
+    // cambia el camino — auditado, con el mismo chokepoint que 'local'.
     const shellMode = (args.shell || 'auto').toLowerCase();
     const usePowerShell = shellMode === 'powershell' ||
       (shellMode === 'auto' && process.platform === 'win32');
 
     if (usePowerShell) {
-      const r = await runPowerShell(args.command, timeout);
+      const { mediatedEffect } = await import('../sandbox/monitor.js');
+      const res = await mediatedEffect({
+        kind: 'shell',
+        rawCommandLine: true,
+        target: args.command,
+        cwd,
+        timeoutMs: timeout,
+        backendId: 'powershell',
+        reversible: false,
+      });
+      if (!res.ok) {
+        // Solo alcanzable si 'powershell' desapareciera del registry (tests
+        // que lo vacían) o el mandato de misión lo deniega (E3.a).
+        return { success: false, output: '', error: `Backend 'powershell' no disponible: ${res.detail}` };
+      }
+      const r = res.run;
       const output = [
         `PS> ${args.command}`,
         r.stdout.trim() || '',

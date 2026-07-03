@@ -23,6 +23,7 @@ import { DockerBackend } from './backends/docker.js';
 import { SSHBackend } from './backends/ssh.js';
 import { E2BBackend } from './backends/e2b.js';
 import { MockBackend } from './backends/mock.js';
+import { PowerShellBackend } from './backends/powershell.js';
 
 class SandboxRegistry {
   private readonly backends = new Map<BackendId, RunBackend>();
@@ -36,6 +37,7 @@ class SandboxRegistry {
     this.register(new DockerBackend());
     this.register(new SSHBackend());
     this.register(new E2BBackend());
+    this.register(new PowerShellBackend());
     // Mock NO se registra por default — lo añaden los tests con `register()`.
   }
 

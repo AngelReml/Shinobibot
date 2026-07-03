@@ -211,3 +211,30 @@ describe('MEDIA-04 · requiresConfirmation ve todo lo que bloquea checkDestructi
     expect(runCommandTool.requiresConfirmation!({ command: 'git status' })).toBe(false);
   });
 });
+
+describe('P1.E4 · la ruta PowerShell de run_command entra por el Monitor de Referencia', () => {
+  const itWin = process.platform === 'win32' ? it : it.skip;
+
+  itWin('shell:"powershell" incrementa monitorStats().mediated (ya no esquiva mediatedEffect)', async () => {
+    const { monitorStats, _resetMonitorStats } = await import('../../sandbox/monitor.js');
+    _resetMonitorStats();
+    const before = monitorStats().mediated;
+    const result = await runCommandTool.execute({ command: "Write-Output 'shinobi-monitor-check'", shell: 'powershell' });
+    expect(result.success).toBe(true);
+    expect(result.output).toContain('shinobi-monitor-check');
+    expect(monitorStats().mediated).toBe(before + 1);
+  });
+
+  itWin('shell:"auto" en win32 también entra por el monitor (comportamiento por defecto del producto)', async () => {
+    const { monitorStats, _resetMonitorStats } = await import('../../sandbox/monitor.js');
+    _resetMonitorStats();
+    const before = monitorStats().mediated;
+    await runCommandTool.execute({ command: "Write-Output 'shinobi-auto-check'" });
+    expect(monitorStats().mediated).toBe(before + 1);
+  });
+
+  itWin('el backend "powershell" está registrado en el sandbox registry', async () => {
+    const { sandboxRegistry } = await import('../../sandbox/registry.js');
+    expect(sandboxRegistry().get('powershell' as any)).toBeDefined();
+  });
+});
