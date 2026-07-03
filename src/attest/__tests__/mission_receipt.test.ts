@@ -3,7 +3,10 @@
 // fuera del mandato → el test de la corona se pone rojo. Verificado por el protocolo
 // de la regla #2 (evidencia en DECISIONES.md). Reutiliza la primitiva Ed25519.
 import { describe, it, expect } from 'vitest';
-import { buildMissionReceipt, verifyMissionReceipt } from '../mission_receipt.js';
+import { buildMissionReceipt, verifyMissionReceipt, verifyReceiptFile } from '../mission_receipt.js';
+import { mkdtempSync, writeFileSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { generateKeyPairSync } from 'crypto';
 
 function keys() {
@@ -65,5 +68,17 @@ describe('P2.E5 — Recibo de Misión (Modo Cristal)', () => {
     const { pub, priv } = keys();
     const r = buildMissionReceipt({ missionId: 'm3', mandate: null, effects: [{ kind: 'shell', scope: '/x', decision: 'allow' }], auditText: '', privateKeyPem: priv, publicKeyPem: pub });
     expect(verifyMissionReceipt(r).valid).toBe(true);
+  });
+});
+
+describe('P2 — verificador standalone desde fichero (CLI)', () => {
+  it('lee un recibo de disco y lo verifica; JSON basura ⇒ malformed', () => {
+    const { pub, priv } = keys();
+    const r = buildMissionReceipt({ missionId: 'file-m', mandate: { capabilities: ['shell:/ws'] }, effects: [{ kind: 'shell', scope: '/ws', decision: 'allow' }], auditText: '', privateKeyPem: priv, publicKeyPem: pub });
+    const dir = mkdtempSync(join(tmpdir(), 'shinobi_vr_'));
+    const ok = join(dir, 'r.json'); writeFileSync(ok, JSON.stringify(r));
+    expect(verifyReceiptFile(ok).valid).toBe(true);
+    const bad = join(dir, 'bad.json'); writeFileSync(bad, '{no-json');
+    expect(verifyReceiptFile(bad).reason).toBe('malformed');
   });
 });

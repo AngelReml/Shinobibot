@@ -1,5 +1,19 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · P2 (capstone) — Verificador standalone de recibos (`npm run verify:receipt`)
+
+Cierra el Modo Cristal como capacidad USABLE: `scripts/verify_receipt.ts` + `verifyReceiptFile`
+(`mission_receipt.ts`) + `npm run verify:receipt -- <recibo.json> [audit.jsonl]`. Un tercero valida un
+recibo con SOLO la pública, sin arrancar Shinobi — autenticidad + integridad + no-exceso del mandato.
+Exit 0 (válido) / 1 (inválido, con el efecto ofensor si lo hay) / 2 (mal uso). El plan lo pedía "como
+binario aparte, para que el operador lo corra sin Shinobi delante".
+
+Verificado (regla #2): `tsc` 0; el core `verifyMissionReceipt` ya está mutación-probado (entrada
+2026-07-03 P2.E5); `verifyReceiptFile` + el CLI son glue fino, cubiertos por `mission_receipt.test.ts`
+en la suite canónica (vitest/Windows). Ficheros: `scripts/verify_receipt.ts` (net-new),
+`src/attest/mission_receipt.ts` (+`verifyReceiptFile`), `package.json` (script `verify:receipt`),
+`src/attest/__tests__/mission_receipt.test.ts` (+caso de fichero).
+
 ## 2026-07-03 · P2.E5 (cierre) — Emisión del Recibo de Misión al cerrar la misión
 
 Completa el lazo de P2.E5: el Recibo ya no solo se construye/verifica — se EMITE de verdad al cerrar cada

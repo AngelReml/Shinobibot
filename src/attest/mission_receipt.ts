@@ -17,6 +17,7 @@
 // modelo de amenaza que provenance_v2 — Certificate-Transparency-like).
 
 import { createHash, sign as edSign, verify as edVerify, createPrivateKey, createPublicKey } from 'crypto';
+import { readFileSync } from 'fs';
 import { chainRoot, toLines } from '../audit/audit_chain.js';
 import { effectsWithinMandate, type Mandate, type ExecutedEffect } from '../sandbox/mandate.js';
 
@@ -118,6 +119,21 @@ export function verifyMissionReceipt(r: MissionReceipt, auditText?: string): Rec
       if (!comp.ok) return { valid: false, reason: 'mandate_exceeded', offendingEffect: comp.offending };
     }
     return { valid: true, reason: 'ok' };
+  } catch {
+    return { valid: false, reason: 'malformed' };
+  }
+}
+
+/**
+ * Verifica un recibo LEÍDO DE DISCO (para el verificador standalone / CLI). JSON
+ * inválido o fichero ilegible ⇒ `malformed`. Si se aporta `auditPath`, cruza el
+ * rastro. No depende del runtime de Shinobi más allá de esta capa de atestación.
+ */
+export function verifyReceiptFile(receiptPath: string, auditPath?: string): ReceiptVerification {
+  try {
+    const receipt = JSON.parse(readFileSync(receiptPath, 'utf-8')) as MissionReceipt;
+    const auditText = auditPath ? readFileSync(auditPath, 'utf-8') : undefined;
+    return verifyMissionReceipt(receipt, auditText);
   } catch {
     return { valid: false, reason: 'malformed' };
   }
