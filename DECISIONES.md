@@ -1,5 +1,16 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · P3 (manifiesto de capacidades) — el manifiesto de una skill ES su mandato
+
+`src/confine/manifest.ts`: `parseManifest` valida el manifiesto que declara una skill/plugin (capacidades
+`"kind:scope"`, la MISMA gramática que los mandatos de P1 — cero divergencia); las malformadas se descartan
+(fail-closed). `manifestToMandate` convierte el manifiesto en un `Mandate`: la skill corre con exactamente
+lo declarado y el monitor le deniega el resto. Es lo que conecta P3 (declaración) con P1 (enforcement):
+`runWithMandate(manifestToMandate(m), () => cargar la skill)`.
+
+Verificado (regla #2): `tsc` 0; mutación de `parseManifest` (no filtra malformadas) → rojo → restaurar →
+verde. Ficheros: `src/confine/manifest.ts` (net-new), `src/confine/__tests__/manifest.test.ts` (net-new).
+
 ## 2026-07-03 · P3 (primer incremento) — Guard por AST del código foráneo (caza la ofuscación)
 
 `src/confine/ast_guard.ts::scanForbidden` — razona sobre el AST (compilador de TypeScript, ya en el repo),
