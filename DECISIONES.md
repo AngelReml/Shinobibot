@@ -1,5 +1,42 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · P2.E3.c CERRADA — DPAPI cifra en reposo la identidad de dispositivo
+
+Cierra el seam documentado en `src/attest/device_identity.ts`: hasta ahora la privada
+Ed25519 de la identidad de dispositivo se persistía en `.shinobi/device_key.json` con
+permisos 0600 pero EN CLARO. Nuevo módulo `src/attest/dpapi.ts` envuelve
+`System.Security.Cryptography.ProtectedData` (scope `CurrentUser`) invocado vía
+`powershell.exe -EncodedCommand` (mismo patrón de `src/tools/_powershell.ts`: base64
+UTF-16LE, cero interpolación de shell — los payloads se validan contra un charset
+base64 antes de tocar el script). `getDeviceIdentity` ahora persiste `{ publicKeyPem,
+privateKeyEnc, dpapi:true }` en vez de `privateKeyPem` en claro; al cargar, desenvuelve
+con `dpapiUnprotect`. Fail-soft en dos niveles: (1) fuera de win32, o si la llamada a
+PowerShell falla por cualquier razón, `dpapiProtect`/`dpapiUnprotect` devuelven `null`
+sin lanzar — el caller cae al formato legado en claro con un `console.warn`, así CI/Linux
+y arranques sin DPAPI siguen funcionando; (2) un blob DPAPI que no desenvuelve (fichero
+de otro usuario/máquina, o corrupto) se trata igual que un fichero corrupto ya trataba
+antes: no se reutiliza una clave dudosa, se regenera una identidad nueva. Los ficheros
+legados existentes (`privateKeyPem` en claro, sin marcador `dpapi`) se siguen leyendo sin
+migración forzosa — la pública no cambia de formato, ningún consumidor (`mandate_sign.ts`,
+`emit_receipt.ts`, `orchestrator.ts`) se toca.
+
+Verificado (regla #2): `tsc --noEmit` 0 errores. Roundtrip real (sin mocks) contra
+`powershell.exe`+DPAPI en esta máquina Windows: `dpapiProtect`/`dpapiUnprotect` recuperan
+el texto original, el blob cifrado nunca contiene el texto plano como substring, input
+no-base64 se rechaza sin llamar a PowerShell, un blob corrupto devuelve `null` sin lanzar.
+`getDeviceIdentity` sobre un fichero nuevo: el JSON en disco tiene `dpapi:true` +
+`privateKeyEnc`, CERO apariciones de `BEGIN PRIVATE KEY` ni de la PEM privada como
+substring; un segundo arranque (proceso nuevo, `_resetDeviceIdentity`) desenvuelve el
+blob y reusa la MISMA identidad (pública Y privada idénticas). Mutación: forzado
+`dpapiPlatformSupported()` a devolver siempre `false` → los dos tests que exigen
+formato DPAPI en disco se ponen ROJOS (el JSON vuelve a persistir `privateKeyPem` en
+claro, exactamente el comportamiento legado) → restaurado → verdes. Suite canónica
+completa: **232 test files passed, 2205 tests passed, 3 skipped** (Windows, `npm run
+test`). Ficheros: `src/attest/dpapi.ts` (nuevo), `src/attest/device_identity.ts`
+(persist/tryLoad reescritos, formato legado sigue soportado en lectura),
+`src/attest/__tests__/dpapi.test.ts` (nuevo), `src/attest/__tests__/mandate_sign.test.ts`
+(describe nuevo de identidad cifrada + formato legado + blob corrupto).
+
 ## 2026-07-03 · ALTA-02 CERRADA — sandboxing real (isolated-vm) de `plugin_loader.ts`
 
 Cierra el gap F1.2 diferido el 2026-07-01 ("se intenta el sandboxing solo si queda margen de

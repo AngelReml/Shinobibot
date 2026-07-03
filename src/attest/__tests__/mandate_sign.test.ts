@@ -8,7 +8,7 @@ import { signMandate, verifyMandate, verifyMandateSignature, canonicalMandate } 
 import { verifyMissionStart, verifyMissionStartLine } from '../verify.js';
 import { getDeviceIdentity, _resetDeviceIdentity } from '../device_identity.js';
 import { generateKeyPairSync } from 'crypto';
-import { mkdtempSync } from 'fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -57,6 +57,65 @@ describe('P1.E3.c — identidad de dispositivo (load-or-create)', () => {
     const b = getDeviceIdentity(p);
     expect(b.publicKeyPem).toBe(a.publicKeyPem);
     expect(a.publicKeyPem).toContain('BEGIN PUBLIC KEY');
+  });
+});
+
+describe('P2.E3.c — identidad de dispositivo cifrada en reposo (DPAPI, win32)', () => {
+  const itWin = process.platform === 'win32' ? it : it.skip;
+
+  itWin('el JSON persistido usa formato DPAPI y NO contiene la privada en claro', () => {
+    _resetDeviceIdentity();
+    const p = join(mkdtempSync(join(tmpdir(), 'shinobi_dev_dpapi_')), 'device_key.json');
+    const identity = getDeviceIdentity(p);
+
+    const raw = JSON.parse(readFileSync(p, 'utf-8'));
+    expect(raw.dpapi).toBe(true);
+    expect(typeof raw.privateKeyEnc).toBe('string');
+    expect(raw.privateKeyPem).toBeUndefined();
+
+    const onDisk = readFileSync(p, 'utf-8');
+    expect(onDisk).not.toContain('BEGIN PRIVATE KEY');
+    expect(onDisk).not.toContain(identity.privateKeyPem);
+  });
+
+  itWin('un segundo arranque desenvuelve el blob DPAPI y reusa la MISMA identidad', () => {
+    _resetDeviceIdentity();
+    const p = join(mkdtempSync(join(tmpdir(), 'shinobi_dev_dpapi_')), 'device_key.json');
+    const a = getDeviceIdentity(p);
+    _resetDeviceIdentity();
+    const b = getDeviceIdentity(p);
+    expect(b.publicKeyPem).toBe(a.publicKeyPem);
+    expect(b.privateKeyPem).toBe(a.privateKeyPem);
+  });
+
+  it('formato legado (privateKeyPem en claro, sin dpapi) se sigue leyendo sin migración forzosa', () => {
+    _resetDeviceIdentity();
+    const p = join(mkdtempSync(join(tmpdir(), 'shinobi_dev_legacy_')), 'device_key.json');
+    const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+    const legacy = {
+      publicKeyPem: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+      privateKeyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+    };
+    writeFileSync(p, JSON.stringify(legacy), { encoding: 'utf-8', mode: 0o600 });
+
+    const loaded = getDeviceIdentity(p);
+    expect(loaded.publicKeyPem).toBe(legacy.publicKeyPem);
+    expect(loaded.privateKeyPem).toBe(legacy.privateKeyPem);
+  });
+
+  itWin('blob DPAPI corrupto/ilegible ⇒ se regenera una identidad nueva (no lanza, no reutiliza clave dudosa)', () => {
+    _resetDeviceIdentity();
+    const p = join(mkdtempSync(join(tmpdir(), 'shinobi_dev_corrupt_')), 'device_key.json');
+    const a = getDeviceIdentity(p);
+    _resetDeviceIdentity();
+
+    const raw = JSON.parse(readFileSync(p, 'utf-8'));
+    raw.privateKeyEnc = Buffer.from('blob-dpapi-invalido').toString('base64');
+    writeFileSync(p, JSON.stringify(raw), { encoding: 'utf-8', mode: 0o600 });
+
+    const b = getDeviceIdentity(p);
+    expect(b.publicKeyPem).not.toBe(a.publicKeyPem); // no reutiliza la clave dudosa: identidad nueva
+    expect(b.publicKeyPem).toContain('BEGIN PUBLIC KEY');
   });
 });
 

@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-07-03T06:49:04.795Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-07-03T18:46:49.008Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,10 +13,10 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** remediacion-2026-07-01 · **Arbol:** SUCIO (14 cambios)
-- **Ultimo commit:** 7ff7484 P2.E5 (cierre): emision del Recibo de Mision al cerrar la mision
-- **Tamano:** 467 ficheros de codigo (61933 LOC), 243 de test
-- **Inventario (escaneo real):** ~62 registros de tool · 2 referencias MCP
+- **Version:** 1.0.0 · **Rama:** remediacion-2026-07-01 · **Arbol:** SUCIO (4 cambios)
+- **Ultimo commit:** 068c17b ALTA-02 cerrada: sandboxing real (isolated-vm) de plugin_loader.ts
+- **Tamano:** 473 ficheros de codigo (62361 LOC), 249 de test
+- **Inventario (escaneo real):** ~61 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
 
@@ -24,7 +24,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 |---|---|---|
 | `src/a2a/` | 2 | A2A — protocolo Agent-to-Agent: otro agente invoca capacidades de este Shinobi. |
 | `src/agents/` | 29 | Barrel del subsistema de agentes especialistas (Bloque 1 del encargo |
-| `src/attest/` | 5 | P2.E5 (plan de frontera) — Recibo de Misión: la corona del "Modo Cristal". |
+| `src/attest/` | 6 | P2.E5 (plan de frontera) — Recibo de Misión: la corona del "Modo Cristal". |
 | `src/audit/` | 5 | _(anade un banner de cabecera)_ |
 | `src/backup/` | 1 | State Backup — backup/restore de settings/memoria/skills/audit(redactado) de Shinobi. NO incluye .e... |
 | `src/bench/` | 15 | Barrel del harness de benchmark (FASE 1) — runner, tasks, adapters, report y results. |
@@ -34,6 +34,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/chizu/` | 16 | Nivel 3 — Chizu (地図): el cartógrafo, retrato fiel de la máquina (discovery/uso/riesgo→Atlas), cero ... |
 | `src/cloud/` | 3 | Pool de credenciales API multi-proveedor — rotación de keys y cuarentena 1h tras rate-limit. |
 | `src/committee/` | 8 | Habilidad B.2 — Comité de validación. |
+| `src/confine/` | 2 | P3 (Runtime de Confinamiento Unificado) — guard por AST del código foráneo. |
 | `src/constants/` | 1 | Prompt de sistema base del agente (SYSTEM_PROMPT): identidad, regla tool-first y protocolos. |
 | `src/context/` | 5 | Context Compactor — compactación heurística del historial bajo presupuesto de tokens, sin LLM. |
 | `src/coordinator/` | 13 | Orquestador del bucle LLM-tool (ShinobiOrchestrator): ejecuta tools, compacta contexto y audita. |
@@ -61,6 +62,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/observability/` | 3 | Reglas de alerta configurables que disparan webhooks al cruzar umbrales de eventos o métricas. |
 | `src/persistence/` | 2 | Cola de tareas persistente en SQLite (better-sqlite3, WAL) con buffer de progreso y flush 200ms. |
 | `src/plugins/` | 3 | Hot-plug de plugins como tools nativas — transforma ESM→CJS y evalúa en sandbox isolated-vm. |
+| `src/policy/` | 3 | P4 (Policy como Código) — motor de resolución del mandato por misión. |
 | `src/providers/` | 10 | Bloque 7 — Anthropic native client. Default claude-haiku-4-5. |
 | `src/reader/` | 10 | Habilidad D.2 — HierarchicalReader: extiende RepoReader con depth jerárquico. |
 | `src/refiner/` | 4 | Barrel del refinador de prompts en camino caliente (FASE 1). Shadow mode: |
@@ -97,6 +99,8 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `npm run test:coverage` | `vitest run --coverage` |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run tui` | `tsx scripts/shinobi-tui.tsx` |
+| `npm run verify:receipt` | `tsx scripts/verify_receipt.ts` |
+| `npm run policy:simulate` | `tsx scripts/policy_simulate.ts` |
 | `npm run bench` | `tsx scripts/benchmarks/run.ts` |
 | `npm run bench:compare` | `tsx scripts/bench.ts` |
 | `npm run bench:agentic` | `tsx scripts/bench_s_agentic.ts` |
