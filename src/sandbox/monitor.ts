@@ -44,7 +44,7 @@
 import type { BackendId, RunOutput } from './types.js';
 import { sandboxRegistry } from './registry.js';
 import { redactSecrets } from '../security/secret_redactor.js';
-import { checkMandate, currentMandate, type Mandate } from './mandate.js';
+import { checkMandate, currentMandate, recordMissionEffect, effectScope, type Mandate } from './mandate.js';
 
 // ── El efecto como dato tipado ────────────────────────────────────────────────────
 
@@ -301,6 +301,9 @@ export async function mediatedEffect(effect: Effect, mandate?: Mandate): Promise
   const effective = mandate ?? currentMandate();
   const result = await _decideAndRun(effect, effective);
   emitEffectAudit(effect, result);   // fail-open: nunca altera `result`
+  // P2.E5 — recoge el efecto para el Recibo de Misión. No-op fuera de una misión con
+  // mandato (rama legado): cero coste ni cambio en el camino por defecto.
+  recordMissionEffect({ kind: effect.kind, scope: effectScope(effect), decision: result.ok ? 'allow' : 'deny' });
   return result;
 }
 

@@ -35,6 +35,7 @@ import { runWithMandate, parseMandateSpec } from '../sandbox/mandate.js';
 import { logMandate } from '../audit/audit_log.js';
 import { getDeviceIdentity } from '../attest/device_identity.js';
 import { signMandate } from '../attest/mandate_sign.js';
+import { emitMissionReceipt } from '../attest/emit_receipt.js';
 import { ProgressTracker, progressDetectionEnabled } from './progress_judge.js';
 import { MemoryReflector, reflectionEnabled } from '../context/memory_reflector.js';
 import { runBackgroundReview, backgroundReviewEnabled, reviewInProgress } from '../learning/background_review.js';
@@ -256,7 +257,16 @@ export class ShinobiOrchestrator {
         devicePublicKeyPem = s.publicKeyPem;
       } catch { /* firma best-effort */ }
       logMandate({ capabilities: mandate.capabilities, expiresAt: mandate.expiresAt, userId: opts?.userId, signature, devicePublicKeyPem });
-      return runWithMandate(mandate, run);
+      return runWithMandate(mandate, async () => {
+        const result = await run();
+        // P2.E5 — al CERRAR la misión, emite el Recibo de Misión con los efectos que
+        // el monitor recogió (currentMissionEffects). Best-effort: jamás altera el
+        // resultado ni tumba la misión. Solo ocurre bajo mandato (default-off).
+        try {
+          emitMissionReceipt({ missionId: String(this.conversationId ?? 'mission'), mandate });
+        } catch { /* recibo best-effort */ }
+        return result;
+      });
     }
     return run();
   }

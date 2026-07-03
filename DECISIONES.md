@@ -1,5 +1,45 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · P2.E5 (cierre) — Emisión del Recibo de Misión al cerrar la misión
+
+Completa el lazo de P2.E5: el Recibo ya no solo se construye/verifica — se EMITE de verdad al cerrar cada
+misión con mandato. Piezas:
+- `mandate.ts`: el contexto de misión (ALS) pasa de solo-mandato a `{mandate, effects}`. El monitor
+  (`mediatedEffect`) registra cada efecto mediado con `recordMissionEffect` (kind+scope+decisión). No-op
+  fuera de una misión con mandato ⇒ cero coste/cambio en la ruta por defecto. Verificado además:
+  aislamiento ALS entre misiones concurrentes (a=1, b=2 en paralelo).
+- `attest/emit_receipt.ts`: al cerrar, `emitMissionReceipt` toma `currentMissionEffects()`, construye+
+  firma el recibo (identidad de dispositivo) y lo persiste en `<cwd>/.shinobi/receipts/` (o
+  `SHINOBI_RECEIPTS_DIR`). Best-effort total (un fallo de recibo NO tumba la misión).
+- `orchestrator.process()`: envuelve la misión de modo que, tras completarse, emite el recibo DENTRO del
+  `runWithMandate` (donde los efectos están disponibles). Solo bajo mandato (default-off).
+- `.gitignore`: `.shinobi/` — la clave privada del dispositivo y los recibos NUNCA van al repo.
+
+Con esto el "Modo Cristal" produce artefactos reales: por cada misión con mandato queda un recibo firmado
+que un tercero verifica (autenticidad + integridad + no-exceso) con solo la pública.
+
+Verificado (regla #2): `tsc` 0; mutación de `recordMissionEffect` (no-op) → el colector no recoge → rojo →
+restaurar → verde. El flujo end-to-end (emit→persist→verify) se cubre con `emit_receipt.test.ts` en la
+suite canónica (necesita device_identity/audit_chain; no corre en node-strip-types). Refinamiento
+pendiente: recolección de MODELOS usados (hoy `models=[]`); verificación canónica vitest en Windows.
+
+## 2026-07-03 · P2.E5 (continuación) — recolección de efectos + helper de emisión del Recibo
+
+Cierra parte del "pendiente" de la entrada de abajo: `mandate.ts` guarda ahora, junto al mandato activo,
+la lista de efectos mediados de la misión (`MissionContext { mandate, effects }` en el mismo
+`AsyncLocalStorage`). `recordMissionEffect` los acumula; `currentMissionEffects` los expone.
+`monitor.ts::mediatedEffect` llama `recordMissionEffect` tras auditar cada efecto — no-op fuera de una
+misión con mandato (rama legado intacta, cero coste). Nuevo `src/attest/emit_receipt.ts::emitMissionReceipt`
+toma esos efectos + la identidad de dispositivo, construye y firma el Recibo (`buildMissionReceipt`) y lo
+persiste en `.shinobi/receipts/` (o `SHINOBI_RECEIPTS_DIR`), best-effort total (nunca tumba la misión).
+
+**Honesto, no completo:** `emitMissionReceipt` NO está cableado todavía en el cierre de `process()` del
+orquestador — sigue siendo un helper standalone. Sin ese cableado, ninguna misión real emite recibo hoy.
+Tampoco tiene test dedicado (`grep` de `emitMissionReceipt`/`recordMissionEffect`/`currentMissionEffects`
+en `__tests__/` = 0). Verificado solo: `tsc --noEmit` = 0 y la suite canónica de `sandbox`+`attest`
+(66 passed, 2 skipped) sigue en verde — sin regresión, pero sin cobertura nueva. Próximo incremento real:
+cablear la llamada en el orquestador + tests (incluida mutación) antes de llamarlo cerrado.
+
 ## 2026-07-03 · P2.E5 — Recibo de Misión: prueba de NO-EXCESO del mandato (la corona del Modo Cristal)
 
 Sobre P2 (verificador) y E3 (mandatos firmados): el Recibo de Misión. `src/attest/mission_receipt.ts` —
@@ -915,24 +955,4 @@ ejecución — coste > beneficio para un label de texto.
   best-of-N con reranking por verificador + gate objetivo, orden TOTAL determinista.
   Prueba 6/6 en Node + test vitest. Cierra pass@1 en el mismo modelo.
 - **E6** comprensión multi-repo (`reader/multi_repo.ts`): distill→ledger→assemble
-  con invariante pinneada. Prueba 11/11 en Node — 5 repos de ~6M chars → frame de
-  1.399 chars, matriz comparativa SIEMPRE presente. + test vitest. (= "leer 4-5
-  repos y comparar manteniendo contexto").
-- **E7** provenance Ed25519 + audit hash-chain (`agents/provenance_v2.ts` +
-  `audit/audit_chain.ts`): firma ASIMÉTRICA (verificable por cualquiera,
-  infalsificable) + inmutabilidad. Prueba 8/8 en Node sobre el `audit.jsonl` REAL
-  (1055 líneas): manipular la línea 500 rompe en 500; otra clave → signature_mismatch.
-  + 2 tests vitest. Corrige el HMAC simétrico de v1. Encaja con OpenGravity (capa de verdad).
-- **MARCA**: accesibilidad SIN traicionar el manual ZAPWEAVE (enso + gota bermellón
-  + Hiru/Yoru + Inter/Cormorant) — guardrail DURO en FASE 3 del roadmap.
-- PENDIENTE: `npm run typecheck` + vitest en terminal Windows (el sandbox Linux no
-  corre el grafo TS — better-sqlite3/esbuild son binarios Windows). Cablear E5 al
-  `shinobi_adapter` y medir el salto de pass@1 (FASE 1.3).
-
-## 2026-06-08 · ARQUITECTURA: OpenGravity LANZA el benchmark (no shinobi)
-- Decisión del usuario: el benchmark lo lanza OpenGravity (C:\...\OpenGravity), que
-  ya tiene su harness (benchmarks/pilot_agentic_v1/run_bench.py + ledger hash-chain
-  + adaptador eigenai). shinobi es uno de los AGENTES que evalúa.
-- shinobi expone scripts/run_one.ts (runner headless: prompt -> JSON {content,
-  tool_calls, latency_ms, signature=provenance, loop_aborts, ok}). PUSHEADO a shinobi.
-- OpenGravity: nuevo 
+  con invariante pinneada. Prueba 11/11 en Node — 5 repos de ~6M c

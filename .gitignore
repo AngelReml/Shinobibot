@@ -142,3 +142,9 @@ audit.jsonl
 *.jsonl.anchor
 # Scratch de prompts de trabajo
 prompt.txt
+
+# Token de push (NO commitear — credencial). Añadido tras el push de P1.
+token giha.txt
+
+# P2.E5 — identidad de dispositivo (clave privada) y recibos de misión: NUNCA al repo
+.shinobi/

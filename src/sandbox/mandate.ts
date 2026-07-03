@@ -181,20 +181,35 @@ export function parseMandateSpec(
 // importar `agents/`) evita una inversión de capas y deja al monitor leerlo sin
 // depender de subsistemas superiores.
 //
-// DORMIDO POR DEFECTO: nadie llama `runWithMandate` en producción todavía —
-// emitir el mandato mínimo por misión es competencia de P4 (policy). Sin emisor,
-// `currentMandate()` es `undefined` y el monitor cae en la rama legado: cero
-// cambio de comportamiento (paridad). El mecanismo está listo para que P4 lo active
-// envolviendo la ejecución de la misión en `runWithMandate(mandato, () => ...)`.
+// DEFAULT-OFF: `ShinobiOrchestrator.process` llama `runWithMandate` SOLO si el
+// operador fijó `SHINOBI_MANDATE` (E3.b). Sin él, `currentMandate()` es `undefined`
+// y el monitor cae en la rama legado: cero cambio de comportamiento (paridad). El
+// contexto de misión además RECOGE los efectos mediados para el Recibo de Misión
+// (P2.E5): `recordMissionEffect` los acumula y el cierre de la misión los firma.
 
-const mandateStore = new AsyncLocalStorage<Mandate>();
+interface MissionContext {
+  readonly mandate: Mandate;
+  readonly effects: ExecutedEffect[];
+}
 
-/** Ejecuta `fn` con un mandato de misión activo (lo consumirá el monitor). */
+const mandateStore = new AsyncLocalStorage<MissionContext>();
+
+/** Ejecuta `fn` bajo un mandato de misión activo (lo consume el monitor). */
 export function runWithMandate<T>(mandate: Mandate, fn: () => Promise<T>): Promise<T> {
-  return mandateStore.run(mandate, fn);
+  return mandateStore.run({ mandate, effects: [] }, fn);
 }
 
 /** El mandato de misión activo, o `undefined` si no hay ninguno (rama legado). */
 export function currentMandate(): Mandate | undefined {
-  return mandateStore.getStore();
+  return mandateStore.getStore()?.mandate;
+}
+
+/** Registra un efecto mediado en la misión activa. No-op fuera de una misión con mandato. */
+export function recordMissionEffect(e: ExecutedEffect): void {
+  mandateStore.getStore()?.effects.push(e);
+}
+
+/** Los efectos recogidos de la misión activa (para el Recibo de Misión), o `undefined`. */
+export function currentMissionEffects(): readonly ExecutedEffect[] | undefined {
+  return mandateStore.getStore()?.effects;
 }
