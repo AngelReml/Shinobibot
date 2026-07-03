@@ -55,6 +55,7 @@ export default defineConfig({
       'src/sandbox/backends/__tests__/**/*.test.ts',
       'src/attest/__tests__/**/*.test.ts',
       'src/policy/__tests__/**/*.test.ts',
+      'src/confine/__tests__/**/*.test.ts',
       'src/skills/__tests__/**/*.test.ts',
       'src/skills/auditor/__tests__/**/*.test.ts',
       'src/sentinel/__tests__/**/*.test.ts',

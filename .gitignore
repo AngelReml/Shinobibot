@@ -148,3 +148,6 @@ token giha.txt
 
 # P2.E5 — identidad de dispositivo (clave privada) y recibos de misión: NUNCA al repo
 .shinobi/
+
+# cruft de test efímero (no borrable desde el mount Linux)
+.asttest/

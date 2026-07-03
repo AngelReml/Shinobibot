@@ -1,5 +1,18 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · P3 (primer incremento) — Guard por AST del código foráneo (caza la ofuscación)
+
+`src/confine/ast_guard.ts::scanForbidden` — razona sobre el AST (compilador de TypeScript, ya en el repo),
+no sobre el texto, así que caza lo que la regex del auditor de skills NO ve: `process`/`eval`/`require`/
+`Function`/`child_process`, acceso a miembro computado por string/concatenación (`globalThis['pro'+'cess']`),
+`Reflect.get(globalThis,'process')`, e `import()` dinámico. Fail-closed (código no parseable ⇒ no safe). Es
+la base del loader unificado del Pilar 3 (pensado para correr en shadow junto al auditor regex).
+
+Verificado (regla #2): `tsc` 0; mutación de `scanForbidden` (siempre safe) → 6 rojos (process/ofuscación/
+eval/require/import-dinámico/Reflect) → restaurar → verde. Ficheros: `src/confine/ast_guard.ts` (net-new),
+`src/confine/__tests__/ast_guard.test.ts` (net-new), `vitest.config.ts` (include confine), `.gitignore`
+(`.asttest/` — cruft de test efímero no borrable desde el mount Linux; borrar en Windows: `rmdir /s /q .asttest`).
+
 ## 2026-07-03 · P4 (policy firmada) — la policy no se puede alterar sin ser el operador
 
 `src/policy/policy_sign.ts`: `signPolicy`/`verifyPolicySignature` (Ed25519 sobre el canónico de la policy,
