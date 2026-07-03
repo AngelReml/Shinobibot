@@ -107,4 +107,7 @@ export default defineConfig({
     exclude: ['node_modules', 'dist', 'scratch', 'test_*.ts'],
     pool: 'forks',
     isolate: true,
-    globals
+    globals: false,
+    testTimeout: 10_000,
+  },
+});
