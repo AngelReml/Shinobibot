@@ -12,6 +12,7 @@
 import type { Mandate } from '../sandbox/mandate.js';
 import { parseMandateSpec } from '../sandbox/mandate.js';
 import { readFileSync } from 'fs';
+import { verifyPolicySignature } from './policy_sign.js';
 import { resolve } from 'path';
 
 export interface Policy {
@@ -46,11 +47,20 @@ export function loadPolicy(path?: string): Policy {
   try {
     const raw = JSON.parse(readFileSync(resolve(p), 'utf-8'));
     if (!raw || !Array.isArray(raw.default)) return DENY_ALL_POLICY;
-    return {
+    const policy: Policy = {
       default: raw.default.filter((c: unknown) => typeof c === 'string'),
       profiles: raw.profiles && typeof raw.profiles === 'object' ? raw.profiles : undefined,
       ttlMs: typeof raw.ttlMs === 'number' ? raw.ttlMs : undefined,
     };
+    // P4 — si el operador EXIGE policy firmada, verificar la firma embebida; si falta
+    // o no valida ⇒ DENY_ALL (fail-closed). Sin el flag, se carga sin firma (back-compat).
+    if (process.env.SHINOBI_POLICY_REQUIRE_SIGNATURE === '1') {
+      const sig = raw.signature;
+      if (!sig || typeof sig.signature !== 'string' || typeof sig.publicKeyPem !== 'string' || !verifyPolicySignature(policy, sig)) {
+        return DENY_ALL_POLICY;
+      }
+    }
+    return policy;
   } catch {
     return DENY_ALL_POLICY;
   }

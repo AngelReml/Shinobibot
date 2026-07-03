@@ -1,5 +1,18 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · P4 (policy firmada) — la policy no se puede alterar sin ser el operador
+
+`src/policy/policy_sign.ts`: `signPolicy`/`verifyPolicySignature` (Ed25519 sobre el canónico de la policy,
+misma primitiva que `mandate_sign`/provenance_v2). La firma va EMBEBIDA en el JSON (campo `signature`),
+computada sobre la policy SIN ese campo. `loadPolicy`: con `SHINOBI_POLICY_REQUIRE_SIGNATURE=1` verifica la
+firma embebida; si falta o no valida ⇒ DENY_ALL (fail-closed). Sin el flag, carga sin firma (back-compat).
+
+Verificado (regla #2): `tsc` 0; mutación de `verifyPolicySignature` (siempre true) → 4 rojos (policy/perfil/
+firma/clave alteradas) → restaurar → verde. Verificación canónica: **2181 tests verdes en Windows** (el
+lote de sesión completo, tras arreglar la truncación de `vitest.config.ts`). Ficheros:
+`src/policy/policy_sign.ts` (net-new), `src/policy/engine.ts` (loadPolicy verifica firma),
+`src/policy/__tests__/policy_sign.test.ts` (net-new).
+
 ## 2026-07-03 · P4 (dry-run) — "what-if" de policy + consolidación de la cobertura
 
 `src/policy/dryrun.ts::simulateMission` — el operador simula una misión contra la policy SIN ejecutar
