@@ -43,6 +43,111 @@ export function transformEsmToV8Script(code: string): string {
   return transformed;
 }
 
+/**
+ * Compila `rawCode` (ESM o CJS) y lo envuelve en un `Tool` cuyo `execute`
+ * corre en un isolate `isolated-vm` nuevo por cada llamada (mismo patrón de
+ * sandboxing que `HotPlugRegistry.loadPlugin`, extraído aquí para que
+ * `plugin_loader.ts` (ALTA-02) lo reuse sin integrar ivm por segunda vez a
+ * mano). Puro: NO llama a `registerTool`, solo construye y devuelve el Tool.
+ * Lanza si el script no registra/exporta un Tool válido.
+ */
+export function buildSandboxedTool(filePath: string, rawCode?: string): Tool {
+  const resolvedPath = path.resolve(filePath);
+  const code = rawCode ?? fs.readFileSync(resolvedPath, 'utf-8');
+  const transformed = transformEsmToV8Script(code);
+
+  // 1. Extraer metadata de forma segura
+  const extractIsolate = new ivm.Isolate({ memoryLimit: 64 });
+  const extractContext = extractIsolate.createContextSync();
+
+  extractContext.evalSync(`
+    globalThis.console = { log: () => {}, warn: () => {}, error: () => {} };
+    globalThis.require = function(mod) {
+      return { registerTool: function(t) { globalThis.__registeredTool = t; } };
+    };
+    globalThis.module = { exports: {} };
+  `);
+
+  try {
+    extractIsolate.compileScriptSync(transformed).runSync(extractContext, { timeout: 500 });
+  } catch(e: any) {
+    extractIsolate.dispose();
+    throw new Error(`Failed to extract tool metadata from ${filePath}: ${e.message}`);
+  }
+
+  const metadataStr = extractContext.evalSync(`
+    let t = globalThis.__registeredTool || module.exports.default || module.exports;
+    t ? JSON.stringify({ name: t.name, description: t.description, parameters: t.parameters }) : null;
+  `);
+  extractIsolate.dispose();
+
+  if (!metadataStr) {
+    throw new Error(`Script at ${filePath} did not register or export a valid Tool object.`);
+  }
+
+  const metadata = JSON.parse(metadataStr);
+  if (!metadata.name) {
+    throw new Error(`Script at ${filePath} did not register or export a valid Tool object.`);
+  }
+
+  // 2. Construir la herramienta envolvente blindada
+  const tool: Tool = {
+    name: metadata.name,
+    description: metadata.description,
+    parameters: metadata.parameters,
+    execute: async (args: any) => {
+      // INSTALACIÓN Y CONFIGURACIÓN DEL ISOLATE
+      const isolate = new ivm.Isolate({ memoryLimit: 64 });
+      const context = await isolate.createContext();
+
+      try {
+        const jail = context.global;
+        await jail.set('global', jail.derefInto());
+
+        // TRANSFERENCIA SEGURA DE ARGUMENTOS (JAIL)
+        await jail.set('args', new ivm.ExternalCopy(args).copyInto());
+
+        await context.eval(`
+          globalThis.console = { log: () => {}, warn: () => {}, error: () => {} };
+          globalThis.require = function(mod) {
+            return { registerTool: function(t) { globalThis.__registeredTool = t; } };
+          };
+          globalThis.module = { exports: {} };
+        `);
+
+        const script = await isolate.compileScript(transformed, { filename: resolvedPath });
+
+        // Carga del módulo — síncrona, solo CPU, 500ms es suficiente.
+        await script.run(context, { timeout: 500 });
+
+        const runner = await isolate.compileScript(`
+          (async () => {
+            let t = globalThis.__registeredTool || module.exports.default || module.exports;
+            if (!t || typeof t.execute !== 'function') throw new Error("tool.execute is not a function");
+            const res = await t.execute(globalThis.args);
+            return JSON.stringify(res);
+          })()
+        `);
+
+        // Ejecución async — timeout configurable; default 5s mata bucles infinitos
+        // sin ahogar plugins legítimos con I/O. (var: SHINOBI_PLUGIN_TIMEOUT_MS)
+        const pluginTimeoutMs = Number(process.env.SHINOBI_PLUGIN_TIMEOUT_MS) || 5000;
+        const resultStr = await runner.run(context, { timeout: pluginTimeoutMs, promise: true });
+        return JSON.parse(resultStr);
+
+      } catch (e: any) {
+        return { success: false, output: '', error: `Sandbox Error: ${e.message}` };
+      } finally {
+        // ELIMINACIÓN DE RESIDUOS (GARBAGE COLLECTION)
+        context.release();
+        isolate.dispose();
+      }
+    }
+  };
+
+  return tool;
+}
+
 export class HotPlugRegistry {
   private static loadedPlugins: Map<string, { toolName: string; tool: Tool }> = new Map();
   private static watchers: Map<string, fs.FSWatcher> = new Map();
@@ -52,97 +157,7 @@ export class HotPlugRegistry {
    */
   public static loadPlugin(filePath: string): Tool {
     const resolvedPath = path.resolve(filePath);
-    const rawCode = fs.readFileSync(resolvedPath, 'utf-8');
-    const transformed = transformEsmToV8Script(rawCode);
-
-    // 1. Extraer metadata de forma segura
-    const extractIsolate = new ivm.Isolate({ memoryLimit: 64 });
-    const extractContext = extractIsolate.createContextSync();
-    
-    extractContext.evalSync(`
-      globalThis.console = { log: () => {}, warn: () => {}, error: () => {} };
-      globalThis.require = function(mod) { 
-        return { registerTool: function(t) { globalThis.__registeredTool = t; } }; 
-      };
-      globalThis.module = { exports: {} };
-    `);
-
-    try {
-      extractIsolate.compileScriptSync(transformed).runSync(extractContext, { timeout: 500 });
-    } catch(e: any) {
-      extractIsolate.dispose();
-      throw new Error(`Failed to extract tool metadata from ${filePath}: ${e.message}`);
-    }
-
-    const metadataStr = extractContext.evalSync(`
-      let t = globalThis.__registeredTool || module.exports.default || module.exports;
-      t ? JSON.stringify({ name: t.name, description: t.description, parameters: t.parameters }) : null;
-    `);
-    extractIsolate.dispose();
-
-    if (!metadataStr) {
-      throw new Error(`Script at ${filePath} did not register or export a valid Tool object.`);
-    }
-
-    const metadata = JSON.parse(metadataStr);
-    if (!metadata.name) {
-      throw new Error(`Script at ${filePath} did not register or export a valid Tool object.`);
-    }
-
-    // 2. Construir la herramienta envolvente blindada
-    const tool: Tool = {
-      name: metadata.name,
-      description: metadata.description,
-      parameters: metadata.parameters,
-      execute: async (args: any) => {
-        // INSTALACIÓN Y CONFIGURACIÓN DEL ISOLATE
-        const isolate = new ivm.Isolate({ memoryLimit: 64 });
-        const context = await isolate.createContext();
-        
-        try {
-          const jail = context.global;
-          await jail.set('global', jail.derefInto());
-          
-          // TRANSFERENCIA SEGURA DE ARGUMENTOS (JAIL)
-          await jail.set('args', new ivm.ExternalCopy(args).copyInto());
-          
-          await context.eval(`
-            globalThis.console = { log: () => {}, warn: () => {}, error: () => {} };
-            globalThis.require = function(mod) { 
-              return { registerTool: function(t) { globalThis.__registeredTool = t; } }; 
-            };
-            globalThis.module = { exports: {} };
-          `);
-
-          const script = await isolate.compileScript(transformed, { filename: resolvedPath });
-          
-          // Carga del módulo — síncrona, solo CPU, 500ms es suficiente.
-          await script.run(context, { timeout: 500 });
-
-          const runner = await isolate.compileScript(`
-            (async () => {
-              let t = globalThis.__registeredTool || module.exports.default || module.exports;
-              if (!t || typeof t.execute !== 'function') throw new Error("tool.execute is not a function");
-              const res = await t.execute(globalThis.args);
-              return JSON.stringify(res);
-            })()
-          `);
-          
-          // Ejecución async — timeout configurable; default 5s mata bucles infinitos
-          // sin ahogar plugins legítimos con I/O. (var: SHINOBI_PLUGIN_TIMEOUT_MS)
-          const pluginTimeoutMs = Number(process.env.SHINOBI_PLUGIN_TIMEOUT_MS) || 5000;
-          const resultStr = await runner.run(context, { timeout: pluginTimeoutMs, promise: true });
-          return JSON.parse(resultStr);
-
-        } catch (e: any) {
-          return { success: false, output: '', error: `Sandbox Error: ${e.message}` };
-        } finally {
-          // ELIMINACIÓN DE RESIDUOS (GARBAGE COLLECTION)
-          context.release();
-          isolate.dispose();
-        }
-      }
-    };
+    const tool = buildSandboxedTool(resolvedPath);
 
     // Overwrite existing tool if already loaded from this path
     const old = this.loadedPlugins.get(resolvedPath);

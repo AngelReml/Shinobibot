@@ -1,5 +1,39 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · ALTA-02 CERRADA — sandboxing real (isolated-vm) de `plugin_loader.ts`
+
+Cierra el gap F1.2 diferido el 2026-07-01 ("se intenta el sandboxing solo si queda margen de
+tiempo al final"). `importPlugin` (`src/plugins/plugin_loader.ts`) ya NO usa `import(url)` nativo.
+Dos capas fail-closed antes de que corra una sola línea del plugin: 1) lee el source y lo pasa por
+`scanForbidden` (`confine/ast_guard.ts`) — identificadores prohibidos (`process`/`require`/`eval`/
+`Function`/`child_process`/`globalThis`/`Reflect`/`WebAssembly`/`Proxy`), acceso computado por
+string o `import()` dinámico se rechazan ANTES de compilar; 2) el entry que pasa el guard se
+compila y ejecuta en un isolate `isolated-vm` nuevo por invocación vía `buildSandboxedTool`,
+extraído de `hot_plug_registry.ts` (mismo mecanismo, sin integrar ivm dos veces a mano — `loadPlugin`
+ahora es un wrapper fino sobre el helper). `importPlugin` registra el Tool resultante marcando el
+contexto de carga como `'plugin'` (`setToolLoadSource`), así que la protección de overwrite de
+`tool_registry.ts` (ALTA-02 original, F1) sigue intacta. Gate `SHINOBI_PLUGINS_ENABLED` y
+`skill_loader.ts` (ya usaba ivm) sin tocar.
+
+Narrowing consciente del contrato: un entry ahora debe exportar (o registrar vía el stub
+`require().registerTool`) un objeto Tool-shaped — exports genéricos de datos no sobreviven el
+límite del isolate. Es el único capability con implementación real hoy (`'tool'`); `'channel'`/
+`'provider'`/`'memory'` del manifest siguen sin mecanismo — fuera de alcance de este corte.
+
+Verificado (regla #2): `tsc --noEmit` 0 errores. Contención real: plugin con `process.exit(1)` y
+plugin con `require('fs')` — ambos rechazados por `scanForbidden` ANTES de ejecutarse (nunca
+llegan al isolate); plugin con `while(true){}` (pasa el guard AST, sin identificadores prohibidos)
+— contenido por timeout del isolate (`SHINOBI_PLUGIN_TIMEOUT_MS`). Mutación: comentado el guard
+`scanForbidden` (siempre `safe:true`) → los dos plugins maliciosos (process.exit/require) pasan y
+se registran como tools reales → 2 tests rojos → restaurado el guard → mismos tests verdes. Suite
+canónica completa: **231 test files passed, 2195 tests passed, 3 skipped** (Windows, `npm run
+test`). Ficheros: `src/plugins/plugin_loader.ts` (importPlugin reescrito), `src/plugins/
+hot_plug_registry.ts` (extrae `buildSandboxedTool`, `loadPlugin` lo reusa), `src/plugins/__tests__/
+plugin_loader.test.ts` (contrato Tool-shaped + describe de confinamiento), `src/plugins/__tests__/
+plugins_gate_default_off.test.ts` (canario migrado de marcador-fs a tool registrado, ya no puede
+tocar fs real), `src/tools/tool_registry.ts` + `src/tools/index.ts` (comentarios actualizados, ya
+no afirman "sin sandbox").
+
 ## 2026-07-03 · P3 (manifiesto de capacidades) — el manifiesto de una skill ES su mandato
 
 `src/confine/manifest.ts`: `parseManifest` valida el manifiesto que declara una skill/plugin (capacidades

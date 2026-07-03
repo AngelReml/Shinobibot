@@ -85,15 +85,12 @@ import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 // mismo gate explícito (default OFF) — importar este barrel nunca ejecuta
 // plugins por sí solo.
 //
-// LIMITACIÓN CONOCIDA QUE SIGUE ABIERTA (ALTA-02, no cerrada por este fix):
-// `importPlugin` (plugin_loader.ts) sigue usando `import()` nativo, SIN el
-// sandbox isolated-vm que sí usa `hot_plug_registry.ts` para skills — un
-// plugin habilitado con SHINOBI_PLUGINS_ENABLED=1 sigue corriendo con
-// privilegios completos del proceso. Migrar plugin_loader a isolated-vm es
-// un cambio de arquitectura mayor (bridge de API entre el isolate y el
-// proceso host para que un plugin pueda de verdad registrar tools) que
-// queda fuera del alcance de este corte — lo que este fix cierra es el
-// bypass del gate de opt-in, no el sandboxing en sí. Ver DECISIONES.md (F1.2).
+// ALTA-02 (F1.2) cerrado 2026-07-03: `importPlugin` (plugin_loader.ts) ya no
+// usa `import()` nativo — el entry pasa por el guard AST `scanForbidden`
+// (confine/ast_guard.ts) y corre confinado en isolated-vm vía
+// `buildSandboxedTool` (mismo mecanismo que `hot_plug_registry.ts`). Un
+// plugin habilitado con SHINOBI_PLUGINS_ENABLED=1 ya no corre con
+// privilegios completos del proceso. Ver DECISIONES.md.
 import { loadAllPlugins } from '../plugins/plugin_loader.js';
 import { join } from 'path';
 

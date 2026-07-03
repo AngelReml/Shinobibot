@@ -5,40 +5,42 @@
  *   1. Recorre los subdirectorios de primer nivel.
  *   2. Para cada subdir, busca `shinobi.plugin.json`.
  *   3. Valida el manifest contra el schema.
- *   4. Si valida, dynamic-importa el `entry` con `import(fileURL)`.
- *   5. Devuelve una lista de plugins cargados con su módulo.
- *
- * El loader es **observacional**: no toca el tool_registry ni el
- * provider_router automáticamente — eso es trabajo del módulo que invoque
- * `loadAllPlugins()`. Mantenerlo separado nos permite testear el loader
- * sin side-effects globales.
+ *   4. Si valida, confina y evalúa el `entry` dentro de un isolate
+ *      `isolated-vm` (ver ALTA-02 más abajo) y registra el Tool resultante.
+ *   5. Devuelve una lista de plugins cargados con su Tool.
  *
  * Diferenciador vs Hermes (`tools/registry.py` con auto-registration) y
  * OpenClaw (plugin SDK con 100+ types exportados): Shinobi requiere un
  * manifest explícito, valida fail-fast, y el side-effect lo elige el
  * caller (el plugin no tiene poder global por sí solo).
  *
- * LIMITACIÓN CONOCIDA (ALTA-02, auditoría 2026-06-30): `importPlugin` usa
- * `import(url)` directo — el módulo importado corre con acceso COMPLETO a
- * Node.js, sin el sandbox `isolated-vm` que sí se usa en
- * `hot_plug_registry.ts` para el flujo de hot-plug de plugins NO confiables.
- * Migrar este loader a isolated-vm es un cambio de alcance mayor (rehace por
- * completo cómo un plugin expone tools/efectos hacia el proceso host) y
- * queda fuera del alcance de este fix puntual. Lo que SÍ se corrige aquí es
- * el daño concreto y acotado: un plugin sin sandbox podía registrar un tool
- * con el mismo nombre que uno nativo (p.ej. `run_command`) y reemplazarlo en
- * silencio, tirando sus checks de seguridad. `importPlugin` ahora marca el
- * contexto de carga como 'plugin' (ver `setToolLoadSource` en
- * `tool_registry.ts`) mientras evalúa el módulo, para que `registerTool()`
- * pueda bloquear ese overwrite concreto. Esto NO sustituye al sandboxing —
- * es un cinturón mínimo sobre el riesgo más dañino y barato de explotar.
+ * ALTA-02 (auditoría 2026-06-30, cerrada 2026-07-03): `importPlugin` YA NO
+ * usa `import(url)` nativo. Antes de evaluar el entry: 1) lee el source y lo
+ * pasa por `scanForbidden` (`confine/ast_guard.ts`, guard por AST) — código
+ * con identificadores prohibidos (`process`, `require`, `eval`, `Function`,
+ * `child_process`, `globalThis`, `Reflect`, `WebAssembly`, `Proxy`), acceso
+ * computado por string o `import()` dinámico se RECHAZA fail-closed antes de
+ * ejecutarse; 2) el entry que pasa el guard se compila y corre en un isolate
+ * `isolated-vm` nuevo por invocación vía `buildSandboxedTool` (reusado de
+ * `hot_plug_registry.ts` — mismo mecanismo, sin integrar ivm dos veces a
+ * mano). `importPlugin` devuelve el `Tool` sandboxed y lo registra él mismo
+ * en el tool_registry (el plugin ya no puede llamar a `registerTool` desde
+ * dentro del isolate — no tiene acceso a módulos reales del host), pero
+ * SIGUE marcando el contexto de carga como 'plugin' (`setToolLoadSource`)
+ * durante ese registro para que la protección de overwrite de
+ * `tool_registry.ts` (bloquea que un plugin reemplace un tool nativo en
+ * silencio) siga intacta. Esto NARROWEA el contrato del loader: un entry
+ * debe exportar (o registrar vía el stub `require().registerTool`) un
+ * objeto Tool-shaped — exports genéricos de datos sin forma de Tool ya no
+ * son recuperables a través del límite del isolate (ver tests).
  */
 
 import { readFileSync, existsSync, statSync, readdirSync } from 'fs';
 import { join, resolve, dirname } from 'path';
-import { pathToFileURL } from 'url';
 import { validateManifest, type PluginManifest, type ValidationResult } from './plugin_manifest.js';
-import { setToolLoadSource } from '../tools/tool_registry.js';
+import { setToolLoadSource, registerTool, type Tool } from '../tools/tool_registry.js';
+import { scanForbidden } from '../confine/ast_guard.js';
+import { buildSandboxedTool } from './hot_plug_registry.js';
 
 export interface DiscoveredPlugin {
   manifestPath: string;
@@ -47,7 +49,7 @@ export interface DiscoveredPlugin {
 }
 
 export interface LoadedPlugin extends DiscoveredPlugin {
-  module: unknown;
+  module: Tool;
 }
 
 export interface LoadError {
@@ -117,23 +119,31 @@ export function discoverPlugins(rootDir: string): DiscoveryResult {
 }
 
 /**
- * Importa dinámicamente el entry de un DiscoveredPlugin. NO ejecuta side
- * effects sobre el tool registry — solo evalúa el módulo y devuelve la
- * referencia. Si el plugin registra tools al importarse (como hacen los
- * tools nativos de Shinobi), eso es responsabilidad del plugin, no del
- * loader.
+ * Carga (confinada) el entry de un DiscoveredPlugin y devuelve el `Tool`
+ * sandboxed. Fail-closed en dos capas:
+ *   1. `scanForbidden` sobre el source — rechaza identificadores/patrones de
+ *      escape ANTES de compilar o ejecutar una sola línea.
+ *   2. `buildSandboxedTool` — compila y ejecuta el entry dentro de un
+ *      isolate `isolated-vm` (memoryLimit + timeout), igual que
+ *      `hot_plug_registry.ts`. Nunca usa `eval`/`import()` nativo.
+ * Registra el Tool resultante marcando el contexto de carga como 'plugin'
+ * (`setToolLoadSource`) para que la protección de overwrite de
+ * `tool_registry.ts` siga aplicando. SIEMPRE restaura a 'native' en el
+ * finally, incluso si la carga lanza.
  */
-export async function importPlugin(plugin: DiscoveredPlugin): Promise<unknown> {
-  const url = pathToFileURL(plugin.entryAbsPath).href;
-  // ALTA-02: marca el contexto de carga como 'plugin' mientras el módulo se
-  // evalúa. Si el código del plugin llama a registerTool() durante el import
-  // (igual que hacen los tools nativos al cargarse), tool_registry.ts puede
-  // distinguirlo de un tool nativo y bloquear el overwrite de uno existente.
-  // SIEMPRE se restaura a 'native' en el finally, incluso si el import lanza,
-  // para no dejar el registry marcado como 'plugin' para cargas posteriores.
+export async function importPlugin(plugin: DiscoveredPlugin): Promise<Tool> {
+  const source = readFileSync(plugin.entryAbsPath, 'utf-8');
+  const scan = scanForbidden(source);
+  if (!scan.safe) {
+    throw new Error(
+      `plugin rechazado por confinamiento AST (ALTA-02, fail-closed): ${scan.findings.join('; ')}`
+    );
+  }
   setToolLoadSource('plugin');
   try {
-    return await import(url);
+    const tool = buildSandboxedTool(plugin.entryAbsPath, source);
+    registerTool(tool);
+    return tool;
   } finally {
     setToolLoadSource('native');
   }

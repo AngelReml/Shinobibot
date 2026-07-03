@@ -36,17 +36,19 @@ export function toOpenAITools(tools: Tool[]) {
 }
 
 /**
- * ALTA-02 (auditoría 2026-06-30): origen de un tool registrado. 'native' son
- * los built-in cargados por src/tools/index.ts al arrancar; 'plugin' son los
- * traídos por un plugin de terceros vía src/plugins/plugin_loader.ts, que usa
- * `import()` directo SIN sandbox (no isolated-vm). Sin esta distinción, un
- * plugin podía registrar p.ej. `run_command` y reemplazar en silencio el
- * nativo, tirando todos sus checks de seguridad.
+ * ALTA-02 (auditoría 2026-06-30, sandboxing cerrado 2026-07-03): origen de un
+ * tool registrado. 'native' son los built-in cargados por src/tools/index.ts
+ * al arrancar; 'plugin' son los traídos por un plugin de terceros vía
+ * src/plugins/plugin_loader.ts, que ahora evalúa el entry confinado en un
+ * isolate `isolated-vm` (via `buildSandboxedTool`) tras pasar el guard AST
+ * `scanForbidden`. Esta distinción de origen sigue siendo necesaria como
+ * segunda capa: sin ella, un plugin podía registrar p.ej. `run_command` y
+ * reemplazar en silencio el nativo, tirando todos sus checks de seguridad.
  */
 export type ToolSource = 'native' | 'plugin';
 
 /**
- * Contexto ambiente de carga, fijado por quien dispara el `import()` de un
+ * Contexto ambiente de carga, fijado por quien dispara la carga de un
  * módulo de tools (hoy: plugin_loader.ts alrededor de `importPlugin`). Así
  * registerTool() sabe el origen de la llamada SIN cambiar la firma que ya
  * usan los ~57 archivos de tools nativos (todos llaman `registerTool(tool)`

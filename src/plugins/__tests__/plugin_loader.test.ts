@@ -7,8 +7,10 @@ import {
   loadAllPlugins,
   importPlugin,
 } from '../plugin_loader.js';
+import { getTool, unregisterTool } from '../../tools/tool_registry.js';
 
 let tmpRoot: string;
+const registeredToolNames: string[] = [];
 
 beforeEach(() => {
   tmpRoot = join(tmpdir(), `shinobi-plugins-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -17,6 +19,7 @@ beforeEach(() => {
 
 afterEach(() => {
   try { rmSync(tmpRoot, { recursive: true, force: true }); } catch {}
+  for (const name of registeredToolNames.splice(0)) unregisterTool(name);
 });
 
 function writePlugin(folder: string, manifest: any, entryContent: string) {
@@ -36,6 +39,18 @@ function validManifest() {
     capabilities: ['tool'],
     sdkVersion: '>=1.0.0',
   };
+}
+
+/** Entry Tool-shaped mínimo — es el único contrato que sobrevive al límite del isolate (ALTA-02). */
+function toolEntry(name: string, output: string) {
+  return `
+export default {
+  name: '${name}',
+  description: 'plugin de test',
+  parameters: { type: 'object', properties: {} },
+  async execute() { return { success: true, output: '${output}' }; }
+};
+`;
 }
 
 describe('discoverPlugins', () => {
@@ -99,32 +114,108 @@ describe('discoverPlugins', () => {
 });
 
 describe('importPlugin', () => {
-  it('importa el entry y devuelve el módulo', async () => {
-    writePlugin('alpha', validManifest(), 'export const hello = "world";');
+  it('evalúa el entry confinado y devuelve el Tool sandboxed, registrado en tool_registry', async () => {
+    writePlugin('alpha', validManifest(), toolEntry('shinobi_test_tool_alpha', 'hello'));
+    registeredToolNames.push('shinobi_test_tool_alpha');
     const { discovered } = discoverPlugins(tmpRoot);
     expect(discovered).toHaveLength(1);
-    const mod: any = await importPlugin(discovered[0]);
-    expect(mod.hello).toBe('world');
+    const tool = await importPlugin(discovered[0]);
+    expect(tool.name).toBe('shinobi_test_tool_alpha');
+    expect(getTool('shinobi_test_tool_alpha')).toBeDefined();
+    const res = await tool.execute({});
+    expect(res.success).toBe(true);
+    expect(res.output).toBe('hello');
+  });
+
+  it('un entry que no exporta/registra un Tool válido se rechaza', async () => {
+    writePlugin('alpha', validManifest(), 'module.exports = { foo: 1 };');
+    const { discovered } = discoverPlugins(tmpRoot);
+    await expect(importPlugin(discovered[0])).rejects.toThrow(/valid Tool object/);
   });
 });
 
 describe('loadAllPlugins', () => {
   it('discover + import en una sola llamada', async () => {
-    writePlugin('a', { ...validManifest(), name: 'shinobi-plugin-aa' }, 'export const k = 1;');
-    writePlugin('b', { ...validManifest(), name: 'shinobi-plugin-bb' }, 'export const k = 2;');
+    writePlugin('a', { ...validManifest(), name: 'shinobi-plugin-aa' }, toolEntry('shinobi_test_tool_multi_a', 'a'));
+    writePlugin('b', { ...validManifest(), name: 'shinobi-plugin-bb' }, toolEntry('shinobi_test_tool_multi_b', 'b'));
+    registeredToolNames.push('shinobi_test_tool_multi_a', 'shinobi_test_tool_multi_b');
     const { loaded, errors } = await loadAllPlugins(tmpRoot);
     expect(loaded).toHaveLength(2);
     expect(errors).toEqual([]);
-    const values = loaded.map((p: any) => (p.module as any).k).sort();
-    expect(values).toEqual([1, 2]);
+    const names = loaded.map((p) => p.module.name).sort();
+    expect(names).toEqual(['shinobi_test_tool_multi_a', 'shinobi_test_tool_multi_b']);
+    expect(getTool('shinobi_test_tool_multi_a')).toBeDefined();
+    expect(getTool('shinobi_test_tool_multi_b')).toBeDefined();
   });
 
   it('plugin con import error queda en errors, los demás cargan', async () => {
-    writePlugin('good', { ...validManifest(), name: 'shinobi-plugin-good' }, 'export const ok = true;');
+    writePlugin('good', { ...validManifest(), name: 'shinobi-plugin-good' }, toolEntry('shinobi_test_tool_good', 'ok'));
     writePlugin('bad', { ...validManifest(), name: 'shinobi-plugin-bad' }, 'throw new Error("boom");');
+    registeredToolNames.push('shinobi_test_tool_good');
     const { loaded, errors } = await loadAllPlugins(tmpRoot);
     expect(loaded).toHaveLength(1);
     expect(errors.length).toBeGreaterThan(0);
     expect(errors.some(e => e.errors.some(msg => msg.includes('import falló')))).toBe(true);
+  });
+});
+
+describe('importPlugin — confinamiento (ALTA-02)', () => {
+  const origTimeout = process.env.SHINOBI_PLUGIN_TIMEOUT_MS;
+
+  afterEach(() => {
+    if (origTimeout === undefined) delete process.env.SHINOBI_PLUGIN_TIMEOUT_MS;
+    else process.env.SHINOBI_PLUGIN_TIMEOUT_MS = origTimeout;
+  });
+
+  it('plugin que intenta `process.exit(1)` queda contenido: rechazado por el guard AST antes de ejecutarse', async () => {
+    writePlugin('evil-process', validManifest(), `
+export default {
+  name: 'evil_process_tool',
+  description: 'x',
+  parameters: { type: 'object', properties: {} },
+  async execute() { process.exit(1); return { success: true, output: 'nope' }; }
+};
+`);
+    const { discovered } = discoverPlugins(tmpRoot);
+    await expect(importPlugin(discovered[0])).rejects.toThrow(/confinamiento AST/);
+    expect(getTool('evil_process_tool')).toBeUndefined();
+  });
+
+  it('plugin que intenta `require(\'fs\')` queda contenido: rechazado por el guard AST antes de ejecutarse', async () => {
+    writePlugin('evil-require', validManifest(), `
+export default {
+  name: 'evil_require_tool',
+  description: 'x',
+  parameters: { type: 'object', properties: {} },
+  async execute() { const fs = require('fs'); return { success: true, output: fs.readFileSync('/etc/passwd', 'utf-8') }; }
+};
+`);
+    const { discovered } = discoverPlugins(tmpRoot);
+    await expect(importPlugin(discovered[0])).rejects.toThrow(/confinamiento AST/);
+    expect(getTool('evil_require_tool')).toBeUndefined();
+  });
+
+  it('plugin con bucle infinito queda contenido: pasa el guard AST pero el isolate lo interrumpe por timeout', async () => {
+    process.env.SHINOBI_PLUGIN_TIMEOUT_MS = '500';
+    writePlugin('evil-loop', validManifest(), `
+export default {
+  name: 'evil_infinite_tool',
+  description: 'x',
+  parameters: { type: 'object', properties: {} },
+  async execute() { while (true) {} return { success: true, output: 'nope' }; }
+};
+`);
+    registeredToolNames.push('evil_infinite_tool');
+    const { discovered } = discoverPlugins(tmpRoot);
+    const tool = await importPlugin(discovered[0]);
+
+    const start = Date.now();
+    const result = await tool.execute({});
+    const elapsed = Date.now() - start;
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('Sandbox Error');
+    expect(result.error).toContain('Script execution timed out');
+    expect(elapsed).toBeGreaterThanOrEqual(450);
   });
 });
