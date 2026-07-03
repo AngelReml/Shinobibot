@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-07-01T22:57:24.974Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-07-03T06:49:04.795Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** remediacion-2026-07-01 · **Arbol:** SUCIO (6 cambios)
-- **Ultimo commit:** a651452 remediacion auditoria 2026-07-01 (F0-F6): hardening seguridad + build; ver DECISIONES.md
-- **Tamano:** 459 ficheros de codigo (60681 LOC), 236 de test
+- **Version:** 1.0.0 · **Rama:** remediacion-2026-07-01 · **Arbol:** SUCIO (14 cambios)
+- **Ultimo commit:** 7ff7484 P2.E5 (cierre): emision del Recibo de Mision al cerrar la mision
+- **Tamano:** 467 ficheros de codigo (61933 LOC), 243 de test
 - **Inventario (escaneo real):** ~62 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -24,7 +24,8 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 |---|---|---|
 | `src/a2a/` | 2 | A2A — protocolo Agent-to-Agent: otro agente invoca capacidades de este Shinobi. |
 | `src/agents/` | 29 | Barrel del subsistema de agentes especialistas (Bloque 1 del encargo |
-| `src/audit/` | 5 | D.3 — `shinobi audit <github_url>` orquesta clone → HierarchicalReader → |
+| `src/attest/` | 5 | P2.E5 (plan de frontera) — Recibo de Misión: la corona del "Modo Cristal". |
+| `src/audit/` | 5 | _(anade un banner de cabecera)_ |
 | `src/backup/` | 1 | State Backup — backup/restore de settings/memoria/skills/audit(redactado) de Shinobi. NO incluye .e... |
 | `src/bench/` | 15 | Barrel del harness de benchmark (FASE 1) — runner, tasks, adapters, report y results. |
 | `src/benchmark/` | 5 | Benchmark Runner — suite comparativa de 20 tareas con scoring objetivo sin LLM. |
@@ -65,7 +66,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/refiner/` | 4 | Barrel del refinador de prompts en camino caliente (FASE 1). Shadow mode: |
 | `src/replay/` | 1 | Mission Replay — reconstruye y opcionalmente re-ejecuta (dry-run) una sesión desde audit.jsonl. |
 | `src/runtime/` | 8 | Remote Mode (Sprint 3.5) — Shinobi desplegado en un VPS vía SSH+Docker; las tools corren allí. |
-| `src/sandbox/` | 9 | Registro singleton de backends de ejecución de comandos: local, docker, ssh, e2b y mock. |
+| `src/sandbox/` | 12 | P1.E1 (plan de frontera 2026-07-01) — Monitor de Referencia Único: `mediatedEffect()`. |
 | `src/security/` | 2 | D-017 — gate selectivo de aprobación: modos on/smart/critical/off (default critical). |
 | `src/selfdebug/` | 1 | Self-Debug — convierte cada fallo de tool en un diagnostic report estructurado y accionable. |
 | `src/sentinel/` | 15 | Sentinel — slash command /sentinel: watch de fuentes, ask semántico, propuestas, council y digest. |
