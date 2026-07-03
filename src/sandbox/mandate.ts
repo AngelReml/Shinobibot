@@ -89,6 +89,19 @@ export function scopeCovers(grant: string, effScope: string): boolean {
 }
 
 /**
+ * ¿El mandato concede la capacidad `(kind, scope)`? Núcleo de cobertura COMPARTIDO por
+ * `checkMandate`, `effectsWithinMandate` y el dry-run de P4 — una sola fuente de verdad
+ * de cobertura, sin gramáticas divergentes. Ignora la caducidad (la mira `checkMandate`).
+ */
+export function mandateCovers(mandate: Mandate, kind: string, scope: string): boolean {
+  return mandate.capabilities.some((cap) => {
+    const i = cap.indexOf(':');
+    if (i < 0) return false;
+    return cap.slice(0, i) === kind && scopeCovers(cap.slice(i + 1), scope);
+  });
+}
+
+/**
  * ¿El mandato concede el efecto? Puro y fail-closed:
  *   1. Mandato caducado (`expiresAt` en el pasado) ⇒ no concede NADA.
  *   2. El efecto se concede solo si ALGUNA capacidad `"kind:scope"` tiene el mismo
@@ -107,13 +120,7 @@ export function checkMandate(effect: Effect, mandate: Mandate, now: number = Dat
   }
   const needKind: EffectKind = effect.kind;
   const needScope = effectScope(effect);
-  for (const cap of mandate.capabilities) {
-    const i = cap.indexOf(':');
-    if (i < 0) continue; // capacidad malformada: se ignora, nunca concede
-    const k = cap.slice(0, i);
-    const s = cap.slice(i + 1);
-    if (k === needKind && scopeCovers(s, needScope)) return { granted: true };
-  }
+  if (mandateCovers(mandate, needKind, needScope)) return { granted: true };
   return {
     granted: false,
     code: 'capability_not_granted',
@@ -142,12 +149,7 @@ export function effectsWithinMandate(
 ): { ok: boolean; offending?: ExecutedEffect } {
   for (const e of effects) {
     if (e.decision !== 'allow') continue;
-    const granted = mandate.capabilities.some((cap) => {
-      const i = cap.indexOf(':');
-      if (i < 0) return false;
-      return cap.slice(0, i) === e.kind && scopeCovers(cap.slice(i + 1), e.scope);
-    });
-    if (!granted) return { ok: false, offending: e };
+    if (!mandateCovers(mandate, e.kind, e.scope)) return { ok: false, offending: e };
   }
   return { ok: true };
 }

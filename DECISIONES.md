@@ -1,5 +1,19 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · P4 (dry-run) — "what-if" de policy + consolidación de la cobertura
+
+`src/policy/dryrun.ts::simulateMission` — el operador simula una misión contra la policy SIN ejecutar
+nada: ve qué efectos permitiría/denegaría el mandato resuelto. CLI `npm run policy:simulate -- <policy.json>
+[perfil]` (efectos por stdin). Convierte la policy de "reglas que saltan en runtime" en "un contrato
+inspeccionable antes". De paso, la cobertura de mandato se unifica en `mandateCovers` (`mandate.ts`) — una
+sola fuente reusada por `checkMandate`, `effectsWithinMandate` y el dry-run (elimina la triplicación).
+
+Verificado (regla #2): `tsc` 0; mutación de `mandateCovers` (siempre true) → 3 rojos a la vez
+(`checkMandate`, `effectsWithinMandate` y `mandateCovers`: prueba que es la fuente única) → restaurar →
+verde. Ficheros: `src/policy/dryrun.ts` (net-new), `scripts/policy_simulate.ts` (net-new),
+`src/policy/__tests__/dryrun.test.ts` (net-new), `src/sandbox/mandate.ts` (mandateCovers + refactor),
+`package.json` (script `policy:simulate`).
+
 ## 2026-07-03 · P4 (primer incremento) — Motor de policy: deriva el mandato por misión
 
 Cierra el "hoy lo fija el operador" de E3.b. `src/policy/engine.ts`: `resolveMandate(policy, ctx)` deriva

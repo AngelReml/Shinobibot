@@ -19,6 +19,7 @@
     "typecheck": "tsc --noEmit",
     "tui": "tsx scripts/shinobi-tui.tsx",
     "verify:receipt": "tsx scripts/verify_receipt.ts",
+    "policy:simulate": "tsx scripts/policy_simulate.ts",
     "bench": "tsx scripts/benchmarks/run.ts",
     "bench:compare": "tsx scripts/bench.ts",
     "bench:agentic": "tsx scripts/bench_s_agentic.ts",
