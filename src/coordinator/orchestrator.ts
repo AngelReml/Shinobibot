@@ -31,7 +31,8 @@ import { diagnoseError } from '../selfdebug/self_debug.js';
 import { recordToolPattern } from '../skills/pattern_wiring.js';
 import { IterationBudget, effectiveMaxIterations } from './iteration_budget.js';
 import { runExclusive } from './orchestrator_mutex.js';
-import { runWithMandate, parseMandateSpec } from '../sandbox/mandate.js';
+import { runWithMandate } from '../sandbox/mandate.js';
+import { resolveMissionMandate } from '../policy/engine.js';
 import { logMandate } from '../audit/audit_log.js';
 import { getDeviceIdentity } from '../attest/device_identity.js';
 import { signMandate } from '../attest/mandate_sign.js';
@@ -239,9 +240,9 @@ export class ShinobiOrchestrator {
     // `runWithMandate`: el monitor (mediatedEffect) rechaza todo efecto fuera de él,
     // least-privilege por misión SIN que ningún caller tenga que pasarlo. La policy
     // real (qué mínimo por misión) llega con P4; esto es el gancho operador-controlado.
-    const mandate = parseMandateSpec(process.env.SHINOBI_MANDATE, {
-      ttlMs: process.env.SHINOBI_MANDATE_TTL_MS ? Number(process.env.SHINOBI_MANDATE_TTL_MS) : undefined,
-    });
+    // P4 — la policy decide el mandato por misión (fail-closed); back-compat con
+    // SHINOBI_MANDATE; undefined ⇒ rama legado (default-off).
+    const mandate = resolveMissionMandate();
     const run = () => runExclusive(() => this.processExclusive(input, opts));
     if (mandate) {
       // E3.c — firma el mandato con la identidad de dispositivo (Ed25519) para que el

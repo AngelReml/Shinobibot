@@ -1,5 +1,19 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · P4 (primer incremento) — Motor de policy: deriva el mandato por misión
+
+Cierra el "hoy lo fija el operador" de E3.b. `src/policy/engine.ts`: `resolveMandate(policy, ctx)` deriva
+el `Mandate` de una misión desde una policy declarativa (default + perfiles + ttl); fail-closed (perfil
+desconocido → default; sin default → deny-all). `loadPolicy` (JSON; ausente/basura → DENY_ALL).
+`resolveMissionMandate` con precedencia `SHINOBI_POLICY` > `SHINOBI_MANDATE` > `undefined` (legado,
+default-off). `orchestrator.process()` ahora emite el mandato vía `resolveMissionMandate`.
+
+Verificado (regla #2): `tsc` 0; mutación de `resolveMandate` (ignora el perfil → siempre default) → rojo
+→ restaurar → verde; `loadPolicy` fail-closed probado. Ficheros: `src/policy/engine.ts` (net-new),
+`src/policy/__tests__/engine.test.ts` (net-new), `src/coordinator/orchestrator.ts` (wire),
+`vitest.config.ts` (include policy). Pendiente P4: firma de la policy, integración con los demás gates
+(approval/integrity), dry-run "what-if", presupuesto por usuario. Verificación canónica vitest en Windows.
+
 ## 2026-07-03 · P2 (capstone) — Verificador standalone de recibos (`npm run verify:receipt`)
 
 Cierra el Modo Cristal como capacidad USABLE: `scripts/verify_receipt.ts` + `verifyReceiptFile`

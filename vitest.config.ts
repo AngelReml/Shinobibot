@@ -54,6 +54,7 @@ export default defineConfig({
       'src/sandbox/browser_sandbox/__tests__/**/*.test.ts',
       'src/sandbox/backends/__tests__/**/*.test.ts',
       'src/attest/__tests__/**/*.test.ts',
+      'src/policy/__tests__/**/*.test.ts',
       'src/skills/__tests__/**/*.test.ts',
       'src/skills/auditor/__tests__/**/*.test.ts',
       'src/sentinel/__tests__/**/*.test.ts',
@@ -106,7 +107,4 @@ export default defineConfig({
     exclude: ['node_modules', 'dist', 'scratch', 'test_*.ts'],
     pool: 'forks',
     isolate: true,
-    globals: false,
-    testTimeout: 10_000,
-  },
-});
+    globals
