@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-07-03T19:42:30.267Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-07-04T19:18:18.137Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,8 +13,8 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** remediacion-2026-07-01 · **Arbol:** SUCIO (7 cambios)
-- **Ultimo commit:** cb80b2a P2.E3.c cerrada: DPAPI cifra en reposo la identidad de dispositivo
+- **Version:** 1.0.0 · **Rama:** remediacion-2026-07-01 · **Arbol:** SUCIO (13 cambios)
+- **Ultimo commit:** 5b5aa65 Informe de sesión: 4 tareas pendientes de prompt.txt (limpieza índice, DPAPI, monitor PowerShell, verificación Sello)
 - **Tamano:** 474 ficheros de codigo (62435 LOC), 249 de test
 - **Inventario (escaneo real):** ~61 registros de tool · 2 referencias MCP
 
@@ -111,6 +111,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `npm run bench:f41` | `tsx scripts/bench_f41.ts` |
 | `npm run bench:f43` | `tsx scripts/bench_f43.ts` |
 | `npm run build:exe` | `tsx scripts/build_exe.ts` |
+| `npm run sbom` | `tsx scripts/gen_sbom.ts` |
 
 > Entrada principal: `scripts/shinobi.ts` (CLI) y `scripts/shinobi_web.ts` (WebChat :3333).
 > El orquestador del bucle LLM-tool vive en `src/coordinator/orchestrator.ts`.

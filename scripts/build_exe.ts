@@ -1,15 +1,14 @@
 // scripts/build_exe.ts
 //
-// Bloque 9 — Pipeline de compilación ALTERNATIVO a Shinobi.exe + Shinobi-Setup.exe.
+// Bloque 9 — Pipeline de compilación CANÓNICO de Shinobi.exe + Shinobi-Setup.exe.
 //
-// F5.1 — NO CANÓNICO. La ruta de release real es: build_sea.mjs (esbuild) +
-// sea-config.json (Node SEA) + postject, tal como documenta rebuild.cmd en la
-// raíz del repo y consume .github/workflows/release.yml + installer/shinobi.iss.
-// Este script genera su PROPIO .exe vía @yao-pkg/pkg (ruta distinta: pkg en vez
-// de Node SEA) y su PROPIO installer.iss embebido — nada en CI lo invoca. Se
-// conserva como alternativa manual/experimental (empaqueta shinobi_web.ts en
-// vez de shinobi.ts), pero si sólo necesitas producir el instalador oficial,
-// usa `rebuild.cmd` + `installer\shinobi.iss`, no este script.
+// P6 (remediación 2026-07-01) — única ruta de build. Empaqueta scripts/shinobi_web.ts
+// vía @yao-pkg/pkg (con better-sqlite3/isolated-vm/onnxruntime-node como assets nativos
+// embebidos en el snapshot) y genera su propio installer.iss (Inno Setup) en build/.
+// Se retiró la ruta alternativa Node SEA (build_sea.mjs + sea-config.json + postject +
+// rebuild.cmd + installer/shinobi.iss): Node SEA no soporta require() de nativos de
+// terceros (ERR_UNKNOWN_BUILTIN_MODULE) y el .exe resultante nunca arrancaba — ver
+// DECISIONES.md. .github/workflows/release.yml invoca `npm run build:exe` (este script).
 //
 // Pasos:
 //   1. Limpiar build/
@@ -222,8 +221,7 @@ function totalDirSize(dir: string): number {
 
 async function step6_installerScript(): Promise<void> {
   log('6) generar build/installer.iss');
-  const iss = `; installer.iss — generado por scripts/build_exe.ts (ruta NO canónica — ver
-; installer\\shinobi.iss + rebuild.cmd para el instalador oficial de release).
+  const iss = `; installer.iss — generado por scripts/build_exe.ts (ruta canónica de release).
 ; Compilar con: "C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe" installer.iss
 
 #define MyAppName "Shinobi"

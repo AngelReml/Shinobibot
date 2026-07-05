@@ -1,8 +1,10 @@
 // F0.1 — package.json es la única fuente de verdad de versión. Este test
 // verifica que los 3 puntos de entrada que antes tenían el literal "2.0.0"
 // hardcodeado (scripts/shinobi_web.ts, scripts/build_exe.ts y su plantilla
-// .iss generada) ahora leen realmente de package.json, y que el instalador
-// canónico committeado (installer/shinobi.iss) coincide con esa versión.
+// .iss generada) ahora leen realmente de package.json. El instalador vive
+// como plantilla generada en build/installer.iss (scripts/build_exe.ts,
+// paso 6) — ya no hay un .iss estático committeado desde que se retiró la
+// ruta SEA (ver DECISIONES.md, P6).
 //
 // No podemos `import` scripts/shinobi_web.ts ni scripts/build_exe.ts
 // directamente: ambos ejecutan un `main()` con side-effects reales al cargar
@@ -56,17 +58,10 @@ describe('version consistency (F0.1)', () => {
     expect(src).toMatch(/#define MyAppVersion "\$\{APP_VERSION\}"/);
   });
 
-  it('installer/shinobi.iss (canonical installer) MyAppVersion matches package.json.version', () => {
-    const iss = read('installer/shinobi.iss');
-    const match = iss.match(/#define MyAppVersion "([^"]+)"/);
-    expect(match, 'installer/shinobi.iss must define #define MyAppVersion "..."').toBeTruthy();
-    expect(match![1]).toBe(pkgJson.version);
-  });
-
-  it('no scripts/ or installer/ file contains a stray "2.0.0" literal (the historical drift value)', () => {
+  it('no scripts/ file contains a stray "2.0.0" literal (the historical drift value)', () => {
     // Regression guard for the original F0.1 bug: shinobi_web.ts and
     // build_exe.ts both hardcoded '2.0.0' while package.json said '1.0.0'.
-    const files = ['scripts/shinobi_web.ts', 'scripts/build_exe.ts', 'installer/shinobi.iss'];
+    const files = ['scripts/shinobi_web.ts', 'scripts/build_exe.ts'];
     for (const f of files) {
       const content = read(f);
       expect(content, `${f} should not contain the stale "2.0.0" literal`).not.toContain('2.0.0');

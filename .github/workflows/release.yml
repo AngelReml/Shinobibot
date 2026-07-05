@@ -1,9 +1,16 @@
 name: Release
 
 # G3.1 — fires when package.json version changes on main, plus manual dispatch
-# for emergency re-runs. Builds the portable .exe via Node SEA, generates a
-# changelog from conventional commits since the previous tag, creates a
-# GitHub Release with the asset, then pings Discord (G3.3).
+# for emergency re-runs (or a dry_run to validate the pipeline without publishing).
+# Builds the portable .exe via @yao-pkg/pkg (P6, remediación 2026-07-01 — la ruta
+# Node SEA se retiró: no soportaba require() de nativos de terceros y nunca
+# arrancaba, ver DECISIONES.md), la arranca de verdad como smoke test, genera un
+# SBOM (deps + hashes exactos), un changelog desde conventional commits, crea un
+# GitHub Release con los assets, y pinga Discord (G3.3).
+#
+# "Verifiable build", no "reproducible build": no prometemos un .exe
+# byte-idéntico (Windows + pkg no lo permite razonablemente) — el SBOM permite
+# verificar QUÉ entró (deps + hashes), no reproducir el binario bit a bit.
 on:
   push:
     branches: [main]
@@ -15,14 +22,19 @@ on:
       version:
         description: 'Force a release for this version (e.g. 1.0.0). Leave blank to auto-detect.'
         required: false
+      dry_run:
+        description: 'Build + smoke-test + SBOM only — no tag, no GitHub release, no Discord ping.'
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write   # needed to create the GitHub release + tag
 
 jobs:
   release:
-    runs-on: windows-latest  # SEA is platform-specific — Windows produces shinobi.exe
-    timeout-minutes: 25
+    runs-on: windows-latest  # pkg target node24-win-x64 produce Shinobi.exe
+    timeout-minutes: 30
     steps:
       - name: Checkout (full history for changelog)
         uses: actions/checkout@v4
@@ -63,25 +75,65 @@ jobs:
         if: steps.ver.outputs.tag_exists == 'false'
         run: npm ci || npm install --no-audit --no-fund
 
-      - name: Build portable bundle (SEA)
+      - name: Install Inno Setup (installer compiler)
         if: steps.ver.outputs.tag_exists == 'false'
-        run: node build_sea.mjs
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Install Playwright Chromium (shipped alongside the .exe)
+        if: steps.ver.outputs.tag_exists == 'false'
+        run: npx playwright install chromium
+
+      - name: Build portable .exe + installer (@yao-pkg/pkg)
+        if: steps.ver.outputs.tag_exists == 'false'
+        run: npm run build:exe
+
+      # Un release que no bootea NO se publica: este step falla el job y todos
+      # los steps posteriores (stage/tag/release/discord) se saltan porque no
+      # tienen `if: always()` — son condicionales al éxito de este step.
+      - name: Smoke test — boot Shinobi.exe and verify HTTP 200 on :3333
+        if: steps.ver.outputs.tag_exists == 'false'
+        shell: pwsh
+        run: |
+          $exe = "build/Shinobi.exe"
+          if (-not (Test-Path $exe)) {
+            throw "build/Shinobi.exe no existe tras build:exe — el empaquetado falló silenciosamente."
+          }
+          $proc = Start-Process -FilePath (Resolve-Path $exe) -PassThru -WindowStyle Hidden
+          $ok = $false
+          $lastErr = ""
+          for ($i = 0; $i -lt 30; $i++) {
+            Start-Sleep -Seconds 2
+            try {
+              $resp = Invoke-WebRequest -Uri "http://localhost:3333" -UseBasicParsing -TimeoutSec 5
+              if ($resp.StatusCode -eq 200) { $ok = $true; break }
+            } catch {
+              $lastErr = $_.Exception.Message
+            }
+          }
+          if ($proc -and -not $proc.HasExited) {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
+          if (-not $ok) {
+            throw "Shinobi.exe no respondio HTTP 200 en :3333 tras 60s (ultimo error: $lastErr) — build ROTO, release ABORTADO."
+          }
+          Write-Host "Smoke OK: HTTP $($resp.StatusCode) en :3333."
+
+      - name: Generate SBOM (deps + hashes exactos)
+        if: steps.ver.outputs.tag_exists == 'false'
+        run: npm run sbom
 
       - name: Stage release artefacts
         if: steps.ver.outputs.tag_exists == 'false'
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release-artefacts | Out-Null
-          if (Test-Path build/shinobi.exe) {
-            Copy-Item build/shinobi.exe "release-artefacts/Shinobi-${{ steps.ver.outputs.version }}.exe"
+          Copy-Item build/Shinobi.exe "release-artefacts/Shinobi-${{ steps.ver.outputs.version }}.exe"
+          if (Test-Path build/Shinobi-Setup.exe) {
+            Copy-Item build/Shinobi-Setup.exe "release-artefacts/Shinobi-Setup-${{ steps.ver.outputs.version }}.exe"
           }
-          if (Test-Path build/shinobi-bundle.cjs) {
-            Compress-Archive -Path build/shinobi-bundle.cjs -DestinationPath "release-artefacts/shinobi-portable-${{ steps.ver.outputs.version }}.zip" -Force
-          }
-          # Inno Setup installer is built locally (B1) and committed under build/
-          # if/when present. CI just publishes whatever is there.
-          if (Test-Path "build/ShinobiSetup-${{ steps.ver.outputs.version }}.exe") {
-            Copy-Item "build/ShinobiSetup-${{ steps.ver.outputs.version }}.exe" "release-artefacts/"
+          if (Test-Path build/sbom.json) {
+            Copy-Item build/sbom.json "release-artefacts/sbom-${{ steps.ver.outputs.version }}.json"
           }
           Get-ChildItem release-artefacts
 
@@ -93,7 +145,7 @@ jobs:
           Get-Content release-artefacts/CHANGELOG.md | Select-Object -First 60
 
       - name: Tag commit
-        if: steps.ver.outputs.tag_exists == 'false'
+        if: steps.ver.outputs.tag_exists == 'false' && github.event.inputs.dry_run != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -101,7 +153,7 @@ jobs:
           git push origin ${{ steps.ver.outputs.tag }}
 
       - name: Create GitHub release
-        if: steps.ver.outputs.tag_exists == 'false'
+        if: steps.ver.outputs.tag_exists == 'false' && github.event.inputs.dry_run != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.tag }}
@@ -112,7 +164,7 @@ jobs:
 
       - name: Notify Discord
         # G3.3 — only fires if the user has set the DISCORD_WEBHOOK_URL secret.
-        if: steps.ver.outputs.tag_exists == 'false' && env.DISCORD != ''
+        if: steps.ver.outputs.tag_exists == 'false' && github.event.inputs.dry_run != 'true' && env.DISCORD != ''
         shell: pwsh
         env:
           DISCORD: ${{ secrets.DISCORD_WEBHOOK_URL }}
@@ -122,3 +174,10 @@ jobs:
             content  = "Shinobi ${{ steps.ver.outputs.version }} shipped — https://github.com/${{ github.repository }}/releases/tag/${{ steps.ver.outputs.tag }}"
           } | ConvertTo-Json
           Invoke-RestMethod -Method Post -Uri $env:DISCORD -ContentType 'application/json' -Body $payload
+
+      - name: Dry-run summary
+        if: steps.ver.outputs.tag_exists == 'false' && github.event.inputs.dry_run == 'true'
+        shell: pwsh
+        run: |
+          Write-Host "dry_run=true: build + smoke + SBOM OK. No se creó tag ni release."
+          Get-ChildItem release-artefacts

@@ -29,7 +29,8 @@
     "bench:g5": "tsx scripts/bench_g5_safety.ts",
     "bench:f41": "tsx scripts/bench_f41.ts",
     "bench:f43": "tsx scripts/bench_f43.ts",
-    "build:exe": "tsx scripts/build_exe.ts"
+    "build:exe": "tsx scripts/build_exe.ts",
+    "sbom": "tsx scripts/gen_sbom.ts"
   },
   "keywords": [],
   "author": "AngelReml",

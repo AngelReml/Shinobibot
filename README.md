@@ -84,7 +84,7 @@ cp .env.example .env      # añade tu API key
 npm run dev               # abre el dojo en http://localhost:3333
 ```
 
-O usa el binario: `build/shinobi.exe` (o el instalador `build/ShinobiSetup-<version>.exe`).
+O genera el binario con `npm run build:exe` → `build/Shinobi.exe` (o el instalador `build/Shinobi-Setup.exe`).
 
 Comandos del operador (los 19, vía `/` en el dojo o la CLI):
 
