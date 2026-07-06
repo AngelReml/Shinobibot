@@ -34,26 +34,32 @@ function nowIso(ts: string): string { return ts; }
  * Drive a mission from a spec. `ts` is passed in (Date.* is avoided so runs are
  * reproducible). Persists state after each phase (resume). Returns the report.
  */
-export async function runMission(spec: MissionSpec, store: KagemushaStore, handlers: PhaseHandlers, opts: { missionId: string; ts: string }): Promise<MissionResult> {
+export async function runMission(spec: MissionSpec, store: KagemushaStore, handlers: PhaseHandlers, opts: { missionId: string; ts: string; now?: () => number }): Promise<MissionResult> {
   const state: MissionState = {
     mission_id: opts.missionId, phase: 'INIT', spec, frontier: [], visited: [],
     threadsOpened: 0, tokensSpent: 0, startedAt: opts.ts, updatedAt: opts.ts, gaps: [],
   };
-  return driveFrom(state, store, handlers, opts.ts);
+  return driveFrom(state, store, handlers, opts.ts, opts.now);
 }
 
 /** Resume a persisted mission from where it left off. */
-export async function resumeMission(missionId: string, store: KagemushaStore, handlers: PhaseHandlers, ts: string): Promise<MissionResult> {
+export async function resumeMission(missionId: string, store: KagemushaStore, handlers: PhaseHandlers, ts: string, now?: () => number): Promise<MissionResult> {
   const state = store.loadMissionState(missionId);
   if (!state) throw new Error(`mission ${missionId} not found`);
-  return driveFrom(state, store, handlers, ts);
+  return driveFrom(state, store, handlers, ts, now);
 }
 
-async function driveFrom(state: MissionState, store: KagemushaStore, h: PhaseHandlers, ts: string): Promise<MissionResult> {
+async function driveFrom(state: MissionState, store: KagemushaStore, h: PhaseHandlers, ts: string, now?: () => number): Promise<MissionResult> {
   const perPhaseTokens: Record<string, number> = {};
   const spend = (phase: string, c: PhaseCost) => { const t = c.tokens ?? 0; perPhaseTokens[phase] = (perPhaseTokens[phase] ?? 0) + t; state.tokensSpent += t; };
   const persist = (phase: MissionPhase) => { state.phase = phase; state.updatedAt = ts; store.saveMissionState(state); };
   const budgetExhausted = () => state.tokensSpent >= state.spec.budget.maxTokens;
+  // F5 — maxWallClockMs se enforcea de verdad (antes era un knob decorativo).
+  // Reloj inyectable (tests deterministas); presupuesto POR INVOCACIÓN: un
+  // resume trae presupuesto de tiempo fresco, el de tokens/hilos persiste.
+  const clock = now ?? (() => Date.now());
+  const startMs = clock();
+  const wallClockExhausted = () => clock() - startMs >= state.spec.budget.maxWallClockMs;
 
   const looked_at = { channels: 0, transcripts: 0, threads: 0 };
   let report: DawnReport | null = null;
@@ -70,6 +76,7 @@ async function driveFrom(state: MissionState, store: KagemushaStore, h: PhaseHan
     let more = true;
     while (more) {
       if (budgetExhausted()) { state.gaps.push(`presupuesto de tokens agotado tras ${state.threadsOpened} hilos; quedaron semillas sin investigar`); break; }
+      if (wallClockExhausted()) { state.gaps.push(`presupuesto de tiempo (maxWallClockMs=${state.spec.budget.maxWallClockMs}) agotado tras ${state.threadsOpened} hilos; quedaron semillas sin investigar`); break; }
       if (state.threadsOpened >= state.spec.budget.maxThreads) { state.gaps.push(`límite de ${state.spec.budget.maxThreads} hilos alcanzado; quedaron semillas sin investigar`); break; }
       const r = await h.thread(state);
       spend('THREAD', r);
@@ -79,7 +86,7 @@ async function driveFrom(state: MissionState, store: KagemushaStore, h: PhaseHan
       store.saveMissionState(state);
     }
 
-    if (!budgetExhausted()) { persist('CONTRAST'); spend('CONTRAST', await h.contrast(state)); }
+    if (!budgetExhausted() && !wallClockExhausted()) { persist('CONTRAST'); spend('CONTRAST', await h.contrast(state)); }
     else state.gaps.push('contraste con el código omitido por presupuesto');
 
     persist('SYNTHESIZE');

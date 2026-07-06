@@ -70,6 +70,11 @@ import './windows_notification.js';
 import './voice_speak.js';
 import './audio_transcribe.js';
 
+// F5 (P5-Nivel 1): Kagemusha — misión nocturna de investigación bajo demanda.
+// La "one-line follow-up" anotada en src/kagemusha/trigger.ts (F4.1). Doble
+// gate: KAGEMUSHA_ENABLED (default off) + requiresConfirmation (D-017).
+import './kagemusha_run.js';
+
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 // FIX 1.7 — Activación del sistema de plugins ESM (manifiestos explícitos).
 // HotPlugRegistry (hot_plug_registry.ts) es el sandbox isolated-vm para

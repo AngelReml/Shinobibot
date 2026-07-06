@@ -203,6 +203,8 @@ export interface FrontierItem {
   candidate: Entity;
   parentDepth: number;
   priorScore: number;
+  /** F5 — nodo del que salió este candidato (arista `cites` al investigarlo). */
+  parentNodeId?: string;
 }
 
 export interface MissionState {

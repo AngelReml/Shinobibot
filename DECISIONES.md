@@ -1,5 +1,67 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-06 · F5 — Remate P5-Nivel 1: Kagemusha pasa de librería honesta-pero-vacía a misión disparable
+
+**Contexto (medido contra el repo, no de memoria).** El dossier Kagemusha v1 estaba
+ejecutado ~80% (esqueleto completo, rúbrica §8.5 determinista, máquina de misión
+reanudable, prueba binaria C-21 parcial), pero lo que faltaba era exactamente el
+valor: cero referencias a `runKagemusha` fuera del módulo (ni tool, ni CLI — nadie
+podía dispararlo), resolvers vivos solo como fakes de test, la `Frontier` escrita
+pero sin cablear (THREAD lineal a profundidad 1 → P3 de la prueba dura sin cubrir),
+`maxWallClockMs` decorativo (no se enforceaba), sink a fichero sin conectar, y un
+bug: los `ContrastVerdict` se guardaban en el store pero `buildDawnReport` nunca
+los recibía (highlights sin contraste, build_suggestions siempre vacías).
+
+**Qué se hizo (F5):**
+- `src/kagemusha/live/deps.ts` (NUEVO) — costuras vivas fail-closed. Egress SOLO
+  vía tools ya autorizadas (`web_search`/`clean_extract`, gate de consentimiento
+  F1.3) + subproceso yt-dlp con execFile sin shell (mismo patrón SEC-F4.2, con
+  allowlist de videoId ANTES de armar argv). `src/kagemusha/` sigue fuera de
+  EGRESS_ALLOWLIST: no abre sockets ni importa clientes HTTP.
+- THREAD real (§8.6): priority queue + poda + expansión de citas arxiv con
+  anti-ciclo y arista `cites`; los candidatos derivados llevan `parentNodeId`.
+  P3 cubierto por test: semilla → cita → nodo a profundidad 2.
+- Claims del camino real con credibilidad de rúbrica sobre señales MEDIDAS
+  (`signalsFromAnalysis`): autores extraídos, artefactos detectados, tier de la
+  fuente; `corroboration_count` arranca en 0 SIEMPRE (no se asume).
+- `run_kagemusha` registrada (src/tools/kagemusha_run.ts + import en el barrel —
+  la "one-line follow-up" que F4.1 dejó anotada). Doble gate: KAGEMUSHA_ENABLED
+  (default off) + `requiresConfirmation` (D-017). `live:false` = misión 100%
+  offline con huecos honestos. No entra en DESTRUCTIVE_TOOLS (no muta nada del
+  usuario); su riesgo es egress+gasto y eso lo cubre la confirmación.
+- `maxWallClockMs` enforceado en mission.ts (reloj inyectable, presupuesto por
+  invocación); contraste omitido con hueco honesto si el tiempo se agota.
+- Fix: los verdicts de contraste llegan al informe. Sink C-18: el informe se
+  escribe SIEMPRE a `reports/<mission_id>.md` (default junto a kagemusha.db).
+- Juez LLM de contraste opt-in (`KAGEMUSHA_LLM_JUDGE=1`), async, con import
+  perezoso de adapters; salida no parseable o fuera del enum → null → fallback
+  determinista. El LLM matiza la etiqueta; la rúbrica sigue mandando.
+
+**Qué NO se decidió (sigue siendo del operador, como F4.1 dejó escrito):** el
+scheduler nocturno desatendido — ventana horaria, lista de fuentes y techo de
+gasto por noche. `run_kagemusha` es el disparo manual/bajo demanda; programarlo
+será una línea con task_scheduler_create cuando esa decisión de producto exista.
+
+**Verificación (salida cruda):** `tsc --noEmit` 0 errores en todo el repo; suite
+de kagemusha 62/62 en verde (10 ficheros: los 8 existentes salvo
+`kagemusha_wiring` —que exige el árbol completo y quedó fuera del entorno mínimo
+Linux donde se corrió— + 2 nuevos: `remate_f5.test.ts` (P3, wall-clock, sink,
+gate del tool, poda por profundidad) y `live_deps.test.ts` (parsers puros,
+fail-closed, caché, juez LLM). Pendiente correr `npm run test` completo en la
+máquina Windows del operador. Bonus medido: el test nuevo cazó un bug real del
+filtro de ruido de búsqueda (`https://youtu.be/…` pasaba una regex de host
+frágil) — corregido con parseo de hostname, fail-closed ante URL imparseable.
+
+**Nota operativa (2ª sesión):** los ficheros de este remate se corrompieron al
+sincronizarse por el mount del sandbox (truncados a mitad de línea) y hubo que
+reescribirlos desde el contexto verificado y commitear desde el propio sandbox;
+el mount deniega unlink (quedan `.git/index.lock.stale-f5` y `.kage_borrame`
+como residuos inertes — borrar a mano en Windows).
+
+**Pendiente honesto del Nivel 1:** la prueba dura §13 REAL (corpus real + hoja
+sellada plantada por el operador — P1 hoy se simula insertando el claim, P3 ya
+tiene test sintético pero no corrida real), y la decisión de scheduler de arriba.
+
 ## 2026-07-06 · P6 CERRADA — pkg es la ruta de build canónica; release.yml arranca el .exe real y lo verificó en CI limpio
 
 **Decisión: `scripts/build_exe.ts` (@yao-pkg/pkg) es la ÚNICA ruta de build.** Se
@@ -1172,57 +1234,3 @@ ejecución — coste > beneficio para un label de texto.
   Typecheck limpio, exportada en el barrel. Crecer a ~20 antes de cerrar G1.
 - **G1.5 KPIs N0**: `scripts/kpis_sombra.mjs` (Node puro) sobre el rastro REAL →
   `bench_results/kpis_N0_2026-06-10.md` (+ .sha256). Señal: %éxito-proxy 20→79→84
-  (W20/21/24), 419 failovers, 42 frenos de candado, 1 loop abortado, 12 misiones.
-  Hallazgo de instrumentación: el candado no emite kind propio (vive como error de
-  tool_call) → tarea G1.
-- **Disciplina nueva**: `bench_results/` (rastro firmado de la medición) + `forja/`
-  (diario de la sombra). Ambos con su README/cabecera. Pendiente del operador en
-  `G0_PENDIENTE_EN_TU_MAQUINA.md`.
-
-## 2026-06-10 · PLAN SOMBRA — estrategia de escalada en silencio (+ hook de contexto)
-- Nace `PLAN_SOMBRA_2026.md`: el CÓMO estratégico — escalar desde las sombras
-  hasta una emergencia inignorable. CONVIVE con FRONTERA (el QUÉ técnico); regla
-  de precedencia documentada en su §0. Decisiones clave: avance por PUERTAS sin
-  fechas (G0–G7 en tres arcos Shu·Ha·Ri, WIP=1, pulso mínimo 4 semanas);
-  economía 0 € base / techo 200 €/mes solo si mueve un número / hucha ~300 € para
-  la única tanda pagada (N2); tres niveles de evidencia N0/N1/N2 — el centro es el
-  **harness-delta** (misma suite, MISMO modelo barato, tres agentes: mide el
-  harness, que es la tesis de FRONTERA §0, a coste ~0); anillos de operadores
-  (familia → confianza); repo se queda PÚBLICO sin ruido (la historia git como
-  notario; auditoría de huellas/secretos en G0); emergencia solo con checklist
-  falsable ≥5/6 + recibo N2.
-- Pre-commit ampliado: regenera ESTADO.md (estado.mjs --no-tests) y
-  AGENTS.md/CLAUDE.md (context.mjs) y los añade al stage, ANTES del scan de
-  claves; best-effort (avisa, no bloquea). context.mjs añade PLAN_SOMBRA al
-  orden de lectura (puesto 4).
-
-## 2026-06-10 · E8 robustez (刃 sobre 心) + manuales de marca leídos
-- Petición: sistema ROBUSTO — aguanta múltiples iteraciones de múltiples personas,
-  imparable hacia el objetivo pero desde las sombras, no colapsa la PC, swarms si
-  la tarea pesa. Es la doctrina del hanko 忍 (filo sobre corazón) hecha sistema.
-- **E8** (`runtime/resource_governor.ts` + `runtime/escalation.ts`): governor
-  process-wide (cap DURO + equidad por operador + backpressure + ancho adaptativo)
-  + ejecutor relentless (retry → failover → escalada al ENJAMBRE si pesa, acotado
-  por fatal/presupuesto/loop-detector). Prueba 19/19 en Node: flood 200 req / 5
-  operadores → running ≤ cap, equidad ≤ cap-op, 188 sheds honestos; pesada →
-  ejército. + 2 tests vitest. Es el primer governor process-wide del repo.
-- Manuales de marca leídos (ZAPWEAVE ecosistema + SHINOBI específico): enso + gota
-  bermellón (en Shinobi = huella/rastro, encaja con el audit E7) + Hiru/Yoru
-  (Yoru = default NATIVO de Shinobi) + Inter/Cormorant + proporción 90/9/1 + voz
-  刃/心 + candado selectivo. Guardrail: la robustez E8 ENCARNA la selva (enjambre
-  bajo la calma), no la decora; la accesibilidad va A TRAVÉS de la estética.
-- Total sesión: 4 motores (E5/E6/E7/E8), 6 ficheros de test, 4 proofs Node verdes
-  (6 + 11 + 8 + 19 = 44 checks). PENDIENTE: typecheck+vitest en Windows; cablear
-  E5 (best-of-N) y E8 (governor/relentless) al runtime/orchestrator real.
-
-## 2026-06-10 · FRONTERA: roadmap nuevo + 3 motores ejecutados (E5/E6/E7)
-- `ROADMAP_FRONTERA_2026.md` SUPERSEDE a `BENCHMARK_READINESS_PLAN.md` y al
-  `DICTAMEN_FRONTERA_2026-06-09.md`. Recalibración honesta: los benchmarks públicos
-  miden el HARNESS, no la IQ del modelo → paridad-y-mejora ES alcanzable sobre el
-  mismo modelo. Dos pilares: ACCESIBILIDAD (barrera técnico/no-técnico, wedge que
-  Hermes dev-first no puede seguir) + ESCALA FRONTERA (test-time compute + multi-repo).
-- **E5** test-time compute (`agents/best_of_n.ts` + `best_of_n_select.ts`):
-  best-of-N con reranking por verificador + gate objetivo, orden TOTAL determinista.
-  Prueba 6/6 en Node + test vitest. Cierra pass@1 en el mismo modelo.
-- **E6** comprensión multi-repo (`reader/multi_repo.ts`): distill→ledger→assemble
-  con invariante pinneada. Prueba 11/11 en Node — 5 repos de ~6M c
