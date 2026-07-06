@@ -3,6 +3,7 @@ import { Notifier } from '../notifications/notifier.js';
 import { ShinobiOrchestrator } from '../coordinator/orchestrator.js';
 import { runDreamingCycle, dreamingEnabled } from '../memory/dreaming/dreaming_wiring.js';
 import { shouldRunCurator, runCuratorCycle } from '../learning/skill_curator.js';
+import { nightCycleEnabled, nightCycleDue, runNightCycle, markNightCycleRan } from './night_cycle.js';
 
 /**
  * Corre `p` con un límite de tiempo. Si `p` no resuelve en `ms`, la promesa
@@ -109,6 +110,21 @@ export class ResidentLoop {
       }
     } catch (e: any) {
       console.error('[ResidentLoop] curator error:', e?.message ?? e);
+    }
+
+    // Ciclo nocturno — cron 2am (mission_scheduler.isDue), opt-in con
+    // SHINOBI_NIGHT_CYCLE_ENABLED=1: Kagemusha investiga (elige sus propios
+    // temas) + Kangeiko fabrica bajo tope ($10/noche fail-closed) + adopción
+    // en lenguaje llano de lo certificado y puro. Nunca lanza: un fallo interno
+    // queda reflejado en el informe del amanecer, no tumba el resident loop.
+    if (nightCycleEnabled() && nightCycleDue()) {
+      try {
+        const r = await runNightCycle();
+        markNightCycleRan();
+        console.log(`[ResidentLoop] night cycle: kagemusha.ran=${r.kagemusha.ran} kangeiko.certified=${r.kangeiko.certified} adoptado=${r.kangeiko.adopted} gastado=$${r.spentUsd.toFixed(2)} informe=${r.reportPath}`);
+      } catch (e: any) {
+        console.error('[ResidentLoop] night cycle error:', e?.message ?? e);
+      }
     }
 
     const due = this.store.getDueMissions();
