@@ -1,5 +1,75 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-06 · P6 CERRADA — pkg es la ruta de build canónica; release.yml arranca el .exe real y lo verificó en CI limpio
+
+**Decisión: `scripts/build_exe.ts` (@yao-pkg/pkg) es la ÚNICA ruta de build.** Se
+retira la ruta Node SEA (`build_sea.mjs`, `sea-config.json`, `rebuild.cmd`,
+`rebuild_test.cmd`, `installer/shinobi.iss`) — Node SEA no soporta `require()` de
+nativos de terceros (`ERR_UNKNOWN_BUILTIN_MODULE`, hallazgo ya documentado el
+2026-07-01) y el `.exe` resultante nunca arrancaba. Además `release.yml` solo
+COMPILABA esa ruta (`node build_sea.mjs`) sin arrancar nunca el binario, así que
+el problema pudo estar roto un tiempo indeterminado sin que CI lo detectara. No
+se reabre pkg-vs-SEA: la decisión es definitiva.
+
+**`release.yml` ahora arranca el `.exe` de verdad antes de publicar.** Sustituye
+`node build_sea.mjs` por `npm run build:exe`, instala Inno Setup (choco) y
+Playwright Chromium para que el instalador quede completo, y añade un smoke test
+real: lanza `Shinobi.exe`, exige HTTP 200 en `:3333` (con diagnóstico de
+stdout/stderr y detección de crash temprano), y si falla el job se pone rojo y
+NINGÚN step posterior (stage/tag/release/Discord) corre — un release que no
+bootea no se publica. Nuevo input `workflow_dispatch.dry_run` para poder validar
+build+smoke+SBOM sin crear tag ni GitHub Release.
+
+**SBOM real (`scripts/gen_sbom.ts`, `npm run sbom`):** lee `package-lock.json`
+(lockfileVersion 3) y emite `build/sbom.json` con nombre/versión/URL/hash SRI de
+cada dependencia resuelta. Definición honesta de "verifiable build" para este
+repo: verificas QUÉ entró (hashes de entrada), no un `.exe` reproducible
+byte-a-byte (Windows + pkg no lo permite razonablemente — no se promete).
+
+**Gate doc↔árbol:** ya existía cubierto en `estado_generator.test.ts`
+(`describe('context.mjs — regenera AGENTS.md/CLAUDE.md con conteos reales')`) —
+corre `context.mjs` y compara el conteo de ficheros de CLAUDE.md/AGENTS.md contra
+un escaneo real de `src/` en Node; falla si divergen. Verificado que sigue verde.
+Nota: el hook `.githooks/pre-commit` que regenera estos ficheros es opt-in
+(`git config core.hooksPath .githooks`, no está activado en este checkout) — el
+test es el gate real, no depende de que el operador active el hook.
+
+**Verificación end-to-end, en CI real (GitHub Actions, `windows-latest` limpio,
+no la máquina del operador), no solo local:**
+1. Local: `tsc --noEmit` limpio, `npm test` 2210/2213 verdes (3 skip, sin
+   relación), `npm run build:exe` completo (`Shinobi.exe` 201 MB +
+   `Shinobi-Setup.exe` 195 MB con Inno Setup), arranque real → HTTP 200 en
+   `:3333` (25701 bytes).
+2. Primer `workflow_dispatch` en CI (run 28781344740): build verde, pero el
+   smoke **falló** — `Shinobi.exe` nunca abrió `:3333` en el runner limpio,
+   aunque localmente sí. Diagnóstico añadido (stdout/stderr + detección de
+   crash) reveló la causa real en el segundo run (28782027317): **desajuste de
+   ABI de Node** — `release.yml` instalaba dependencias con Node 22
+   (`NODE_MODULE_VERSION 127`) pero `build_exe.ts` empaqueta con pkg target
+   `node24-win-x64` (ABI 137); `better-sqlite3` reventaba con
+   `ERR_DLOPEN_FAILED` dentro del `.exe`. En la máquina del operador nunca se
+   vio porque su Node local ya es v24 — coincidencia de entorno, no diseño.
+   Fix: `actions/setup-node` en `release.yml` fijado a Node 24 para igualar el
+   target de pkg.
+3. Tercer run (28782591769): **verde de verdad** — `npm ci`, Inno Setup,
+   Playwright Chromium, `build:exe`, y smoke con log crudo
+   `"[shinobi-web] Listening on http://localhost:3333"` /
+   `"Smoke OK: HTTP 200 en :3333."`, SBOM generado (1381 deps, 408 de
+   producción, 0 sin hash), artefactos correctos, y `dry_run=true` confirmado:
+   ni tag ni release creados (`git ls-remote --tags` sin rastro).
+4. Mutación de prueba deliberada (commit `5fb3547`, revertido en `5d1777d`):
+   se rompió a propósito el path del asset nativo de `better-sqlite3` en
+   `build_exe.ts`. Run 28783019589 se puso rojo con el error esperado de pkg
+   (`"was not included into executable at compilation stage"`), confirmando
+   que el gate bloquea un empaquetado nativo roto. Revertido y verificado
+   `git diff` vacío contra el commit ya probado en verde — no hizo falta un
+   cuarto run.
+
+Hallazgo de proceso: la verificación en la máquina del operador NO detectó el
+bug de ABI porque coincidía por casualidad con el target de pkg — la regla
+"verificar en CI limpio, no solo en tu máquina" (pedida explícitamente para
+esta tarea) fue la que lo sacó a la luz. Se mantiene el hábito.
+
 ## 2026-07-03 · P1.E4 PARCIAL — ruta PowerShell cerrada por el monitor; Job Object NO se envía (sin verificar)
 
 **Parte 1 (CERRADA): la ruta PowerShell de `run_command.ts` ya no esquiva `mediatedEffect`.**
