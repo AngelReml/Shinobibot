@@ -7,7 +7,7 @@ import { runWithMandate, recordMissionEffect } from '../../sandbox/mandate.js';
 import { emitMissionReceipt } from '../emit_receipt.js';
 import { verifyMissionReceipt } from '../mission_receipt.js';
 import { _resetDeviceIdentity } from '../device_identity.js';
-import { mkdtempSync, readdirSync } from 'fs';
+import { mkdtempSync, readdirSync, readFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -28,6 +28,31 @@ describe('P2.E5 — emisión del recibo al cierre de misión', () => {
       expect(receipt!.effects).toHaveLength(2);
       expect(verifyMissionReceipt(receipt!)).toEqual({ valid: true, reason: 'ok' });
       expect(readdirSync(dir).some((f) => f.startsWith('test-mission'))).toBe(true);
+    } finally {
+      delete process.env.SHINOBI_RECEIPTS_DIR;
+      delete process.env.SHINOBI_DEVICE_KEY_PATH;
+      _resetDeviceIdentity();
+    }
+  });
+
+  it('P4 auto-derive — persiste, aparte del recibo, la propuesta mínima (descarta DENY)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'shinobi_prop_'));
+    process.env.SHINOBI_RECEIPTS_DIR = dir;
+    process.env.SHINOBI_DEVICE_KEY_PATH = join(dir, 'device_key.json');
+    _resetDeviceIdentity();
+    try {
+      const mandate = { capabilities: ['shell:/ws', 'net:allowed'] }; // se concedió de más
+      await runWithMandate(mandate, async () => {
+        recordMissionEffect({ kind: 'shell', scope: '/ws', decision: 'allow' });
+        recordMissionEffect({ kind: 'net', scope: 'blocked', decision: 'deny' });
+        return emitMissionReceipt({ missionId: 'm2', mandate });
+      });
+      const pf = readdirSync(dir).find((f) => f.includes('proposed-mandate'));
+      expect(pf).toBeDefined();
+      const proposed = JSON.parse(readFileSync(join(dir, pf!), 'utf-8'));
+      // solo se usó shell:/ws; el net denegado no cuenta; net:allowed concedido pero no usado
+      expect(proposed.proposedMinimal).toEqual(['shell:/ws']);
+      expect(proposed.granted).toEqual(['shell:/ws', 'net:allowed']);
     } finally {
       delete process.env.SHINOBI_RECEIPTS_DIR;
       delete process.env.SHINOBI_DEVICE_KEY_PATH;

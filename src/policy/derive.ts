@@ -18,7 +18,7 @@
 // Resultado: cobertura garantizada de todo lo observado, cero autoridad no observada,
 // y minimalidad real (quitar cualquier capacidad deja algún efecto sin cubrir). Puro.
 
-import type { Mandate } from '../sandbox/mandate.js';
+import type { Mandate, ExecutedEffect } from '../sandbox/mandate.js';
 import { mandateCovers } from '../sandbox/mandate.js';
 import type { SimEffect } from './dryrun.js';
 
@@ -54,6 +54,20 @@ export function deriveMandateFromEffects(
   const expiresAt =
     opts.ttlMs !== undefined && Number.isFinite(opts.ttlMs) && opts.ttlMs > 0 ? now + opts.ttlMs : undefined;
   return { capabilities, expiresAt };
+}
+
+/**
+ * Puente para el auto-derive tras una misión REAL: toma los efectos que el monitor
+ * recogió (`ExecutedEffect[]` de `currentMissionEffects`), descarta los DENEGADOS (no
+ * ocurrieron) y deriva el mandato mínimo de los PERMITIDOS. Es la «propuesta de
+ * least-privilege» que una misión emite sobre sí misma: «se te concedió M, pero solo
+ * necesitabas M'». Proponer ≠ adoptar (adopción = human-gated). Puro.
+ */
+export function proposeMandateFromExecuted(
+  effects: readonly ExecutedEffect[],
+  opts: { ttlMs?: number; now?: number } = {},
+): Mandate {
+  return deriveMandateFromEffects(effects.filter((e) => e.decision === 'allow'), opts);
 }
 
 /** ¿El mandato cubre TODOS los efectos observados? Chequeo de sanidad (puro). */
