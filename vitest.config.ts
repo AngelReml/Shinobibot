@@ -44,6 +44,8 @@ export default defineConfig({
       'src/runtime/__tests__/resource_governor.test.ts',
       'src/runtime/__tests__/escalation.test.ts',
       'src/runtime/__tests__/trajectory_helpers.test.ts',
+      'src/runtime/__tests__/night_budget.test.ts',
+      'src/runtime/__tests__/night_cycle.test.ts',
       'src/selfdebug/__tests__/**/*.test.ts',
       'src/replay/__tests__/**/*.test.ts',
       'src/multiuser/__tests__/**/*.test.ts',
