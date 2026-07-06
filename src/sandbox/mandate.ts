@@ -128,6 +128,17 @@ export function checkMandate(effect: Effect, mandate: Mandate, now: number = Dat
   };
 }
 
+/**
+ * P1.E5 — ¿la misión activa permite EGRESS a este host? Sin mandato ⇒ true (rama
+ * legado: solo aplica el bloqueo de IPs privadas). Con mandato ⇒ solo si una
+ * capacidad `net:<host>` lo cubre. Puro; reusa `mandateCovers`. Lo consume el
+ * broker de egress (`egress/runtime_guard.ts`).
+ */
+export function egressAllowed(host: string, mandate: Mandate | undefined): boolean {
+  if (!mandate) return true;
+  return mandateCovers(mandate, 'net', host);
+}
+
 /** Un efecto ya ejecutado tal como lo registra un Recibo de Misión: kind + scope + decisión. */
 export interface ExecutedEffect {
   readonly kind: string;

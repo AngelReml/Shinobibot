@@ -16,15 +16,17 @@
 // en runtime, que es exactamente el caso que el lint estático de
 // egress_policy.ts no puede cubrir.
 //
+// QUÉ SÍ HACE ADEMÁS (P1.E5 — broker de egress POR MISIÓN):
+//   - Cuando la MISIÓN activa corre bajo un mandato (P1), toda salida a un HOSTNAME
+//     que el mandato no conceda (`net:<host>`) se bloquea aquí — allowlist de destino
+//     POR TAREA, no por proceso. Resuelve justo el "por tarea, no por proceso" que
+//     antes quedaba fuera. Sin mandato de misión ⇒ no aplica (solo el bloqueo de IPs
+//     privadas de abajo). Reusa `egressAllowed`/`mandateCovers` de P1.
+//
 // QUÉ NO HACE (alcance deliberado, no es teatro — ver DECISIONES.md):
-//   - NO impone la allowlist de MÓDULOS ORIGEN de egress_policy.ts (esa
-//     sigue siendo honor-based/lint). Imponerla en runtime requeriría un
-//     allowlist de HOSTS DE DESTINO por módulo, y varios módulos legítimos
-//     (web_search, el instalador de skills, el gateway multi-proveedor)
-//     necesitan poder llegar a destinos arbitrarios/dinámicos por diseño —
-//     un allowlist de hosts fijo los rompería o habría que dejarlo tan
-//     abierto que dejaría de proteger nada. Ese es un cambio de arquitectura
-//     mayor (por tarea, no por proceso) fuera de alcance de este fix.
+//   - NO impone la allowlist de MÓDULOS ORIGEN de egress_policy.ts (esa sigue siendo
+//     honor-based/lint estático). El allowlist por-misión de arriba cubre el DESTINO
+//     por tarea; el de módulos-origen es otra capa.
 //   - NO bloquea loopback (127.0.0.0/8, ::1): hay integraciones legítimas
 //     con servicios locales (p.ej. Ollama en localhost) que dependen de
 //     poder conectar ahí. Loopback no es un vector de movimiento lateral
@@ -42,6 +44,7 @@ import dns from 'node:dns';
 import net from 'node:net';
 import { isPrivateOrReservedIp, isIPv4 } from './ip_ranges.js';
 import { logToolCall } from '../audit/audit_log.js';
+import { currentMandate, egressAllowed } from '../sandbox/mandate.js';
 
 let installed = false;
 // Referencias originales guardadas a nivel de módulo — necesarias para que
@@ -53,16 +56,16 @@ let _savedPromiseLookup: typeof dns.promises.lookup | null = null;
 let _savedConnect: typeof net.Socket.prototype.connect | null = null;
 
 export class EgressBlockedError extends Error {
-  constructor(public readonly host: string, public readonly ip: string) {
-    super(`Egress bloqueado: ${host} resuelve a ${ip} (IP privada/reservada/metadata). Ver src/egress/runtime_guard.ts.`);
+  constructor(public readonly host: string, public readonly ip: string, reason?: string) {
+    super(reason ?? `Egress bloqueado: ${host} resuelve a ${ip} (IP privada/reservada/metadata). Ver src/egress/runtime_guard.ts.`);
     this.name = 'EgressBlockedError';
   }
 }
 
-function auditBlock(host: string, ip: string): void {
-  console.error(`[SECURITY][egress] BLOQUEADO: intento de conexión a ${host} (${ip}) — destino privado/reservado.`);
+function auditBlock(host: string, ip: string, reason = 'destino privado/reservado'): void {
+  console.error(`[SECURITY][egress] BLOQUEADO: intento de conexión a ${host} (${ip}) — ${reason}.`);
   try {
-    logToolCall({ tool: 'egress_runtime_guard', args: { host, ip }, success: false, durationMs: 0, error: 'EGRESS_BLOCKED_PRIVATE_IP' });
+    logToolCall({ tool: 'egress_runtime_guard', args: { host, ip, reason }, success: false, durationMs: 0, error: 'EGRESS_BLOCKED' });
   } catch { /* el guard nunca debe romperse porque el audit falle */ }
 }
 
@@ -92,6 +95,14 @@ export function installEgressRuntimeGuard(): void {
       // original. dns.promises.lookup tiene su propio wrapper más abajo.
       return (originalLookup as any).call(dns, hostname, ...rest);
     }
+    // P1.E5 — broker por misión: si la misión activa tiene mandato y no concede
+    // `net:<hostname>`, se bloquea aquí, ANTES de resolver. Sin mandato ⇒ pasa.
+    const mLookup = currentMandate();
+    if (mLookup && !egressAllowed(hostname, mLookup)) {
+      auditBlock(hostname, '(mandate)', `host fuera del mandato de red de la misión (net:${hostname})`);
+      cb(new EgressBlockedError(hostname, '(mandate)', `Egress bloqueado: '${hostname}' fuera del mandato de red de la misión.`));
+      return;
+    }
     return (originalLookup as any).call(dns, hostname, opts, (err: any, address: string, family: number) => {
       if (!err && address && isPrivateOrReservedIp(address)) {
         auditBlock(hostname, address);
@@ -108,6 +119,11 @@ export function installEgressRuntimeGuard(): void {
     _savedPromiseLookup = dns.promises.lookup;
     const originalPromiseLookup = dns.promises.lookup.bind(dns.promises);
     (dns.promises as any).lookup = async function guardedPromiseLookup(hostname: string, opts?: any): Promise<any> {
+      const mPromise = currentMandate();
+      if (mPromise && !egressAllowed(hostname, mPromise)) {
+        auditBlock(hostname, '(mandate)', `host fuera del mandato de red de la misión (net:${hostname})`);
+        throw new EgressBlockedError(hostname, '(mandate)', `Egress bloqueado: '${hostname}' fuera del mandato de red de la misión.`);
+      }
       const result: any = await originalPromiseLookup(hostname, opts as any);
       const addr = Array.isArray(result) ? result[0]?.address : result?.address;
       if (addr && isPrivateOrReservedIp(addr)) {
@@ -131,6 +147,14 @@ export function installEgressRuntimeGuard(): void {
     if (typeof host === 'string' && isIPv4(host) && isPrivateOrReservedIp(host)) {
       auditBlock(host, host);
       const err = new EgressBlockedError(host, host);
+      queueMicrotask(() => this.emit('error', err));
+      return this;
+    }
+    // P1.E5 — si el host es un HOSTNAME (no IP literal) y la misión tiene mandato que no lo cubre, bloquear.
+    const mConnect = currentMandate();
+    if (typeof host === 'string' && !isIPv4(host) && mConnect && !egressAllowed(host, mConnect)) {
+      auditBlock(host, '(mandate)', `host fuera del mandato de red de la misión (net:${host})`);
+      const err = new EgressBlockedError(host, '(mandate)', `Egress bloqueado: '${host}' fuera del mandato de red de la misión.`);
       queueMicrotask(() => this.emit('error', err));
       return this;
     }

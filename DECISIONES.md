@@ -1,5 +1,19 @@
 # DECISIONES — shinobi (log vivo, append-only, lo más reciente arriba)
 
+## 2026-07-03 · P1.E5 — Broker de egress por misión (allowlist de destino por tarea)
+
+Cierra el hueco que el propio `runtime_guard.ts` declaraba fuera de alcance: la allowlist de HOSTS DE
+DESTINO por-tarea. `mandate.ts::egressAllowed(host, mandate)` (puro, reusa `mandateCovers`) + wiring en los
+3 chokepoints del guard (`dns.lookup`, `dns.promises.lookup`, `net.connect` por hostname): cuando la misión
+activa corre bajo mandato, toda salida a un hostname que el mandato no conceda (`net:<host>`) se bloquea
+ANTES de resolver, con `EgressBlockedError`. Default-off: sin mandato de misión (`currentMandate` undefined)
+⇒ solo aplica el bloqueo de IPs privadas de siempre — cero cambio para quien no usa mandatos.
+
+Verificado (regla #2): `tsc` 0; mutación de `egressAllowed` (siempre true) → 2 rojos (host no cubierto /
+mandato sin net) → restaurar → verde. Wiring cubierto por `mission_egress_broker.test.ts` (vitest/Windows).
+Ficheros: `src/sandbox/mandate.ts` (+egressAllowed), `src/egress/runtime_guard.ts` (broker por-misión +
+EgressBlockedError/auditBlock con reason + banner honesto), `src/egress/__tests__/mission_egress_broker.test.ts` (net-new).
+
 ## 2026-07-06 · F5 — Remate P5-Nivel 1: Kagemusha pasa de librería honesta-pero-vacía a misión disparable
 
 **Contexto (medido contra el repo, no de memoria).** El dossier Kagemusha v1 estaba
