@@ -41,10 +41,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Debe coincidir con el target de pkg en scripts/build_exe.ts (node24-win-x64):
+      # `npm ci` instala el binario nativo prebuilt de better-sqlite3/isolated-vm para
+      # la versión de Node que corre AQUÍ, no para la que pkg empaqueta — un desajuste
+      # de NODE_MODULE_VERSION (ABI) revienta el .exe en runtime con ERR_DLOPEN_FAILED
+      # (encontrado en CI real: runner con Node 22 → ABI 127, pkg target Node 24 → ABI
+      # 137; ver DECISIONES.md).
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: Detect version
         id: ver
