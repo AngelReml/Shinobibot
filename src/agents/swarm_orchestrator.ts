@@ -101,7 +101,7 @@ export function makeLLMPlanner(invokeLLM: LLMInvoker, model?: string): SwarmPlan
 }
 
 /** Extrae `content` de un output que es (string JSON | objeto) mensaje OpenAI. */
-function extractContent(output: unknown): string {
+export function extractContent(output: unknown): string {
   if (output == null) return '';
   if (typeof output === 'string') {
     try {

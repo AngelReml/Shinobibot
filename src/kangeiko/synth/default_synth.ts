@@ -9,6 +9,7 @@
 import { LlmSynthesizer, type LlmFn } from './llm_synth.js';
 import { IsolatedVmRunner } from './isolated_runner.js';
 import { invokeLLM } from '../../providers/provider_router.js';
+import { extractContent } from '../../agents/swarm_orchestrator.js';
 import type { AsyncSynthesizer } from '../fabricate_async.js';
 
 /** ¿El operador activó el sintetizador LLM? Opt-in explícito, default OFF. */
@@ -16,11 +17,21 @@ export function synthEnabled(): boolean {
   return process.env.SHINOBI_SYNTH_LLM === '1';
 }
 
-/** Adapter real: pide CÓDIGO al LLM vía providers. Solo se invoca si el flag está on. */
-const providerLlm: LlmFn = async (prompt: string): Promise<string> => {
+/**
+ * Adapter real: pide CÓDIGO al LLM vía providers. Solo se invoca si el flag está on.
+ *
+ * `res.output` de invokeLLM() NO es el texto plano — es el mensaje OpenAI-compatible
+ * (a veces JSON-stringificado: `{"role":"assistant","content":"...",...}`). Pasarlo
+ * tal cual como "código" a scanForbidden/isolated-vm siempre rompía al parsear (el
+ * primer token es `{"role":` → `Unexpected token ':'`), así que la ruta real NUNCA
+ * certificaba nada — verificado end-to-end con un LLM real antes de este fix.
+ * extractContent (ya usado por swarm_orchestrator.makeLLMPlanner) hace la misma
+ * extracción; se reutiliza en vez de reimplementarla aquí.
+ */
+export const providerLlm: LlmFn = async (prompt: string): Promise<string> => {
   const res = await invokeLLM({ messages: [{ role: 'user', content: prompt }] });
   if (!res.success) throw new Error(`LLM falló al sintetizar: ${res.error ?? 'desconocido'}`);
-  return res.output;
+  return extractContent(res.output);
 };
 
 /**

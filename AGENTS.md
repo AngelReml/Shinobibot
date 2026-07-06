@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-07-04T19:18:18.137Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-07-06T16:34:37.650Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,10 +13,10 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** remediacion-2026-07-01 · **Arbol:** SUCIO (13 cambios)
-- **Ultimo commit:** 5b5aa65 Informe de sesión: 4 tareas pendientes de prompt.txt (limpieza índice, DPAPI, monitor PowerShell, verificación Sello)
-- **Tamano:** 474 ficheros de codigo (62435 LOC), 249 de test
-- **Inventario (escaneo real):** ~61 registros de tool · 2 referencias MCP
+- **Version:** 1.0.0 · **Rama:** remediacion-2026-07-01 · **Arbol:** SUCIO (7 cambios)
+- **Ultimo commit:** 6891e83 Verificación REAL en Windows del runner isolated-vm (cierra el gap "pending Windows")
+- **Tamano:** 487 ficheros de codigo (63893 LOC), 263 de test
+- **Inventario (escaneo real):** ~62 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
 
@@ -47,9 +47,9 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/gateway/` | 6 | Bloque 6 — orchestrator de canales del gateway externo. |
 | `src/integrity/` | 7 | Integrity layer — checks pre/post-acción (claimed==real, hash, tipo) y bloqueo opcional vía SHINOBI... |
 | `src/kagami/` | 14 | Nivel 2 — Kagami (鏡): el espejo, autocrítica calibrada (brier+sesgos) + 3 pilares (salud/frontera/a... |
-| `src/kagemusha/` | 23 | Nivel 1 — Kagemusha (影武者): el clon-sombra que investiga de noche → Informe del Amanecer, bajo Capa ... |
+| `src/kagemusha/` | 24 | Nivel 1 — Kagemusha (影武者): el clon-sombra que investiga de noche → Informe del Amanecer, bajo Capa ... |
 | `src/kaname/` | 11 | Kaname (要): el núcleo inmutable + la frontera núcleo/skills — designa el núcleo, enforcea mediación... |
-| `src/kangeiko/` | 11 | Kangeiko (寒稽古): motor de auto-mejora verificada — MIDE→INVESTIGA→FABRICA→CERTIFICA→CONSOLIDA→RE-MID... |
+| `src/kangeiko/` | 18 | Kangeiko (寒稽古): motor de auto-mejora verificada — MIDE→INVESTIGA→FABRICA→CERTIFICA→CONSOLIDA→RE-MID... |
 | `src/knowledge/` | 2 | Habilidad C.1 — /learn <ruta_o_url> |
 | `src/learning/` | 5 | Fase 6 del bucle de aprendizaje — el Curator (Motor 2): mantiene sana la colección de skills. |
 | `src/ledger/` | 1 | D.4 — MissionLedger: hash chain SHA256 de cada mision completada. |
@@ -62,25 +62,25 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/observability/` | 3 | Reglas de alerta configurables que disparan webhooks al cruzar umbrales de eventos o métricas. |
 | `src/persistence/` | 2 | Cola de tareas persistente en SQLite (better-sqlite3, WAL) con buffer de progreso y flush 200ms. |
 | `src/plugins/` | 3 | Hot-plug de plugins como tools nativas — transforma ESM→CJS y evalúa en sandbox isolated-vm. |
-| `src/policy/` | 3 | P4 (Policy como Código) — motor de resolución del mandato por misión. |
+| `src/policy/` | 4 | P4 — derivación del mandato MÍNIMO por misión desde efectos observados. |
 | `src/providers/` | 10 | Bloque 7 — Anthropic native client. Default claude-haiku-4-5. |
 | `src/reader/` | 10 | Habilidad D.2 — HierarchicalReader: extiende RepoReader con depth jerárquico. |
 | `src/refiner/` | 4 | Barrel del refinador de prompts en camino caliente (FASE 1). Shadow mode: |
 | `src/replay/` | 1 | Mission Replay — reconstruye y opcionalmente re-ejecuta (dry-run) una sesión desde audit.jsonl. |
-| `src/runtime/` | 8 | Remote Mode (Sprint 3.5) — Shinobi desplegado en un VPS vía SSH+Docker; las tools corren allí. |
+| `src/runtime/` | 10 | runtime/night_cycle.ts — el ciclo nocturno. |
 | `src/sandbox/` | 13 | P1.E1 (plan de frontera 2026-07-01) — Monitor de Referencia Único: `mediatedEffect()`. |
 | `src/security/` | 2 | D-017 — gate selectivo de aprobación: modos on/smart/critical/off (default critical). |
 | `src/selfdebug/` | 1 | Self-Debug — convierte cada fallo de tool en un diagnostic report estructurado y accionable. |
 | `src/sentinel/` | 15 | Sentinel — slash command /sentinel: watch de fuentes, ask semántico, propuestas, council y digest. |
 | `src/shitsuji/` | 14 | Nivel 5 — Shitsuji (執事): el mayordomo, compone skills CERTIFIED sobre datos reales (NL→Intent→Plan→... |
 | `src/shugyo/` | 17 | Nivel 4 — Shugyo (修行): el explorador, aprende programas en jaula revertible (snapshot/restore de di... |
-| `src/skills/` | 19 | Bloque 3 — Skill Manager autónomo. Bucle de auto-mejora inspirado en |
+| `src/skills/` | 20 | Bloque 3 — Skill Manager autónomo. Bucle de auto-mejora inspirado en |
 | `src/skills_runtime/` | 1 | Tiny obs-websocket v5 client for the desktop skills. |
 | `src/soul/` | 1 | Soul (Alma) — personalidad configurable del agente: tono, identidad y persona prompt vía soul.md. |
 | `src/stt/` | 1 | STT local con whisper.cpp — transcripción offline envolviendo el binario whisper-cli del operador. |
 | `src/telemetry/` | 1 | G2.1 — Anonymous, opt-in telemetry client. |
 | `src/tenshu/` | 14 | Tenshu (天守): el puente de mando sobre todo el dojo — VER/CONDUCIR/ENTENDER/CONSULTAR + SPA local + ... |
-| `src/tools/` | 51 | Este archivo fuerza la carga y registro de todas las herramientas nativas. |
+| `src/tools/` | 52 | Este archivo fuerza la carga y registro de todas las herramientas nativas. |
 | `src/tui/` | 3 | TUI — interfaz de terminal interactiva (Ink/React): layout de chat + log de tool events en tiempo r... |
 | `src/types/` | 1 | Tipos ambientales del repo — contrato mínimo de las skills .mjs cargadas dinámicamente. |
 | `src/updater/` | 2 | B2.2 / B2.3 — Shinobi update check. |
