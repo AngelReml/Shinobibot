@@ -99,11 +99,30 @@ jobs:
           if (-not (Test-Path $exe)) {
             throw "build/Shinobi.exe no existe tras build:exe — el empaquetado falló silenciosamente."
           }
-          $proc = Start-Process -FilePath (Resolve-Path $exe) -PassThru -WindowStyle Hidden
+          # Runners limpios traen Windows Defender activo, que puede escanear/retrasar
+          # un .exe recién compilado y sin firmar en su primera ejecución — mejor
+          # excluirlo explícitamente que dejar que el timeout del smoke lo confunda
+          # con un build roto. Best-effort: si el runner no lo permite, seguimos igual.
+          try {
+            Add-MpPreference -ExclusionPath (Resolve-Path "build").Path -ErrorAction Stop
+            Write-Host "Exclusión de Windows Defender añadida para build/."
+          } catch {
+            Write-Host "Aviso: no se pudo añadir exclusión de Defender ($($_.Exception.Message)) — continuando."
+          }
+          $stdoutLog = "shinobi-stdout.log"
+          $stderrLog = "shinobi-stderr.log"
+          $proc = Start-Process -FilePath (Resolve-Path $exe) -PassThru -WindowStyle Hidden `
+            -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
           $ok = $false
           $lastErr = ""
-          for ($i = 0; $i -lt 30; $i++) {
+          $crashed = $false
+          for ($i = 0; $i -lt 45; $i++) {
             Start-Sleep -Seconds 2
+            if ($proc.HasExited) {
+              $crashed = $true
+              Write-Host "Shinobi.exe terminó solo con código $($proc.ExitCode) antes de responder."
+              break
+            }
             try {
               $resp = Invoke-WebRequest -Uri "http://localhost:3333" -UseBasicParsing -TimeoutSec 5
               if ($resp.StatusCode -eq 200) { $ok = $true; break }
@@ -114,8 +133,13 @@ jobs:
           if ($proc -and -not $proc.HasExited) {
             Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
           }
+          Write-Host "--- Shinobi.exe stdout ---"
+          if (Test-Path $stdoutLog) { Get-Content $stdoutLog } else { Write-Host "(sin stdout)" }
+          Write-Host "--- Shinobi.exe stderr ---"
+          if (Test-Path $stderrLog) { Get-Content $stderrLog } else { Write-Host "(sin stderr)" }
           if (-not $ok) {
-            throw "Shinobi.exe no respondio HTTP 200 en :3333 tras 60s (ultimo error: $lastErr) — build ROTO, release ABORTADO."
+            $reason = if ($crashed) { "el proceso terminó solo (código $($proc.ExitCode))" } else { "nunca respondió (ultimo error: $lastErr)" }
+            throw "Shinobi.exe no respondio HTTP 200 en :3333 — $reason — build ROTO, release ABORTADO."
           }
           Write-Host "Smoke OK: HTTP $($resp.StatusCode) en :3333."
 
