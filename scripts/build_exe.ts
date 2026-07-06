@@ -159,7 +159,10 @@ async function step4_pkg(): Promise<void> {
         'public/**/*',
         'prompts/**/*',
         // Native modules — paths relativos a este package.json (en build/)
-        '../node_modules/better-sqlite3/build/Release/*.node',
+        // MUTACIÓN DE PRUEBA (P6, verificación del gate de release.yml) — path roto
+        // a propósito para confirmar que el smoke test falla si el nativo no se
+        // empaqueta. Revertir inmediatamente después de confirmar el rojo en CI.
+        '../node_modules/better-sqlite3/build/Release/*.node.BROKEN',
         '../node_modules/better-sqlite3/prebuilds/**/*',
         '../node_modules/@nut-tree-fork/**/*.node',
         '../node_modules/@nut-tree-fork/**/build/Release/*',
