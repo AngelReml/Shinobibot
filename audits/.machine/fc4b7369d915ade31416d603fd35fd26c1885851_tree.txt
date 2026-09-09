@@ -1,3 +1,0 @@
-[✓] supervisor      root  29571ms  (2579 chars)
-├─ [✓] leaf            /  4651ms  (745 chars)
-└─ [✓] leaf            misc/  24053ms  (1223 chars)
