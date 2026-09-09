@@ -17,7 +17,12 @@ import { chromiumAvailable, chromiumSkipReason } from './_playwright_available.j
 
 if (!chromiumAvailable) console.warn(`[kage_e2e] SKIP — ${chromiumSkipReason}`);
 // Gate explícito: sin el navegador de Playwright estos E2E se saltan (no fallan).
+// El motivo va también en el nombre del describe para que sea visible en el
+// reporter (`vitest run --reporter=verbose` / CI), no solo en stderr.
 const suite = chromiumAvailable ? describe : describe.skip;
+const suiteName = chromiumAvailable
+  ? 'Kage E2E (observe → act → verify)'
+  : 'Kage E2E (observe → act → verify) — SKIP: falta Chromium, corre `npx playwright install chromium`';
 
 // Página de prueba: un input de texto, un password (sensible), un botón que muta
 // el DOM por onclick, un link con hash (cambia la URL) y un submit etiquetado.
@@ -48,7 +53,7 @@ function fakeSession(page: Page): KageSession {
 let browser: Browser;
 let page: Page;
 
-suite('Kage E2E (observe → act → verify)', () => {
+suite(suiteName, () => {
   beforeAll(async () => {
     browser = await chromium.launch({ headless: true });
     page = await browser.newPage();

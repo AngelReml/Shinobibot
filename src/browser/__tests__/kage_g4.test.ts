@@ -83,9 +83,14 @@ let page: Page;
 
 if (!chromiumAvailable) console.warn(`[kage_g4] SKIP — ${chromiumSkipReason}`);
 // Gate explícito: sin el navegador de Playwright estos E2E se saltan (no fallan).
+// El motivo va también en el nombre del describe para que sea visible en el
+// reporter (`vitest run --reporter=verbose` / CI), no solo en stderr.
 const suite = chromiumAvailable ? describe : describe.skip;
+const suiteName = chromiumAvailable
+  ? 'G4-1 Kage robusto'
+  : 'G4-1 Kage robusto — SKIP: falta Chromium, corre `npx playwright install chromium`';
 
-suite('G4-1 Kage robusto', () => {
+suite(suiteName, () => {
   beforeAll(async () => {
     browser = await chromium.launch({ headless: true });
     page = await browser.newPage();
