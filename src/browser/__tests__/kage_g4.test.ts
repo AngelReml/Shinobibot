@@ -13,6 +13,7 @@ import { act } from '../actor.js';
 import type { KageSession } from '../session.js';
 import type { ElementRef } from '../types.js';
 import type { Frame } from 'playwright';
+import { chromiumAvailable, chromiumSkipReason } from './_playwright_available.js';
 
 // ── Fixture pages ───────────────────────────────────────────────────────────
 
@@ -78,18 +79,21 @@ function fakeSession(page: Page): KageSession {
 let browser: Browser;
 let page: Page;
 
-beforeAll(async () => {
-  browser = await chromium.launch({ headless: true });
-  page = await browser.newPage();
-}, 60_000);
-
-afterAll(async () => {
-  await browser?.close();
-});
-
 // ── Tests ────────────────────────────────────────────────────────────────────
 
-describe('G4-1 Kage robusto', () => {
+if (!chromiumAvailable) console.warn(`[kage_g4] SKIP — ${chromiumSkipReason}`);
+// Gate explícito: sin el navegador de Playwright estos E2E se saltan (no fallan).
+const suite = chromiumAvailable ? describe : describe.skip;
+
+suite('G4-1 Kage robusto', () => {
+  beforeAll(async () => {
+    browser = await chromium.launch({ headless: true });
+    page = await browser.newPage();
+  }, 60_000);
+
+  afterAll(async () => {
+    await browser?.close();
+  });
 
   it('back y forward navegan el historial', async () => {
     // Navega a A → blank → back → forward

@@ -13,6 +13,11 @@ import { act } from '../actor.js';
 import { isSensitive } from '../consent.js';
 import type { KageSession } from '../session.js';
 import type { ElementRef } from '../types.js';
+import { chromiumAvailable, chromiumSkipReason } from './_playwright_available.js';
+
+if (!chromiumAvailable) console.warn(`[kage_e2e] SKIP — ${chromiumSkipReason}`);
+// Gate explícito: sin el navegador de Playwright estos E2E se saltan (no fallan).
+const suite = chromiumAvailable ? describe : describe.skip;
 
 // Página de prueba: un input de texto, un password (sensible), un botón que muta
 // el DOM por onclick, un link con hash (cambia la URL) y un submit etiquetado.
@@ -43,7 +48,7 @@ function fakeSession(page: Page): KageSession {
 let browser: Browser;
 let page: Page;
 
-describe('Kage E2E (observe → act → verify)', () => {
+suite('Kage E2E (observe → act → verify)', () => {
   beforeAll(async () => {
     browser = await chromium.launch({ headless: true });
     page = await browser.newPage();
