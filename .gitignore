@@ -54,7 +54,6 @@ logs.txt
 docs/*
 !docs/architecture/
 !docs/migrations/
-!docs/release/
 !docs/ARQUITECTURA_HABILIDAD_A.md
 !docs/ARQUITECTURA_MEMORIA.md
 !docs/BROWSER_SUBSYSTEM.md
@@ -64,13 +63,10 @@ audits/
 knowledge/
 
 # === Salidas de ejecución / material de informe — no versionar (limpieza 2026-09) ===
+# (missions/ self_reports/ committee_reports/ bench_results/ ya arriba)
 archive/
 artifacts/
 proposals/
-committee_reports/
-self_reports/
-missions/
-bench_results/
 forja/
 ledger/
 promptfoo/

@@ -155,9 +155,9 @@ config/               config versionada (config/sentinel/sources.yaml)
 .github/workflows/    CI: ci.yml, gates.yml, issue_triage.yml, release.yml
 ```
 
-Configuración en la raíz: `package.json`, `tsconfig.json`, `tsconfig.build.json`,
-`vitest.config.ts`, `.env.example`, `pkg.config.json`, `bench.config.example.json`,
-`Dockerfile.sandbox-browser`, `docker-compose.sandbox-browser.yml`.
+Configuración en la raíz: `package.json`, `tsconfig.json`, `vitest.config.ts`,
+`.env.example`, `bench.config.example.json`, `Dockerfile.sandbox-browser`,
+`docker-compose.sandbox-browser.yml`.
 
 ## Tests
 
