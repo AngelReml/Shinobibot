@@ -4,8 +4,8 @@ Shinobi es un agente autónomo **Windows-native**. No es un wrapper de chat ni
 un framework genérico: ejecuta acciones reales sobre la máquina del usuario
 con guardrails diseñados para que el LLM no entre en bucles destructivos.
 
-Esta página describe la arquitectura a 2026-05-14. Para detalles de cada
-módulo, ver el código (los paths están en cada sección).
+Última revisión: 2026-09-09. Para el detalle de cada módulo, la verdad es el
+código (los paths están en cada sección).
 
 ---
 
@@ -27,19 +27,19 @@ flowchart TD
         TokenBudget[Token Budget<br/>src/context/token_budget.ts]
     end
 
-    subgraph Providers["Providers LLM"]
+    subgraph Providers["Providers LLM (src/providers/registry.ts)"]
         Router[provider_router<br/>+ failover]
-        OG[OpenGravity]
+        Local[local<br/>OpenAI-compat: Ollama / LM Studio]
         OR[OpenRouter]
         Groq[Groq]
         OpenAI[OpenAI]
         Anthropic[Anthropic]
     end
 
-    subgraph Tools["Tool Registry (41 tools registrados)"]
+    subgraph Tools["Tool Registry (~62 tools registrados)"]
         FS[File I/O<br/>read/write/edit/list/search]
         Shell[run_command<br/>blacklist + sandbox]
-        Browser[Playwright CDP<br/>browser_click/scroll]
+        Browser[Kage: Playwright CDP<br/>browser_observe/act]
         Screen[screen_observe/act<br/>nut-js + KillSwitch]
         WinPack[Windows-elite pack<br/>clipboard, registry, process,<br/>system, network, scheduler,<br/>notification, env]
         Web[web_search + warmup]
@@ -66,7 +66,7 @@ flowchart TD
     Compactor --> TokenBudget
     Orchestrator --> LoopDetector
     Orchestrator --> Router
-    Router --> OG & OR & Groq & OpenAI & Anthropic
+    Router --> Local & OR & Groq & OpenAI & Anthropic
     Orchestrator --> Tools
     Tools --> Audit
     LoopDetector --> Audit
@@ -124,7 +124,7 @@ flowchart TD
 | Módulo | Path | Función |
 |--------|------|---------|
 | Orchestrator | `src/coordinator/orchestrator.ts` | Loop LLM-tool, modos local/kernel/auto |
-| Loop detector v2 | `src/coordinator/loop_detector.ts` | Capa args + capa semántica |
+| Loop detector v3 | `src/coordinator/loop_detector.ts` | Capa args + capa semántica |
 | Compactor | `src/context/compactor.ts` | Reducción de tokens preservando invariantes |
 | Token budget | `src/context/token_budget.ts` | Tracker per-session + endpoint REST |
 | Provider router | `src/providers/provider_router.ts` | Failover cross-provider |
@@ -172,25 +172,6 @@ complejidad de gestionar claves.
 
 ---
 
-## Contraste con la competencia
-
-| Capacidad | Hermes | OpenClaw | Shinobi |
-|-----------|--------|----------|---------|
-| Loop detector | ❌ | ❌ | ✅ v2 (args + semántico) |
-| Failover cross-provider | parcial (credential pool) | ✅ | ✅ con clasificación |
-| Context compaction | ✅ LLM-based | ✅ heurístico | ✅ heurístico, idempotente |
-| Multi-canal | 15+ | 20+ | 4 (Web/Telegram/HTTP/CLI) |
-| Token budget visible | ❌ | ❌ | ✅ `/api/token-budget` |
-| Audit log unificado | parcial (Skills Guard solo) | parcial (sandbox-info) | ✅ todo en `audit.jsonl` |
-| Skill provenance | ❌ (auto-archive sin confirm) | n/a | ✅ SHA256 + signed_by |
-| Memory citations | ❌ | opt-in | ✅ default con id |
-| Windows-native | cross-platform | cross-platform | ✅ 10 tools nativos |
-| Committee voting | ❌ | ❌ | ✅ arch+sec+ux |
-| Hierarchical reader | ❌ | ❌ | ✅ |
-| LOC monolítico | `run_agent.py` 15k | `plugin-sdk` 100+ exports | modular por bloques |
-
----
-
 ## Endurecimiento de la capa de ejecución (2026-06-10)
 
 Cinco arreglos a la fontanería del bucle agéntico, hallados midiendo misiones
@@ -230,16 +211,3 @@ reales contra el agente vivo y verificados en vivo:
   y en `addInitScript` de la sesión. El mapa de elementos interactivos (base para
   rellenar formularios y pulsar) vuelve a funcionar.
 
-## Lo que NO está hecho (deuda conocida)
-
-- `src/memory/memory_store.ts` y `src/persistence/missions_recurrent.ts` tienen
-  errores `Cannot find namespace 'Database'` por usar `better-sqlite3` sin la
-  declaración de namespace. Funciona en runtime; tsc lo señala. CI filtra
-  esos 4 errores pre-existentes y los aborda por separado.
-- Las 18 specs `*.test.ts` pre-existentes están en estilo `main().catch(...)`
-  en vez de vitest. Se van portando bloque a bloque; vitest las excluye del
-  include hasta entonces.
-- Persistent missions / cron están a medias (`src/runtime/resident_loop.ts`).
-  Tier A #12 las completa.
-- No hay sandboxing OS real para `run_command` — solo blacklist + sandbox de
-  cwd. Tier A #13 añade un backend Docker opcional.
