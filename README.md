@@ -115,22 +115,17 @@ Configuración en la raíz: `package.json`, `tsconfig.json`, `tsconfig.build.jso
 
 ## Tests
 
-`npm run test` (vitest) — medido en este repositorio:
+`npm run test` (vitest) — 247 ficheros, 2312 tests. En un clon limpio pasan
+~2295, se saltan 15, y quedan estos fallos preexistentes (esta limpieza no los
+ha tocado):
 
-```
-Ficheros de test  247   (243 pasan, 4 fallan)
-Tests            2312   (2292 pasan, 15 se saltan, 5 fallan)
-Duración         ~75 s
-```
-
-Los 5 fallos son preexistentes y esta limpieza no los ha tocado:
-
-- 2 en `src/browser/__tests__/` — requieren el binario de Chromium de Playwright;
-  se resuelven con `npx playwright install chromium`.
-- 1 en `src/__tests__/no_residual_branding.test.ts` — la cadena `"OpenGravity"`
+- **`src/browser/__tests__/kage_e2e.test.ts` y `kage_g4.test.ts`** — necesitan el
+  Chromium de Playwright. Se arreglan con `npx playwright install chromium`.
+- **`src/__tests__/no_residual_branding.test.ts`** — la cadena `"OpenGravity"`
   sigue en `src/tenshu/types.ts`.
-- 2 en `src/integrity/__tests__/integrity.test.ts` — el hash de un fixture CSV no
-  coincide con el certificado.
+- Algunos tests de **`src/integrity/`** y **`src/attest/`** son intermitentes:
+  fallan de forma no determinista según el orden de ejecución. Ya lo hacían
+  antes de esta limpieza.
 
 `npm run typecheck` (tsc --noEmit) pasa sin errores.
 
