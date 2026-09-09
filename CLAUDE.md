@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-09-09T10:28:53.040Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-09-09T18:25:02.938Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** limpieza/shinobi · **Arbol:** SUCIO (7 cambios)
-- **Ultimo commit:** acc50e9 PASO 4 lote 6: lanzadores a lanzadores/ con rutas relativas + .gitignore
-- **Tamano:** 486 ficheros de codigo (63758 LOC), 264 de test
+- **Version:** 1.0.0 · **Rama:** limpieza/shinobi · **Arbol:** SUCIO (1 cambios)
+- **Ultimo commit:** b784531 PASO 5: README contra el código real + diagrama + badge de CI
+- **Tamano:** 486 ficheros de codigo (63759 LOC), 265 de test
 - **Inventario (escaneo real):** ~62 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -116,21 +116,20 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 > Entrada principal: `scripts/shinobi.ts` (CLI) y `scripts/shinobi_web.ts` (WebChat :3333).
 > El orquestador del bucle LLM-tool vive en `src/coordinator/orchestrator.ts`.
 
-## Orden de lectura (de lo mas autoritativo a lo mas historico)
+## Orden de lectura (de lo mas autoritativo a lo mas concreto)
 1. **Este fichero** (AGENTS.md / CLAUDE.md) — orientacion viva, autogenerada.
-2. **ARCHITECTURE.md** — diseno y flujo de una peticion.
-3. **ROADMAP_FRONTERA_2026.md** — hacia donde va (motores E5-E8, pilares).
-4. **PLAN_SOMBRA_2026.md** — el como estrategico: sigilo, economia 0-200, puertas G0-G7, emergencia.
-5. **ESTRATEGIA_DIFERENCIADORES.md** — donde Shinobi gana indiscutible + plan de publicacion honesto.
-6. **DECISIONES.md** — log append-only de decisiones (lo mas reciente arriba).
-7. **ESTADO.md** — pulso autogenerado (lo genera estado.mjs).
+2. **README.md** — que es, como se instala y arranca, estructura, nº real de tests.
+3. **ARCHITECTURE.md** — diseno y flujo de una peticion.
+4. **docs/ARQUITECTURA_MEMORIA.md**, **docs/BROWSER_SUBSYSTEM.md**,
+   **docs/ARQUITECTURA_HABILIDAD_A.md**, **docs/architecture/resident_mode.md** — arquitectura por subsistema.
+5. **SECURITY.md** — politica de seguridad · **CHANNELS_SETUP.md** — canales opt-in.
+6. **docs/mission_schema.md**, **docs/migrations/from_hermes.md** — esquema de mision e importacion.
+7. **ESTADO.md** — pulso autogenerado (lo genera estado.mjs; gitignored).
 
-**Historicos / no fiables como verdad actual:** -.
-(Describen versiones anteriores; este fichero los reemplaza como puerta de entrada.)
 
 ## Convenciones que importan
 - TypeScript ESM (Node 22). Tests con vitest (`*.test.ts` en `__tests__/`).
 - El audit (`src/audit/`) registra toda tool-call en `audit.jsonl` (append-only).
 - Seguridad: gate selectivo en `src/security/approval.ts` (no `utils/permissions.ts`).
 - LLM multi-proveedor con failover (`src/providers/`), no un solo modelo fijo.
-- Regla del repo: ninguna afirmacion sin dato medido; las decisiones van a DECISIONES.md.
+- Regla del repo: ninguna afirmacion sin dato medido.

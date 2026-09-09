@@ -133,24 +133,27 @@ L.push('');
 L.push('> Entrada principal: `scripts/shinobi.ts` (CLI) y `scripts/shinobi_web.ts` (WebChat :3333).');
 L.push('> El orquestador del bucle LLM-tool vive en `src/coordinator/orchestrator.ts`.');
 L.push('');
-L.push('## Orden de lectura (de lo mas autoritativo a lo mas historico)');
+L.push('## Orden de lectura (de lo mas autoritativo a lo mas concreto)');
 L.push('1. **Este fichero** (AGENTS.md / CLAUDE.md) — orientacion viva, autogenerada.');
-L.push('2. **ARCHITECTURE.md** — diseno y flujo de una peticion.');
-L.push('3. **ROADMAP_FRONTERA_2026.md** — hacia donde va (motores E5-E8, pilares).');
-L.push('4. **PLAN_SOMBRA_2026.md** — el como estrategico: sigilo, economia 0-200, puertas G0-G7, emergencia.');
-L.push('5. **ESTRATEGIA_DIFERENCIADORES.md** — donde Shinobi gana indiscutible + plan de publicacion honesto.');
-L.push('6. **DECISIONES.md** — log append-only de decisiones (lo mas reciente arriba).');
-L.push('7. **ESTADO.md** — pulso autogenerado (lo genera estado.mjs).');
+L.push('2. **README.md** — que es, como se instala y arranca, estructura, nº real de tests.');
+L.push('3. **ARCHITECTURE.md** — diseno y flujo de una peticion.');
+L.push('4. **docs/ARQUITECTURA_MEMORIA.md**, **docs/BROWSER_SUBSYSTEM.md**,');
+L.push('   **docs/ARQUITECTURA_HABILIDAD_A.md**, **docs/architecture/resident_mode.md** — arquitectura por subsistema.');
+L.push('5. **SECURITY.md** — politica de seguridad · **CHANNELS_SETUP.md** — canales opt-in.');
+L.push('6. **docs/mission_schema.md**, **docs/migrations/from_hermes.md** — esquema de mision e importacion.');
+L.push('7. **ESTADO.md** — pulso autogenerado (lo genera estado.mjs; gitignored).');
 L.push('');
-L.push('**Historicos / no fiables como verdad actual:** ' + staleNote + '.');
-L.push('(Describen versiones anteriores; este fichero los reemplaza como puerta de entrada.)');
+if (staleNote !== '-') {
+  L.push('**Historicos / no fiables como verdad actual:** ' + staleNote + '.');
+  L.push('(Describen versiones anteriores; este fichero los reemplaza como puerta de entrada.)');
+}
 L.push('');
 L.push('## Convenciones que importan');
 L.push('- TypeScript ESM (Node 22). Tests con vitest (`*.test.ts` en `__tests__/`).');
 L.push('- El audit (`src/audit/`) registra toda tool-call en `audit.jsonl` (append-only).');
 L.push('- Seguridad: gate selectivo en `src/security/approval.ts` (no `utils/permissions.ts`).');
 L.push('- LLM multi-proveedor con failover (`src/providers/`), no un solo modelo fijo.');
-L.push('- Regla del repo: ninguna afirmacion sin dato medido; las decisiones van a DECISIONES.md.');
+L.push('- Regla del repo: ninguna afirmacion sin dato medido.');
 L.push('');
 const out = L.join('\n');
 

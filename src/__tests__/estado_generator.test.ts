@@ -8,7 +8,7 @@
 // entre lo que dicen los .md y lo que hay en disco falle el test en vez de
 // quedar silencioso.
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, extname } from 'node:path';
@@ -62,6 +62,16 @@ describe('estado.mjs — genera ESTADO.md con conteos reales', () => {
 describe('context.mjs — regenera AGENTS.md/CLAUDE.md con conteos reales', () => {
   beforeAll(() => {
     execFileSync('node', ['context.mjs'], { cwd: ROOT, stdio: 'ignore' });
+  });
+
+  // context.mjs escribe AGENTS.md y CLAUDE.md (rastreados). Sin esto, cada
+  // `npm run test` dejaba el árbol "sucio" con solo el timestamp cambiado.
+  // El test valida los conteos que produce el generador; no necesita dejar
+  // el fichero regenerado en disco.
+  afterAll(() => {
+    try {
+      execFileSync('git', ['checkout', '--', 'AGENTS.md', 'CLAUDE.md'], { cwd: ROOT, stdio: 'ignore' });
+    } catch { /* no es un repo git / git no disponible: se deja como está */ }
   });
 
   it('AGENTS.md y CLAUDE.md quedan idénticos entre sí', () => {
