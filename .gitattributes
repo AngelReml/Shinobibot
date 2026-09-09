@@ -1,9 +1,17 @@
 # Normaliza finales de línea: el repo se desarrolla en un mount Windows/Linux
 # mixto y sin esto git detecta churn de CRLF/LF como "cambios" fantasma
-# (ver DECISIONES.md — hallazgo F0.2 de la auditoría 2026-07-01).
+# (hallazgo F0.2 de la auditoría 2026-07-01).
 * text=auto eol=lf
 *.ico binary
 *.png binary
 *.jpg binary
 *.exe binary
 *.db binary
+
+# Artefactos cuyo SHA-256 está CERTIFICADO dentro de otro fichero del repo: sus
+# bytes deben quedarse EXACTOS en cualquier checkout (nunca conversión de EOL),
+# o hashArtifactFile() deja de casar con el hash certificado. Afecta tanto a
+# src/integrity/__tests__/integrity.test.ts como al chequeo 11.1 EN PRODUCCIÓN
+# (src/integrity/registry.ts hashea el skill.mjs certificado al arrancar).
+src/integrity/certified/** binary
+src/integrity/__tests__/fixtures/** binary
