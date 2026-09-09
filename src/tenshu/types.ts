@@ -53,5 +53,5 @@ export interface DojoManifest {
   zona: Zona;                            // dónde se refleja
   emite: SystemEvent['kind'][];          // qué eventos refleja
   estado: 'forja' | 'prueba' | 'sello' | 'destierro';    // ciclo → visual (rastro vs lacre)
-  sello?: 'PASS' | 'FAIL' | 'PENDING';   // verificación interna (OpenGravity absorbido)
+  sello?: 'PASS' | 'FAIL' | 'PENDING';   // estado de la verificación interna del componente
 }
