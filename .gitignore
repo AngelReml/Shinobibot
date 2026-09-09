@@ -52,14 +52,33 @@ logs.txt
 *.png
 *.mp4
 *.gif
-# docs/ ignorado salvo deploy/ y validation/ (plan externo V1-V6 sí se versiona).
+# docs/ ignorado salvo la documentación que describe el código de hoy.
 # Nota: hay que excluir el contenido (docs/*) no el dir, para poder re-incluir.
 docs/*
-!docs/deploy/
-!docs/validation/
+!docs/architecture/
+!docs/manual_actions/
+!docs/migrations/
+!docs/release/
+!docs/ARQUITECTURA_HABILIDAD_A.md
+!docs/ARQUITECTURA_MEMORIA.md
 !docs/BROWSER_SUBSYSTEM.md
+!docs/README.md
+!docs/mission_schema.md
+!docs/prompting_manual.md
 audits/
 knowledge/
+
+# === Salidas de ejecución / material de informe — no versionar (limpieza 2026-09) ===
+archive/
+artifacts/
+proposals/
+committee_reports/
+self_reports/
+missions/
+bench_results/
+forja/
+ledger/
+promptfoo/
 
 # === Sentinel (FASE V4.5) — datos de runtime ===
 # config/sentinel/sources.yaml SÍ se versiona (template). data/sentinel es runtime.
@@ -118,6 +137,8 @@ bench-results.json
 
 # Scratch / dev sandbox — no versionar
 scratch/
+# Informes generados por tests/tools en la raíz — no versionar
+reports/
 
 # === Artefactos de runtime (Audit 2026-06-12) — no versionar ===
 # *.db ya está ignorado arriba; los side-files de SQLite WAL no lo estaban.
