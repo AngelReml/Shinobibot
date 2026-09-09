@@ -1,5 +1,5 @@
 # AGENTS.md — contexto del sistema para una IA
-<!-- GENERADO por context.mjs · NO editar a mano · 2026-07-06T16:34:37.650Z -->
+<!-- GENERADO por context.mjs · NO editar a mano · 2026-09-09T10:28:53.040Z -->
 
 > Si eres una IA y acabas de aterrizar en este repo: **lee este fichero primero.**
 > Se genera desde la verdad de fuente (git + package.json + escaneo del codigo),
@@ -13,9 +13,9 @@ acciones reales en la maquina (archivos, shell, navegador real con CDP), orquest
 sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de chat.
 
 ## Pulso (vivo)
-- **Version:** 1.0.0 · **Rama:** remediacion-2026-07-01 · **Arbol:** SUCIO (7 cambios)
-- **Ultimo commit:** 6891e83 Verificación REAL en Windows del runner isolated-vm (cierra el gap "pending Windows")
-- **Tamano:** 487 ficheros de codigo (63893 LOC), 263 de test
+- **Version:** 1.0.0 · **Rama:** limpieza/shinobi · **Arbol:** SUCIO (7 cambios)
+- **Ultimo commit:** acc50e9 PASO 4 lote 6: lanzadores a lanzadores/ con rutas relativas + .gitignore
+- **Tamano:** 486 ficheros de codigo (63758 LOC), 264 de test
 - **Inventario (escaneo real):** ~62 registros de tool · 2 referencias MCP
 
 ## Mapa de modulos (`src/`, autogenerado del banner de cada modulo)
@@ -32,12 +32,12 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/browser/` | 7 | Mejora 2: acción anclada con Playwright + reintento por staleness; CDP solo de |
 | `src/channels/` | 13 | CAPA DE CONFIANZA de canales — pairing + identidad firmada. |
 | `src/chizu/` | 16 | Nivel 3 — Chizu (地図): el cartógrafo, retrato fiel de la máquina (discovery/uso/riesgo→Atlas), cero ... |
-| `src/cloud/` | 3 | Pool de credenciales API multi-proveedor — rotación de keys y cuarentena 1h tras rate-limit. |
+| `src/cloud/` | 2 | FAIL 1 (Bloque 1, validación física): cuando el gateway cloud está |
 | `src/committee/` | 8 | Habilidad B.2 — Comité de validación. |
 | `src/confine/` | 2 | P3 (Runtime de Confinamiento Unificado) — guard por AST del código foráneo. |
 | `src/constants/` | 1 | Prompt de sistema base del agente (SYSTEM_PROMPT): identidad, regla tool-first y protocolos. |
 | `src/context/` | 5 | Context Compactor — compactación heurística del historial bajo presupuesto de tokens, sin LLM. |
-| `src/coordinator/` | 13 | Orquestador del bucle LLM-tool (ShinobiOrchestrator): ejecuta tools, compacta contexto y audita. |
+| `src/coordinator/` | 12 | Orquestador del bucle LLM-tool (ShinobiOrchestrator): ejecuta tools, compacta contexto y audita. |
 | `src/db/` | 2 | _(anade un banner de cabecera)_ |
 | `src/dispatch/` | 5 | Barrel del clasificador de despacho por afinidad (Bloque 3). Shadow mode: |
 | `src/documents/` | 6 | Renderizador de gráficos a SVG plano — CERO dependencia nueva. |
@@ -79,7 +79,7 @@ sub-agentes (swarm/team), aprende y fabrica skills firmadas. No es un wrapper de
 | `src/soul/` | 1 | Soul (Alma) — personalidad configurable del agente: tono, identidad y persona prompt vía soul.md. |
 | `src/stt/` | 1 | STT local con whisper.cpp — transcripción offline envolviendo el binario whisper-cli del operador. |
 | `src/telemetry/` | 1 | G2.1 — Anonymous, opt-in telemetry client. |
-| `src/tenshu/` | 14 | Tenshu (天守): el puente de mando sobre todo el dojo — VER/CONDUCIR/ENTENDER/CONSULTAR + SPA local + ... |
+| `src/tenshu/` | 15 | Tenshu (天守): el puente de mando sobre todo el dojo — VER/CONDUCIR/ENTENDER/CONSULTAR + SPA local + ... |
 | `src/tools/` | 52 | Este archivo fuerza la carga y registro de todas las herramientas nativas. |
 | `src/tui/` | 3 | TUI — interfaz de terminal interactiva (Ink/React): layout de chat + log de tool events en tiempo r... |
 | `src/types/` | 1 | Tipos ambientales del repo — contrato mínimo de las skills .mjs cargadas dinámicamente. |

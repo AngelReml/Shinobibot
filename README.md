@@ -1,144 +1,139 @@
-# Shinobi 忍
+# Shinobi
 
-![versión](https://img.shields.io/badge/versión-1.0.0-8B2C20)
-![plataforma](https://img.shields.io/badge/Windows-10%2F11-2C2C2C)
-![licencia](https://img.shields.io/badge/licencia-ISC-9E9589)
+Agente autónomo Windows-nativo. Recibe una orden en lenguaje natural y la ejecuta
+con acciones reales sobre la máquina: sistema de archivos, shell (PowerShell,
+Node, Python), un navegador Chrome real por CDP, y sub-agentes en paralelo. Cada
+tool-call queda registrada en un log append-only (`audit.jsonl`).
 
-> *an agent that works in silence.*
+Se opera desde una CLI (`scripts/shinobi.ts`) o desde una interfaz web local
+(`scripts/shinobi_web.ts`, puerto 3333).
 
-Shinobi es un agente personal **Windows-nativo**. Recibe una misión, desaparece, y
-vuelve con el trabajo hecho. No es un chatbot ni un wrapper: ejecuta acciones
-reales en tu máquina —archivos, shell, un navegador de verdad— y deja **rastro**
-de todo lo que hace.
+## Qué problema resuelve
 
-Su promesa cabe en una línea: **extensión de ti mismo, todo local, todo tuyo.**
+Automatizar tareas de escritorio y de código que hoy requieren encadenar a mano
+varias herramientas: leer y transformar ficheros, conducir un navegador con la
+sesión del usuario ya iniciada, correr y depurar scripts, y auditar un
+repositorio. Todo se ejecuta en local, contra las cuentas y credenciales del
+propio usuario; nada se delega a un servicio remoto salvo las llamadas al modelo
+de lenguaje, que son multi-proveedor con failover (`src/providers/`).
 
----
+Un gate de aprobación (`src/security/approval.ts`) intercepta las acciones
+sensibles —secretos, gasto, borrado irreversible, primer acceso del navegador a
+un host nuevo— y pide confirmación; el resto se ejecuta sin interrumpir.
 
-## Qué hace, comprobado
+## Requisitos
 
-Lo de esta sección está verificado funcionando en vivo, no prometido.
+- Windows 10 u 11
+- Node.js 22 o superior
+- Al menos una API key de un proveedor de LLM (OpenAI, Anthropic, Groq u
+  OpenRouter), o un endpoint local compatible con la API de OpenAI (Ollama,
+  LM Studio, llama.cpp)
+- Para las tools de navegador: Chrome arrancado con `--remote-debugging-port=9222`
 
-**Navega la web de verdad.** Conduce Chrome/Comet por CDP con tus sesiones
-abiertas. Entra en una página, extrae sus datos y mapea sus elementos
-interactivos con refs estables para pulsarlos o rellenarlos.
-*Comprobado:* extrajo la portada de Hacker News con puntos y comentarios reales y
-calculó los ratios; mapeó los 17 elementos interactivos de una página.
-
-**Ejecuta código y se corrige.** Escribe y corre Python, Node y PowerShell;
-instala dependencias que falten; ante un fallo, diagnostica la causa y reintenta.
-*Comprobado:* generó un dataset, detectó anomalías por z-score y reportó
-precisión y recall reales.
-
-**Lee y razona sobre código.** Recorre un repositorio y cita el código real, con
-sus líneas, para fundamentar lo que afirma.
-*Comprobado:* auditó su propio código y pegó fragmentos verbatim verificables.
-
-**Orquesta un enjambre.** Descompone una misión en sub-agentes que corren en
-paralelo, cada uno aislado, y consolida el resultado.
-*Comprobado:* tres sub-agentes concurrentes analizando ficheros distintos.
-
-**El candado.** Pausa solo donde debe: secretos, dinero, destrucción irreversible
-y la primera vez que el navegador pisa un host nuevo. El resto lo ejecuta sin
-preguntar. La pausa nunca grita.
-*Comprobado:* disparó en los casos sensibles y respetó la decisión del operador.
-
-**No se atasca.** Un detector de bucles de tres capas corta la repetición sin
-progreso, pero distingue "reintento que no avanza" de "el mundo cambió entre
-llamadas" (editaste un fichero, navegaste) y deja progresar lo legítimo.
-
-**Contexto por conversación.** Cada misión tiene su propio hilo de memoria; no
-arrastra el contexto de la anterior. Multi-proveedor con failover transparente
-(OpenAI · Anthropic · Groq · OpenRouter) y un contador de tokens visible.
-
-**El dojo (WebChat).** Una interfaz fiel al manual de marca: antesala de entrada,
-modos día/noche (Hiru/Yoru), panel de Rastro en vivo, paleta de comandos,
-ajustes y búsqueda dentro de todas las misiones.
-
-## Qué incluye
-
-Además de lo anterior, el agente trae **50 herramientas nativas** y **19
-comandos** de operador:
-
-- **Sistema** Windows-nativo: portapapeles, procesos, info de sistema, disco,
-  variables de entorno (con redacción automática de secretos), red, registro
-  (con allowlist), tareas programadas, notificaciones toast.
-- **Skills firmadas** (SHA256 + procedencia): cuando una misión se repite, Shinobi
-  la forja como skill y la verifica al cargar.
-- **Memoria persistente** con citas (id + score) y un reflector que la cura.
-- **Rastro auditable**: cada tool-call queda en `audit.jsonl` (cadena verificable).
-- **Comité** multi-modelo para decisiones críticas, **self-debug** heurístico,
-  **replay** de misiones, **A2A** (agente-a-agente), **modo VPS** aislado,
-  **STT local** y **misiones residentes** con scheduler (interval/daily/weekly/cron).
-
-## Cómo se opera
-
-Requisitos: Windows 10/11 · Node.js 20+ · Chrome o Comet con
-`--remote-debugging-port=9222` · al menos una API key de LLM.
+## Instalación desde cero
 
 ```bash
-git clone https://github.com/AngelReml/Shinobibot shinobibot
-cd shinobibot
+git clone <url-del-repositorio> shinobi
+cd shinobi
 npm install
-cp .env.example .env      # añade tu API key
-npm run dev               # abre el dojo en http://localhost:3333
+cp .env.example .env
 ```
 
-O genera el binario con `npm run build:exe` → `build/Shinobi.exe` (o el instalador `build/Shinobi-Setup.exe`).
+Edita `.env` y define al menos una clave de proveedor (`OPENAI_API_KEY`,
+`ANTHROPIC_API_KEY`, `GROQ_API_KEY` o `OPENROUTER_API_KEY`). El resto de
+variables de `.env.example` son opcionales y tienen valores por defecto; los
+canales (Telegram, Discord, Slack, email) solo arrancan si todas sus variables
+están definidas.
 
-Comandos del operador (los 19, vía `/` en el dojo o la CLI):
+## Arranque
 
-| Comando | Hace |
-|---|---|
-| `/mode local·kernel·auto` | Modo de ejecución |
-| `/model [auto·list·<nombre>]` | Modelo activo |
-| `/approval on·smart·critical·off` | El candado |
-| `/memory recall·store·stats…` | Memoria persistente |
-| `/skill list·approve·install…` | Skills |
-| `/read <ruta>` | Analiza un codebase |
-| `/committee` · `/improvements` · `/apply <id>` | Comité y mejoras |
-| `/learn <url·ruta>` | Aprende una tool o librería |
-| `/resident start·stop·add` | Misiones en segundo plano |
-| `/ledger verify·export` | Verifica la cadena de misiones |
-| `/sentinel` · `/notify` · `/doc` · `/replay` · `/record` · `/self` | Vigilancia, n8n, documentos, replay, OBS, auto-informe |
+```bash
+npm run start     # CLI interactiva
+npm run dev       # interfaz web en http://localhost:3333
+npm run tui       # interfaz de terminal (Ink)
+```
 
-## Estado actual
+Los lanzadores `.cmd` equivalentes están en `lanzadores/`.
 
-**v1.0.0.** El núcleo de arriba está sólido y comprobado. Con honestidad, lo que
-queda por delante —sin adornos:
+Binario portable:
 
-- **Cablear los motores E5/E8** (best-of-N, governor de runtime) al orchestrator
-  — existen como módulos, falta enchufarlos. Ver `DECISIONES.md`.
-- **Verificación en Windows**: `npm run typecheck` y `npm test` corren en tu
-  máquina (el toolchain usa binarios nativos).
-- **Benchmark público comparado**: el plan vive en `ROADMAP_FRONTERA_2026.md` y
-  `PLAN_SOMBRA_2026.md`.
+```bash
+npm run build:exe   # genera build/Shinobi.exe y build/Shinobi-Setup.exe
+```
 
-### Cerebros: arranca sin configurar nada
+## Comandos disponibles
 
-Shinobi viene con una **key de Groq compartida** ya puesta: lo descargas, lo
-arrancas y funciona, sin pelearte con API keys. Es deliberado — el coste de
-entrada debe ser cero.
+```
+npm run start           tsx scripts/shinobi.ts        (CLI)
+npm run dev             tsx scripts/shinobi_web.ts    (web :3333)
+npm run tui             tsx scripts/shinobi-tui.tsx
+npm run test            vitest run
+npm run test:watch      vitest
+npm run test:coverage   vitest run --coverage
+npm run typecheck       tsc --noEmit
+npm run build:exe       tsx scripts/build_exe.ts
+npm run sbom            tsx scripts/gen_sbom.ts
+npm run verify:receipt  tsx scripts/verify_receipt.ts
+npm run policy:simulate tsx scripts/policy_simulate.ts
+npm run bench           tsx scripts/benchmarks/run.ts
+npm run bench:compare   tsx scripts/bench.ts
+npm run bench:agentic   tsx scripts/bench_s_agentic.ts
+npm run bench:s_code    tsx scripts/bench_s_code.ts
+npm run bench:g2 · g4 · g5 · f41 · f43   suites de benchmark individuales
+```
 
-Cuando quieras más músculo, conéctalo a **otro cerebro** sin fricción: un modelo
-**local** (Ollama, LM Studio, llama.cpp por su URL OpenAI-compatible) o
-**cualquier proveedor** (OpenAI, Anthropic, OpenRouter, Groq propio). Lo dices y
-Shinobi se conecta; si una llamada falla, hace **failover** transparente a la
-siguiente. La key compartida es solo el primer escalón, no una atadura.
+Los comandos de operador dentro de la CLI/web (prefijo `/`) se definen en
+`src/coordinator/slash_commands.ts` (`/read`, `/skill`, `/memory`, `/committee`,
+`/learn`, `/resident`, `/ledger`, `/approval`, `/model`, entre otros).
 
-## Documentación
+## Estructura del repositorio
 
-`ARCHITECTURE.md` (diseño y flujo) · `CLAUDE.md`/`AGENTS.md` (entrada para una IA,
-autogenerados) · `ROADMAP_FRONTERA_2026.md` · `DECISIONES.md` (log append-only) ·
-`SHINOBI_Manual_de_Marca.docx` (la identidad y su porqué) · `SECURITY.md`.
+```
+src/                  código del producto y sus tests, por submódulo
+  coordinator/        orquestador del bucle LLM-tool
+  tools/              62 herramientas nativas (fs, shell, navegador, sistema)
+  providers/          clientes LLM multi-proveedor con failover
+  security/           gate de aprobación selectivo
+  browser/            subsistema de navegador "Kage" (observe → act → verify)
+  memory/             memoria persistente curada
+  skills/             gestor de skills firmadas (SHA256 + procedencia)
+  agents/             sub-agentes especialistas (swarm/team)
+  audit/              log append-only de tool-calls
+  ...                 (a2a, attest, channels, gateway, sandbox, sentinel, stt, tenshu, tui, web, …)
+scripts/              puntos de entrada y utilidades (shinobi.ts, shinobi_web.ts, build_exe.ts, gates…)
+skills/               librería de skills que se distribuye con el agente
+lanzadores/           lanzadores .cmd para Windows
+demos/                fixtures deterministas para los benchmarks (bench_site/, test_site/)
+docs/                 documentación de arquitectura y runbooks de configuración
+config/               config versionada (config/sentinel/sources.yaml)
+.github/workflows/    CI: ci.yml, gates.yml, issue_triage.yml, release.yml
+```
 
-## Aviso
+Configuración en la raíz: `package.json`, `tsconfig.json`, `tsconfig.build.json`,
+`vitest.config.ts`, `.env.example`, `pkg.config.json`, `bench.config.example.json`,
+`Dockerfile.sandbox-browser`, `docker-compose.sandbox-browser.yml`.
 
-Shinobi ejecuta acciones reales en tu sistema. El candado (`/approval`) frena lo
-irreversible, pero la responsabilidad de operarlo es tuya.
+## Tests
+
+`npm run test` (vitest) — medido en este repositorio:
+
+```
+Ficheros de test  247   (243 pasan, 4 fallan)
+Tests            2312   (2292 pasan, 15 se saltan, 5 fallan)
+Duración         ~75 s
+```
+
+Los 5 fallos son preexistentes y esta limpieza no los ha tocado:
+
+- 2 en `src/browser/__tests__/` — requieren el binario de Chromium de Playwright;
+  se resuelven con `npx playwright install chromium`.
+- 1 en `src/__tests__/no_residual_branding.test.ts` — la cadena `"OpenGravity"`
+  sigue en `src/tenshu/types.ts`.
+- 2 en `src/integrity/__tests__/integrity.test.ts` — el hash de un fixture CSV no
+  coincide con el certificado.
+
+`npm run typecheck` (tsc --noEmit) pasa sin errores.
 
 ## Licencia
 
-ISC · parte del ecosistema ZapWeave.
-
-<sub>忍 — la selva no duerme. Solo guarda silencio.</sub>
+ISC. Ver [LICENSE](LICENSE).

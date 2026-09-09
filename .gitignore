@@ -32,9 +32,6 @@ block2_stress.mjs
 stress_test.ts 
 test_bash_bridge.ts
 n8n_shinobi_workflow.json
-# === E1 build log (auto-generado por CI en cada push a main) ===
-web/build-log.html
-web/feed.xml
 # === C7 killer demo runs (auto-generado, no checkear) ===
 demos/runs/
 demos/test_site/pdfs/
