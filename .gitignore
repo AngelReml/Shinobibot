@@ -53,7 +53,6 @@ logs.txt
 # Nota: hay que excluir el contenido (docs/*) no el dir, para poder re-incluir.
 docs/*
 !docs/architecture/
-!docs/manual_actions/
 !docs/migrations/
 !docs/release/
 !docs/ARQUITECTURA_HABILIDAD_A.md
@@ -61,7 +60,6 @@ docs/*
 !docs/BROWSER_SUBSYSTEM.md
 !docs/README.md
 !docs/mission_schema.md
-!docs/prompting_manual.md
 audits/
 knowledge/
 
@@ -81,10 +79,12 @@ promptfoo/
 # config/sentinel/sources.yaml SÍ se versiona (template). data/sentinel es runtime.
 data/sentinel/
 
-# === whisper.cpp (FASE V3) — binarios platform-specific + modelo ===
+# === whisper.cpp (FASE V3) — binarios y wrappers no versionados ===
+# src/stt/ localiza el binario vía SHINOBI_WHISPERCPP_BIN o `whisper-cli` en PATH;
+# el repo no envía ningún binario ni wrapper de whisper (ver README).
+bin/whisper-linux
 # El modelo ggml-base.bin pesa ~147MB (supera el límite 100MB de GitHub).
 # Los binarios son platform-specific. Se regeneran con
-# scripts/contabo/setup-whisper.sh. El wrapper bin/whisper-linux SÍ se versiona.
 bin/whisper-linux-x64/
 bin/whisper-windows-x64/
 bin/whisper-windows.exe

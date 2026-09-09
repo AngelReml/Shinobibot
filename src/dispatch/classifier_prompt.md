@@ -1,7 +1,7 @@
 ---
 component: dispatch_classifier
 level: L1
-design_record: "Matriz §7 y checklist §13 del manual de prompting (docs/prompting_manual.md). Este frontmatter NO se envía al modelo — el clasificador lo descarta."
+design_record: "Matriz §7 y checklist §13 del manual de prompting (src/skills/prompt_refactor/prompting_manual.md). Este frontmatter NO se envía al modelo — el clasificador lo descarta."
 matrix_7:
   q1_respuesta_unica_correcta: "Sí — cada orden tiene un especialista mejor; medible con golden set binario."
   q2_coste_error: ">5% tolerable → L1. En shadow mode el clasificador NO controla nada (coste de error ≈ 0); incluso promovido, un misroute a 'general' degrada con gracia."

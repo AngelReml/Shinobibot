@@ -4,7 +4,7 @@
 //
 // Refactoriza un prompt roto aplicando el manual de prompting. El prompt
 // madre NO se inventa: es el system prompt ya validado de system_prompt.md.
-// El conocimiento base es docs/prompting_manual.md, cargado en el contexto
+// El conocimiento base es ./prompting_manual.md, cargado en el contexto
 // del LLM desde el repo (no duplicado inline).
 //
 // §9 — defensa obligatoria: el prompt roto es input NO confiable; llega en
@@ -19,8 +19,9 @@ import type { LLMClient } from '../../reader/SubAgent.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SYSTEM_PROMPT_PATH = path.join(HERE, 'system_prompt.md');
-// Repo root = src/skills/prompt_refactor → ../../../
-const MANUAL_PATH = path.join(HERE, '..', '..', '..', 'docs', 'prompting_manual.md');
+// El manual vive junto a este módulo (movido de docs/ en la limpieza 2026-09:
+// docs/ es solo doc, y este fichero es dato en caliente que refactor.ts carga).
+const MANUAL_PATH = path.join(HERE, 'prompting_manual.md');
 
 let _systemPrompt: string | null = null;
 let _manual: string | null = null;
@@ -35,7 +36,7 @@ export function systemPrompt(): string {
 export function promptingManual(): string {
   if (_manual == null) {
     if (!fs.existsSync(MANUAL_PATH)) {
-      throw new Error(`prompt_refactor: conocimiento base ausente — ${MANUAL_PATH}. Ejecuta el PASO 0 del encargo.`);
+      throw new Error(`prompt_refactor: conocimiento base ausente — ${MANUAL_PATH}`);
     }
     _manual = fs.readFileSync(MANUAL_PATH, 'utf-8');
   }

@@ -30,4 +30,4 @@ No invoca las apps (no requiere software instalado): valida que cada bundle teng
 
 ## Ejecución real
 
-Las skills sólo funcionan con el software correspondiente instalado y configurado. Ver cada `SKILL.md` para prerequisitos. Hay TODOs en `docs/manual_actions.md` para verificarlas en máquina con todo instalado.
+Las skills sólo funcionan con el software correspondiente instalado y configurado. Ver cada `SKILL.md` para prerequisitos. Requieren verificación manual en una máquina con todo el software instalado.

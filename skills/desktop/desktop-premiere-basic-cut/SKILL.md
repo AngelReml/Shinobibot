@@ -41,4 +41,4 @@ Drives Premiere via ExtendScript: a generated `.jsx` opens the project, imports 
 
 ## Manual verification
 
-This skill cannot be E2E-tested in CI because Premiere licensing requires the workstation. See `docs/manual_actions.md`.
+This skill cannot be E2E-tested in CI because Premiere licensing requires the workstation; it needs manual verification on a licensed machine.

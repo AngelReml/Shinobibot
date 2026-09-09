@@ -2,7 +2,7 @@
  * PromptRefactor Tool — skill de automejora de prompts (Bloque 4 del encargo).
  *
  * Hace invocable por Shinobi la skill `prompt_refactor`: toma un prompt roto
- * y lo refactoriza aplicando docs/prompting_manual.md. Devuelve el prompt
+ * y lo refactoriza aplicando src/skills/prompt_refactor/prompting_manual.md. Devuelve el prompt
  * refactorizado + la decisión de nivel + las secciones del manual aplicadas
  * + la autocrítica de qué queda rompible.
  *

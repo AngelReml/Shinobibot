@@ -1,7 +1,7 @@
 ---
 component: refiner_level_classifier
 level: L1
-design_record: "Matriz §7 y checklist §13 del manual de prompting (docs/prompting_manual.md). Frontmatter de diseño — no se envía al modelo."
+design_record: "Matriz §7 y checklist §13 del manual de prompting (src/skills/prompt_refactor/prompting_manual.md). Frontmatter de diseño — no se envía al modelo."
 matrix_7:
   q1_respuesta_unica_correcta: "Sí — cada tarea tiene un nivel mejor; medible con golden set binario."
   q2_coste_error: ">5% tolerable → L1. En shadow mode el clasificador no controla nada; promovido, un nivel mal puesto degrada con gracia (refinar de más / de menos)."

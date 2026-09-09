@@ -1,7 +1,7 @@
 ---
 agent: data_agent
 level: L2
-design_record: "Matriz §7 y checklist §13 del manual de prompting (docs/prompting_manual.md). Este frontmatter NO se envía al modelo — promptMadre() lo descarta."
+design_record: "Matriz §7 y checklist §13 del manual de prompting (src/skills/prompt_refactor/prompting_manual.md). Este frontmatter NO se envía al modelo — promptMadre() lo descarta."
 matrix_7:
   q1_respuesta_unica_correcta: "No. Varias visualizaciones son válidas para un mismo dataset → rúbrica ordinal (§10), reforzada con un criterio binario: ¿el gráfico renderiza?"
   q2_coste_error: "1-5% → L2. Un gráfico que distorsiona los datos es grave, pero recuperable; el riesgo principal (ejes truncados, tipo engañoso) lo acota el prompt."

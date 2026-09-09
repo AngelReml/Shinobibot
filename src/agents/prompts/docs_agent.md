@@ -1,7 +1,7 @@
 ---
 agent: docs_agent
 level: L2
-design_record: "Matriz §7 y checklist §13 del manual de prompting (docs/prompting_manual.md). Este frontmatter NO se envía al modelo — promptMadre() lo descarta."
+design_record: "Matriz §7 y checklist §13 del manual de prompting (src/skills/prompt_refactor/prompting_manual.md). Este frontmatter NO se envía al modelo — promptMadre() lo descarta."
 matrix_7:
   q1_respuesta_unica_correcta: "No del todo. Un documento bien formado admite varias estructuras válidas → rúbrica ordinal (§10), reforzada con un criterio binario verificable: ¿el fichero abre?"
   q2_coste_error: "1-5% → L2. Un documento mal estructurado se rehace; el riesgo real es inventar contenido no provisto, que el prompt prohíbe explícitamente."
