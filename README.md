@@ -162,19 +162,31 @@ Configuración en la raíz: `package.json`, `tsconfig.json`, `vitest.config.ts`,
 ## Tests
 
 `npm run test` (vitest). 247 ficheros, 2312 tests recogidos. Medido hoy en un
-clon limpio, tres ejecuciones seguidas con el mismo resultado y **0 fallos**:
+**clon limpio en Windows** con Chromium de Playwright instalado, tres ejecuciones
+seguidas con el mismo resultado y **0 fallos**:
 
 ```
-sin  npx playwright install chromium :  2297 passed | 15 skipped (2312)
-con  npx playwright install chromium :  2309 passed |  3 skipped (2312)
+Test Files  247 passed (247)
+Tests       2309 passed | 3 skipped (2312)
 ```
 
-La diferencia son los 12 tests E2E de `src/browser/__tests__/kage_e2e.test.ts` y
-`kage_g4.test.ts`: necesitan el Chromium de Playwright y, si falta, se **saltan
-con un aviso explícito en consola** (`[kage_e2e] SKIP — …`) en vez de fallar. Los
-3 `skipped` restantes son skips deliberados en el propio código.
+`npm run typecheck` (`tsc --noEmit`) pasa sin errores. La CI corre esta suite en
+una matriz **windows-latest + ubuntu-latest**; las dos tienen que salir verdes.
 
-`npm run typecheck` (`tsc --noEmit`) pasa sin errores.
+**Parte de la suite es específica de Windows** — y eso es a propósito: Shinobi es
+un agente nativo de Windows, así que sus tools por PowerShell, el cifrado en
+reposo de la identidad de dispositivo (DPAPI) y el sandbox que valida rutas
+Windows se prueban de verdad ahí. Esos tests:
+
+- corren enteros en una máquina Windows de desarrollo;
+- se **saltan con un motivo visible** (no un skip mudo) donde la capacidad no
+  existe o no es fiable: Linux, o un runner de CI sin sesión interactiva. El
+  chequeo es de capacidad real, no de `process.platform` — ver
+  `src/__tests__/_platform_probe.ts`.
+
+Lo mismo con los 12 E2E de navegador (`src/browser/__tests__/kage_*`): corren si
+está el Chromium de Playwright (`npx playwright install chromium`), se saltan con
+aviso si no. Los 3 `skipped` de arriba son skips deliberados en el código.
 
 ## Licencia
 
