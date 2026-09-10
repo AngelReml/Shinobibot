@@ -126,8 +126,12 @@ describe('WorktreeManager (integración, git real)', () => {
     const wt = mgr.create('feat');
     expect(fs.existsSync(wt.path)).toBe(true);
     expect(fs.existsSync(path.join(wt.path, 'README.md'))).toBe(true);
-    // aparece en list
-    expect(mgr.list().some((w) => path.resolve(w.path) === path.resolve(wt.path))).toBe(true);
+    // aparece en list. `git worktree list` reporta la ruta en la forma que el SO
+    // le da (en Windows puede ser nombre corto 8.3 `RUNNER~1` o distinta caja),
+    // que `path.resolve` NO canonicaliza — por eso se compara por realpath.
+    const canon = (p: string) => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
+    const wtCanon = canon(wt.path);
+    expect(mgr.list().some((w) => canon(w.path) === wtCanon)).toBe(true);
     // limpio recién creado → removeIfUnchanged lo elimina
     expect(mgr.isClean(wt.path)).toBe(true);
     expect(mgr.removeIfUnchanged(wt.path).removed).toBe(true);
