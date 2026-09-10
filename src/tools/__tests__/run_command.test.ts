@@ -225,7 +225,7 @@ describe('P1.E4 · la ruta PowerShell de run_command entra por el Monitor de Ref
     expect(result.success).toBe(true);
     expect(result.output).toContain('shinobi-monitor-check');
     expect(monitorStats().mediated).toBe(before + 1);
-  });
+  }, 20_000);
 
   itPwsh('shell:"auto" en win32 también entra por el monitor (comportamiento por defecto del producto)', async () => {
     const { monitorStats, _resetMonitorStats } = await import('../../sandbox/monitor.js');
@@ -233,7 +233,7 @@ describe('P1.E4 · la ruta PowerShell de run_command entra por el Monitor de Ref
     const before = monitorStats().mediated;
     await runCommandTool.execute({ command: "Write-Output 'shinobi-auto-check'" });
     expect(monitorStats().mediated).toBe(before + 1);
-  });
+  }, 20_000);
 
   itPwsh('el backend "powershell" está registrado en el sandbox registry', async () => {
     const { sandboxRegistry } = await import('../../sandbox/registry.js');

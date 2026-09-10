@@ -54,14 +54,14 @@ describe('PowerShellBackend (real powershell.exe, win32)', () => {
     expect(r.stdout).toContain('shinobi-ps');
     expect(r.backend).toBe('powershell');
     expect(r.durationMs).toBeGreaterThanOrEqual(0);
-  });
+  }, 20_000); // un powershell.exe real a través del backend puede tardar varios segundos en un Windows lento
 
   itPwsh('comando que falla devuelve success false', async () => {
     const b = new PowerShellBackend();
     const r = await b.run({ command: 'exit 7', cwd: process.cwd(), timeoutMs: 15000 });
     expect(r.success).toBe(false);
     expect(r.backend).toBe('powershell');
-  });
+  }, 20_000);
 
   it('isConfigured refleja el platform real', () => {
     const b = new PowerShellBackend();

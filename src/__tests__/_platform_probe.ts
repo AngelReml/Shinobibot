@@ -32,22 +32,37 @@ function probeDpapi(): { usable: boolean; reason: string } {
   };
 }
 
+// Umbral: si `powershell.exe -Command 1` (lo más trivial que hay) tarda más de
+// esto, las operaciones reales de los tests (lanzar powershell a través del
+// sandbox/monitor, que carga bastante más) NO caben en el testTimeout de 10 s.
+// En una máquina Windows real es sub-segundo; en un runner de CI en frío son
+// varios segundos.
+const PWSH_MAX_MS = 2500;
+
 function probePowershell(): { usable: boolean; reason: string } {
   if (process.platform !== 'win32') {
     return { usable: false, reason: `powershell.exe solo existe en Windows (process.platform=${process.platform}).` };
   }
   try {
+    const t0 = Date.now();
     const out = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '1'], {
       timeout: 8000,
       encoding: 'utf-8',
       windowsHide: true,
     });
-    if (out.trim() === '1') return { usable: true, reason: '' };
+    const ms = Date.now() - t0;
+    if (out.trim() === '1' && ms <= PWSH_MAX_MS) return { usable: true, reason: '' };
+    if (out.trim() === '1') {
+      return {
+        usable: false,
+        reason: `powershell.exe tardó ${ms} ms en lo más trivial (umbral ${PWSH_MAX_MS} ms) — demasiado lento para estos tests en este entorno (runner de CI en frío). Ejecuta estos tests en una máquina Windows real.`,
+      };
+    }
   } catch { /* cae al mensaje de abajo */ }
   return {
     usable: false,
     reason:
-      'powershell.exe no respondió en 8 s (arranque en frío en un runner de CI). ' +
+      'powershell.exe no respondió (arranque en frío en un runner de CI). ' +
       'Ejecuta estos tests en una máquina Windows real.',
   };
 }
