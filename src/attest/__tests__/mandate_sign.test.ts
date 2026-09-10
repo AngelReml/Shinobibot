@@ -3,14 +3,17 @@
 // aserciones de manipulación (mandato/firma/clave) se ponen ROJAS. Verificado con el
 // protocolo de la regla #2 (romper → rojo → restaurar → verde); evidencia en
 // DECISIONES.md. La cripto reutiliza la primitiva Ed25519 de provenance_v2 (node:crypto).
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { signMandate, verifyMandate, verifyMandateSignature, canonicalMandate } from '../mandate_sign.js';
 import { verifyMissionStart, verifyMissionStartLine } from '../verify.js';
 import { getDeviceIdentity, _resetDeviceIdentity } from '../device_identity.js';
+import { dpapiUsable, dpapiSkipReason } from '../../__tests__/_platform_probe.js';
 import { generateKeyPairSync } from 'crypto';
 import { mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
+
+if (!dpapiUsable) console.warn(`[mandate_sign.test] SKIP tests DPAPI en reposo — ${dpapiSkipReason}`);
 
 function keys() {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
@@ -36,7 +39,12 @@ describe('P1.E3.c — firma/verificación Ed25519 del mandato', () => {
   it('firma manipulada ⇒ inválido', () => {
     const { pub, priv } = keys();
     const sig = signMandate(m, priv, pub);
-    expect(verifyMandate(m, { ...sig, signature: sig.signature.replace(/^./, '0') }).valid).toBe(false);
+    // `signature` es hex: cambiar el primer nibble por OTRO valor (no fijo) —
+    // `replace(/^./, '0')` era no-op ~1/16 de las veces (cuando ya empezaba por
+    // '0'), y el test flakeaba en verde para una firma sin tocar.
+    const tampered = sig.signature.replace(/^[0-9a-f]/, (c) => (c === '0' ? '1' : '0'));
+    expect(tampered).not.toBe(sig.signature); // la manipulación SIEMPRE cambia algo
+    expect(verifyMandate(m, { ...sig, signature: tampered }).valid).toBe(false);
   });
   it('pública ajena ⇒ inválido (no se puede falsificar sin la privada)', () => {
     const { pub, priv } = keys();
@@ -49,6 +57,11 @@ describe('P1.E3.c — firma/verificación Ed25519 del mandato', () => {
 });
 
 describe('P1.E3.c — identidad de dispositivo (load-or-create)', () => {
+  // Este bloque prueba load-or-create, NO el cifrado en reposo: fuerza el
+  // formato legado para no pagar (ni depender de) un powershell.exe/DPAPI en frío.
+  beforeAll(() => { process.env.SHINOBI_DEVICE_KEY_NO_DPAPI = '1'; });
+  afterAll(() => { delete process.env.SHINOBI_DEVICE_KEY_NO_DPAPI; });
+
   it('crea la primera vez y reusa después (misma pública)', () => {
     _resetDeviceIdentity();
     const p = join(mkdtempSync(join(tmpdir(), 'shinobi_dev_')), 'device_key.json');
@@ -60,10 +73,14 @@ describe('P1.E3.c — identidad de dispositivo (load-or-create)', () => {
   });
 });
 
-describe('P2.E3.c — identidad de dispositivo cifrada en reposo (DPAPI, win32)', () => {
-  const itWin = process.platform === 'win32' ? it : it.skip;
+describe(
+  dpapiUsable
+    ? 'P2.E3.c — identidad de dispositivo cifrada en reposo (DPAPI real)'
+    : `P2.E3.c — identidad de dispositivo cifrada en reposo — SKIP: ${dpapiSkipReason}`,
+  () => {
+  const itDpapi = dpapiUsable ? it : it.skip;
 
-  itWin('el JSON persistido usa formato DPAPI y NO contiene la privada en claro', () => {
+  itDpapi('el JSON persistido usa formato DPAPI y NO contiene la privada en claro', () => {
     _resetDeviceIdentity();
     const p = join(mkdtempSync(join(tmpdir(), 'shinobi_dev_dpapi_')), 'device_key.json');
     const identity = getDeviceIdentity(p);
@@ -78,7 +95,7 @@ describe('P2.E3.c — identidad de dispositivo cifrada en reposo (DPAPI, win32)'
     expect(onDisk).not.toContain(identity.privateKeyPem);
   });
 
-  itWin('un segundo arranque desenvuelve el blob DPAPI y reusa la MISMA identidad', () => {
+  itDpapi('un segundo arranque desenvuelve el blob DPAPI y reusa la MISMA identidad', () => {
     _resetDeviceIdentity();
     const p = join(mkdtempSync(join(tmpdir(), 'shinobi_dev_dpapi_')), 'device_key.json');
     const a = getDeviceIdentity(p);
@@ -103,7 +120,7 @@ describe('P2.E3.c — identidad de dispositivo cifrada en reposo (DPAPI, win32)'
     expect(loaded.privateKeyPem).toBe(legacy.privateKeyPem);
   });
 
-  itWin('blob DPAPI corrupto/ilegible ⇒ se regenera una identidad nueva (no lanza, no reutiliza clave dudosa)', () => {
+  itDpapi('blob DPAPI corrupto/ilegible ⇒ se regenera una identidad nueva (no lanza, no reutiliza clave dudosa)', () => {
     _resetDeviceIdentity();
     const p = join(mkdtempSync(join(tmpdir(), 'shinobi_dev_corrupt_')), 'device_key.json');
     const a = getDeviceIdentity(p);
