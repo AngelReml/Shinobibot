@@ -3,17 +3,30 @@
 // de verdad en esta máquina). En no-win32 se salta (DPAPI no existe fuera de Windows).
 import { describe, it, expect } from 'vitest';
 import { dpapiPlatformSupported, dpapiProtect, dpapiUnprotect } from '../dpapi.js';
+import { dpapiUsable, dpapiSkipReason } from '../../__tests__/_platform_probe.js';
 
-const itWin = process.platform === 'win32' ? it : it.skip;
+if (!dpapiUsable) console.warn(`[dpapi.test] SKIP roundtrip DPAPI — ${dpapiSkipReason}`);
+// Gate por capacidad real, no solo por process.platform: en el runner
+// windows-latest de GitHub DPAPI CurrentUser no funciona y estos reventarían.
+const itDpapi = dpapiUsable ? it : it.skip;
+const dpapiSuite = dpapiUsable
+  ? 'P2.E3.c — dpapiProtect/dpapiUnprotect (DPAPI real)'
+  : `P2.E3.c — dpapiProtect/dpapiUnprotect — SKIP: ${dpapiSkipReason}`;
 
 describe('P2.E3.c — dpapiPlatformSupported', () => {
   it('refleja el platform real', () => {
     expect(dpapiPlatformSupported()).toBe(process.platform === 'win32');
   });
+
+  // NO necesita DPAPI operativo: el rechazo por charset ocurre antes de PowerShell.
+  it('input no-base64 se rechaza sin llamar a PowerShell (null)', () => {
+    expect(dpapiProtect('no es base64 válido; $(rm -rf /)')).toBeNull();
+    expect(dpapiUnprotect('tampoco; & calc.exe')).toBeNull();
+  });
 });
 
-describe('P2.E3.c — dpapiProtect/dpapiUnprotect (win32)', () => {
-  itWin('roundtrip: protect → unprotect recupera el texto original', () => {
+describe(dpapiSuite, () => {
+  itDpapi('roundtrip: protect → unprotect recupera el texto original', () => {
     const plain = Buffer.from('shinobi-device-key-material-üñí', 'utf-8').toString('base64');
     const enc = dpapiProtect(plain);
     expect(enc).not.toBeNull();
@@ -22,7 +35,7 @@ describe('P2.E3.c — dpapiProtect/dpapiUnprotect (win32)', () => {
     expect(dec).toBe(plain);
   });
 
-  itWin('el blob cifrado nunca contiene el texto plano como substring', () => {
+  itDpapi('el blob cifrado nunca contiene el texto plano como substring', () => {
     const secret = 'MUY-SECRETO-1234567890';
     const plain = Buffer.from(secret, 'utf-8').toString('base64');
     const enc = dpapiProtect(plain) as string;
@@ -30,12 +43,7 @@ describe('P2.E3.c — dpapiProtect/dpapiUnprotect (win32)', () => {
     expect(enc).not.toContain(plain);
   });
 
-  itWin('input no-base64 se rechaza sin llamar a PowerShell (null)', () => {
-    expect(dpapiProtect('no es base64 válido; $(rm -rf /)')).toBeNull();
-    expect(dpapiUnprotect('tampoco; & calc.exe')).toBeNull();
-  });
-
-  itWin('unprotect de basura (no es un blob DPAPI real) devuelve null, no lanza', () => {
+  itDpapi('unprotect de basura (no es un blob DPAPI real) devuelve null, no lanza', () => {
     const garbage = Buffer.from('esto no es un blob DPAPI').toString('base64');
     expect(dpapiUnprotect(garbage)).toBeNull();
   });

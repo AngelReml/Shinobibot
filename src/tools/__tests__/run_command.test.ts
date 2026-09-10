@@ -15,6 +15,7 @@
 // Cada escenario reproduce el ataque EXACTO descrito en la auditoría, no una
 // versión idealizada.
 
+import { powershellUsable, powershellSkipReason } from '../../__tests__/_platform_probe.js';
 import { describe, it, expect, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -213,9 +214,10 @@ describe('MEDIA-04 · requiresConfirmation ve todo lo que bloquea checkDestructi
 });
 
 describe('P1.E4 · la ruta PowerShell de run_command entra por el Monitor de Referencia', () => {
-  const itWin = process.platform === 'win32' ? it : it.skip;
+  const itPwsh = powershellUsable ? it : it.skip;
+  if (!powershellUsable) console.warn(`[run_command.test] SKIP tests de PowerShell — ${powershellSkipReason}`);
 
-  itWin('shell:"powershell" incrementa monitorStats().mediated (ya no esquiva mediatedEffect)', async () => {
+  itPwsh('shell:"powershell" incrementa monitorStats().mediated (ya no esquiva mediatedEffect)', async () => {
     const { monitorStats, _resetMonitorStats } = await import('../../sandbox/monitor.js');
     _resetMonitorStats();
     const before = monitorStats().mediated;
@@ -225,7 +227,7 @@ describe('P1.E4 · la ruta PowerShell de run_command entra por el Monitor de Ref
     expect(monitorStats().mediated).toBe(before + 1);
   });
 
-  itWin('shell:"auto" en win32 también entra por el monitor (comportamiento por defecto del producto)', async () => {
+  itPwsh('shell:"auto" en win32 también entra por el monitor (comportamiento por defecto del producto)', async () => {
     const { monitorStats, _resetMonitorStats } = await import('../../sandbox/monitor.js');
     _resetMonitorStats();
     const before = monitorStats().mediated;
@@ -233,7 +235,7 @@ describe('P1.E4 · la ruta PowerShell de run_command entra por el Monitor de Ref
     expect(monitorStats().mediated).toBe(before + 1);
   });
 
-  itWin('el backend "powershell" está registrado en el sandbox registry', async () => {
+  itPwsh('el backend "powershell" está registrado en el sandbox registry', async () => {
     const { sandboxRegistry } = await import('../../sandbox/registry.js');
     expect(sandboxRegistry().get('powershell' as any)).toBeDefined();
   });

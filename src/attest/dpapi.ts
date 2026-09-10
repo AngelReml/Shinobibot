@@ -32,7 +32,10 @@ const BASE64_RE = /^[A-Za-z0-9+/]*=*$/;
 
 function runProtectedDataScript(body: string): string | null {
   if (process.platform !== 'win32') return null;
-  const script = `$ErrorActionPreference = 'Stop'\nAdd-Type -AssemblyName System.Security\n${body}`;
+  // `$ProgressPreference = 'SilentlyContinue'` evita que PowerShell escupa
+  // registros de progreso CLIXML por stderr en el primer `Add-Type` (ensuciaban
+  // la salida de la suite y los logs de CI con cientos de líneas).
+  const script = `$ErrorActionPreference = 'Stop'\n$ProgressPreference = 'SilentlyContinue'\nAdd-Type -AssemblyName System.Security\n${body}`;
   try {
     const encoded = Buffer.from(script, 'utf16le').toString('base64');
     const out = execFileSync(

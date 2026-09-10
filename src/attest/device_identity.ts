@@ -65,7 +65,11 @@ function tryLoad(path: string): DeviceIdentity | null {
 function persist(path: string, kp: DeviceIdentity): void {
   mkdirSync(dirname(path), { recursive: true });
 
-  if (dpapiPlatformSupported()) {
+  // SHINOBI_DEVICE_KEY_NO_DPAPI=1 → salta DPAPI y usa el formato legado. Para
+  // CI / contenedores / arranques headless donde DPAPI no aporta (cuenta de
+  // servicio sin credencial interactiva) o solo añade el coste de un
+  // powershell.exe en frío. El caller sigue funcionando igual (misma identidad).
+  if (process.env.SHINOBI_DEVICE_KEY_NO_DPAPI !== '1' && dpapiPlatformSupported()) {
     const plainB64 = Buffer.from(kp.privateKeyPem, 'utf-8').toString('base64');
     const encB64 = dpapiProtect(plainB64);
     if (encB64) {

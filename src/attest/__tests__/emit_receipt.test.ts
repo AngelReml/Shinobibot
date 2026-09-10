@@ -2,7 +2,7 @@
 // efectos (recordMissionEffect), y al cerrar la misión emitMissionReceipt construye,
 // firma y persiste un recibo que verifica con solo la pública. Requiere el runtime
 // (device_identity/audit_chain), así que corre en la suite canónica (vitest/Windows).
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { runWithMandate, recordMissionEffect } from '../../sandbox/mandate.js';
 import { emitMissionReceipt } from '../emit_receipt.js';
 import { verifyMissionReceipt } from '../mission_receipt.js';
@@ -12,6 +12,13 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 describe('P2.E5 — emisión del recibo al cierre de misión', () => {
+  // El recibo se firma con la identidad de dispositivo. Lo que se prueba aquí es
+  // la EMISIÓN/FIRMA/VERIFICACIÓN del recibo, no el cifrado en reposo de la clave
+  // — así que se fuerza el formato legado de la identidad y el test corre igual
+  // en Windows y en Linux (sin depender de DPAPI ni de un powershell.exe en frío).
+  beforeAll(() => { process.env.SHINOBI_DEVICE_KEY_NO_DPAPI = '1'; });
+  afterAll(() => { delete process.env.SHINOBI_DEVICE_KEY_NO_DPAPI; });
+
   it('recoge efectos, emite recibo firmado que verifica, y lo persiste', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'shinobi_rec_'));
     process.env.SHINOBI_RECEIPTS_DIR = dir;

@@ -1,3 +1,4 @@
+import { powershellUsable, powershellSkipReason } from '../../__tests__/_platform_probe.js';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { sandboxRegistry, _resetSandboxRegistry, MockBackend } from '../registry.js';
 import { LocalBackend } from '../backends/local.js';
@@ -42,9 +43,10 @@ describe('LocalBackend (real exec)', () => {
 });
 
 describe('PowerShellBackend (real powershell.exe, win32)', () => {
-  const itWin = process.platform === 'win32' ? it : it.skip;
+  const itPwsh = powershellUsable ? it : it.skip;
+  if (!powershellUsable) console.warn(`[sandbox_registry.test] SKIP tests de PowerShell — ${powershellSkipReason}`);
 
-  itWin('ejecuta un comando trivial y devuelve stdout', async () => {
+  itPwsh('ejecuta un comando trivial y devuelve stdout', async () => {
     const b = new PowerShellBackend();
     const r = await b.run({ command: "Write-Output 'shinobi-ps'", cwd: process.cwd(), timeoutMs: 15000 });
     expect(r.success).toBe(true);
@@ -54,7 +56,7 @@ describe('PowerShellBackend (real powershell.exe, win32)', () => {
     expect(r.durationMs).toBeGreaterThanOrEqual(0);
   });
 
-  itWin('comando que falla devuelve success false', async () => {
+  itPwsh('comando que falla devuelve success false', async () => {
     const b = new PowerShellBackend();
     const r = await b.run({ command: 'exit 7', cwd: process.cwd(), timeoutMs: 15000 });
     expect(r.success).toBe(false);
