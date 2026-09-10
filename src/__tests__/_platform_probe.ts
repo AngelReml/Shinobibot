@@ -15,9 +15,22 @@
 import { execFileSync } from 'node:child_process';
 import { dpapiProtect, dpapiUnprotect } from '../attest/dpapi.js';
 
+// El runner windows-latest de GitHub NO es un Windows completo: cuenta de
+// servicio (DPAPI CurrentUser inservible) y powershell.exe lento/inestable a
+// través del sandbox (confirmado empíricamente varias veces en CI). En CI se
+// saltan estos tests con motivo; corren de verdad en un Windows real (el
+// operador ejecuta la suite entera en su máquina). Para forzar que corran en un
+// runner Windows self-hosted con sesión interactiva: SHINOBI_CI_RUN_WIN_NATIVE=1.
+const ciSkipsWinNative =
+  (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true') &&
+  process.env.SHINOBI_CI_RUN_WIN_NATIVE !== '1';
+
 function probeDpapi(): { usable: boolean; reason: string } {
   if (process.platform !== 'win32') {
     return { usable: false, reason: `DPAPI solo existe en Windows (process.platform=${process.platform}).` };
+  }
+  if (ciSkipsWinNative) {
+    return { usable: false, reason: 'runner de CI: DPAPI CurrentUser no es fiable aquí — estos tests corren en un Windows real (SHINOBI_CI_RUN_WIN_NATIVE=1 para forzarlos).' };
   }
   try {
     const sample = Buffer.from('probe').toString('base64');
@@ -42,6 +55,9 @@ const PWSH_MAX_MS = 2500;
 function probePowershell(): { usable: boolean; reason: string } {
   if (process.platform !== 'win32') {
     return { usable: false, reason: `powershell.exe solo existe en Windows (process.platform=${process.platform}).` };
+  }
+  if (ciSkipsWinNative) {
+    return { usable: false, reason: 'runner de CI: powershell.exe a través del sandbox es demasiado lento/inestable aquí — estos tests corren en un Windows real (SHINOBI_CI_RUN_WIN_NATIVE=1 para forzarlos).' };
   }
   try {
     const t0 = Date.now();
