@@ -14,10 +14,13 @@ describe('IntentRouter', () => {
     expect(resPing.type).toBe('command');
     expect(resPing.intentName).toBe('ping');
     expect(resPing.response).toBe('pong');
-    
-    // Validar latencia < 2ms (usualmente < 0.1ms en local)
+
+    // Canario de "no hace I/O": el enrutado de comandos deterministas no toca
+    // disco, red ni LLM, así que resuelve en microsegundos. El umbral es holgado
+    // (< 50 ms) a propósito — no es un microbenchmark (2 ms flakeaba bajo GC/carga),
+    // es una alarma para si `route()` empezara a hacer trabajo asíncrono real.
     const duration = t1 - t0;
-    expect(duration).toBeLessThan(2);
+    expect(duration).toBeLessThan(50);
   });
 
   it('resuelve otros comandos deterministas (!version, !status, !help)', async () => {

@@ -73,18 +73,19 @@ describe('F2.12 — raceApprovalWithTimeout: la ruta REAL de timeout deniega por
     delete process.env.SHINOBI_APPROVAL_TIMEOUT_ACTION;
     setApprovalAsker(async () => 'yes');
 
-    const t0 = Date.now();
     const result = await raceApprovalWithTimeout({
       toolName: 'run_command',
       args: {},
       destructive: true,
       reason: 'test',
     });
-    const elapsed = Date.now() - t0;
 
+    // `isTimeout === false` ES la prueba de que ganó el asker y no el timeout:
+    // si la carrera se hubiera decidido por el timeout, isTimeout sería true y
+    // approved sería false (default deny). Medir `elapsed < 60 ms` era redundante
+    // con esto y flakeaba bajo GC/carga (el timeout del test es de solo 60 ms).
     expect(result.approved).toBe(true);
     expect(result.isTimeout).toBe(false);
-    expect(elapsed).toBeLessThan(60); // no esperó el timeout completo de 60ms
   });
 
   it('tool no-destructiva no depende del timeout en absoluto (requestApproval la aprueba directo)', async () => {
