@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import { isDue, parseTrigger, type MissionTrigger } from '../runtime/mission_scheduler.js';
+import { shinobiDataDir } from '../runtime/data_dir.js';
 
 export interface RecurrentMission {
   id: string;
@@ -32,8 +33,7 @@ export class MissionsStore {
   private db: BetterSqlite3.Database;
 
   constructor(dbPath?: string) {
-    const defaultDir = path.join(process.env.APPDATA || os.homedir(), 'Shinobi');
-    if (!fs.existsSync(defaultDir)) fs.mkdirSync(defaultDir, { recursive: true });
+    const defaultDir = shinobiDataDir();
     this.db = new Database(dbPath || path.join(defaultDir, 'missions.db'));
     this.db.pragma('journal_mode = WAL');
     this.initSchema();

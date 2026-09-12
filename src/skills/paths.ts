@@ -18,13 +18,13 @@
  */
 import * as os from 'os';
 import * as path from 'path';
+import { shinobiDataDir } from '../runtime/data_dir.js';
 
 /**
  * Base directory for SkillLoader's approved .mjs executable skills.
  * Resolved once at module load (same as the previous inline constant).
  */
 export const APPROVED_SKILLS_DIR: string = path.join(
-  process.env.APPDATA || os.homedir(),
-  'Shinobi',
+  shinobiDataDir(),
   'approved_skills',
 );

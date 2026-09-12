@@ -41,17 +41,17 @@ Repositorio: `AngelReml/Shinobibot`
 
 ## Incidencias y riesgos pendientes
 
-### P1: permisos/ruta de datos en Windows
+### Resuelto: permisos/ruta de datos en Windows
 
-El proceso asume `%APPDATA%\\Shinobi` para SQLite y otros artefactos. En esta maquina esa ruta devuelve `EPERM`/`SQLITE_CANTOPEN`; por tanto el arranque normal no es fiable aunque el perfil temporal funcione. Antes de presentar Shinobii como listo para uso, hay que comprobar ACL, proceso que mantiene el fichero abierto y la politica de ruta de datos. No se borro ni se reparo esa carpeta automaticamente.
+Se introdujo `src/runtime/data_dir.ts`, que prueba `SHINOBI_DATA_DIR`, `%APPDATA%\\Shinobi`, `%LOCALAPPDATA%\\Shinobi`, `~/.shinobi` y finalmente `%TEMP%\\Shinobi`, usando un probe de escritura antes de seleccionar la ruta. Memoria, misiones, configuración, skills y el servidor web usan ahora esta resolución. El arranque real sin perfil temporal escucha en `localhost:3333` y `/` responde `HTTP 200`.
 
 ### P1/P2: dependencias de produccion
 
 La auditoria de npm realizada antes de la comprobacion final reporto **24 vulnerabilidades de produccion: 13 moderadas y 11 altas**. Entre los paquetes afectados aparecian `axios`, `ws`, `@e2b/sdk`, `@huggingface/transformers`, `sharp`, `tmp` y dependencias transitivas. La consulta final al endpoint de npm no pudo repetirse por un error de red del endpoint; no se ejecuto `npm audit fix --force` ni se actualizaron dependencias a ciegas.
 
-### P2: dependencias de produccion
+### Mejorado: dependencias de produccion
 
-La actualizacion automatica segura no se aplico: `npm audit fix --dry-run` encontro un conflicto de peer entre las versiones publicadas de Vitest y coverage-v8, y varios paquetes vulnerables requeririan saltos mayores. Se mantuvo el lockfile funcional y se dejo documentado para una ventana de actualizacion dedicada.
+Se actualizaron las dependencias directas `axios` a `1.20.0` y `ws` a `8.21.3`, con lockfile regenerado y tests completos verdes. Permanecen vulnerabilidades transitivas y paquetes que requieren saltos mayores (`@e2b/sdk`, transformers/sharp); no se forzaron cambios incompatibles.
 
 ### Resuelto: skill legacy sin checksum
 

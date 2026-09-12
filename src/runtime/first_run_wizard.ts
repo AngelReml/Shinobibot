@@ -2,8 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 import * as readline from 'readline';
+import { shinobiDataDir } from './data_dir.js';
 
-const SHINOBI_DIR = path.join(process.env.APPDATA || os.homedir(), 'Shinobi');
+const SHINOBI_DIR = shinobiDataDir();
 const CONFIG_FILE = path.join(SHINOBI_DIR, 'config.json');
 
 export interface ShinobiConfig {

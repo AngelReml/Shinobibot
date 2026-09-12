@@ -29,6 +29,7 @@ import { startGateway, parseAllowedUserIds } from '../src/gateway/index.js';
 import { lanWebChatInfo } from '../src/gateway/webchat_channel.js';
 import { installEgressRuntimeGuard } from '../src/egress/runtime_guard.js';
 import { installEffectAudit } from '../src/sandbox/audit_wiring.js';
+import { shinobiDataDir } from '../src/runtime/data_dir.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -52,7 +53,7 @@ if (!IS_PKG) {
 // ─── Helpers para extracción en pkg mode ────────────────────────────────────
 
 function appDataShinobi(): string {
-  return path.join(process.env.APPDATA || process.env.HOME || '', 'Shinobi');
+  return shinobiDataDir();
 }
 
 function copySnapshotTree(src: string, dest: string): void {
