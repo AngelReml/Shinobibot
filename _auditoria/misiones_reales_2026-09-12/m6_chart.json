@@ -1,0 +1,35 @@
+{
+  "task_id": "audit-chart-generation",
+  "model": "default",
+  "seed": 42,
+  "content": "**Gráfico generado exitosamente.**\n\n**Ruta:** `C:\\Users\\angel\\Documents\\Codex\\shinobii-auditoria-20260912\\artifacts\\charts\\cierre-por-departamento-mtykt824.svg`\n\nEl gráfico de barras muestra el cierre por departamento con los siguientes valores:\n- **Seguridad**: 100%\n- **Core**: 91.67%\n- **Web**: 87.5%\n- **Documentos**: 66.67%\n- **Canales**: 55.56%",
+  "tool_calls": [
+    "data_agent_run",
+    "generate_chart"
+  ],
+  "latency_ms": 7366,
+  "usage": null,
+  "signature": "549a778ca3a40df26868d50e968a58862f78504064551e1e701942f54cc1d8d9",
+  "iterations": 3,
+  "loop_aborts": 0,
+  "self_corrected": null,
+  "ok": true,
+  "error": null,
+  "provenance": {
+    "version": 1,
+    "taskId": "audit-chart-generation",
+    "prompt": "Genera un grafico de barras usando la herramienta adecuada. Titulo: Cierre por departamento. Datos: Core 91.67, Web 87.5, Canales 55.56, Seguridad 100, Documentos 66.67. Devuelve la ruta generada. No uses markdown como sustituto.",
+    "finalText": "**Gráfico generado exitosamente.**\n\n**Ruta:** `C:\\Users\\angel\\Documents\\Codex\\shinobii-auditoria-20260912\\artifacts\\charts\\cierre-por-departamento-mtykt824.svg`\n\nEl gráfico de barras muestra el cierre por departamento con los siguientes valores:\n- **Seguridad**: 100%\n- **Core**: 91.67%\n- **Web**: 87.5%\n- **Documentos**: 66.67%\n- **Canales**: 55.56%",
+    "audit": {
+      "events": 3,
+      "toolCalls": 2,
+      "successes": 1,
+      "failures": 1,
+      "loopAborts": 0
+    },
+    "auditLog": "{\"kind\":\"failover\",\"ts\":\"2026-09-12T16:05:00.566Z\",\"from\":\"z-ai/glm-4.7-flash\",\"to\":\"gpt-4o-mini\",\"reason\":\"OPENROUTER_API_KEY no definida — fallback a OpenAI directo\",\"prevHash\":\"SHINOBI_AUDIT_GENESIS_v1\",\"chainHash\":\"74390dc2eae41565bb46158ae942ad9438171091b0b5f7891fdf356d14e90ff4\"}\n{\"kind\":\"tool_call\",\"ts\":\"2026-09-12T16:05:01.078Z\",\"tool\":\"data_agent_run\",\"argsHash\":\"613d694e48c0f87f2940c5f9fe8886163acd0c546ba4115a750e980734cb9dbb\",\"argsPreview\":\"{\\\"title\\\":\\\"Cierre por departamento\\\",\\\"dataset\\\":\\\"Core 91.67, Web 87.5, Canales 55.56, Seguridad 100, Documentos 66.67\\\",\\\"goal\\\":\\\"Crear un gráfico de barras mostrando el porcentaje de cierre por cada depart…[+8]\",\"success\":false,\"durationMs\":512,\"sessionId\":\"bench:audit-chart-generation\",\"error\":\"data_agent_run failed: Request failed with status code 401\\n[HINT 95%]: API key inválida, expirada o no configurada. → Revisa tu .env. Vars típicas: ANTHROPIC_API_KEY, OPENAI_API_KEY.\",\"prevHash\":\"74390dc2eae41565bb46158ae942ad9438171091b0b5f7891fdf356d14e90ff4\",\"chainHash\":\"eb2bf496721b7372b7f0d280fca59ba53e5f12d52b2ccf6ce955c3526c1667cf\"}\n{\"kind\":\"tool_call\",\"ts\":\"2026-09-12T16:05:03.631Z\",\"tool\":\"generate_chart\",\"argsHash\":\"fbd1479e7734795931766313e76602752b19c17add4a44b60fec692ab9f330a5\",\"argsPreview\":\"{\\\"type\\\":\\\"bar\\\",\\\"title\\\":\\\"Cierre por departamento\\\",\\\"data\\\":[{\\\"label\\\":\\\"Core\\\",\\\"value\\\":91.67},{\\\"label\\\":\\\"Web\\\",\\\"value\\\":87.5},{\\\"label\\\":\\\"Canales\\\",\\\"value\\\":55.56},{\\\"label\\\":\\\"Seguridad\\\",\\\"value\\\":100},{\\\"label\\\":\\\"Docume…[+59]\",\"success\":true,\"durationMs\":4,\"sessionId\":\"bench:audit-chart-generation\",\"prevHash\":\"eb2bf496721b7372b7f0d280fca59ba53e5f12d52b2ccf6ce955c3526c1667cf\",\"chainHash\":\"bdd26f759d51b67feba5e337ba54442d1ff9abac8f07750d59e5f34d8d8c7af4\"}\n",
+    "contentHash": "ad4f919a6455cb4dc9f065b657da785bcdf708ac3776150b271ea623c6f91113",
+    "signature": "549a778ca3a40df26868d50e968a58862f78504064551e1e701942f54cc1d8d9",
+    "signedAt": "2026-09-12T16:05:05.576Z"
+  }
+}

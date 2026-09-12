@@ -1,0 +1,34 @@
+{
+  "task_id": "audit-chart-output-dir-fix",
+  "model": "default",
+  "seed": 42,
+  "content": "Gráfico generado exitosamente.\n\n**Ruta:** `C:\\Users\\angel\\Documents\\Codex\\shinobii-auditoria-20260912\\_auditoria\\misiones_reales_2026-09-12\\m6_chart_output_fix\\outputs\\output-dir-test-mtyky0cc.svg`",
+  "tool_calls": [
+    "generate_chart"
+  ],
+  "latency_ms": 3829,
+  "usage": null,
+  "signature": "6da30ce296edc2f76da95a450df6b5307bdd60a9bd962ed9499631f6346fb840",
+  "iterations": 2,
+  "loop_aborts": 0,
+  "self_corrected": null,
+  "ok": true,
+  "error": null,
+  "provenance": {
+    "version": 1,
+    "taskId": "audit-chart-output-dir-fix",
+    "prompt": "Genera un grafico de barras usando la herramienta generate_chart. Titulo: Output Dir Test. Datos: A 1, B 2, C 3. Devuelve la ruta generada. No escribas markdown como sustituto.",
+    "finalText": "Gráfico generado exitosamente.\n\n**Ruta:** `C:\\Users\\angel\\Documents\\Codex\\shinobii-auditoria-20260912\\_auditoria\\misiones_reales_2026-09-12\\m6_chart_output_fix\\outputs\\output-dir-test-mtyky0cc.svg`",
+    "audit": {
+      "events": 1,
+      "toolCalls": 1,
+      "successes": 1,
+      "failures": 0,
+      "loopAborts": 0
+    },
+    "auditLog": "{\"kind\":\"tool_call\",\"ts\":\"2026-09-12T16:08:46.911Z\",\"tool\":\"generate_chart\",\"argsHash\":\"fb3937c9f3d03ab9c3f1095abd3efef3850d551df176caeb0f3a6a5556b58fba\",\"argsPreview\":\"{\\\"type\\\":\\\"bar\\\",\\\"title\\\":\\\"Output Dir Test\\\",\\\"data\\\":[{\\\"label\\\":\\\"A\\\",\\\"value\\\":1},{\\\"label\\\":\\\"B\\\",\\\"value\\\":2},{\\\"label\\\":\\\"C\\\",\\\"value\\\":3}]}\",\"success\":true,\"durationMs\":4,\"sessionId\":\"bench:audit-chart-output-dir-fix\",\"prevHash\":\"SHINOBI_AUDIT_GENESIS_v1\",\"chainHash\":\"b7139d7c5241f60138049f3c02b4b3258649834b6a3fc2d2e137401ac20ac6f7\"}\n",
+    "contentHash": "69176461f1b4ae23e24fd7f444ea0899b8f117d0c9c257db36de55b13fa3962f",
+    "signature": "6da30ce296edc2f76da95a450df6b5307bdd60a9bd962ed9499631f6346fb840",
+    "signedAt": "2026-09-12T16:08:48.654Z"
+  }
+}

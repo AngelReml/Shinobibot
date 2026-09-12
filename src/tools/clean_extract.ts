@@ -83,6 +83,7 @@ const cleanExtractTool: Tool = {
         // pile up in the user's browser. Long-running flows (web_search) keep
         // their pages alive on purpose; this tool is a one-shot extract.
         try { await page.close(); } catch { /* ignore */ }
+        try { await browser.close(); } catch { /* ignore */ }
       }
     } catch (err: any) {
       return { success: false, output: '', error: `clean_extract error: ${err.message}` };

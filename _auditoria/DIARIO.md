@@ -28,3 +28,9 @@
 - Auditoria final de produccion: 13 vulnerabilidades, 9 moderadas y 4 altas, 0 criticas. Quedan asociadas a `@huggingface/transformers`, `@nut-tree-fork/nut-js`/Jimp y `exceljs`/uuid sin fix directo seguro.
 - Verificacion final despues de la remediacion de dependencias: `typecheck` correcto; sandbox/spawn_agent correctos; bateria completa con 247 suites, 2312 tests correctos y 3 omitidos.
 - Smoke web final con perfil normal: `/`, `/api/status`, `/api/providers` y `/api/models` respondieron HTTP 200. El servidor de prueba se detuvo y se retiro el lockfile.
+- Auditoria de producto real con coste LLM: ping OpenRouter correcto; misiones de escritura, datos, web, memoria aislada, Excel, chart y modo verified ejecutadas con evidencias en `_auditoria/misiones_reales_2026-09-12`.
+- Fallo real detectado: `run_one` no podia auditar escritura en workdir aislado porque el gate headless denegaba `write_file` sin asker. Se anadio `--ungated` como modo explicito de auditoria; el modo por defecto sigue protegido.
+- Fallo real detectado: `clean_extract` dejaba la conexion CDP abierta y el runner no terminaba. Se cierra `browser.close()` al finalizar y la mision web posterior termina sola.
+- Fallo real detectado: `reader/llm_adapter` ignoraba `SHINOBI_PROVIDER_KEY` y caia a OpenAI directo aunque OpenRouter estuviera configurado en onboarding. Se alineo con `provider_router` y se anadio test de regresion.
+- Fallo real detectado: `generate_chart` ignoraba `SHINOBI_OUTPUT_DIR` y escribia en `artifacts/charts`. Se pasa el output dir al renderizador y la repeticion genero dentro del directorio aislado.
+- Verificacion posterior: `typecheck` correcto, tests enfocados correctos, auditoria npm de produccion 13 hallazgos/0 criticos, frontend headless renderiza titulo `Shinobi`, y bateria completa final con 247 suites, 2313 tests correctos y 3 omitidos.

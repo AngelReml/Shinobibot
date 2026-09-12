@@ -1,0 +1,34 @@
+{
+  "task_id": "audit-memory-isolated",
+  "model": "default",
+  "seed": 42,
+  "content": "✅ **Éxito confirmado.** La herramienta `memory` reportó:\n- **success: true**\n- El hecho fue guardado correctamente: *\"La auditoria aislada de Shinobii valida memoria sin tocar el perfil real.\"*\n\nEl hecho declarativo está ahora en memoria persistente (MEMORY.md) y será inyectado en futuras conversaciones.",
+  "tool_calls": [
+    "memory"
+  ],
+  "latency_ms": 8423,
+  "usage": null,
+  "signature": "3b7c6d7178499fd435e3be43b86b7d461bdc8e614893578ba583fdac9cd662cc",
+  "iterations": 2,
+  "loop_aborts": 0,
+  "self_corrected": null,
+  "ok": true,
+  "error": null,
+  "provenance": {
+    "version": 1,
+    "taskId": "audit-memory-isolated",
+    "prompt": "Usa la herramienta de memoria para guardar este hecho declarativo exacto: \"La auditoria aislada de Shinobii valida memoria sin tocar el perfil real.\" Despues confirma si la herramienta reporto exito. No escribas archivos manualmente.",
+    "finalText": "✅ **Éxito confirmado.** La herramienta `memory` reportó:\n- **success: true**\n- El hecho fue guardado correctamente: *\"La auditoria aislada de Shinobii valida memoria sin tocar el perfil real.\"*\n\nEl hecho declarativo está ahora en memoria persistente (MEMORY.md) y será inyectado en futuras conversaciones.",
+    "audit": {
+      "events": 1,
+      "toolCalls": 1,
+      "successes": 1,
+      "failures": 0,
+      "loopAborts": 0
+    },
+    "auditLog": "{\"kind\":\"tool_call\",\"ts\":\"2026-09-12T16:03:30.247Z\",\"tool\":\"memory\",\"argsHash\":\"7bc3deb1c735a1715609702944c09cec16251f005ea93d15ae6ba1a24e1f461d\",\"argsPreview\":\"{\\\"content\\\":\\\"La auditoria aislada de Shinobii valida memoria sin tocar el perfil real.\\\"}\",\"success\":true,\"durationMs\":4018,\"sessionId\":\"bench:audit-memory-isolated\",\"prevHash\":\"SHINOBI_AUDIT_GENESIS_v1\",\"chainHash\":\"6595dbe06acd8526d1d759ca4963cfbd8b398f4d7efd474431e2614161464959\"}\n",
+    "contentHash": "f9393a68f941565b667593a4db4e347a2bd334efb9c69176f60fb4d43be073fd",
+    "signature": "3b7c6d7178499fd435e3be43b86b7d461bdc8e614893578ba583fdac9cd662cc",
+    "signedAt": "2026-09-12T16:03:32.747Z"
+  }
+}

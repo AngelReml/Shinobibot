@@ -7,11 +7,12 @@ Repositorio: `AngelReml/Shinobibot`
 
 ## Resultado ejecutivo
 
-- La bateria completa queda verde: **247 ficheros, 2312 tests correctos y 3 omitidos**.
+- La bateria completa queda verde: **247 ficheros, 2313 tests correctos y 3 omitidos**.
 - `typecheck` queda correcto.
 - Se corrigio un fallo de arranque real en el guard de egress: `dns.lookup(..., { all: true })` devolvia una lista y el codigo trataba esa lista como una IP.
 - La prueba web arranca con la ruta de datos normal de esta maquina y `GET /` devuelve `HTTP 200`.
 - La auditoria de dependencias de produccion queda en **13 vulnerabilidades: 9 moderadas y 4 altas, sin criticas**. Las restantes dependen de paquetes sin fix directo seguro publicado.
+- Se ejecuto una auditoria de producto con misiones reales y coste LLM: escritura/lectura, analisis de CSV, extraccion web, memoria aislada, Excel, graficos, modo verificado y frontend.
 - No se hizo push ni se modifico ningun remoto.
 
 ## Cambios realizados
@@ -29,13 +30,18 @@ Repositorio: `AngelReml/Shinobibot`
    - Migra de `@e2b/sdk` deprecado a `e2b@2.49.1`.
    - Actualiza el adaptador E2B a `sandbox.commands.run(...)` manteniendo fallback legacy.
    - Fija overrides saneados para `body-parser`, `brace-expansion`, `nanoid`, `protobufjs`, `qs` y `tmp`.
+5. `scripts/run_one.ts`, `src/tools/clean_extract.ts`, `src/reader/llm_adapter.ts`, `src/providers/registry.ts` y `src/tools/generate_chart.ts`
+   - Permite auditorias aisladas con `--ungated` sin cambiar la seguridad por defecto.
+   - Cierra la conexion CDP de `clean_extract` para que las misiones web no queden colgadas.
+   - Alinea OpenRouter para aceptar `SHINOBI_PROVIDER_KEY` en el adapter de lector/especialistas.
+   - Hace que `generate_chart` respete `SHINOBI_OUTPUT_DIR`.
 
 ## Pruebas ejecutadas
 
 ### Regresion y calidad
 
 - `npm run typecheck`: correcto.
-- `npm run test`: **247/247 suites correctas; 2312 correctos; 3 omitidos**.
+- `npm run test`: **247/247 suites correctas; 2313 correctos; 3 omitidos**.
 - Suites de seguridad y aislamiento: **35 suites; 378 correctos; 2 omitidos**.
 - Suites de agentes, coordinacion, proveedores, memoria y persistencia: **54 suites; 469 correctos** con el perfil de datos del proceso aislado.
 - Suites de egress despues del arreglo: **4 suites; 32 correctos**.
@@ -75,6 +81,10 @@ Permanecen estos bloques porque npm no ofrece fix directo compatible:
 ## Prueba real de proveedor
 
 La prueba real con la clave provisional de OpenRouter fue correcta: validacion HTTP 200 y una respuesta de Shinobii desde `deepseek/deepseek-v4-flash-0731`, con 113 tokens totales. La clave solo vivio en el entorno temporal del proceso y no se persistio en el repositorio. Se intento listar las claves para revocarla, pero OpenRouter devolvio HTTP 401 porque la credencial no tiene permisos de management; la revocacion debe hacerse desde el panel de OpenRouter o con una management key.
+
+## Auditoria de producto real
+
+La fase adicional de auditoria con misiones reales queda documentada en `AUDITORIA-PRODUCTO-REAL-2026-09-12.md`. Se consumio proveedor real configurado en la maquina y se conservaron evidencias JSON/audit por mision bajo `_auditoria/misiones_reales_2026-09-12`.
 
 ## API local comprobada
 

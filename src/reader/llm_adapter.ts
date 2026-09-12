@@ -1,5 +1,6 @@
 // Habilidad A — adapter from existing LLMGateway to the LLMClient shape RepoReader expects.
-// Routes through OpenRouter when OPENROUTER_API_KEY is set, otherwise falls back to OpenAI direct.
+// Routes through OpenRouter when OPENROUTER_API_KEY or SHINOBI_PROVIDER_KEY is set,
+// otherwise falls back to OpenAI direct.
 //
 // F4.4 (2026-07-01): the OPENAI_FALLBACK path used to substitute gpt-4o for
 // whatever Claude model the caller asked for, SILENTLY, whenever
@@ -7,7 +8,7 @@
 // to the caller. A caller believing it got claude-sonnet-4-6 output could
 // actually have gotten gpt-4o output with no way to tell. Fixed by: (1) every
 // fallback is logged via audit.logFailover ("solicitado X, servido Y por
-// falta de OPENROUTER_API_KEY") — auditable, not silent; (2) if the fallback
+// falta de OpenRouter key") — auditable, not silent; (2) if the fallback
 // provider ALSO has no usable key (no OPENAI_API_KEY), we fail loud instead
 // of sending a request that will either 401 opaquely or (worse, if some
 // proxy accepts keyless calls) run against a provider nobody asked for.
@@ -29,7 +30,7 @@ const OPENROUTER_ALIAS: Record<string, string> = {
   'claude-haiku-4-5':  'anthropic/claude-haiku-4-5',
 };
 
-// Fallback when OPENROUTER_API_KEY is not set: route to OpenAI directly using
+// Fallback when no OpenRouter key is set: route to OpenAI directly using
 // approximate equivalents so logical names still resolve to a real model id
 // rather than producing a 404. F4.4: this substitution is now ALWAYS logged
 // (see logModelSubstitution below) — never applied in silence.
@@ -44,7 +45,7 @@ export interface MakeLLMClientOptions {
   /** Default temperature for every call. F1 uses 0 for stability. Undefined = provider default. */
   temperature?: number;
   /** F4.4 — if true, throw instead of silently proceeding when neither
-   *  OPENROUTER_API_KEY nor OPENAI_API_KEY is set (no way to reach the real
+   *  OpenRouter key nor OPENAI_API_KEY is set (no way to reach the real
    *  provider). Default true: fail loud is the safe default for this adapter. */
   failLoudOnMissingKeys?: boolean;
 }
@@ -53,7 +54,7 @@ export class NoLLMProviderKeyError extends Error {
   constructor(requestedModel: string) {
     super(
       `reader/llm_adapter: no se puede servir el modelo solicitado "${requestedModel}" — ` +
-      `faltan OPENROUTER_API_KEY y OPENAI_API_KEY. Ninguna sustitución silenciosa: define una de las dos.`,
+      `faltan OPENROUTER_API_KEY/SHINOBI_PROVIDER_KEY y OPENAI_API_KEY. Ninguna sustitución silenciosa: define una de ellas.`,
     );
     this.name = 'NoLLMProviderKeyError';
   }
@@ -75,7 +76,7 @@ function logModelSubstitution(requested: string, served: string, reason: string)
 
 export function makeLLMClient(defaults: MakeLLMClientOptions = {}): LLMClient {
   const gateway = new LLMGateway();
-  const orKey = process.env.OPENROUTER_API_KEY;
+  const orKey = process.env.OPENROUTER_API_KEY || process.env.SHINOBI_PROVIDER_KEY;
   const failLoud = defaults.failLoudOnMissingKeys ?? true;
   return {
     async chat(messages, opts) {
@@ -92,13 +93,13 @@ export function makeLLMClient(defaults: MakeLLMClientOptions = {}): LLMClient {
         });
       }
 
-      // No OPENROUTER_API_KEY → falling back to OpenAI direct.
+      // No OpenRouter key → falling back to OpenAI direct.
       const oaKey = process.env.OPENAI_API_KEY;
       if (!oaKey && failLoud) {
         throw new NoLLMProviderKeyError(logical);
       }
       const model = OPENAI_FALLBACK[logical] ?? logical;
-      logModelSubstitution(logical, model, 'OPENROUTER_API_KEY no definida — fallback a OpenAI directo');
+      logModelSubstitution(logical, model, 'OpenRouter key no definida — fallback a OpenAI directo');
       return gateway.chat(messages as any, { provider: 'openai', model, temperature });
     },
   };

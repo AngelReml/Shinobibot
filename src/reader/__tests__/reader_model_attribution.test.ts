@@ -22,6 +22,7 @@ beforeEach(() => {
   process.env.SHINOBI_AUDIT_LOG_PATH = tmpLogPath;
   delete process.env.SHINOBI_AUDIT_DISABLED;
   delete process.env.OPENROUTER_API_KEY;
+  delete process.env.SHINOBI_PROVIDER_KEY;
   delete process.env.OPENAI_API_KEY;
 });
 
@@ -71,7 +72,7 @@ describe('F4.4 — no silent model downgrade', () => {
     expect(failoverEvents.length).toBeGreaterThanOrEqual(1);
     expect(failoverEvents[0].from).toBe('claude-sonnet-4-6');
     expect(failoverEvents[0].to).toBe('gpt-4o');
-    expect(String(failoverEvents[0].reason)).toMatch(/OPENROUTER_API_KEY/i);
+    expect(String(failoverEvents[0].reason)).toMatch(/OpenRouter key/i);
   });
 
   it('failLoudOnMissingKeys:false opts out of the throw but the substitution is still audited', async () => {
@@ -99,6 +100,23 @@ describe('F4.4 — no silent model downgrade', () => {
 
     const callArgs = chatSpy.mock.calls[0][1] as any;
     expect(callArgs.model).toBe('anthropic/claude-sonnet-4-6');
+    expect(callArgs.baseUrl).toMatch(/openrouter/);
+
+    const events = readAuditEvents();
+    expect(events.filter((e) => e.kind === 'failover').length).toBe(0);
+  });
+
+  it('with SHINOBI_PROVIDER_KEY set, uses OpenRouter without OpenAI fallback', async () => {
+    process.env.SHINOBI_PROVIDER_KEY = 'sk-or-fake-provider-key';
+    const gatewayModule = await import('../../gateway/llm.js');
+    const chatSpy = vi.spyOn(gatewayModule.LLMGateway.prototype, 'chat').mockResolvedValue('stub response');
+
+    const client = makeLLMClient();
+    await client.chat([{ role: 'user', content: 'hi' }], { model: 'z-ai/glm-4.7-flash' });
+
+    const callArgs = chatSpy.mock.calls[0][1] as any;
+    expect(callArgs.model).toBe('z-ai/glm-4.7-flash');
+    expect(callArgs.apiKey).toBe('sk-or-fake-provider-key');
     expect(callArgs.baseUrl).toMatch(/openrouter/);
 
     const events = readAuditEvents();

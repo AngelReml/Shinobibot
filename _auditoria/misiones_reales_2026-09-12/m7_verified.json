@@ -1,0 +1,32 @@
+{
+  "task_id": "audit-verified-reasoning",
+  "model": "default",
+  "seed": 42,
+  "content": "El porcentaje de cierre es: (37 / 45) × 100 = 82.22%",
+  "tool_calls": [],
+  "latency_ms": 4495,
+  "usage": null,
+  "signature": "8ad4c5483e34f3e39ceaa7348c56b0da90fafe4ee93913fc4ad5d3eef5070931",
+  "iterations": 1,
+  "loop_aborts": 0,
+  "self_corrected": false,
+  "ok": true,
+  "error": null,
+  "provenance": {
+    "version": 1,
+    "taskId": "audit-verified-reasoning",
+    "prompt": "Resuelve este control de calidad en una frase: si hay 45 tareas y 37 cerradas, cual es el porcentaje de cierre redondeado a dos decimales? No uses herramientas.",
+    "finalText": "El porcentaje de cierre es: (37 / 45) × 100 = 82.22%",
+    "audit": {
+      "events": 0,
+      "toolCalls": 0,
+      "successes": 0,
+      "failures": 0,
+      "loopAborts": 0
+    },
+    "auditLog": "",
+    "contentHash": "0c58dbac6842b53153cf57b8d314af6916584f6f81c8ddfc81d1fff5bfcacb7b",
+    "signature": "8ad4c5483e34f3e39ceaa7348c56b0da90fafe4ee93913fc4ad5d3eef5070931",
+    "signedAt": "2026-09-12T16:10:06.760Z"
+  }
+}

@@ -6,7 +6,7 @@
 // --out (no a stdout, que shinobi llena de logs).
 //
 //   tsx scripts/run_one.ts --prompt "..." --out result.json [--workdir DIR]
-//                          [--task-id ID] [--verified] [--seed 42] [--model M]
+//                          [--task-id ID] [--verified] [--ungated] [--seed 42] [--model M]
 //
 // Forma de salida (compatible con run_inference de un adaptador de benchmark):
 //   { task_id, model, seed, content, tool_calls, latency_ms, usage,
@@ -48,7 +48,7 @@ async function main() {
   const workdir = arg('workdir') || fs.mkdtempSync(path.join(os.tmpdir(), 'shinobi-run-'));
   fs.mkdirSync(workdir, { recursive: true });
 
-  const adapter = new ShinobiAdapter({ verified: has('verified') });
+  const adapter = new ShinobiAdapter({ verified: has('verified'), gated: !has('ungated') });
   const task: BenchTask = { id: taskId, category: 'autonomy', prompt: prompt!, check: async () => ({ pass: true, detail: '' }) };
   const ctx: TaskContext = { workdir, task };
 

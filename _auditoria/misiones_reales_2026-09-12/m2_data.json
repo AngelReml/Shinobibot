@@ -1,0 +1,36 @@
+{
+  "task_id": "audit-data-summary",
+  "model": "default",
+  "seed": 42,
+  "content": "✅ **Tarea completada.**\n\n**Resumen:**\n- Leí pipeline.csv con 5 departamentos\n- Calculé: **45 tareas totales**, **37 cerradas**, **82.22% de cierre global**\n- Identifiqué **3 departamentos con riesgo**: canales (alto), web (medio), documentos (medio)\n- Creé resumen_pipeline.md con todos los cálculos y detalles por departamento\n- Confirmé la lectura del archivo generado\n\nEl departamento **canales** requiere atención (riesgo alto, solo 55.56% de cierre).",
+  "tool_calls": [
+    "read_file",
+    "write_file",
+    "read_file"
+  ],
+  "latency_ms": 10837,
+  "usage": null,
+  "signature": "21bd635438bddb0cdcec561a8634102b51c582822bd005da929930e84742d17f",
+  "iterations": 4,
+  "loop_aborts": 0,
+  "self_corrected": null,
+  "ok": true,
+  "error": null,
+  "provenance": {
+    "version": 1,
+    "taskId": "audit-data-summary",
+    "prompt": "Lee pipeline.csv en el directorio actual. Calcula total de tareas, total cerradas, porcentaje global de cierre y departamentos con riesgo alto o medio. Escribe resumen_pipeline.md con los calculos y luego lee el archivo para confirmar. No inventes datos.",
+    "finalText": "✅ **Tarea completada.**\n\n**Resumen:**\n- Leí pipeline.csv con 5 departamentos\n- Calculé: **45 tareas totales**, **37 cerradas**, **82.22% de cierre global**\n- Identifiqué **3 departamentos con riesgo**: canales (alto), web (medio), documentos (medio)\n- Creé resumen_pipeline.md con todos los cálculos y detalles por departamento\n- Confirmé la lectura del archivo generado\n\nEl departamento **canales** requiere atención (riesgo alto, solo 55.56% de cierre).",
+    "audit": {
+      "events": 3,
+      "toolCalls": 3,
+      "successes": 3,
+      "failures": 0,
+      "loopAborts": 0
+    },
+    "auditLog": "{\"kind\":\"tool_call\",\"ts\":\"2026-09-12T15:58:34.905Z\",\"tool\":\"read_file\",\"argsHash\":\"818d4e1464a1484be94993417f8ce439859f790467be4bc4426b273b2a8daa44\",\"argsPreview\":\"{\\\"path\\\":\\\"pipeline.csv\\\"}\",\"success\":true,\"durationMs\":3,\"sessionId\":\"bench:audit-data-summary\",\"prevHash\":\"SHINOBI_AUDIT_GENESIS_v1\",\"chainHash\":\"393c73b18b7034d377ee7367a6dfbe868132f0281c1d692128538de148911ebe\"}\n{\"kind\":\"tool_call\",\"ts\":\"2026-09-12T15:58:39.064Z\",\"tool\":\"write_file\",\"argsHash\":\"1248a1610ff14259074e06c6608472f4e3aafad3a5cf64b7c46d62e87c9dfd1d\",\"argsPreview\":\"{\\\"path\\\":\\\"resumen_pipeline.md\\\",\\\"content\\\":\\\"# Resumen del Pipeline\\\\n\\\\n## Métricas Globales\\\\n\\\\n- **Total de tareas**: 45\\\\n- **Total de tareas cerradas**: 37\\\\n- **Porcentaje global de cierre**: 82.22%\\\\n\\\\n#…[+622]\",\"success\":true,\"durationMs\":8,\"sessionId\":\"bench:audit-data-summary\",\"prevHash\":\"393c73b18b7034d377ee7367a6dfbe868132f0281c1d692128538de148911ebe\",\"chainHash\":\"ec2840d1cad8b81674df3226271af4df69fe878388cb91a167b94d8af47b3ffb\"}\n{\"kind\":\"tool_call\",\"ts\":\"2026-09-12T15:58:40.856Z\",\"tool\":\"read_file\",\"argsHash\":\"26827c38af57c65e10062f61f795a5f9511d4dc5f5fc3bfea5f2ff7565e50005\",\"argsPreview\":\"{\\\"path\\\":\\\"resumen_pipeline.md\\\"}\",\"success\":true,\"durationMs\":2,\"sessionId\":\"bench:audit-data-summary\",\"prevHash\":\"ec2840d1cad8b81674df3226271af4df69fe878388cb91a167b94d8af47b3ffb\",\"chainHash\":\"3ad65c556c5d95c68d8cae91441df3c27fbaab93fdf5257de66488e5e9254b82\"}\n",
+    "contentHash": "54b6317250da53988e6c98c86939689e642711f52b3d0dc26bf5620758bb1f1a",
+    "signature": "21bd635438bddb0cdcec561a8634102b51c582822bd005da929930e84742d17f",
+    "signedAt": "2026-09-12T15:58:43.411Z"
+  }
+}
