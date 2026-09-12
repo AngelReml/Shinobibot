@@ -22,3 +22,9 @@
 - Tras liberar 39.26 GB, se reconstruyeron 1206 paquetes y se repitio la bateria completa con perfil temporal: 247 suites correctas, 2309 tests correctos y 3 omitidos.
 - Se calculo y verifico el checksum de `skills/approved/kage-browser-operator.skill.md`; la skill deja de cargar como legacy sin integridad.
 - La actualizacion automatica de dependencias se dejo sin aplicar por conflicto de peer y saltos mayores no seguros.
+- Se migro E2B del paquete deprecado `@e2b/sdk` al paquete mantenido `e2b@2.49.1`.
+- Se adapto el backend E2B a la API moderna `sandbox.commands.run(...)`, manteniendo fallback para instalaciones legacy.
+- Se fijaron overrides de seguridad para `body-parser@1.20.8`, `brace-expansion@2.1.4`, `nanoid@5.1.16`, `protobufjs@7.6.5`, `qs@6.16.0` y `tmp@0.2.7`.
+- Auditoria final de produccion: 13 vulnerabilidades, 9 moderadas y 4 altas, 0 criticas. Quedan asociadas a `@huggingface/transformers`, `@nut-tree-fork/nut-js`/Jimp y `exceljs`/uuid sin fix directo seguro.
+- Verificacion final despues de la remediacion de dependencias: `typecheck` correcto; sandbox/spawn_agent correctos; bateria completa con 247 suites, 2312 tests correctos y 3 omitidos.
+- Smoke web final con perfil normal: `/`, `/api/status`, `/api/providers` y `/api/models` respondieron HTTP 200. El servidor de prueba se detuvo y se retiro el lockfile.

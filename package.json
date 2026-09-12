@@ -35,7 +35,6 @@
   "keywords": [],
   "author": "AngelReml",
   "dependencies": {
-    "@e2b/sdk": "^0.8.6",
     "@huggingface/transformers": "^4.2.0",
     "@nut-tree-fork/nut-js": "4.2.6",
     "axios": "1.20.0",
@@ -46,6 +45,7 @@
     "express": "^4.22.1",
     "grammy": "^1.42.0",
     "isolated-vm": "6.1.2",
+    "e2b": "2.49.1",
     "openai": "^6.34.0",
     "playwright": "1.59.1",
     "ws": "8.21.3"
@@ -66,5 +66,13 @@
     "tsx": "^4.21.0",
     "typescript": "^5.0.0",
     "vitest": "^4.1.6"
+  },
+  "overrides": {
+    "body-parser": "1.20.8",
+    "brace-expansion": "2.1.4",
+    "nanoid": "5.1.16",
+    "protobufjs": "7.6.5",
+    "qs": "6.16.0",
+    "tmp": "0.2.7"
   }
 }
