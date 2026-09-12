@@ -1,12 +1,15 @@
 ---
 name: kage-browser-operator
-description: Operar un sitio web real (navegar, rellenar formularios, login, extraer, clicar) con el subsistema Kage observe→act→verify.
+description: "Operar un sitio web real (navegar, rellenar formularios, login, extraer, clicar) con el subsistema Kage observe→act→verify."
 trigger_keywords: [navegador, browser, web, navega, abre la pagina, abre la web, inicia sesion, login, formulario, rellena, clic, click, pestaña, sitio web, pagina web, entra en, busca en]
 model_recommended: anthropic/claude-sonnet-4.6
 created_at: "2026-06-06T00:00:00.000Z"
 status: approved
 source: manual
 source_kind: manual
+signature_hash: e5e91e7b557e72427a276abaf5fb39db74234e9e52be264aa519e0a022f846d6
+signed_at: "2026-09-12T14:51:08.330Z"
+signed_by: user
 ---
 
 # Kage — operador de navegador

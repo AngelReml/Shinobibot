@@ -103,10 +103,12 @@ export function installEgressRuntimeGuard(): void {
       cb(new EgressBlockedError(hostname, '(mandate)', `Egress bloqueado: '${hostname}' fuera del mandato de red de la misión.`));
       return;
     }
-    return (originalLookup as any).call(dns, hostname, opts, (err: any, address: string, family: number) => {
-      if (!err && address && isPrivateOrReservedIp(address)) {
-        auditBlock(hostname, address);
-        cb(new EgressBlockedError(hostname, address));
+    return (originalLookup as any).call(dns, hostname, opts, (err: any, address: string | Array<{ address: string; family: number }>, family: number) => {
+      const addresses = Array.isArray(address) ? address.map((entry) => entry.address) : [address];
+      const blocked = addresses.find((candidate) => candidate && isPrivateOrReservedIp(candidate));
+      if (!err && blocked) {
+        auditBlock(hostname, blocked);
+        cb(new EgressBlockedError(hostname, blocked));
         return;
       }
       cb(err, address, family);
