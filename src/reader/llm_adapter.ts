@@ -1,5 +1,6 @@
 // Habilidad A — adapter from existing LLMGateway to the LLMClient shape RepoReader expects.
-// Routes through OpenRouter when OPENROUTER_API_KEY is set, otherwise falls back to OpenAI direct.
+// Routes through OpenRouter when OPENROUTER_API_KEY or SHINOBI_PROVIDER_KEY is
+// set, otherwise falls back to OpenAI direct.
 //
 // F4.4 (2026-07-01): the OPENAI_FALLBACK path used to substitute gpt-4o for
 // whatever Claude model the caller asked for, SILENTLY, whenever
@@ -53,7 +54,8 @@ export class NoLLMProviderKeyError extends Error {
   constructor(requestedModel: string) {
     super(
       `reader/llm_adapter: no se puede servir el modelo solicitado "${requestedModel}" — ` +
-      `faltan OPENROUTER_API_KEY y OPENAI_API_KEY. Ninguna sustitución silenciosa: define una de las dos.`,
+      `faltan OPENROUTER_API_KEY/SHINOBI_PROVIDER_KEY y OPENAI_API_KEY. ` +
+      `Ninguna sustitución silenciosa: define una de ellas.`,
     );
     this.name = 'NoLLMProviderKeyError';
   }
@@ -75,7 +77,7 @@ function logModelSubstitution(requested: string, served: string, reason: string)
 
 export function makeLLMClient(defaults: MakeLLMClientOptions = {}): LLMClient {
   const gateway = new LLMGateway();
-  const orKey = process.env.OPENROUTER_API_KEY;
+  const orKey = process.env.OPENROUTER_API_KEY || process.env.SHINOBI_PROVIDER_KEY;
   const failLoud = defaults.failLoudOnMissingKeys ?? true;
   return {
     async chat(messages, opts) {
@@ -92,13 +94,13 @@ export function makeLLMClient(defaults: MakeLLMClientOptions = {}): LLMClient {
         });
       }
 
-      // No OPENROUTER_API_KEY → falling back to OpenAI direct.
+      // No OpenRouter-compatible key → falling back to OpenAI direct.
       const oaKey = process.env.OPENAI_API_KEY;
       if (!oaKey && failLoud) {
         throw new NoLLMProviderKeyError(logical);
       }
       const model = OPENAI_FALLBACK[logical] ?? logical;
-      logModelSubstitution(logical, model, 'OPENROUTER_API_KEY no definida — fallback a OpenAI directo');
+      logModelSubstitution(logical, model, 'OpenRouter key no definida — fallback a OpenAI directo');
       return gateway.chat(messages as any, { provider: 'openai', model, temperature });
     },
   };

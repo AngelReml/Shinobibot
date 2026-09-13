@@ -51,7 +51,7 @@ const generateChartTool: Tool = {
         yLabel: args.y_label,
         data: args.data,
       };
-      const r = writeChart(spec);
+      const r = writeChart(spec, process.env.SHINOBI_OUTPUT_DIR);
       return {
         success: true,
         output: `Chart generated: ${r.path} (${r.type}, ${r.bytes} bytes). Opens in any browser.`,

@@ -7,7 +7,8 @@
  *   - on       : every write/exec tool requires user confirmation. Read-only passes.
  *   - smart    : solo la clase crítica (credenciales, secretos, login, pago, cloud).
  *   - critical : idéntico a 'smart' en implementación actual — alias semántico.
- *   - off      : no checks at all. Path prohibition list bypassed too.
+ *   - off      : no human approval prompts. Hard path validation still lives in
+ *                src/utils/permissions.ts and is not bypassed here.
  *
  * Default: 'critical' (lee config.json; si no hay entrada, devuelve 'critical').
  * Config persisted under approval_mode in %APPDATA%\Shinobi\config.json.

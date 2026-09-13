@@ -36,7 +36,7 @@ async function main() {
   if (fs.existsSync(CONFIG_FILE)) backup = fs.readFileSync(CONFIG_FILE, 'utf-8');
 
   try {
-    // ── Scenario A: arranque, approval_mode missing → default 'smart' ──
+    // ── Scenario A: arranque, approval_mode missing → default 'critical' ──
     if (backup) {
       const raw = JSON.parse(backup);
       delete raw.approval_mode;
@@ -48,13 +48,15 @@ async function main() {
     // that here without importing internals, we explicitly call init now.
     const init = ensureApprovalModeInitialized();
     record(
-      'A) arranque sin approval_mode → default smart',
-      'mode=smart, created=true',
+      'A) arranque sin approval_mode → default critical',
+      'mode=critical, created=false',
       `mode=${init.mode}, created=${init.created}`,
-      init.mode === 'smart' && init.created === true,
+      init.mode === 'critical' && init.created === false,
     );
 
-    // ── Scenario B: smart mode + crear archivo en Desktop → pasa directo ──
+    // ── Scenario B: smart mode + write_file Desktop no pide aprobacion humana,
+    // pero validatePath mantiene el limite del workspace hasta que el usuario
+    // aprueba ese path concreto via registerApprovedPath().
     setApprovalMode('smart');
     let askerCalls = 0;
     setApprovalAsker(async () => { askerCalls++; return 'no'; });
@@ -69,10 +71,10 @@ async function main() {
       reason: vB.reason,
     });
     record(
-      'B) smart + write_file Desktop → ejecuta sin pedir',
-      'allowed=true, askerCalls=0, validate=true, destructive=false',
+      'B) smart + write_file Desktop → no pide; validatePath bloquea fuera de workspace',
+      'allowed=true, askerCalls=0, validate=false, destructive=false',
       `allowed=${allowedB}, askerCalls=${askerCalls}, validate=${okBValidate}, destructive=${vB.destructive}`,
-      allowedB === true && askerCalls === 0 && okBValidate === true && vB.destructive === false,
+      allowedB === true && askerCalls === 0 && okBValidate === false && vB.destructive === false,
     );
 
     // ── Scenario C: smart mode + rmdir /s Desktop → pide confirmación ──
@@ -93,7 +95,8 @@ async function main() {
       allowedC === false && askerCalls === 1 && vC.destructive === true,
     );
 
-    // ── Scenario D: off mode → todo pasa, incluso path prohibido ──
+    // ── Scenario D: off mode → no hay prompt humano, pero validatePath sigue
+    // bloqueando rutas absolutas prohibidas.
     setApprovalMode('off');
     askerCalls = 0;
     setApprovalAsker(async () => { askerCalls++; return 'no'; });
@@ -112,10 +115,10 @@ async function main() {
       reason: 'rmdir',
     });
     record(
-      'D) off + Desktop write → pasa | off + System32 → validate true | off + rmdir → pasa',
-      'd1=true, validateWin=true, d2=true, askerCalls=0',
+      'D) off + Desktop write → pasa | off + System32 → validate false | off + rmdir → pasa',
+      'd1=true, validateWin=false, d2=true, askerCalls=0',
       `d1=${allowedD1}, validateWin=${validateWinOff}, d2=${allowedD2}, askerCalls=${askerCalls}`,
-      allowedD1 === true && validateWinOff === true && allowedD2 === true && askerCalls === 0,
+      allowedD1 === true && validateWinOff === false && allowedD2 === true && askerCalls === 0,
     );
 
     // ── Scenario E: on mode + rmdir → pide → user cancela → no ejecuta ──

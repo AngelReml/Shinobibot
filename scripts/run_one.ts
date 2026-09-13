@@ -1,0 +1,97 @@
+// scripts/run_one.ts - headless runner for one Shinobi task.
+//
+// It is used by audits and external benchmark harnesses to run Shinobi on a
+// prompt and write a standardized signed provenance package to --out.
+//
+//   tsx scripts/run_one.ts --prompt "..." --out result.json [--workdir DIR]
+//                          [--task-id ID] [--verified] [--ungated] [--seed 42] [--model M]
+//
+// Output shape:
+//   { task_id, model, seed, content, tool_calls, latency_ms, usage,
+//     signature, iterations, loop_aborts, self_corrected, provenance }
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import '../src/tools/index.js';
+import { ShinobiAdapter } from '../src/bench/index.js';
+import { buildProvenancePackage } from '../src/agents/provenance.js';
+import type { BenchTask, TaskContext } from '../src/bench/types.js';
+
+function arg(name: string, def?: string): string | undefined {
+  const i = process.argv.indexOf(`--${name}`);
+  return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : def;
+}
+const has = (name: string) => process.argv.includes(`--${name}`);
+
+async function main() {
+  // Bench routing pin: one provider/model, no failover/model_router.
+  if (process.env.SHINOBI_BENCH === '1') {
+    process.env.SHINOBI_PROVIDER = 'openrouter';
+    process.env.SHINOBI_FAILOVER_CHAIN = 'openrouter';
+    process.env.SHINOBI_MODEL_ROUTER = '0';
+    process.env.SHINOBI_MODEL_DEFAULT = process.env.GAIA_MODEL || 'z-ai/glm-4.7-flash';
+    if (!process.env.SHINOBI_MAX_ITERATIONS) process.env.SHINOBI_MAX_ITERATIONS = '20';
+  }
+
+  let prompt = arg('prompt');
+  if (!prompt) {
+    try { prompt = fs.readFileSync(0, 'utf-8').trim(); } catch { /* ignore */ }
+  }
+  if (!prompt) {
+    console.error('run_one: falta --prompt (o stdin)');
+    process.exit(2);
+  }
+
+  const out = arg('out');
+  const taskId = arg('task-id') || 'adhoc';
+  const seed = Number(arg('seed') || '42');
+  const model = arg('model') || 'default';
+  const workdir = arg('workdir') || fs.mkdtempSync(path.join(os.tmpdir(), 'shinobi-run-'));
+  fs.mkdirSync(workdir, { recursive: true });
+
+  const adapter = new ShinobiAdapter({ verified: has('verified'), gated: !has('ungated') });
+  const task: BenchTask = { id: taskId, category: 'autonomy', prompt, check: async () => ({ pass: true, detail: '' }) };
+  const ctx: TaskContext = { workdir, task };
+
+  const t0 = Date.now();
+  const run = await adapter.run(task, ctx);
+  const latencyMs = Date.now() - t0;
+
+  const provenance = buildProvenancePackage({
+    taskId,
+    prompt,
+    finalText: run.finalText,
+    auditPath: run.auditPath,
+    embedAudit: true,
+  });
+
+  const result = {
+    task_id: taskId,
+    model,
+    seed,
+    content: run.finalText,
+    tool_calls: run.toolsUsed,
+    latency_ms: run.durationMs || latencyMs,
+    usage: run.cost ?? null,
+    signature: provenance.signature,
+    iterations: run.iterations,
+    loop_aborts: run.metrics?.loopAborts ?? 0,
+    self_corrected: run.selfCorrected ?? null,
+    ok: run.ok,
+    error: run.error ?? null,
+    provenance,
+  };
+
+  const json = JSON.stringify(result, null, 2);
+  if (out) {
+    fs.writeFileSync(path.resolve(out), json, 'utf-8');
+    console.error(`[run_one] escrito ${out} (${taskId}, ${result.latency_ms}ms, ok=${run.ok})`);
+  } else {
+    process.stdout.write(json + '\n');
+  }
+}
+
+main().catch((e) => {
+  console.error('[run_one] THREW', e?.message ?? e);
+  process.exit(1);
+});

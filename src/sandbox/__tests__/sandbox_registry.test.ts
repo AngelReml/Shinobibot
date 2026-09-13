@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { sandboxRegistry, _resetSandboxRegistry, MockBackend } from '../registry.js';
 import { LocalBackend } from '../backends/local.js';
 import { SSHBackend } from '../backends/ssh.js';
-import { E2BBackend } from '../backends/e2b.js';
+import { disposeE2BSandbox, E2BBackend, runE2BCommand } from '../backends/e2b.js';
 import { PowerShellBackend } from '../backends/powershell.js';
 
 beforeEach(() => {
@@ -114,6 +114,53 @@ describe('Remote backends — config detection', () => {
     expect(e.isConfigured()).toBe(false);
     process.env.E2B_API_KEY = 'x';
     expect(e.isConfigured()).toBe(true);
+  });
+});
+
+describe('E2BBackend — SDK compatibility helpers', () => {
+  it('usa commands.run cuando el SDK moderno lo expone', async () => {
+    const calls: any[] = [];
+    const sandbox = {
+      commands: {
+        run: async (...args: any[]) => {
+          calls.push(args);
+          return { exitCode: 0, stdout: 'ok', stderr: '' };
+        },
+      },
+    };
+
+    const result = await runE2BCommand(sandbox, { command: 'echo ok', cwd: '/work', timeoutMs: 1234 });
+
+    expect(result.stdout).toBe('ok');
+    expect(calls).toEqual([['echo ok', { cwd: '/work', timeoutMs: 1234 }]]);
+  });
+
+  it('mantiene fallback legacy a process.start().wait()', async () => {
+    const calls: any[] = [];
+    const sandbox = {
+      process: {
+        start: async (...args: any[]) => {
+          calls.push(args);
+          return {
+            wait: async (opts: any) => ({ exitCode: 0, stdout: `wait:${opts.timeoutMs}`, stderr: '' }),
+          };
+        },
+      },
+    };
+
+    const result = await runE2BCommand(sandbox, { command: 'pwd', cwd: '/repo', timeoutMs: 99 });
+
+    expect(result.stdout).toBe('wait:99');
+    expect(calls).toEqual([[{ cmd: 'pwd', cwd: '/repo' }]]);
+  });
+
+  it('prefiere kill al liberar sandboxes y conserva close como fallback', async () => {
+    const events: string[] = [];
+
+    await disposeE2BSandbox({ kill: async () => events.push('kill'), close: async () => events.push('close') });
+    await disposeE2BSandbox({ close: async () => events.push('legacy-close') });
+
+    expect(events).toEqual(['kill', 'legacy-close']);
   });
 });
 

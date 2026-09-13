@@ -1,0 +1,34 @@
+{
+  "task_id": "final-main-web",
+  "model": "z-ai/glm-4.7-flash",
+  "seed": 42,
+  "content": "**Título de la página:** Example Domain\n\n**Frase principal extraída:** \"This domain is for use in documentation examples without needing permission. Avoid use in operations.\"",
+  "tool_calls": [
+    "clean_extract"
+  ],
+  "latency_ms": 15298,
+  "usage": null,
+  "signature": "1d5e347c525e8c77c33b3df9234b6396f5d8418001d2824ef74ae4592a9a41eb",
+  "iterations": 2,
+  "loop_aborts": 0,
+  "self_corrected": null,
+  "ok": true,
+  "error": null,
+  "provenance": {
+    "version": 1,
+    "taskId": "final-main-web",
+    "prompt": "Usa la herramienta de extraccion web limpia para leer https://example.com. Devuelve el titulo de la pagina y la frase principal extraida.",
+    "finalText": "**Título de la página:** Example Domain\n\n**Frase principal extraída:** \"This domain is for use in documentation examples without needing permission. Avoid use in operations.\"",
+    "audit": {
+      "events": 1,
+      "toolCalls": 1,
+      "successes": 1,
+      "failures": 0,
+      "loopAborts": 0
+    },
+    "auditLog": "{\"kind\":\"tool_call\",\"ts\":\"2026-09-13T08:21:53.482Z\",\"tool\":\"clean_extract\",\"argsHash\":\"5dc5c505a79bfc2eb22d0e45eff415c6ecf0c965c3d53d6e3e02c1bda74b0927\",\"argsPreview\":\"{\\\"url\\\":\\\"https://example.com\\\"}\",\"success\":true,\"durationMs\":6985,\"sessionId\":\"bench:final-main-web\",\"prevHash\":\"SHINOBI_AUDIT_GENESIS_v1\",\"chainHash\":\"4a5923a55ceaa8544f85862e37ced84168396ba3b44fbaf732650d23b7b1f5cb\"}\n",
+    "contentHash": "a6724119d9f89b16b1a98cfdb4cab40b0f061df87a0516830a2e3ebf543046f5",
+    "signature": "1d5e347c525e8c77c33b3df9234b6396f5d8418001d2824ef74ae4592a9a41eb",
+    "signedAt": "2026-09-13T08:21:56.209Z"
+  }
+}

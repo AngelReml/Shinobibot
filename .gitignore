@@ -17,6 +17,7 @@ bench_results/
 bench.config.json
 # === Estado vivo (regenerable con `node estado.mjs`) ===
 ESTADO.md
+src/web/public/styles/enso-inline.css
 *.log 
 *.tmp 
 temp_file.txt 
