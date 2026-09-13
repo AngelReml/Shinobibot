@@ -127,7 +127,7 @@ export class DataAgent extends SpecialistAgent {
       data: parsed.plan.data,
     };
     validateChartSpec(spec); // honestidad de ejes / datos antes de renderizar
-    const chart = writeChart(spec);
+    const chart = writeChart(spec, process.env.SHINOBI_OUTPUT_DIR);
 
     return {
       artifact: chart.path,

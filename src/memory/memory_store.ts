@@ -8,6 +8,7 @@ import * as crypto from 'crypto';
 import { MemoryEntry, RecallQuery, RecallResult, MemoryStoreOptions } from './types.js';
 import { EmbeddingProvider } from './embedding_provider.js';
 import type { MemoryProvenance } from '../integrity/provenance.js';
+import { shinobiDataDir } from '../runtime/data_dir.js';
 
 export class MemoryStore {
   private db: BetterSqlite3.Database;
@@ -15,8 +16,7 @@ export class MemoryStore {
   private shortTermWindow: number;
 
   constructor(options: MemoryStoreOptions = {}) {
-    const defaultDir = path.join(process.env.APPDATA || process.env.HOME || '.', 'Shinobi');
-    if (!fs.existsSync(defaultDir)) fs.mkdirSync(defaultDir, { recursive: true });
+    const defaultDir = shinobiDataDir();
 
     this.dbPath = options.db_path || path.join(defaultDir, 'memory.db');
     this.shortTermWindow = options.short_term_window_size || 20;
@@ -316,7 +316,7 @@ const _userStores = new Map<string, MemoryStore>();
 
 export function getMemoryStore(userId: string): MemoryStore {
   if (!_userStores.has(userId)) {
-    const defaultDir = path.join(process.env.APPDATA || process.env.HOME || '.', 'Shinobi');
+    const defaultDir = shinobiDataDir();
     const userDir = path.join(defaultDir, 'users', userId);
     if (!fs.existsSync(userDir)) fs.mkdirSync(userDir, { recursive: true });
     _userStores.set(userId, new MemoryStore({ db_path: path.join(userDir, 'memory.db') }));

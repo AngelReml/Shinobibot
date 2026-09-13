@@ -70,7 +70,7 @@ export function isProviderConfigured(name: string): boolean {
     case 'groq': return !!process.env.GROQ_API_KEY;
     case 'openai': return !!process.env.OPENAI_API_KEY;
     case 'anthropic': return !!process.env.ANTHROPIC_API_KEY;
-    case 'openrouter': return !!process.env.OPENROUTER_API_KEY;
+    case 'openrouter': return !!(process.env.OPENROUTER_API_KEY || process.env.SHINOBI_PROVIDER_KEY);
     case 'glm': return !!process.env.GLM_API_KEY;
     case 'gemini': return !!process.env.GEMINI_API_KEY;
     case 'deepseek': return !!process.env.DEEPSEEK_API_KEY;

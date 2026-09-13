@@ -1,0 +1,32 @@
+{
+  "task_id": "final-main-verified",
+  "model": "z-ai/glm-4.7-flash",
+  "seed": 42,
+  "content": "**Fórmula usada:**\n```\nPorcentaje = (parte ÷ total) × 100\n```\n\n**Cálculo:**\n```\n(37 ÷ 45) × 100 = 0.822222... × 100 = 82.2222...\n```\n\n**Resultado redondeado a dos decimales:**\n```\n82.22%\n```\n\nEl 37 representa el **82.22%** de 45.",
+  "tool_calls": [],
+  "latency_ms": 31155,
+  "usage": null,
+  "signature": "3b738ed46e514b06343df6fbd6f5ad42c42010e507f00bd9437a1731786d1c1b",
+  "iterations": 1,
+  "loop_aborts": 0,
+  "self_corrected": false,
+  "ok": true,
+  "error": null,
+  "provenance": {
+    "version": 1,
+    "taskId": "final-main-verified",
+    "prompt": "Calcula el porcentaje exacto de 37 sobre 45, muestra la formula usada y redondea el resultado a dos decimales. No uses archivos.",
+    "finalText": "**Fórmula usada:**\n```\nPorcentaje = (parte ÷ total) × 100\n```\n\n**Cálculo:**\n```\n(37 ÷ 45) × 100 = 0.822222... × 100 = 82.2222...\n```\n\n**Resultado redondeado a dos decimales:**\n```\n82.22%\n```\n\nEl 37 representa el **82.22%** de 45.",
+    "audit": {
+      "events": 0,
+      "toolCalls": 0,
+      "successes": 0,
+      "failures": 0,
+      "loopAborts": 0
+    },
+    "auditLog": "",
+    "contentHash": "fb445ad88971ee3981c8e403a492e326566f57ea26af91d5606e26ac571cc544",
+    "signature": "3b738ed46e514b06343df6fbd6f5ad42c42010e507f00bd9437a1731786d1c1b",
+    "signedAt": "2026-09-13T08:20:04.277Z"
+  }
+}
