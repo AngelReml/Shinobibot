@@ -111,6 +111,7 @@ outputs/
 # Excepción para los assets de la UI (enso, marcas, branding):
 !src/web/public/assets/*.png
 !src/web/public/assets/**/*.png
+src/web/public/styles/enso-inline.css
 
 # === Benchmark results (auto-generado por `npm run bench`) ===
 bench-results.json

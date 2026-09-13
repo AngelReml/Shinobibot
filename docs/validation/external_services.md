@@ -1,6 +1,23 @@
-# Validación FASE V4 — Servicios externos
+# Validacion de servicios externos
 
-Fecha: 2026-05-15. APIs reales, evidencia cruda.
+Ultima actualizacion: 2026-09-13.
+
+## Estado actual
+
+No queda una pendiente tecnica abierta en el codigo de canales dentro de la auditoria 2026-09-13.
+
+- Suite local de canales: 5 suites y 76 tests correctos.
+- Runtime sin secretos: canal `loopback` activo; webhook, Discord, Slack, WhatsApp, Signal, Matrix, Teams y email se omiten por configuracion.
+- Webhook sin `WEBHOOK_SHARED_SECRET`: rechaza peticiones con 503, comportamiento esperado y probado.
+- Activacion live: requiere credenciales/cuentas reales del operador en cada plataforma.
+
+La validacion live de plataformas externas se trata como operacion de despliegue, no como deuda de codigo. El historico de mayo de 2026 queda debajo como evidencia de pruebas reales previas.
+
+---
+
+## Historico 2026-05-15
+
+APIs reales, evidencia cruda.
 
 ## Resumen
 

@@ -2,7 +2,7 @@
 
 Fecha: 2026-09-12
 Rama: `limpieza/shinobii-auditoria-20260912`
-Directorio de evidencia: `_auditoria/misiones_reales_2026-09-12`
+Directorios de evidencia: `_auditoria/misiones_reales_2026-09-12`, `_auditoria/misiones_reales_2026-09-13-final`
 
 ## Resultado
 
@@ -12,7 +12,8 @@ Resultado final tras remediacion:
 
 - `npm run typecheck`: correcto.
 - `npm run test`: 247 suites correctas, 2313 tests correctos, 3 omitidos.
-- `npm audit --omit=dev`: 13 vulnerabilidades de produccion, 9 moderadas, 4 altas, 0 criticas.
+- `npm audit`: 0 vulnerabilidades totales.
+- `npm audit --omit=dev`: 0 vulnerabilidades de produccion.
 - Smoke web: `/`, `/api/status`, `/api/providers`, `/api/models` respondieron HTTP 200.
 - Frontend headless: titulo `Shinobi`, UI renderizada y captura en `frontend-smoke.png`.
 
@@ -32,6 +33,10 @@ Resultado final tras remediacion:
 | `audit-chart-generation-after-config-fix` | Repetir grafico tras alinear `SHINOBI_PROVIDER_KEY` | OK, `data_agent_run` sin 401 | `m6_chart_after_fix.json` |
 | `audit-chart-output-dir-fix` | Verificar que charts respetan `SHINOBI_OUTPUT_DIR` | OK, SVG generado dentro de carpeta aislada | `m6_chart_output_fix.json` |
 | `audit-verified-reasoning` | Probar modo `--verified` con razonamiento corto | OK, 82.22%, 1 iteracion | `m7_verified.json` |
+| `final-verified` | Repetir calculo verificado en carpeta limpia | OK, 82.22% | `2026-09-13-final/verified.json` |
+| `final-excel` | Generar y verificar Excel final | OK, `.xlsx` creado y formula `AVERAGE(B2:B4)` confirmada fuera del modelo | `2026-09-13-final/excel.json` |
+| `final-chart` | Generar grafico via especialista tras propagar `SHINOBI_OUTPUT_DIR` | OK, SVG dentro de carpeta aislada | `2026-09-13-final/chart.json` |
+| `final-web` | Repetir extraccion web limpia | OK, `Example Domain`, proceso termina solo | `2026-09-13-final/web.json` |
 
 ## Fallos encontrados y corregidos
 
@@ -59,12 +64,22 @@ La tool generaba SVG en `artifacts/charts` aunque la auditoria fijase un output 
 
 Correccion: `generate_chart` pasa `process.env.SHINOBI_OUTPUT_DIR` a `writeChart`. La repeticion genero el SVG dentro de `_auditoria/misiones_reales_2026-09-12/m6_chart_output_fix/outputs`.
 
-## Riesgos pendientes
+### 5. `DataAgent` no propagaba `SHINOBI_OUTPUT_DIR`
+
+El camino directo de `generate_chart` quedo corregido, pero la mision final mostro que el especialista `DataAgent` llamaba a `writeChart(spec)` por debajo y volvia a generar en `artifacts/charts`.
+
+Correccion: `DataAgent.produce` pasa `process.env.SHINOBI_OUTPUT_DIR` al renderizador. La mision `final-chart` genero el SVG dentro de `_auditoria/misiones_reales_2026-09-13-final/chart`.
+
+### 6. Auditoria de dependencias global
+
+La auditoria posterior elimino los hallazgos restantes con overrides y upgrades controlados: `adm-zip@0.6.1`, `sharp@0.35.4`, `jimp@1.6.1`, `uuid@11.1.1`, `vitest@4.1.11`, `@vitest/coverage-v8@4.1.11` y `tsx@4.23.13`. `@modelcontextprotocol/sdk@1.30.0` quedo declarado como dependencia directa porque el codigo lo importa.
+
+## Estado operativo
 
 - Los resultados `run_one` muestran `usage: null` aunque la llamada LLM real ocurre. El gateway usado por el runner devuelve solo texto, no metadatos de tokens. Esto es una carencia de observabilidad de coste, no un fallo funcional.
-- Las vulnerabilidades residuales de produccion siguen concentradas en paquetes sin fix directo seguro publicado: `@huggingface/transformers`/`onnxruntime-node`/`sharp`, `@nut-tree-fork/nut-js`/Jimp y `exceljs`/`uuid`.
-- Canales externos como email, Slack, Discord, WhatsApp, Signal, Matrix y Teams no se probaron end-to-end porque requieren secretos/cuentas/canales externos activos.
+- Los canales externos reales requieren credenciales/cuentas del operador. La suite local de canales paso completa: 5 suites y 76 tests.
+- En runtime sin secretos, el producto arranca cerrado: `loopback` activo, gateway externo desactivado y canales externos omitidos por configuracion.
 
 ## Dictamen
 
-Shinobii queda funcionalmente mas presentable que al inicio de esta fase: las misiones reales validan autonomia con coste, herramientas, trazabilidad firmada, escritura aislada, lectura, extraccion web, memoria, documentos, graficos, modo verificado y frontend. Los fallos encontrados durante la auditoria fueron corregidos y cubiertos por pruebas cuando habia superficie testeable local.
+Shinobii queda funcionalmente mas presentable que al inicio de esta fase: las misiones reales validan autonomia con coste, herramientas, trazabilidad firmada, escritura aislada, lectura, extraccion web, memoria, documentos, graficos, modo verificado y frontend. Los fallos encontrados durante la auditoria fueron corregidos y cubiertos por pruebas cuando habia superficie testeable local. La auditoria npm queda en cero y no quedan pendientes tecnicos abiertos dentro del alcance de esta auditoria.

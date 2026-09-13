@@ -14,7 +14,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as url from 'url';
-import Jimp from 'jimp';
+import { Jimp, JimpMime } from 'jimp';
 
 const __filename = url.fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,20 +30,20 @@ async function main() {
   const srcBytes = fs.statSync(SRC_PNG).size;
   console.log(`[build] leyendo ${SRC_PNG} (${(srcBytes / 1024 / 1024).toFixed(2)} MB)`);
   const img = await Jimp.read(SRC_PNG);
-  console.log(`[build] original: ${img.getWidth()}x${img.getHeight()}`);
+  console.log(`[build] original: ${img.width}x${img.height}`);
 
   // Preservar aspect ratio. El original es 2816×1536 (no cuadrado), así
   // que escalamos el lado más largo a TARGET y dejamos al CSS mask-size
   // contain hacer el fit final en el elemento.
-  const w = img.getWidth(), h = img.getHeight();
+  const w = img.width, h = img.height;
   const scale = TARGET / Math.max(w, h);
-  img.resize(Math.round(w * scale), Math.round(h * scale), Jimp.RESIZE_BICUBIC);
+  img.resize({ w: Math.round(w * scale), h: Math.round(h * scale) });
 
   // Re-encode como PNG. Jimp ya optimiza; no exponemos compression level
   // porque depende de versión.
-  const buffer = await img.getBufferAsync(Jimp.MIME_PNG);
+  const buffer = await img.getBuffer(JimpMime.png);
   const base64 = buffer.toString('base64');
-  console.log(`[build] resized → ${img.getWidth()}x${img.getHeight()}, ${(buffer.length / 1024).toFixed(1)} KB PNG → ${(base64.length / 1024).toFixed(1)} KB base64`);
+  console.log(`[build] resized → ${img.width}x${img.height}, ${(buffer.length / 1024).toFixed(1)} KB PNG → ${(base64.length / 1024).toFixed(1)} KB base64`);
 
   const css = `/* enso-inline.css — generado por scripts/build_enso_inline.ts
  *

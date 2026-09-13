@@ -34,3 +34,8 @@
 - Fallo real detectado: `reader/llm_adapter` ignoraba `SHINOBI_PROVIDER_KEY` y caia a OpenAI directo aunque OpenRouter estuviera configurado en onboarding. Se alineo con `provider_router` y se anadio test de regresion.
 - Fallo real detectado: `generate_chart` ignoraba `SHINOBI_OUTPUT_DIR` y escribia en `artifacts/charts`. Se pasa el output dir al renderizador y la repeticion genero dentro del directorio aislado.
 - Verificacion posterior: `typecheck` correcto, tests enfocados correctos, auditoria npm de produccion 13 hallazgos/0 criticos, frontend headless renderiza titulo `Shinobi`, y bateria completa final con 247 suites, 2313 tests correctos y 3 omitidos.
+- Cierre adicional 2026-09-13: auditoria npm global en 0 vulnerabilidades tras overrides de `adm-zip`, `sharp`, `jimp` y `uuid`, mas upgrades de `vitest`, `@vitest/coverage-v8` y `tsx`.
+- Se declaro `@modelcontextprotocol/sdk` como dependencia directa; antes el codigo MCP dependia de una transitiva.
+- Fallo real detectado: `DataAgent` no propagaba `SHINOBI_OUTPUT_DIR` y podia escribir graficos en `artifacts/charts`; se corrigio y la mision `final-chart` genero dentro de `_auditoria/misiones_reales_2026-09-13-final/chart`.
+- Test flaky corregido: la prueba de firma manipulada podia no alterar la firma si el primer caracter ya era `0`; ahora corrompe siempre el primer nibble.
+- Verificacion final: `npm audit` 0 vulnerabilidades, `npm audit --omit=dev` 0 vulnerabilidades, `typecheck` correcto, canales 5 suites/76 tests correctos, producto real final con LLM/Excel/grafico/web correcto, y bateria completa con 247 suites, 2313 tests correctos y 3 omitidos.

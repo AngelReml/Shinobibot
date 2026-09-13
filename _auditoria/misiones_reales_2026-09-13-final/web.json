@@ -1,0 +1,34 @@
+{
+  "task_id": "final-web",
+  "model": "default",
+  "seed": 42,
+  "content": "**Resultados de la extracción:**\n\n- **Título:** Example Domain\n- **Frase principal:** This domain is for use in documentation examples without needing permission. Avoid use in operations.",
+  "tool_calls": [
+    "clean_extract"
+  ],
+  "latency_ms": 11496,
+  "usage": null,
+  "signature": "e8962be65abe6e729ca2269496fd2b2195c59ccdc8f59bb015887c7b50287c5a",
+  "iterations": 2,
+  "loop_aborts": 0,
+  "self_corrected": null,
+  "ok": true,
+  "error": null,
+  "provenance": {
+    "version": 1,
+    "taskId": "final-web",
+    "prompt": "Extrae https://example.com con la herramienta web disponible y devuelve el titulo y la frase principal. No inventes.",
+    "finalText": "**Resultados de la extracción:**\n\n- **Título:** Example Domain\n- **Frase principal:** This domain is for use in documentation examples without needing permission. Avoid use in operations.",
+    "audit": {
+      "events": 1,
+      "toolCalls": 1,
+      "successes": 1,
+      "failures": 0,
+      "loopAborts": 0
+    },
+    "auditLog": "{\"kind\":\"tool_call\",\"ts\":\"2026-09-13T07:52:57.857Z\",\"tool\":\"clean_extract\",\"argsHash\":\"5dc5c505a79bfc2eb22d0e45eff415c6ecf0c965c3d53d6e3e02c1bda74b0927\",\"argsPreview\":\"{\\\"url\\\":\\\"https://example.com\\\"}\",\"success\":true,\"durationMs\":7800,\"sessionId\":\"bench:final-web\",\"prevHash\":\"SHINOBI_AUDIT_GENESIS_v1\",\"chainHash\":\"f1d30884022daef84ad362e25bd3bf96ae8a28e67e5d43e08064771a39f3c373\"}\n",
+    "contentHash": "f926259e8c6969a4e29085559d835b0fdb012289f56821f3a2f622bb4b668832",
+    "signature": "e8962be65abe6e729ca2269496fd2b2195c59ccdc8f59bb015887c7b50287c5a",
+    "signedAt": "2026-09-13T07:52:59.742Z"
+  }
+}

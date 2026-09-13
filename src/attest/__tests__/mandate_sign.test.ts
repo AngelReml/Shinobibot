@@ -21,6 +21,11 @@ function keys() {
 }
 const m = { capabilities: ['shell:*', 'fs.read:/data'], expiresAt: 12345 };
 
+function corruptHexSignature(signature: string): string {
+  const first = signature[0] === '0' ? '1' : '0';
+  return `${first}${signature.slice(1)}`;
+}
+
 describe('P1.E3.c — firma/verificación Ed25519 del mandato', () => {
   it('roundtrip: un mandato firmado verifica con su pública', () => {
     const { pub, priv } = keys();
@@ -36,7 +41,7 @@ describe('P1.E3.c — firma/verificación Ed25519 del mandato', () => {
   it('firma manipulada ⇒ inválido', () => {
     const { pub, priv } = keys();
     const sig = signMandate(m, priv, pub);
-    expect(verifyMandate(m, { ...sig, signature: sig.signature.replace(/^./, '0') }).valid).toBe(false);
+    expect(verifyMandate(m, { ...sig, signature: corruptHexSignature(sig.signature) }).valid).toBe(false);
   });
   it('pública ajena ⇒ inválido (no se puede falsificar sin la privada)', () => {
     const { pub, priv } = keys();

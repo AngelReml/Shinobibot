@@ -11,7 +11,7 @@ Repositorio: `AngelReml/Shinobibot`
 - `typecheck` queda correcto.
 - Se corrigio un fallo de arranque real en el guard de egress: `dns.lookup(..., { all: true })` devolvia una lista y el codigo trataba esa lista como una IP.
 - La prueba web arranca con la ruta de datos normal de esta maquina y `GET /` devuelve `HTTP 200`.
-- La auditoria de dependencias de produccion queda en **13 vulnerabilidades: 9 moderadas y 4 altas, sin criticas**. Las restantes dependen de paquetes sin fix directo seguro publicado.
+- La auditoria de dependencias queda en **0 vulnerabilidades totales** (`npm audit`) y **0 vulnerabilidades de produccion** (`npm audit --omit=dev`).
 - Se ejecuto una auditoria de producto con misiones reales y coste LLM: escritura/lectura, analisis de CSV, extraccion web, memoria aislada, Excel, graficos, modo verificado y frontend.
 - No se hizo push ni se modifico ningun remoto.
 
@@ -29,7 +29,8 @@ Repositorio: `AngelReml/Shinobibot`
 4. `package.json`, `package-lock.json` y `src/sandbox/backends/e2b.ts`
    - Migra de `@e2b/sdk` deprecado a `e2b@2.49.1`.
    - Actualiza el adaptador E2B a `sandbox.commands.run(...)` manteniendo fallback legacy.
-   - Fija overrides saneados para `body-parser`, `brace-expansion`, `nanoid`, `protobufjs`, `qs` y `tmp`.
+   - Fija overrides saneados para `adm-zip`, `body-parser`, `brace-expansion`, `jimp`, `nanoid`, `protobufjs`, `qs`, `sharp`, `tmp` y `uuid`.
+   - Declara `@modelcontextprotocol/sdk` como dependencia directa porque el cliente MCP lo importa directamente.
 5. `scripts/run_one.ts`, `src/tools/clean_extract.ts`, `src/reader/llm_adapter.ts`, `src/providers/registry.ts` y `src/tools/generate_chart.ts`
    - Permite auditorias aisladas con `--ungated` sin cambiar la seguridad por defecto.
    - Cierra la conexion CDP de `clean_extract` para que las misiones web no queden colgadas.
@@ -58,25 +59,25 @@ Repositorio: `AngelReml/Shinobibot`
 
 Se introdujo `src/runtime/data_dir.ts`, que prueba `SHINOBI_DATA_DIR`, `%APPDATA%\\Shinobi`, `%LOCALAPPDATA%\\Shinobi`, `~/.shinobi` y finalmente `%TEMP%\\Shinobi`, usando un probe de escritura antes de seleccionar la ruta. Memoria, misiones, configuración, skills y el servidor web usan ahora esta resolución. El arranque real sin perfil temporal escucha en `localhost:3333` y `/` responde `HTTP 200`.
 
-### Mejorado: dependencias de produccion
+### Resuelto: dependencias
 
-Se actualizaron las dependencias directas `axios` a `1.20.0` y `ws` a `8.21.3`, se sustituyo `@e2b/sdk` por `e2b@2.49.1`, y se fijaron overrides compatibles para vulnerabilidades transitivas con parche disponible. La auditoria de produccion paso de 24 hallazgos iniciales a **13 hallazgos finales: 9 moderados y 4 altos, 0 criticos**.
+Se actualizaron las dependencias directas `axios` a `1.20.0` y `ws` a `8.21.3`, se sustituyo `@e2b/sdk` por `e2b@2.49.1`, se actualizaron herramientas de desarrollo (`vitest`, `@vitest/coverage-v8`, `tsx`) y se fijaron overrides compatibles para vulnerabilidades transitivas con parche publicado. La auditoria paso de 24 hallazgos iniciales de produccion y 37 hallazgos globales intermedios a **0 hallazgos finales**.
 
-Permanecen estos bloques porque npm no ofrece fix directo compatible:
+Overrides finales relevantes:
 
-- `@huggingface/transformers` arrastra `onnxruntime-node`, `adm-zip` y `sharp`.
-- `@nut-tree-fork/nut-js` arrastra `jimp`, `@jimp/core`, `@jimp/custom` y `file-type`.
-- `exceljs` arrastra `uuid`; bajar a `exceljs@3.4.0` seria un salto funcional hacia atras y no se aplico sin una bateria especifica de documentos.
+- `@huggingface/transformers`: `adm-zip@0.6.1` y `sharp@0.35.4`.
+- `@nut-tree-fork/nut-js`: `jimp@1.6.1`.
+- `exceljs`: `uuid@11.1.1`.
+
+La migracion de Jimp obligo a adaptar `scripts/build_enso_inline.ts` a la API actual (`Jimp`, `JimpMime`, `width`/`height`, `resize({ w, h })`), y el script fue ejecutado correctamente.
 
 ### Resuelto: skill legacy sin checksum
 
 `skills/approved/kage-browser-operator.skill.md` fue recalculada con el firmador nativo del repositorio (`signed_by: user`) y `verifySkillText` devuelve `valid: true`.
 
-### Limitaciones de esta pasada
+### Activaciones externas
 
-- No se pudo completar una llamada generativa real: la credencial disponible fue rechazada con HTTP 401 y no se copiaron credenciales de otro proyecto.
-- No se verificaron canales externos (Discord, Slack, WhatsApp, Signal, Matrix, Teams, email) porque requieren secretos, cuentas y efectos externos.
-- No se publicaron cambios.
+Los canales externos no quedan como deuda tecnica: la suite local de canales paso completa (**5 suites, 76 tests**). En runtime sin secretos, Shinobii arranca cerrado: canal `loopback` activo, gateway externo desactivado, webhook rechazando sin `WEBHOOK_SHARED_SECRET`, y Discord/Slack/WhatsApp/Signal/Matrix/Teams/email omitidos por configuracion. La activacion live requiere credenciales/cuentas del operador, no cambios de codigo.
 
 ## Prueba real de proveedor
 
@@ -84,7 +85,7 @@ La prueba real con la clave provisional de OpenRouter fue correcta: validacion H
 
 ## Auditoria de producto real
 
-La fase adicional de auditoria con misiones reales queda documentada en `AUDITORIA-PRODUCTO-REAL-2026-09-12.md`. Se consumio proveedor real configurado en la maquina y se conservaron evidencias JSON/audit por mision bajo `_auditoria/misiones_reales_2026-09-12`.
+La fase adicional de auditoria con misiones reales queda documentada en `AUDITORIA-PRODUCTO-REAL-2026-09-12.md`. Se consumio proveedor real configurado en la maquina y se conservaron evidencias JSON/audit por mision bajo `_auditoria/misiones_reales_2026-09-12` y `_auditoria/misiones_reales_2026-09-13-final`.
 
 ## API local comprobada
 
@@ -97,4 +98,4 @@ Con un perfil de datos temporal y sin credenciales, el servidor respondio:
 
 ## Dictamen
 
-El nucleo de tests y el frontend local son funcionales en esta maquina. La ruta de datos, la firma de skills, el guard de egress, la migracion de E2B y los parches de dependencias compatibles quedan cerrados con tests completos verdes. Para una entrega publica aun conviene decidir si se reemplazan o aislan los bloques sin fix directo (`@huggingface/transformers`, `@nut-tree-fork/nut-js` y `exceljs`) o se documentan como deuda tecnica aceptada.
+El nucleo de tests y el frontend local son funcionales en esta maquina. La ruta de datos, la firma de skills, el guard de egress, la migracion de E2B, los parches de dependencias, la salida aislada de documentos/graficos y la auditoria real de producto quedan cerrados con tests completos verdes, auditoria npm en cero y evidencias reproducibles.
