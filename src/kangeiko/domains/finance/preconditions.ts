@@ -12,6 +12,7 @@ export type PreconditionCode =
   | 'MISSING_SNAPSHOT'
   | 'INVALID_SNAPSHOT'
   | 'SNAPSHOT_INSTRUMENT_MISMATCH'
+  | 'SNAPSHOT_VENUE_MISMATCH'
   | 'INSTRUMENT_OUTSIDE_UNIVERSE'
   | 'SNAPSHOT_QUALITY'
   | 'SNAPSHOT_FROM_FUTURE'
@@ -52,6 +53,9 @@ export function checkOrderPreconditions(input: PreconditionInput): PreconditionR
   const snapshot = s.value;
   if (snapshot.instrument !== input.instrument) {
     return refuse('SNAPSHOT_INSTRUMENT_MISMATCH', `snapshot de ${snapshot.instrument}, orden sobre ${input.instrument}`);
+  }
+  if (snapshot.venue !== mandate.venue) {
+    return refuse('SNAPSHOT_VENUE_MISMATCH', `snapshot de ${snapshot.venue}, mandato para ${mandate.venue}`);
   }
   if (!mandate.universe.includes(input.instrument)) {
     return refuse('INSTRUMENT_OUTSIDE_UNIVERSE', `${input.instrument} no está en el universo del mandato`);

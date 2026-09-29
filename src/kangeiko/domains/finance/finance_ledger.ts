@@ -11,7 +11,8 @@ export type FinanceLedgerKind =
   | 'strategy_mandate'
   | 'decision'
   | 'trade_receipt'
-  | 'strategy_transition';
+  | 'strategy_transition'
+  | 'kill_switch';
 
 export interface FinanceLedgerEvent<P = unknown> {
   readonly seq: number;
