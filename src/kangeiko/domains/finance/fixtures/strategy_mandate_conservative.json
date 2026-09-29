@@ -1,0 +1,18 @@
+{
+  "id": "mandate-sma-cross-v1-conservative",
+  "created_at": "2026-01-01T00:00:00.000Z",
+  "schema_version": 1,
+  "source": "fixture:deterministic",
+  "mandate_id": "mandate-sma-cross-v1-conservative",
+  "strategy_id": "sma_cross",
+  "universe": ["BTC-USD-PERP"],
+  "max_position_notional": 1000,
+  "max_loss_per_trade": 10,
+  "max_loss_per_day": 30,
+  "max_drawdown": 0.05,
+  "max_orders_per_day": 20,
+  "max_snapshot_age_ms": 5000,
+  "valid_from": "2026-01-01T00:00:00.000Z",
+  "valid_until": "2026-07-01T00:00:00.000Z",
+  "retire_conditions": ["max_drawdown_breached", "ledger_integrity_failure", "data_source_changed"]
+}

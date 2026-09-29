@@ -1,0 +1,20 @@
+{
+  "id": "snap-fixture-btcperp-20260115T115800Z",
+  "created_at": "2026-01-15T12:00:00.900Z",
+  "schema_version": 1,
+  "source": "fixture:deterministic",
+  "venue": "fixture-venue",
+  "instrument": "BTC-USD-PERP",
+  "market_type": "perpetual",
+  "timezone": "UTC",
+  "provider_ts": "2026-01-15T11:58:00.000Z",
+  "received_ts": "2026-01-15T12:00:00.900Z",
+  "bid": 41980,
+  "ask": 41981,
+  "mid": 41980.5,
+  "volume": 1490.1,
+  "depth": null,
+  "ohlcv": null,
+  "quality": "stale",
+  "payload_hash": "77e4d398bb002a66d067c00424ea341cb9394260adfdf1a08efa4f230f6a5e54"
+}
