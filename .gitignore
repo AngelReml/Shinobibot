@@ -58,6 +58,7 @@ docs/*
 !docs/ARQUITECTURA_HABILIDAD_A.md
 !docs/ARQUITECTURA_MEMORIA.md
 !docs/BROWSER_SUBSYSTEM.md
+!docs/FINANCIAL_DOMAIN_CONTRACT.md
 !docs/README.md
 !docs/mission_schema.md
 audits/
