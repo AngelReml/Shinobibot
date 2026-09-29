@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildTradeReceipt, verifyTradeReceipt, TradeReceiptInvariantError, type TradeReceiptCore } from '../domains/finance/index.js';
+import { generateKeyPairSync } from 'crypto';
+import { buildTradeReceipt, signTradeReceipt, verifySignedTradeReceipt, verifyTradeReceipt, TradeReceiptInvariantError, type TradeReceiptCore } from '../domains/finance/index.js';
 
 const closed: TradeReceiptCore = {
   id: 'receipt-1', created_at: '2026-01-15T13:00:00.000Z', schema_version: 1, source: 'paper:fixture',
@@ -52,5 +53,43 @@ describe('finance F0 — TradeReceipt', () => {
   it('un recibo falsificado con hash recalculado sigue fallando por invariante', () => {
     const forged = { ...buildTradeReceipt(refused), fill: closed.fill };
     expect(verifyTradeReceipt(forged)).toEqual({ valid: false, reason: 'invariant_violation' });
+  });
+});
+
+describe('finance F1 — firma Ed25519 del TradeReceipt', () => {
+  const keys = () => {
+    const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+    return {
+      publicKeyPem: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
+      privateKeyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString(),
+    };
+  };
+  const k = keys();
+
+  it('firma y verifica, también contra la pública esperada', () => {
+    const r = signTradeReceipt(closed, k);
+    expect(r.alg).toBe('ed25519');
+    expect(verifySignedTradeReceipt(r)).toEqual({ valid: true, reason: 'ok' });
+    expect(verifySignedTradeReceipt(r, k.publicKeyPem)).toEqual({ valid: true, reason: 'ok' });
+  });
+
+  it('el hash firmado es el mismo que el del recibo sin firmar', () => {
+    expect(signTradeReceipt(closed, k).content_hash).toBe(buildTradeReceipt(closed).content_hash);
+  });
+
+  it('otra identidad, firma alterada o contenido alterado no verifican', () => {
+    const r = signTradeReceipt(closed, k);
+    expect(verifySignedTradeReceipt(r, keys().publicKeyPem)).toEqual({ valid: false, reason: 'signature_mismatch' });
+    const flipped = (r.signature[0] === 'a' ? 'b' : 'a') + r.signature.slice(1);
+    expect(verifySignedTradeReceipt({ ...r, signature: flipped })).toEqual({ valid: false, reason: 'signature_mismatch' });
+    expect(verifySignedTradeReceipt({ ...r, exposure_after: 5 })).toEqual({ valid: false, reason: 'hash_mismatch' });
+    // Re-firmar con otra clave y cambiar la pública declarada no engaña si se exige la identidad esperada.
+    const other = keys();
+    expect(verifySignedTradeReceipt(signTradeReceipt(closed, other), k.publicKeyPem)).toEqual({ valid: false, reason: 'signature_mismatch' });
+  });
+
+  it('una decisión aceptada sin intent no produce recibo', () => {
+    expect(() => buildTradeReceipt({ ...closed, intent: null })).toThrow(/exige intent/);
+    expect(verifyTradeReceipt(buildTradeReceipt({ ...refused, intent: null })).valid).toBe(true);
   });
 });

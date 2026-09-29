@@ -65,10 +65,25 @@ describe('finance F0 — validadores fail-closed', () => {
   });
 
   it('una decisión aceptada sin mandato ni snapshot no valida en runtime', () => {
-    const accepted = { ...(loadFinanceFixture('decision_record_blocked') as object), mandate_id: null, snapshot_hash: null, gateway: { decision: 'accepted', code: 'OK', reason: 'ok' } };
+    const accepted = {
+      ...(loadFinanceFixture('decision_record_blocked') as object),
+      intent_id: null, mandate_id: null, snapshot_hash: null,
+      gateway: { decision: 'accepted', code: 'OK', reason: 'ok', evidence: {} },
+    };
     const r = validateDecisionRecord(accepted);
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.errors).toEqual(expect.arrayContaining(['mandate_id', 'snapshot_hash']));
+    if (!r.ok) expect(r.errors).toEqual(expect.arrayContaining(['intent_id', 'mandate_id', 'snapshot_hash']));
+  });
+
+  it('una decisión sin evidencia no valida', () => {
+    const d = loadFinanceFixture('decision_record_blocked') as Record<string, any>;
+    expect(validateDecisionRecord({ ...d, gateway: { ...d.gateway, evidence: undefined } }).ok).toBe(false);
+  });
+
+  it('el mandato exige venue, factores bien formados y fracciones en (0,1]', () => {
+    const r = validateStrategyMandate({ ...mandate, venue: '', max_depth_fraction: 1.5, factors: [{ factor: 'x', instruments: [], max_exposure: 1 }] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors).toEqual(expect.arrayContaining(['venue', 'max_depth_fraction', 'factors']));
   });
 
   it('el sistema de tipos impide construir una decisión aceptada sin mandato', () => {
@@ -76,8 +91,8 @@ describe('finance F0 — validadores fail-closed', () => {
       id: 'd', created_at: NOW, schema_version: 1, source: 'test',
       strategy_id: 'sma_cross', strategy_version: '1.0.0', hypothesis: 'h',
       signal: { name: 's', value: 1 }, probability: null,
-      snapshot_id: 'snap', snapshot_hash: 'a'.repeat(64), mandate_id: 'm',
-      gateway: { decision: 'accepted', code: 'OK', reason: 'ok' },
+      intent_id: 'i', intent_seq: 1, snapshot_id: 'snap', snapshot_hash: 'a'.repeat(64), mandate_id: 'm',
+      gateway: { decision: 'accepted', code: 'OK', reason: 'ok', evidence: {} },
     };
     // @ts-expect-error una decisión aceptada no admite mandate_id null
     const bad: AcceptedDecision = { ...acceptedBase, mandate_id: null };
@@ -99,7 +114,8 @@ describe('finance F0 — no se abre una orden sin mandato y snapshot válidos', 
     ['sin snapshot', { snapshot: undefined }, 'MISSING_SNAPSHOT'],
     ['snapshot inválido', { snapshot: { ...verified, payload_hash: 'x' } }, 'INVALID_SNAPSHOT'],
     ['snapshot de otro instrumento', { instrument: 'ETH-USD-PERP' }, 'SNAPSHOT_INSTRUMENT_MISMATCH'],
-    ['instrumento fuera del universo', { instrument: 'ETH-USD-PERP', snapshot: { ...verified, instrument: 'ETH-USD-PERP' } }, 'INSTRUMENT_OUTSIDE_UNIVERSE'],
+    ['snapshot de otro venue', { snapshot: { ...verified, venue: 'otro-venue' } }, 'SNAPSHOT_VENUE_MISMATCH'],
+    ['instrumento fuera del universo', { instrument: 'SOL-USD-PERP', snapshot: { ...verified, instrument: 'SOL-USD-PERP' } }, 'INSTRUMENT_OUTSIDE_UNIVERSE'],
     ['snapshot etiquetado stale', { snapshot: stale }, 'SNAPSHOT_QUALITY'],
     ['snapshot synthetic', { snapshot: { ...verified, quality: 'synthetic' } }, 'SNAPSHOT_QUALITY'],
     ['snapshot del futuro', { now: '2026-01-15T11:59:59.000Z' }, 'SNAPSHOT_FROM_FUTURE'],
