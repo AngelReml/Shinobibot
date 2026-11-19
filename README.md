@@ -146,7 +146,8 @@ Más mejoras tomadas de Hermes Agent, todas locales:
 | Ganchos propios | `hooks.json` en el directorio de datos: comandos tuyos antes (`pre_tool`, código 2 = veto) y después de cada tool. `/hooks` los lista. |
 | Varios modelos opinan | tool `consult_models`; panel en `SHINOBI_MOA_MODELS="proveedor:modelo,…"`. |
 | Programas cortos | tool `run_script`: JavaScript en sandbox que llama a tools de solo lectura y devuelve solo el resumen. |
-| Buzón con el Radar Agéntico | `/puente` con `SHINOBI_PUENTE_DIR`: el adversario escribe la prueba primero, se mide antes y después, y solo entra lo que mejora. |
+| Skills de Claude Code | `/skill install owner/repo` (o `github:owner/repo:carpeta`, o la URL de GitHub) instala las skills de un repo o de un plugin de Claude Code: baja la carpeta entera, la audita y la firma. Shinobi ve la lista y carga cada una cuando hace falta (tool `skill_use`). Si alguien toca un fichero después, deja de servirse. |
+| Buzón con el Radar Agéntico | `/puente` con `SHINOBI_PUENTE_DIR`: el adversario escribe la prueba primero, se mide antes, se instala (`/puente instalar`), se mide después, y solo entra lo que mejora. |
 
 ## Estructura del repositorio
 

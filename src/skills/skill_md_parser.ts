@@ -53,12 +53,37 @@ export function parseSkillMd(text: string): ParsedSkill {
   const body = lines.slice(endIdx + 1).join('\n').trim();
 
   const frontmatter: SkillFrontmatter = {};
-  for (const line of fmLines) {
+  for (let i = 0; i < fmLines.length; i++) {
+    const line = fmLines[i];
     if (!line.trim() || line.trim().startsWith('#')) continue;
-    const m = line.match(/^([a-zA-Z_][a-zA-Z_0-9]*):\s*(.*)$/);
+    // Claves con guion (`allowed-tools`, `argument-hint`): formato de las
+    // skills de Claude Code. Las líneas con sangría (claves anidadas) no
+    // son de primer nivel y se ignoran aquí.
+    const m = line.match(/^([a-zA-Z_][a-zA-Z_0-9-]*):\s*(.*)$/);
     if (!m) continue;
     const [, key, rawValue] = m;
-    frontmatter[key] = parseValue(rawValue.trim());
+    const value = rawValue.trim();
+    // Texto en bloque de YAML (`description: >-` o `|`) y continuaciones con
+    // sangría: las descripciones largas de las skills de Claude vienen así.
+    const isBlock = /^[>|][+-]?$/.test(value);
+    const cont: string[] = [];
+    let j = i + 1;
+    while (j < fmLines.length && (/^\s+\S/.test(fmLines[j]) || (isBlock && !fmLines[j].trim()))) {
+      // Una línea con sangría que parece `clave: valor` tras un valor vacío es
+      // un mapa anidado (p. ej. `metadata:`), no texto: no se absorbe.
+      if (!isBlock && value === '' ) break;
+      cont.push(fmLines[j].trim());
+      j++;
+    }
+    if (isBlock) {
+      frontmatter[key] = cont.filter(Boolean).join(' ');
+      i = j - 1;
+    } else if (cont.length > 0 && value !== '' && !value.startsWith('[')) {
+      frontmatter[key] = [stripQuotes(value), ...cont].join(' ');
+      i = j - 1;
+    } else {
+      frontmatter[key] = parseValue(value);
+    }
   }
   return { frontmatter, body };
 }
@@ -99,8 +124,15 @@ function splitInlineList(s: string): string[] {
 }
 
 function stripQuotes(v: string): string {
-  if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+  if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) {
+    // Entre comillas dobles puede haber escapes (\" \\ \n): es lo que escribe
+    // `quoteIfNeeded` con JSON.stringify, así que se lee con JSON.parse para
+    // que leer y escribir sean inversos exactos (la firma depende de ello).
+    try { const parsed = JSON.parse(v); if (typeof parsed === 'string') return parsed; } catch { /* no es JSON: comillas simples de adorno */ }
     return v.slice(1, -1);
+  }
+  if (v.length >= 2 && v.startsWith("'") && v.endsWith("'")) {
+    return v.slice(1, -1).replace(/''/g, "'");
   }
   return v;
 }
@@ -130,6 +162,6 @@ function quoteIfNeeded(v: string): string {
   //   #  (comment-like)
   //   leading/trailing whitespace
   if (v === '') return '""';
-  if (/[:,\[\]#]/.test(v) || /^\s|\s$/.test(v)) return JSON.stringify(v);
+  if (/[:,\[\]#"'\\\n>|]/.test(v) || /^\s|\s$/.test(v)) return JSON.stringify(v);
   return v;
 }

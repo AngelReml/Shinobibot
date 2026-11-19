@@ -179,3 +179,85 @@ describe('puente — fichas instalables', () => {
     expect(fichaComoDatos(f)).not.toContain('rm -rf');
   });
 });
+
+describe('puente — instalar en Shinobi lo que es de Claude Code', () => {
+  it('traduce las órdenes de plugins y skills de Claude a /skill install, y deja en paz lo demás', async () => {
+    const { instalarEnShinobi } = await import('../bridge.js');
+    const f = (instalar: string, over: any = {}) => ({ nombre: 'n', id: 'i', fecha: '', titulo: 't', que_es: 'q', url: 'https://github.com/acme/tool', categoria: 'Conectores (MCP)', hechos: [], por_que: '', tipo: 'instalable', instalar, ...over } as any);
+    expect(instalarEnShinobi(f('/plugin marketplace add acme/day-trader'))).toBe('/skill install acme/day-trader');
+    expect(instalarEnShinobi(f('claude plugin marketplace add acme/floorplan'))).toBe('/skill install acme/floorplan');
+    expect(instalarEnShinobi(f('npx skills add acme/art-motion'))).toBe('/skill install acme/art-motion');
+    expect(instalarEnShinobi(f('npx skills@latest add vercel-labs/ui --skill ui-sdk'))).toBe('/skill install vercel-labs/ui');
+    expect(instalarEnShinobi(f('npx -y @acme/mcp-server'))).toBe('');
+    expect(instalarEnShinobi(f('uvx acme-mcp', { categoria: 'Skills' }))).toBe('/skill install acme/tool');
+    expect(instalarEnShinobi(f('/plugin marketplace add acme/x', { tipo: 'novedad' }))).toBe('');
+  });
+});
+
+describe('puente — la prueba de un instalable no puede instalar', () => {
+  let dir: string;
+  const card = { id: 'ddddddddddd1' + 'b'.repeat(52), fecha: '2026-11-19', tipo: 'instalable', titulo: 'acme/pdf-skill: skills nuevo', que_es: 'Repo.',
+    url: 'https://github.com/acme/pdf-skill', categoria: 'Skills', hechos: [], por_que: 'x', instalar: '/plugin marketplace add acme/pdf-skill' };
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'shinobi-noinst-'));
+    fs.mkdirSync(path.join(dir, 'para_shinobi'));
+    fs.writeFileSync(path.join(dir, 'para_shinobi', '2026-11-19_ddddddddddd1.json'), JSON.stringify(card));
+    process.env.SHINOBI_PUENTE_WORK_DIR = path.join(dir, '_t');
+  });
+  afterEach(() => { delete process.env.SHINOBI_PUENTE_WORK_DIR; fs.rmSync(dir, { recursive: true, force: true }); });
+  const conInstalar = JSON.stringify({ aplicable: true, tarea: 'Instala la skill con /skill install acme/pdf-skill y rellena un PDF', criterio: 'c', motivo: 'm' });
+  const limpia = JSON.stringify({ aplicable: true, tarea: 'Rellena el formulario de scratch/f.pdf y enumera sus campos', criterio: 'lista los campos por nombre', motivo: 'm' });
+
+  it('si la primera propuesta instala, se le corrige y se acepta la segunda limpia', async () => {
+    const vistos: string[] = [];
+    let n = 0;
+    const llm: Llm = async (_s, u) => { vistos.push(u); return n++ === 0 ? conInstalar : limpia; };
+    const r = await pasoPrueba(dir, pendientes(dir).fichas[0], llm);
+    expect(r.estado?.prueba.tarea).toBe('Rellena el formulario de scratch/f.pdf y enumera sus campos');
+    expect(vistos).toHaveLength(2);
+    expect(vistos[1]).toContain('<correction>');
+    expect(vistos[0]).toContain('"en_shinobi": "/skill install acme/pdf-skill"');
+  });
+
+  it('orden obligatorio: medir sin la skill → instalar → cerrar; no se cierra sin instalar', async () => {
+    const { pasoInstalar } = await import('../bridge.js');
+    const N = '2026-11-19_ddddddddddd1';
+    await pasoPrueba(dir, pendientes(dir).fichas[0], async () => limpia);
+    expect(leerEstado(N)?.en_shinobi).toBe('/skill install acme/pdf-skill');
+    const ordenes: string[] = [];
+    const instalador = async (o: string) => { ordenes.push(o); return { ok: true, lines: ['✓ pdf-skill'] }; };
+    expect((await pasoInstalar(dir, N, instalador)).error).toMatch(/mide primero sin instalar/);
+    expect(ordenes).toEqual([]);
+    await pasoMedir(dir, N, run, siempre(false));
+    expect((await pasoCerrar(dir, N, run, siempre(true))).error).toMatch(/falta instalarlo: \/puente instalar/);
+    expect(describirEstado(dir)).toMatch(/falta \/puente instalar/);
+    const i = await pasoInstalar(dir, N, instalador);
+    expect(i.estado?.instalado).toBe(true);
+    expect(ordenes).toEqual(['acme/pdf-skill']);
+    const c = await pasoCerrar(dir, N, run, siempre(true));
+    expect(c.respuesta).toMatchObject({ resultado: 'dentro', antes: 0, despues: 1 });
+  });
+
+  it('si no se puede instalar, se responde «fuera» con el motivo y sin medición posterior inventada', async () => {
+    const { pasoInstalar, pasoDescartar } = await import('../bridge.js');
+    const N = '2026-11-19_ddddddddddd1';
+    await pasoPrueba(dir, pendientes(dir).fichas[0], async () => limpia);
+    await pasoMedir(dir, N, run, siempre(false));
+    expect(pasoDescartar(dir, N).error).toMatch(/solo se descarta/);
+    const i = await pasoInstalar(dir, N, async () => ({ ok: false, lines: ['✗ la skill tiene 519 ficheros (máximo 200)'] }));
+    expect(i.error).toMatch(/519 ficheros/);
+    expect((await pasoCerrar(dir, N, run, siempre(true))).error).toMatch(/falta instalarlo/);
+    expect(describirEstado(dir)).toMatch(/no se pudo instalar — \/puente descartar/);
+    const d = pasoDescartar(dir, N);
+    expect(d.respuesta).toMatchObject({ resultado: 'fuera', antes: 0, despues: null });
+    expect(d.respuesta?.nota_es).toMatch(/No se pudo instalar en Shinobi.*519 ficheros/);
+    expect(pendientes(dir).fichas).toEqual([]);
+  });
+
+  it('si insiste en instalar, la ficha queda pendiente y no se guarda prueba', async () => {
+    const r = await pasoPrueba(dir, pendientes(dir).fichas[0], async () => conInstalar);
+    expect(r.error).toMatch(/insiste en una prueba que instala/);
+    expect(leerEstado('2026-11-19_ddddddddddd1')).toBeNull();
+    expect(fs.existsSync(path.join(dir, 'de_shinobi'))).toBe(false);
+  });
+});

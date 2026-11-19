@@ -456,6 +456,13 @@ export class ShinobiOrchestrator {
       }
     } catch (e) { console.error('[skill-manager] context build failed:', (e as Error).message); }
 
+    // Skills con formato de Claude Code (sin palabras clave): el modelo ve el
+    // catálogo y pide el texto completo con la tool `skill_use` cuando toca.
+    try {
+      const catalog = skillManager().getCatalogSection();
+      if (catalog) currentMessages = [{ role: 'system', content: catalog } as any, ...currentMessages];
+    } catch (e) { console.error('[skill-manager] catalog build failed:', (e as Error).message); }
+
     // FASE 2 cabo C / FASE 1 — directiva de delegación a SpecialistAgents,
     // dirigida por keywords. Sin esto el orchestrator resolvía investigación /
     // documentos / gráficos con tools sueltas en vez de delegar al especialista.

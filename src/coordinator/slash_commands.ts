@@ -23,7 +23,7 @@ import { rollbackLastTurn, describeRollback, describeCheckpoints, lastCheckpoint
 import { sharedMemory } from '../db/memory.js';
 import { describeHooks } from './hooks.js';
 import { getAllTools } from '../tools/tool_registry.js';
-import { puenteDir, pendientes, leerEstado, pasoPrueba, pasoMedir, pasoCerrar, describirEstado, llmReal, juezReal, INTENTOS_POR_MEDICION } from '../puente/bridge.js';
+import { puenteDir, pendientes, leerEstado, pasoPrueba, pasoMedir, pasoCerrar, pasoInstalar, pasoDescartar, describirEstado, llmReal, juezReal, INTENTOS_POR_MEDICION } from '../puente/bridge.js';
 import { parseReasoningLevel, setReasoningLevel, reasoningLevel, reasoningBudget } from '../providers/anthropic_client.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { Notifier } from '../notifications/notifier.js';
@@ -46,7 +46,7 @@ export interface SlashCommandInfo {
 export const SLASH_COMMANDS: SlashCommandInfo[] = [
   { cmd: '/status', desc: 'Estado del agente: modo y modelo activo' },
   { cmd: '/reasoning', desc: 'Que Claude piense antes de responder: off · low · medium · high' },
-  { cmd: '/puente', desc: 'Buzón con el radar: estado · prueba [ficha] · medir <ficha> · cerrar <ficha>' },
+  { cmd: '/puente', desc: 'Buzón con el radar: estado · prueba [ficha] · medir · instalar · cerrar · descartar <ficha>' },
   { cmd: '/hooks', desc: 'Ver los ganchos del usuario (comandos propios antes y después de cada tool)' },
   { cmd: '/undo', desc: 'Deshacer tu último mensaje, su respuesta y los archivos que escribió' },
   { cmd: '/retry', desc: 'Deshacer el último turno y volver a intentarlo' },
@@ -398,6 +398,10 @@ ${pending.length} pending skill(s):`);
       const arg = rest.replace(/(^|\s)--allow-warnings(\s|$)/, ' ').trim();
       const outcome = await runSkillInstall(arg, { allowWarnings });
       for (const l of outcome.lines) console.log(l);
+      if (outcome.ok) {
+        const loaded = skillManager().loadApproved();
+        for (const e of loaded.errors) console.log(`  ⚠ ${e}`);
+      }
       return true;
     }
 
@@ -433,7 +437,7 @@ ${pending.length} pending skill(s):`);
       if (r.error) console.log(`No se pudo: ${r.error}`);
       else if (r.respuesta) console.log(`Respuesta escrita (${r.respuesta.resultado}): ${r.respuesta.nota_es}`);
       else if (r.estado) console.log(typeof r.estado.antes === 'number'
-        ? `Medición previa: ${r.estado.antes} (0 = nunca pasa, 1 = siempre). Ahora toca implementar la mejora y luego /puente cerrar ${r.estado.nombre}`
+        ? `Medición previa: ${r.estado.antes} (0 = nunca pasa, 1 = siempre). Ahora: ${r.estado.en_shinobi ? `/puente instalar ${r.estado.nombre}` : `implementar la mejora y luego /puente cerrar ${r.estado.nombre}`}`
         : `Prueba escrita para ${r.estado.nombre}:\n  Tarea: ${r.estado.prueba.tarea}\n  Se supera si: ${r.estado.prueba.criterio}\nSiguiente: /puente medir ${r.estado.nombre}  (mide ANTES de instalar nada)`);
     };
     if (!sub || sub === 'estado') { console.log(describirEstado(dir)); return true; }
@@ -445,12 +449,21 @@ ${pending.length} pending skill(s):`);
       show(await pasoPrueba(dir, f, llmReal, getAllTools().map(t => t.name)));
       return true;
     }
+    if (sub === 'instalar' && nombreArg) {
+      const { runSkillInstall } = await import('../skills/registry/install_command.js');
+      const r = await pasoInstalar(dir, nombreArg, (orden, avisos) => runSkillInstall(orden, { allowWarnings: avisos }), /(^|\s)--allow-warnings(\s|$)/.test(trimmed));
+      for (const l of r.lines ?? []) console.log(l);
+      if (r.error) console.log(`No instalado: ${r.error}\nSi no se puede instalar: /puente descartar ${nombreArg}`);
+      else { skillManager().loadApproved(); console.log(`Instalado. Ahora: /puente cerrar ${nombreArg}`); }
+      return true;
+    }
+    if (sub === 'descartar' && nombreArg) { show(pasoDescartar(dir, nombreArg)); return true; }
     if ((sub === 'medir' || sub === 'cerrar') && nombreArg) {
       console.log(`Ejecutando la prueba ${INTENTOS_POR_MEDICION} veces…`);
       show(sub === 'medir' ? await pasoMedir(dir, nombreArg, run, juezReal) : await pasoCerrar(dir, nombreArg, run, juezReal));
       return true;
     }
-    console.log('Uso: /puente (estado) · /puente prueba [ficha] · /puente medir <ficha> · /puente cerrar <ficha>');
+    console.log('Uso: /puente (estado) · /puente prueba [ficha] · /puente medir <ficha> · /puente instalar <ficha> · /puente cerrar <ficha> · /puente descartar <ficha>');
     return true;
   }
 

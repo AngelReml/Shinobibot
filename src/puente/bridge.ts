@@ -63,6 +63,12 @@ export interface EstadoTrabajo {
   prueba: Prueba;
   antes?: number;
   intentos?: number;
+  /** Orden de Shinobi que instala el instalable ('' si no hay equivalente). */
+  en_shinobi?: string;
+  /** true cuando `/puente instalar` terminó bien. */
+  instalado?: boolean;
+  /** Por qué no se pudo instalar (auditor, tamaño, red…). */
+  instalacion_error?: string;
 }
 
 export type Resultado = 'dentro' | 'fuera' | 'no_aplicable';
@@ -140,13 +146,29 @@ export const ADVERSARIO_SYSTEM = [
   'If a <shinobi_tools> list is given, it is the real list of tools Shinobi has today: use it to judge what Shinobi can already do, do not assume.',
   'The task must be runnable by giving Shinobi one prompt, with no extra accounts, hardware or paid services, and its success must be checkable from Shinobi\'s final answer alone.',
   'If the card has "tipo": "instalable", it is a skill, MCP server or plugin with an install command. The test must be a concrete task that only becomes possible (or clearly better) AFTER installing it, and whose result can be checked. The task itself must NOT include installing: installation is a separate, human-approved step.',
+  'Shinobi CAN use Claude Code skills and plugins: if the card has "en_shinobi", that command installs the repo\'s SKILL.md files into Shinobi, and afterwards Shinobi reads the skill\'s instructions with its skill_use tool. So a Claude Code skill is testable: write a task in the skill\'s domain whose answer shows the specific method, format or steps the skill teaches, which a general agent would not produce on its own.',
   'If the card is news, a product launch, an opinion, a paper with nothing to build, or needs resources Shinobi lacks, it is NOT applicable: saying so is a valid result. Do not stretch.',
   'Reply with JSON only: {"aplicable": true|false, "tarea": "<the exact prompt to give Shinobi, in Spanish>", "criterio": "<what must be visible in the answer to pass, in Spanish>", "motivo": "<at most 30 words in plain Spanish: why it is or is not testable>"}',
 ].join('\n');
 
+/**
+ * Orden equivalente EN SHINOBI para un instalable del mundo de Claude Code.
+ * Un plugin o una skill de Claude es un repo de GitHub con ficheros SKILL.md,
+ * y eso Shinobi lo instala con `/skill install owner/repo` (auditado y
+ * firmado). Devuelve '' si la orden no es de ese tipo (p. ej. un servidor MCP).
+ */
+export function instalarEnShinobi(f: Ficha): string {
+  if (f.tipo !== 'instalable') return '';
+  const m = f.instalar.match(/^(?:\/plugin (?:marketplace add|install)|claude plugin (?:marketplace add|install)|npx(?: -y| --yes)? skills(?:@[\w.-]+)? add) ([\w.-]+\/[\w.-]+)(?:\s|$)/);
+  if (m) return `/skill install ${m[1]}`;
+  const gh = f.url.match(/^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/?$/);
+  if (gh && /^Skills$|^Plugins de Claude Code$/.test(f.categoria)) return `/skill install ${gh[1]}`;
+  return '';
+}
+
 export function fichaComoDatos(f: Ficha): string {
   const base: any = { tipo: f.tipo, titulo: f.titulo, que_es: f.que_es, categoria: f.categoria, hechos: f.hechos, por_que: f.por_que, url: f.url };
-  if (f.tipo === 'instalable') base.instalar = f.instalar;
+  if (f.tipo === 'instalable') { base.instalar = f.instalar; const s = instalarEnShinobi(f); if (s) base.en_shinobi = s; }
   return `<card>\n${JSON.stringify(base, null, 1)}\n</card>`;
 }
 
@@ -161,6 +183,16 @@ export function parsePrueba(raw: string | null): Prueba | null {
     if (p.aplicable && (!p.tarea || !p.criterio)) return null; // «aplicable» sin prueba no vale
     return p;
   } catch { return null; }
+}
+
+/** ¿La tarea de la prueba le pide a Shinobi instalar el propio instalable? */
+export function pruebaInstala(p: Prueba, f: Ficha): boolean {
+  if (f.tipo !== 'instalable') return false;
+  const t = p.tarea.toLowerCase();
+  const repo = (f.url.match(/github\.com\/([\w.-]+\/[\w.-]+)/)?.[1] ?? '').toLowerCase();
+  return /\/skill install|\/plugin |\binstal(a|ar|l)\b|\bnpx\b|\buvx\b|pip install|npm (i|install)\b/.test(t)
+    || (f.instalar && t.includes(f.instalar.toLowerCase()))
+    || (repo.length > 0 && t.includes(repo));
 }
 
 function estadoPath(nombre: string): string { return path.join(trabajoDir(), `${nombre}.json`); }
@@ -191,7 +223,14 @@ const hoy = () => new Date().toISOString().slice(0, 10);
 export async function pasoPrueba(dir: string, ficha: Ficha, llm: Llm, herramientas: string[] = []): Promise<{ estado?: EstadoTrabajo; respuesta?: Respuesta; error?: string }> {
   // El adversario juzga mal lo que no conoce: se le da la lista real de tools de Shinobi.
   const tools = herramientas.length > 0 ? `\n<shinobi_tools>\n${herramientas.slice(0, 120).join(', ')}\n</shinobi_tools>` : '';
-  const prueba = parsePrueba(await llm(ADVERSARIO_SYSTEM, fichaComoDatos(ficha) + tools));
+  let prueba = parsePrueba(await llm(ADVERSARIO_SYSTEM, fichaComoDatos(ficha) + tools));
+  // Regla comprobada por código: la tarea no puede instalar nada. Si instalara,
+  // la medición «antes» ya llevaría la mejora dentro y no mediría nada.
+  if (prueba?.aplicable && pruebaInstala(prueba, ficha)) {
+    prueba = parsePrueba(await llm(ADVERSARIO_SYSTEM, fichaComoDatos(ficha) + tools +
+      '\n<correction>Your previous task told Shinobi to install the item. That is forbidden: the SAME task is run before and after a human installs it. Rewrite the task so it only asks for the work in the item\'s domain, with no install step and no mention of the item\'s name.</correction>'));
+    if (prueba?.aplicable && pruebaInstala(prueba, ficha)) return { error: 'el adversario insiste en una prueba que instala; la ficha queda pendiente' };
+  }
   if (!prueba) return { error: 'el adversario no devolvió una prueba legible; la ficha queda pendiente' };
   if (!prueba.aplicable) {
     const respuesta: Respuesta = { id: ficha.id, resultado: 'no_aplicable', prueba: '', antes: null, despues: null,
@@ -199,7 +238,7 @@ export async function pasoPrueba(dir: string, ficha: Ficha, llm: Llm, herramient
     escribirRespuesta(dir, ficha.nombre, respuesta);
     return { respuesta };
   }
-  const estado: EstadoTrabajo = { nombre: ficha.nombre, id: ficha.id, titulo: ficha.titulo, prueba };
+  const estado: EstadoTrabajo = { nombre: ficha.nombre, id: ficha.id, titulo: ficha.titulo, prueba, en_shinobi: instalarEnShinobi(ficha) };
   guardarEstado(estado);
   return { estado };
 }
@@ -242,6 +281,8 @@ export async function pasoCerrar(dir: string, nombre: string, run: Runner, juez:
   if (!estado) return { error: 'esa ficha no tiene prueba escrita: primero /puente prueba' };
   if (typeof estado.antes !== 'number') return { error: 'falta la medición previa: primero /puente medir' };
   if (yaRespondida(dir, nombre)) return { error: 'esa ficha ya tiene respuesta' };
+  // Un instalable que Shinobi sabe instalar no se puede dar por probado sin haberlo instalado.
+  if (estado.en_shinobi && estado.instalado !== true) return { error: `falta instalarlo: /puente instalar ${nombre}` };
   const despues = await medir(estado.prueba, run, juez, intentos);
   if (despues === null) return { error: 'el juez no pudo puntuar ningún intento; no se escribe respuesta' };
   const dentro = despues > estado.antes;
@@ -256,12 +297,49 @@ export async function pasoCerrar(dir: string, nombre: string, run: Runner, juez:
   return { respuesta };
 }
 
+export type Instalador = (orden: string, permitirAvisos: boolean) => Promise<{ ok: boolean; lines: string[] }>;
+
+/** Paso 3 (solo instalables con equivalente en Shinobi): instalar, DESPUÉS de la medición previa. */
+export async function pasoInstalar(dir: string, nombre: string, instalar: Instalador, permitirAvisos = false): Promise<{ estado?: EstadoTrabajo; error?: string; lines?: string[] }> {
+  const estado = leerEstado(nombre);
+  if (!estado) return { error: 'esa ficha no tiene prueba escrita: primero /puente prueba' };
+  if (!estado.en_shinobi) return { error: 'esta ficha no se instala desde Shinobi (no es una skill ni un plugin de Claude Code)' };
+  if (typeof estado.antes !== 'number') return { error: 'mide primero sin instalar nada: /puente medir' };
+  if (yaRespondida(dir, nombre)) return { error: 'esa ficha ya tiene respuesta' };
+  const r = await instalar(estado.en_shinobi.replace(/^\/skill install /, ''), permitirAvisos);
+  if (!r.ok) {
+    estado.instalado = false;
+    estado.instalacion_error = r.lines.join(' ').replace(/\s+/g, ' ').slice(0, 400);
+    guardarEstado(estado);
+    return { error: `no se pudo instalar: ${estado.instalacion_error}`, lines: r.lines };
+  }
+  estado.instalado = true; delete estado.instalacion_error;
+  guardarEstado(estado);
+  return { estado, lines: r.lines };
+}
+
+/** Responder al radar que un instalable no se pudo instalar en Shinobi. No inventa una medición posterior. */
+export function pasoDescartar(dir: string, nombre: string): { respuesta?: Respuesta; error?: string } {
+  const estado = leerEstado(nombre);
+  if (!estado) return { error: 'esa ficha no tiene prueba escrita' };
+  if (!estado.instalacion_error) return { error: 'solo se descarta una ficha cuya instalación ha fallado' };
+  if (yaRespondida(dir, nombre)) return { error: 'esa ficha ya tiene respuesta' };
+  const respuesta: Respuesta = { id: estado.id, resultado: 'fuera', prueba: estado.prueba.tarea, antes: estado.antes ?? null, despues: null,
+    nota_es: `No se pudo instalar en Shinobi, así que no se llegó a probar. Motivo: ${estado.instalacion_error}`.slice(0, 500), fecha: hoy() };
+  escribirRespuesta(dir, nombre, respuesta);
+  return { respuesta };
+}
+
 export function describirEstado(dir: string): string {
   const { fichas, rechazadas } = pendientes(dir);
   const lines = [`Puente con el radar (${dir}): ${fichas.length} ficha(s) sin responder.`];
   for (const f of fichas.slice(0, 15)) {
     const e = leerEstado(f.nombre);
-    const fase = !e ? 'sin prueba' : typeof e.antes === 'number' ? `medida antes: ${e.antes} — falta implementar y /puente cerrar` : 'prueba escrita — falta /puente medir';
+    const fase = !e ? 'sin prueba'
+      : typeof e.antes !== 'number' ? 'prueba escrita — falta /puente medir'
+      : e.instalacion_error ? `no se pudo instalar — /puente descartar ${f.nombre}`
+      : e.en_shinobi && !e.instalado ? `medida antes: ${e.antes} — falta /puente instalar ${f.nombre}`
+      : `medida antes: ${e.antes} — falta ${e.en_shinobi ? '' : 'implementar y '}/puente cerrar ${f.nombre}`;
     lines.push(`  ${f.nombre}  [${fase}]  ${f.tipo === 'instalable' ? '⬇ ' : ''}${f.titulo.slice(0, 90)}`);
   }
   if (fichas.length > 15) lines.push(`  … y ${fichas.length - 15} más`);

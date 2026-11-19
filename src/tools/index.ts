@@ -84,6 +84,8 @@ import './session_search.js';
 import './consult_models.js';
 // Plan Hermes: programa corto en sandbox que llama a tools de solo lectura.
 import './run_script.js';
+// Skills con formato de Claude Code: carga bajo demanda del SKILL.md y sus ficheros.
+import './skill_use.js';
 
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 // FIX 1.7 — Activación del sistema de plugins ESM (manifiestos explícitos).
