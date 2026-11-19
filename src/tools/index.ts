@@ -78,6 +78,8 @@ import './kagemusha_run.js';
 // Plan Hermes, fase 3b: lista de tareas de la sesión y pregunta al usuario.
 import './todo.js';
 import './clarify.js';
+// Plan Hermes: buscar en conversaciones pasadas (diario local FTS5).
+import './session_search.js';
 
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 // FIX 1.7 — Activación del sistema de plugins ESM (manifiestos explícitos).

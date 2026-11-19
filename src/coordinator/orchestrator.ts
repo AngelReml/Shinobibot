@@ -55,6 +55,7 @@ import { SYSTEM_PROMPT } from '../constants/prompts.js';
 import { loadProjectContext } from '../context/project_context.js';
 import { takePendingClarify, formatClarify } from '../tools/clarify.js';
 import { beginCheckpointTurn } from './checkpoints.js';
+import { logSessionMessage, setSessionLogUser } from '../memory/session_log.js';
 import { contextWorkspaceRoot } from '../agents/exec_context.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -280,6 +281,8 @@ export class ShinobiOrchestrator {
     console.log(`[Shinobi] Processing: ${input.slice(0, 50)}...`);
     this._turnsSinceMemory++;
     beginCheckpointTurn(input); // /rollback deshace los archivos escritos en este turno
+    setSessionLogUser(opts?.userId);
+    logSessionMessage('user', input); // diario buscable (session_search)
 
     // Add user input to memory
     await this.memory.addMessage({ role: 'user', content: input });
@@ -313,6 +316,7 @@ export class ShinobiOrchestrator {
         }
       }
       success = result?.verdict === 'VALID_AGENT';
+      if (success && typeof result?.response === 'string') logSessionMessage('assistant', result.response);
       if (result?.verdict === 'ERROR' && result?.error) error = String(result.error);
 
       // Bloque 5.3 — el hook de auto-offer se MOVIÓ a server.ts (punto único

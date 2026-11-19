@@ -27,7 +27,7 @@ export const CORE_TOOLS: readonly string[] = [
   'tool_search',
   'read_file', 'write_file', 'edit_file', 'list_dir', 'search_files',
   'run_command', 'web_search', 'memory_tool', 'spawn_agent',
-  'todo', 'clarify',
+  'todo', 'clarify', 'session_search',
 ];
 
 let _activated = new Set<string>();
