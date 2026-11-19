@@ -80,6 +80,8 @@ import './todo.js';
 import './clarify.js';
 // Plan Hermes: buscar en conversaciones pasadas (diario local FTS5).
 import './session_search.js';
+// Plan Hermes: varios modelos opinan y uno sintetiza (mixture of agents).
+import './consult_models.js';
 
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 // FIX 1.7 — Activación del sistema de plugins ESM (manifiestos explícitos).
