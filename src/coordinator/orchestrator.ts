@@ -1082,7 +1082,7 @@ export class ShinobiOrchestrator {
   }
 }
 
-export function calculateCost(provider: string, model: string, usage: { prompt_tokens: number; completion_tokens: number }): number {
+export function calculateCost(provider: string, model: string, usage: { prompt_tokens: number; completion_tokens: number; cache_read_tokens?: number; cache_write_tokens?: number }): number {
   const p = provider.toLowerCase();
   const m = model.toLowerCase();
   let inputRate = 0; // per 1M tokens
@@ -1119,7 +1119,12 @@ export function calculateCost(provider: string, model: string, usage: { prompt_t
     outputRate = 4.00;
   }
 
-  const inputCost = (usage.prompt_tokens * inputRate) / 1_000_000;
+  // Caché de prompt: lo leído de caché cuesta ~0,1× y lo escrito ~1,25× la tarifa de entrada.
+  // prompt_tokens ya incluye ambos, así que se restan antes de aplicar la tarifa normal.
+  const cacheRead = Math.max(0, usage.cache_read_tokens || 0);
+  const cacheWrite = Math.max(0, usage.cache_write_tokens || 0);
+  const plainInput = Math.max(0, usage.prompt_tokens - cacheRead - cacheWrite);
+  const inputCost = ((plainInput + cacheRead * 0.1 + cacheWrite * 1.25) * inputRate) / 1_000_000;
   const outputCost = (usage.completion_tokens * outputRate) / 1_000_000;
   return inputCost + outputCost;
 }
