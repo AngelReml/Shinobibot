@@ -52,6 +52,8 @@ import { validatePayload as contractsValidatePayload, ProtocolViolation } from '
 import { ResourceGovernor, GovernorShedError } from '../runtime/resource_governor.js';
 import { runBestOfN } from '../agents/best_of_n.js';
 import { SYSTEM_PROMPT } from '../constants/prompts.js';
+import { loadProjectContext } from '../context/project_context.js';
+import { contextWorkspaceRoot } from '../agents/exec_context.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -427,6 +429,14 @@ export class ShinobiOrchestrator {
         }
       } catch (e) { console.error('[memory] context build failed:', (e as Error).message); }
     }
+
+    // Contexto del proyecto: SHINOBI.md / AGENTS.md / CLAUDE.md de la carpeta de trabajo.
+    try {
+      const projectCtx = loadProjectContext(contextWorkspaceRoot());
+      if (projectCtx) {
+        currentMessages = [{ role: 'system', content: projectCtx.section } as any, ...currentMessages];
+      }
+    } catch (e) { console.error('[context] project context failed:', (e as Error).message); }
 
     // Bloque 3: inject matching skill instructions when any approved skill's
     // trigger_keywords match the input.
