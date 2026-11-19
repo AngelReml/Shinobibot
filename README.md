@@ -136,6 +136,18 @@ de la carpeta de trabajo), y el cliente de Anthropic usa caché de prompt para a
 En trabajos de varios pasos el agente lleva una lista de tareas (`todo`) y, si le falta un dato que solo
 tú tienes, para y lo pregunta (`clarify`) en vez de adivinar.
 
+Más mejoras tomadas de Hermes Agent, todas locales:
+
+| Qué | Cómo se usa |
+|---|---|
+| Volver atrás | `/rollback` deshace los archivos escritos en el último turno · `/undo` quita además tu mensaje y la respuesta · `/retry` lo reintenta. No deshace lo que hicieran comandos de terminal. |
+| Buscar en conversaciones pasadas | tool `session_search` sobre un diario local (`sessions.db`). `SHINOBI_SESSION_LOG=0` lo apaga. |
+| Pensar antes de responder | `/reasoning off·low·medium·high` o `SHINOBI_REASONING`. Solo Anthropic; más lento y más caro. |
+| Ganchos propios | `hooks.json` en el directorio de datos: comandos tuyos antes (`pre_tool`, código 2 = veto) y después de cada tool. `/hooks` los lista. |
+| Varios modelos opinan | tool `consult_models`; panel en `SHINOBI_MOA_MODELS="proveedor:modelo,…"`. |
+| Programas cortos | tool `run_script`: JavaScript en sandbox que llama a tools de solo lectura y devuelve solo el resumen. |
+| Buzón con el Radar Agéntico | `/puente` con `SHINOBI_PUENTE_DIR`: el adversario escribe la prueba primero, se mide antes y después, y solo entra lo que mejora. |
+
 ## Estructura del repositorio
 
 ```

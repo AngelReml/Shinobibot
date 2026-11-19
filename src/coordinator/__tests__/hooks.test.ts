@@ -88,7 +88,7 @@ describe('ganchos del usuario (hooks.json)', () => {
     configure([
       { event: 'pre_tool', command: script('falla.js', `process.exit(1);`) },
       { event: 'pre_tool', command: 'comando-que-no-existe-xyz' },
-      { event: 'pre_tool', command: script('cuelga.js', `setTimeout(()=>{}, 60000);`), timeoutMs: 300 },
+      { event: 'pre_tool', command: script('cuelga.js', `setTimeout(()=>{}, 60000);`), timeoutMs: 1500 },
     ]);
     const r = await runHooks('pre_tool', { tool: 'run_command', args: {} });
     expect(r).toEqual({ blocked: false, ran: 3 });

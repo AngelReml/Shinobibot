@@ -100,6 +100,7 @@ export default defineConfig({
       'src/shugyo/__tests__/**/*.test.ts',
       'src/tenshu/__tests__/**/*.test.ts',
       'src/kangeiko/__tests__/**/*.test.ts',
+      'src/puente/__tests__/**/*.test.ts',
       'src/shitsuji/__tests__/**/*.test.ts',
       'src/kaname/__tests__/**/*.test.ts',
       'src/egress/__tests__/**/*.test.ts',

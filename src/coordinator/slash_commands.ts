@@ -22,6 +22,8 @@ import { curatedMemory } from '../memory/curated_memory.js';
 import { rollbackLastTurn, describeRollback, describeCheckpoints, lastCheckpointLabel, checkpointLabelFor } from './checkpoints.js';
 import { sharedMemory } from '../db/memory.js';
 import { describeHooks } from './hooks.js';
+import { getAllTools } from '../tools/tool_registry.js';
+import { puenteDir, pendientes, leerEstado, pasoPrueba, pasoMedir, pasoCerrar, describirEstado, llmReal, juezReal, INTENTOS_POR_MEDICION } from '../puente/bridge.js';
 import { parseReasoningLevel, setReasoningLevel, reasoningLevel, reasoningBudget } from '../providers/anthropic_client.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { Notifier } from '../notifications/notifier.js';
@@ -44,6 +46,7 @@ export interface SlashCommandInfo {
 export const SLASH_COMMANDS: SlashCommandInfo[] = [
   { cmd: '/status', desc: 'Estado del agente: modo y modelo activo' },
   { cmd: '/reasoning', desc: 'Que Claude piense antes de responder: off · low · medium · high' },
+  { cmd: '/puente', desc: 'Buzón con el radar: estado · prueba [ficha] · medir <ficha> · cerrar <ficha>' },
   { cmd: '/hooks', desc: 'Ver los ganchos del usuario (comandos propios antes y después de cada tool)' },
   { cmd: '/undo', desc: 'Deshacer tu último mensaje, su respuesta y los archivos que escribió' },
   { cmd: '/retry', desc: 'Deshacer el último turno y volver a intentarlo' },
@@ -414,6 +417,40 @@ ${pending.length} pending skill(s):`);
     console.log(now === 'off'
       ? 'Razonamiento: apagado (respuestas más rápidas y baratas).'
       : `Razonamiento: ${now} (hasta ${reasoningBudget()} tokens de pensamiento por paso; más lento y más caro). Solo con Anthropic.`);
+    return true;
+  }
+
+  // /puente — buzón con el Radar Agéntico: prueba primero, medir, cerrar.
+  if (trimmed === '/puente' || trimmed.startsWith('/puente ')) {
+    const [, sub, nombreArg] = trimmed.split(/\s+/);
+    const dir = puenteDir();
+    if (!dir) { console.log('El puente no está configurado. Pon en SHINOBI_PUENTE_DIR la carpeta "puente" de tu copia del radar (repo agentesdk).'); return true; }
+    const run = async (tarea: string) => {
+      const r: any = await ShinobiOrchestrator.process(tarea);
+      return String(r?.response ?? r?.output ?? (r?.error ? `[error] ${r.error}` : ''));
+    };
+    const show = (r: { estado?: any; respuesta?: any; error?: string }) => {
+      if (r.error) console.log(`No se pudo: ${r.error}`);
+      else if (r.respuesta) console.log(`Respuesta escrita (${r.respuesta.resultado}): ${r.respuesta.nota_es}`);
+      else if (r.estado) console.log(typeof r.estado.antes === 'number'
+        ? `Medición previa: ${r.estado.antes} (0 = nunca pasa, 1 = siempre). Ahora toca implementar la mejora y luego /puente cerrar ${r.estado.nombre}`
+        : `Prueba escrita para ${r.estado.nombre}:\n  Tarea: ${r.estado.prueba.tarea}\n  Se supera si: ${r.estado.prueba.criterio}\nSiguiente: /puente medir ${r.estado.nombre}`);
+    };
+    if (!sub || sub === 'estado') { console.log(describirEstado(dir)); return true; }
+    if (sub === 'prueba') {
+      const { fichas } = pendientes(dir);
+      const f = nombreArg ? fichas.find(x => x.nombre === nombreArg) : fichas.find(x => !leerEstado(x.nombre));
+      if (!f) { console.log(nombreArg ? 'No hay ninguna ficha pendiente con ese nombre.' : 'No quedan fichas sin prueba.'); return true; }
+      console.log(`Adversario leyendo: ${f.titulo}`);
+      show(await pasoPrueba(dir, f, llmReal, getAllTools().map(t => t.name)));
+      return true;
+    }
+    if ((sub === 'medir' || sub === 'cerrar') && nombreArg) {
+      console.log(`Ejecutando la prueba ${INTENTOS_POR_MEDICION} veces…`);
+      show(sub === 'medir' ? await pasoMedir(dir, nombreArg, run, juezReal) : await pasoCerrar(dir, nombreArg, run, juezReal));
+      return true;
+    }
+    console.log('Uso: /puente (estado) · /puente prueba [ficha] · /puente medir <ficha> · /puente cerrar <ficha>');
     return true;
   }
 

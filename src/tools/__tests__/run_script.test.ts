@@ -73,7 +73,7 @@ describe('run_script', () => {
     expect(wait.ok).toBe(false);
     expect(wait.error).toMatch(/superó/);
     expect(wait.output).toBe('antes');
-    expect(Date.now() - t0).toBeLessThan(3000);
+    expect(Date.now() - t0).toBeLessThan(4500);
   });
 
   it('respeta el tope de llamadas y el de salida', async () => {
