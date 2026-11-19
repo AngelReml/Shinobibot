@@ -121,3 +121,25 @@ describe('checkpoints de archivos (/rollback)', () => {
     }
   });
 });
+
+describe('/undo sobre el historial', () => {
+  it('removeLastExchange quita desde el último mensaje del usuario hasta el final', async () => {
+    const { Memory } = await import('../../db/memory.js');
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), 'shinobi-mem-'));
+    try {
+      const m = new Memory(path.join(d, 'memory.json'));
+      expect(await m.removeLastExchange()).toBeNull();
+      await m.addMessage({ role: 'user', content: 'primero' } as any);
+      await m.addMessage({ role: 'assistant', content: 'respuesta 1' } as any);
+      await m.addMessage({ role: 'user', content: 'segundo' } as any);
+      await m.addMessage({ role: 'assistant', content: '', tool_calls: [{ id: 't1' }] } as any);
+      await m.addMessage({ role: 'tool', content: '{}', tool_call_id: 't1' } as any);
+      await m.addMessage({ role: 'assistant', content: 'respuesta 2' } as any);
+      expect(await m.removeLastExchange()).toBe('segundo');
+      const left = await m.getMessages();
+      expect(left.map(x => x.content)).toEqual(['primero', 'respuesta 1']);
+      // persistido en disco, no solo en caché
+      expect(JSON.parse(fs.readFileSync(path.join(d, 'memory.json'), 'utf-8'))).toHaveLength(2);
+    } finally { fs.rmSync(d, { recursive: true, force: true }); }
+  });
+});

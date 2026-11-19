@@ -19,7 +19,8 @@ import { setGoal, clearGoal, pauseGoal, resumeGoal, runGoalLoop, describeGoal, c
 import { SkillLoader } from '../skills/skill_loader.js';
 import { skillManager } from '../skills/skill_manager.js';
 import { curatedMemory } from '../memory/curated_memory.js';
-import { rollbackLastTurn, describeRollback, describeCheckpoints } from './checkpoints.js';
+import { rollbackLastTurn, describeRollback, describeCheckpoints, lastCheckpointLabel, checkpointLabelFor } from './checkpoints.js';
+import { sharedMemory } from '../db/memory.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { Notifier } from '../notifications/notifier.js';
 import {
@@ -40,6 +41,9 @@ export interface SlashCommandInfo {
 }
 export const SLASH_COMMANDS: SlashCommandInfo[] = [
   { cmd: '/status', desc: 'Estado del agente: modo y modelo activo' },
+  { cmd: '/undo', desc: 'Deshacer tu último mensaje, su respuesta y los archivos que escribió' },
+  { cmd: '/retry', desc: 'Deshacer el último turno y volver a intentarlo' },
+  { cmd: '/rollback', desc: 'Volver atrás los archivos del último turno: (nada) · list' },
   { cmd: '/model', desc: 'Ver o cambiar el modelo (auto · list · <nombre>)' },
   { cmd: '/memory', desc: 'Memoria: recall · store · stats · forget · user · env · snapshot' },
   { cmd: '/skill', desc: 'Skills: list · approve · list-approved · install · reload' },
@@ -391,6 +395,24 @@ ${pending.length} pending skill(s):`);
     }
 
     console.log('Usage: /skill list | /skill install <nombre|fuente> | /skill approve <id> | /skill reject <id> | /skill list-approved | /skill reload | /skill propose [<contexto>] | /skill review');
+    return true;
+  }
+
+  // /undo — borra del historial tu último mensaje y lo que el agente respondió,
+  //         y deshace los archivos que escribió en ese turno.
+  // /retry — lo mismo y vuelve a lanzar ese mensaje.
+  if (trimmed === '/undo' || trimmed === '/retry' || trimmed === '/reintentar') {
+    const again = trimmed !== '/undo';
+    const last = await sharedMemory().removeLastExchange();
+    if (last === null) { console.log('No hay ningún mensaje tuyo que deshacer.'); return true; }
+    const short = last.replace(/\s+/g, ' ').slice(0, 80);
+    console.log(`Quitado del historial: «${short}${last.length > 80 ? '…' : ''}» y su respuesta.`);
+    if (lastCheckpointLabel() === checkpointLabelFor(last)) console.log(describeRollback(rollbackLastTurn()));
+    if (!again) return true;
+    console.log('Lo intento de nuevo…');
+    const result: any = await ShinobiOrchestrator.process(last);
+    const out = result?.response ?? result?.output ?? result?.error ?? '';
+    console.log(typeof out === 'string' ? out : JSON.stringify(out));
     return true;
   }
 

@@ -71,7 +71,7 @@ export function beginCheckpointTurn(label: string): void {
   // Un turno que no tocó nada no ocupa sitio en la pila.
   const last = _turns[_turns.length - 1];
   if (last && last.files.length === 0) _turns.pop();
-  _turns.push({ id: _nextId++, label: String(label ?? '').replace(/\s+/g, ' ').slice(0, 80), startedAt: Date.now(), files: [] });
+  _turns.push({ id: _nextId++, label: checkpointLabelFor(label), startedAt: Date.now(), files: [] });
   while (_turns.length > CHECKPOINT_MAX_TURNS) dropOldest();
 }
 
@@ -136,6 +136,17 @@ export function rollbackLastTurn(): RollbackReport | null {
   for (const f of turn.files) _totalBytes -= f.before?.length ?? 0;
   _turns.splice(idx, 1);
   return report;
+}
+
+/** Etiqueta (primeros 80 caracteres de la petición) del último turno que tocó archivos. */
+export function lastCheckpointLabel(): string | null {
+  for (let i = _turns.length - 1; i >= 0; i--) if (_turns[i].files.length > 0) return _turns[i].label;
+  return null;
+}
+
+/** La etiqueta que tendría un turno abierto con esta petición. */
+export function checkpointLabelFor(input: string): string {
+  return String(input ?? '').replace(/\s+/g, ' ').slice(0, 80);
 }
 
 export function describeRollback(r: RollbackReport | null): string {
