@@ -81,6 +81,7 @@ export default defineConfig({
       'src/tools/__tests__/todo_clarify.test.ts',
       'src/tools/__tests__/session_search.test.ts',
       'src/tools/__tests__/consult_models.test.ts',
+      'src/tools/__tests__/run_script.test.ts',
       'src/tui/__tests__/**/*.test.tsx',
       'src/web/__tests__/pwa.test.ts',
       'src/web/__tests__/admin_auth.test.ts',

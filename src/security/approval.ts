@@ -156,7 +156,7 @@ export const CRITICAL_TOOLS = new Set<string>([
  * Tools that are read-only / observe-only. They never request approval,
  * regardless of mode (matches the "smart" default behavior).
  */
-const READ_ONLY_TOOLS = new Set<string>([
+export const READ_ONLY_TOOLS = new Set<string>([
   'read_file', 'list_dir', 'search_files',
   'web_search', 'web_search_with_warmup',
   'screen_observe', 'skill_list', 'n8n_list_catalog',

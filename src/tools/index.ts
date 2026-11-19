@@ -82,6 +82,8 @@ import './clarify.js';
 import './session_search.js';
 // Plan Hermes: varios modelos opinan y uno sintetiza (mixture of agents).
 import './consult_models.js';
+// Plan Hermes: programa corto en sandbox que llama a tools de solo lectura.
+import './run_script.js';
 
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 // FIX 1.7 — Activación del sistema de plugins ESM (manifiestos explícitos).
