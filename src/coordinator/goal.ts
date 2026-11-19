@@ -165,6 +165,12 @@ export async function runGoalLoop(
     goal.turns++;
     onEvent?.({ type: 'turn', goal, result: lastResult });
     if (_goal !== goal || goal.status !== 'active') break; // pausado o sustituido durante el turno
+    if (lastResult?.needs_user === true) {
+      // El agente ha preguntado algo con `clarify`: seguir solo sería adivinar.
+      goal.status = 'paused';
+      goal.pausedReason = 'Shinobi necesita una respuesta tuya; contesta y usa /goal resume';
+      break;
+    }
 
     let verdict: GoalVerdict | null = null;
     try {

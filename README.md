@@ -133,6 +133,8 @@ Los comandos de operador dentro de la CLI/web (prefijo `/`) se definen en
 independiente da la meta por cumplida, con tope de turnos (`/goal status · pause · resume · clear`).
 Al empezar una misión se leen las instrucciones del proyecto (`SHINOBI.md`, `AGENTS.md` o `CLAUDE.md`
 de la carpeta de trabajo), y el cliente de Anthropic usa caché de prompt para abaratar las misiones largas.
+En trabajos de varios pasos el agente lleva una lista de tareas (`todo`) y, si le falta un dato que solo
+tú tienes, para y lo pregunta (`clarify`) en vez de adivinar.
 
 ## Estructura del repositorio
 
