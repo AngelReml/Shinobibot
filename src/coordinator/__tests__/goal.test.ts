@@ -102,6 +102,17 @@ describe('objetivo fijo (/goal)', () => {
     expect(getGoal()?.maxTurns).toBe(9);
   });
 
+  it('se pausa sin consultar al juez si el agente ha preguntado algo al usuario (clarify)', async () => {
+    setGoal('migrar la base de datos');
+    const runTurn = vi.fn(async () => ({ response: '¿SQLite o Postgres?', needs_user: true }));
+    const judge: GoalJudge = vi.fn();
+    const r = await runGoalLoop('empieza', runTurn, judge);
+    expect(r.status).toBe('paused');
+    expect(r.turns).toBe(1);
+    expect(judge).not.toHaveBeenCalled();
+    expect(getGoal()?.pausedReason).toMatch(/respuesta tuya/);
+  });
+
   it('describe el estado en cristiano y el mensaje de continuación recuerda la meta', () => {
     expect(describeGoal(null)).toMatch(/No hay objetivo/);
     setGoal('subir la web');

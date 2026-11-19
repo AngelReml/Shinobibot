@@ -75,6 +75,10 @@ import './audio_transcribe.js';
 // gate: KAGEMUSHA_ENABLED (default off) + requiresConfirmation (D-017).
 import './kagemusha_run.js';
 
+// Plan Hermes, fase 3b: lista de tareas de la sesión y pregunta al usuario.
+import './todo.js';
+import './clarify.js';
+
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 // FIX 1.7 — Activación del sistema de plugins ESM (manifiestos explícitos).
 // HotPlugRegistry (hot_plug_registry.ts) es el sandbox isolated-vm para

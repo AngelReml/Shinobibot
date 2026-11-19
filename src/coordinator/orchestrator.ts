@@ -53,6 +53,7 @@ import { ResourceGovernor, GovernorShedError } from '../runtime/resource_governo
 import { runBestOfN } from '../agents/best_of_n.js';
 import { SYSTEM_PROMPT } from '../constants/prompts.js';
 import { loadProjectContext } from '../context/project_context.js';
+import { takePendingClarify, formatClarify } from '../tools/clarify.js';
 import { contextWorkspaceRoot } from '../agents/exec_context.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -483,6 +484,7 @@ export class ShinobiOrchestrator {
     // las ~46 tools cada turno, se anuncia un núcleo + tool_search; el agente
     // descubre el resto con tool_search y se activan para los turnos siguientes.
     // OFF por defecto → comportamiento idéntico al de siempre.
+    takePendingClarify(); // una pregunta de un turno anterior que abortó no debe cerrar este
     const deferred = isDeferredMode();
     if (deferred) {
       resetActivatedTools();
@@ -1058,6 +1060,23 @@ export class ShinobiOrchestrator {
           }
 
         }  // end for (toolCall)
+
+        // Plan Hermes, fase 3b — `clarify`: si el modelo ha preguntado algo al
+        // usuario, el turno se cierra AQUÍ, con todos los tool results ya en
+        // el historial (ningún tool_call queda huérfano), y la pregunta sale
+        // como respuesta. La contestación llega como siguiente mensaje.
+        const pendingClarify = takePendingClarify();
+        if (pendingClarify) {
+          const question = formatClarify(pendingClarify);
+          console.log(`  [❓] clarify: ${pendingClarify.question.replace(/\s+/g, ' ').slice(0, 200)}`);
+          await this.memory.addMessage({ role: 'assistant', content: question });
+          return {
+            verdict: 'VALID_AGENT',
+            mode: 'local',
+            response: question,
+            needs_user: true,
+          };
+        }
 
         // P2 — progress_judge (capa 3 semántica del loop detector, opt-in
         // con SHINOBI_PROGRESS_DETECTION=1). Un juez LLM independiente puntúa
