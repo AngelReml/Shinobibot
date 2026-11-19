@@ -55,6 +55,7 @@ import { SYSTEM_PROMPT } from '../constants/prompts.js';
 import { loadProjectContext } from '../context/project_context.js';
 import { takePendingClarify, formatClarify } from '../tools/clarify.js';
 import { beginCheckpointTurn } from './checkpoints.js';
+import { runHooks } from './hooks.js';
 import { logSessionMessage, setSessionLogUser } from '../memory/session_log.js';
 import { contextWorkspaceRoot } from '../agents/exec_context.js';
 
@@ -324,6 +325,7 @@ export class ShinobiOrchestrator {
       // resultado para que server.ts lo procese.
       return result;
     } finally {
+      try { await runHooks('turn_end', { input: input.slice(0, 2000) }); } catch { /* los ganchos nunca rompen el turno */ }
       // Fire-and-forget post-task observation. SkillManager may schedule a
       // proposal asynchronously without blocking the user's response.
       try {
@@ -891,8 +893,17 @@ export class ShinobiOrchestrator {
             if (integ && integ.action === 'halt') {
               result = { success: false, output: '', error: `Integridad: violación ${integ.flags.join('+')} — acción "${functionName}" NO ejecutada. ${integ.checks.filter((c) => !c.ok).map((c) => c.detail).join('; ')}` };
             } else {
-              toolEvents().emitToolStarted({ tool: functionName, args: functionArgs });
-              result = await tool.execute(functionArgs);
+              // Ganchos del usuario (hooks.json): un pre_tool con código 2 veta la
+              // tool; el post_tool se informa del resultado. Nunca rompen el turno.
+              const pre = await runHooks('pre_tool', { tool: functionName, args: functionArgs });
+              if (pre.blocked) {
+                console.log(`  [🪝] gancho pre_tool bloqueó ${functionName}: ${pre.reason}`);
+                result = { success: false, output: '', error: `Bloqueado por un gancho del usuario: ${pre.reason}. La acción "${functionName}" NO se ejecutó.` };
+              } else {
+                toolEvents().emitToolStarted({ tool: functionName, args: functionArgs });
+                result = await tool.execute(functionArgs);
+                await runHooks('post_tool', { tool: functionName, args: functionArgs, result: { success: !!result.success, error: result.error } });
+              }
             }
             const durationMs = Date.now() - t0;
             // FASE C / C2 — record the REAL result for the 11.4 post-action check

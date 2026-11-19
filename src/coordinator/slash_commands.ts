@@ -21,6 +21,7 @@ import { skillManager } from '../skills/skill_manager.js';
 import { curatedMemory } from '../memory/curated_memory.js';
 import { rollbackLastTurn, describeRollback, describeCheckpoints, lastCheckpointLabel, checkpointLabelFor } from './checkpoints.js';
 import { sharedMemory } from '../db/memory.js';
+import { describeHooks } from './hooks.js';
 import { parseReasoningLevel, setReasoningLevel, reasoningLevel, reasoningBudget } from '../providers/anthropic_client.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { Notifier } from '../notifications/notifier.js';
@@ -43,6 +44,7 @@ export interface SlashCommandInfo {
 export const SLASH_COMMANDS: SlashCommandInfo[] = [
   { cmd: '/status', desc: 'Estado del agente: modo y modelo activo' },
   { cmd: '/reasoning', desc: 'Que Claude piense antes de responder: off · low · medium · high' },
+  { cmd: '/hooks', desc: 'Ver los ganchos del usuario (comandos propios antes y después de cada tool)' },
   { cmd: '/undo', desc: 'Deshacer tu último mensaje, su respuesta y los archivos que escribió' },
   { cmd: '/retry', desc: 'Deshacer el último turno y volver a intentarlo' },
   { cmd: '/rollback', desc: 'Volver atrás los archivos del último turno: (nada) · list' },
@@ -414,6 +416,9 @@ ${pending.length} pending skill(s):`);
       : `Razonamiento: ${now} (hasta ${reasoningBudget()} tokens de pensamiento por paso; más lento y más caro). Solo con Anthropic.`);
     return true;
   }
+
+  // /hooks — enseña los ganchos del usuario activos.
+  if (trimmed === '/hooks' || trimmed === '/ganchos') { console.log(describeHooks()); return true; }
 
   // /undo — borra del historial tu último mensaje y lo que el agente respondió,
   //         y deshace los archivos que escribió en ese turno.
