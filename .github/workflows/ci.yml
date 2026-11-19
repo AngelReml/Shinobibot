@@ -24,7 +24,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        # ubuntu-24.04 fijo: en ubuntu-latest (26.04) Playwright 1.59 no instala Chromium.
+        os: [windows-latest, ubuntu-24.04]
     timeout-minutes: 20
     steps:
       - name: Checkout
