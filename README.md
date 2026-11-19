@@ -127,7 +127,12 @@ npm run bench:g2 · g4 · g5 · f41 · f43   suites de benchmark individuales
 
 Los comandos de operador dentro de la CLI/web (prefijo `/`) se definen en
 `src/coordinator/slash_commands.ts` (`/read`, `/skill`, `/memory`, `/committee`,
-`/learn`, `/resident`, `/ledger`, `/approval`, `/model`, entre otros).
+`/learn`, `/resident`, `/ledger`, `/approval`, `/model`, `/goal`, entre otros).
+
+`/goal <meta>` deja un objetivo fijo: Shinobi sigue trabajando turno tras turno hasta que un juez
+independiente da la meta por cumplida, con tope de turnos (`/goal status · pause · resume · clear`).
+Al empezar una misión se leen las instrucciones del proyecto (`SHINOBI.md`, `AGENTS.md` o `CLAUDE.md`
+de la carpeta de trabajo), y el cliente de Anthropic usa caché de prompt para abaratar las misiones largas.
 
 ## Estructura del repositorio
 

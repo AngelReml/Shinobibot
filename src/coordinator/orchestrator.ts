@@ -52,6 +52,8 @@ import { validatePayload as contractsValidatePayload, ProtocolViolation } from '
 import { ResourceGovernor, GovernorShedError } from '../runtime/resource_governor.js';
 import { runBestOfN } from '../agents/best_of_n.js';
 import { SYSTEM_PROMPT } from '../constants/prompts.js';
+import { loadProjectContext } from '../context/project_context.js';
+import { contextWorkspaceRoot } from '../agents/exec_context.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -427,6 +429,14 @@ export class ShinobiOrchestrator {
         }
       } catch (e) { console.error('[memory] context build failed:', (e as Error).message); }
     }
+
+    // Contexto del proyecto: SHINOBI.md / AGENTS.md / CLAUDE.md de la carpeta de trabajo.
+    try {
+      const projectCtx = loadProjectContext(contextWorkspaceRoot());
+      if (projectCtx) {
+        currentMessages = [{ role: 'system', content: projectCtx.section } as any, ...currentMessages];
+      }
+    } catch (e) { console.error('[context] project context failed:', (e as Error).message); }
 
     // Bloque 3: inject matching skill instructions when any approved skill's
     // trigger_keywords match the input.
@@ -1082,7 +1092,7 @@ export class ShinobiOrchestrator {
   }
 }
 
-export function calculateCost(provider: string, model: string, usage: { prompt_tokens: number; completion_tokens: number }): number {
+export function calculateCost(provider: string, model: string, usage: { prompt_tokens: number; completion_tokens: number; cache_read_tokens?: number; cache_write_tokens?: number }): number {
   const p = provider.toLowerCase();
   const m = model.toLowerCase();
   let inputRate = 0; // per 1M tokens
@@ -1119,7 +1129,12 @@ export function calculateCost(provider: string, model: string, usage: { prompt_t
     outputRate = 4.00;
   }
 
-  const inputCost = (usage.prompt_tokens * inputRate) / 1_000_000;
+  // Caché de prompt: lo leído de caché cuesta ~0,1× y lo escrito ~1,25× la tarifa de entrada.
+  // prompt_tokens ya incluye ambos, así que se restan antes de aplicar la tarifa normal.
+  const cacheRead = Math.max(0, usage.cache_read_tokens || 0);
+  const cacheWrite = Math.max(0, usage.cache_write_tokens || 0);
+  const plainInput = Math.max(0, usage.prompt_tokens - cacheRead - cacheWrite);
+  const inputCost = ((plainInput + cacheRead * 0.1 + cacheWrite * 1.25) * inputRate) / 1_000_000;
   const outputCost = (usage.completion_tokens * outputRate) / 1_000_000;
   return inputCost + outputCost;
 }

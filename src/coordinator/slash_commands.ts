@@ -15,6 +15,7 @@
 // required.
 
 import { ShinobiOrchestrator } from './orchestrator.js';
+import { setGoal, clearGoal, pauseGoal, resumeGoal, runGoalLoop, describeGoal, continuationPrompt } from './goal.js';
 import { SkillLoader } from '../skills/skill_loader.js';
 import { skillManager } from '../skills/skill_manager.js';
 import { curatedMemory } from '../memory/curated_memory.js';
@@ -51,6 +52,7 @@ export const SLASH_COMMANDS: SlashCommandInfo[] = [
   { cmd: '/apply', desc: 'Aplicar una propuesta por id' },
   { cmd: '/self', desc: 'Auto-informe del agente (--diff · --budget)' },
   { cmd: '/approval', desc: 'Candado de aprobaciones: on · smart · off' },
+  { cmd: '/goal', desc: 'Objetivo fijo: /goal <meta> · --max N · status · pause · resume · clear' },
   { cmd: '/resident', desc: 'Tareas residentes: start · stop · add · enable · logs' },
   { cmd: '/sentinel', desc: 'Vigilancia tecnológica: watch · ask · deep · digest' },
   { cmd: '/notify', desc: 'Notificaciones n8n: set · unset · test' },
@@ -392,6 +394,40 @@ ${pending.length} pending skill(s):`);
   }
 
   // /resident start|stop|status|add|enable|disable|delete|reset|logs
+  if (trimmed === '/goal' || trimmed.startsWith('/goal ')) {
+    const arg = trimmed.slice('/goal'.length).trim();
+    if (!arg || arg === 'status') { console.log(describeGoal()); return true; }
+    if (arg === 'clear' || arg === 'borrar') { clearGoal(); console.log('Objetivo borrado.'); return true; }
+    if (arg === 'pause' || arg === 'pausa') { pauseGoal(); console.log(describeGoal()); return true; }
+    let first: string;
+    if (arg === 'resume' || arg === 'seguir') {
+      const g = resumeGoal();
+      if (!g || g.status !== 'active') { console.log(describeGoal()); return true; }
+      first = continuationPrompt(g.text, g.lastVerdict ?? null);
+    } else {
+      const withMax = arg.match(/^--max\s+(\d+)\s+([\s\S]+)$/);
+      try {
+        first = setGoal(withMax ? withMax[2] : arg, withMax ? Number(withMax[1]) : undefined).text;
+      } catch (e: any) {
+        console.log(e.message);
+        return true;
+      }
+    }
+    console.log('[Objetivo fijo] En marcha. Seguiré hasta cumplirlo o agotar los turnos.');
+    await runGoalLoop(first, (input) => ShinobiOrchestrator.process(input), undefined, (e) => {
+      if (e.type === 'turn') {
+        const out = (e.result as any)?.output ?? (e.result as any)?.error ?? '';
+        console.log(`\n--- Turno ${e.goal.turns}/${e.goal.maxTurns} ---\n${typeof out === 'string' ? out : JSON.stringify(out)}`);
+      } else if (e.type === 'verdict') {
+        console.log(e.verdict
+          ? `[Objetivo fijo] Revisión: ${e.verdict.done ? 'cumplido' : 'aún no'} — ${e.verdict.reason}`
+          : '[Objetivo fijo] Revisión: el juez no pudo decidir.');
+      }
+    });
+    console.log('\n' + describeGoal());
+    return true;
+  }
+
   if (trimmed.startsWith('/resident')) {
     const parts = trimmed.split(/\s+/);
     const sub = parts[1];
