@@ -186,6 +186,9 @@ class SkillManagerImpl {
     `);
   }
 
+  /** Cierra la base de datos. En Windows un fichero abierto no se puede borrar. */
+  close(): void { try { this.db.close(); } catch { /* ya cerrada */ } }
+
   /** Returns the path of the DB (mostly for tests / debugging). */
   dbPath(): string {
     return this.dbPathStr;

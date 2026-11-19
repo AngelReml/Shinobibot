@@ -53,6 +53,7 @@ describe('skills de Claude Code en Shinobi', () => {
   afterEach(() => {
     setSkillManagerForTesting(null);
     setGithubFetcherForTesting(null);
+    mgr.close(); // en Windows la base abierta impide borrar la carpeta
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
