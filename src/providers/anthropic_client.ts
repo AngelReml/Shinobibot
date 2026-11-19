@@ -76,6 +76,40 @@ export function applyPromptCaching(
 }
 
 /** Claves disponibles, sin duplicados: ANTHROPIC_API_KEY, luego ANTHROPIC_API_KEYS (CSV); si no hay ninguna, SHINOBI_PROVIDER_KEY. */
+/**
+ * Modo de razonamiento (mejora tomada de Hermes Agent: «reasoning effort»).
+ * Apagado por defecto. `SHINOBI_REASONING=low|medium|high` (o /reasoning en
+ * la CLI) pide a Claude que piense antes de responder, con un presupuesto de
+ * tokens de pensamiento. Cuesta más y tarda más: es para problemas difíciles.
+ */
+export type ReasoningLevel = 'off' | 'low' | 'medium' | 'high';
+const REASONING_BUDGET: Record<Exclude<ReasoningLevel, 'off'>, number> = { low: 2000, medium: 8000, high: 16000 };
+let _reasoningOverride: ReasoningLevel | null = null;
+
+export function parseReasoningLevel(raw: unknown): ReasoningLevel | null {
+  const v = String(raw ?? '').trim().toLowerCase();
+  if (v === '' || v === '0' || v === 'off' || v === 'no' || v === 'none') return 'off';
+  if (v === 'low' || v === 'bajo') return 'low';
+  if (v === 'medium' || v === 'medio' || v === '1' || v === 'on') return 'medium';
+  if (v === 'high' || v === 'alto') return 'high';
+  return null;
+}
+export function setReasoningLevel(level: ReasoningLevel | null): void { _reasoningOverride = level; }
+export function reasoningLevel(): ReasoningLevel {
+  return _reasoningOverride ?? parseReasoningLevel(process.env.SHINOBI_REASONING) ?? 'off';
+}
+/** Presupuesto de pensamiento para el nivel activo; 0 = apagado. */
+export function reasoningBudget(level: ReasoningLevel = reasoningLevel()): number {
+  return level === 'off' ? 0 : REASONING_BUDGET[level];
+}
+
+/** Quita los bloques de pensamiento de los mensajes (para reintentar sin razonamiento). */
+export function stripThinking(messages: any[]): any[] {
+  return messages.map(m => Array.isArray(m?.content)
+    ? { ...m, content: m.content.filter((b: any) => b?.type !== 'thinking' && b?.type !== 'redacted_thinking') }
+    : m);
+}
+
 export function anthropicKeys(): string[] {
   const out: string[] = [];
   const single = (process.env.ANTHROPIC_API_KEY || '').trim();
@@ -128,6 +162,9 @@ function splitSystemAndMessages(messages: any[]): { system: string; rest: any[] 
       // Se traduce a bloques de contenido nativos: texto + tool_use.
       flushToolResults();
       const blocks: any[] = [];
+      // Con razonamiento activo, Anthropic exige que el mensaje con tool_use
+      // empiece por los bloques de pensamiento que lo acompañaban, intactos.
+      if (Array.isArray(m._anthropic_thinking)) blocks.push(...m._anthropic_thinking);
       const text = typeof m.content === 'string' ? m.content : '';
       if (text.trim()) blocks.push({ type: 'text', text });
       for (const tc of m.tool_calls) {
@@ -204,16 +241,21 @@ export const anthropicClient: ProviderClient = {
 
     // Pool de claves: se empieza por la última que funcionó; 401/403/429 → siguiente.
     let lastError: CloudResponse = { success: false, output: '', error: 'Anthropic: sin claves que probar.' };
+    // Razonamiento: presupuesto de pensamiento + margen para la respuesta.
+    // La API no admite `temperature` distinta de 1 con thinking, así que se omite.
+    let budget = reasoningBudget();
+    let thinkingRetried = false;
     for (let attempt = 0; attempt < keys.length; attempt++) {
       const idx = (_stickyKey + attempt) % keys.length;
       try {
         const resp = await axios.post(`${BASE_URL}/messages`, {
           model,
           system: body.system,
-          messages: body.messages,
-          max_tokens,
-          temperature: payload.temperature,
+          messages: budget > 0 ? body.messages : stripThinking(body.messages),
+          max_tokens: budget > 0 ? Math.max(max_tokens, budget + 4096) : max_tokens,
+          temperature: budget > 0 ? undefined : payload.temperature,
           tools: body.tools,
+          thinking: budget > 0 ? { type: 'enabled', budget_tokens: budget } : undefined,
         }, {
           headers: {
             'x-api-key': keys[idx],
@@ -229,6 +271,8 @@ export const anthropicClient: ProviderClient = {
         const tool_calls = extractToolCalls(blocks);
         const openAiMsg: any = { role: 'assistant', content };
         if (tool_calls) openAiMsg.tool_calls = tool_calls;
+        const thinking = blocks.filter(b => b.type === 'thinking' || b.type === 'redacted_thinking');
+        if (tool_calls && thinking.length > 0) openAiMsg._anthropic_thinking = thinking;
         const u = resp.data?.usage;
         // Anthropic NO incluye lo cacheado en input_tokens: el prompt real es la suma de los tres.
         const cacheRead = u?.cache_read_input_tokens || 0;
@@ -247,6 +291,14 @@ export const anthropicClient: ProviderClient = {
         if (status === 401) lastError = { success: false, output: '', error: 'Anthropic HTTP 401: key inválida.' };
         else if (e.response?.data?.error?.message) lastError = { success: false, output: '', error: `Anthropic: ${e.response.data.error.message}` };
         else lastError = { success: false, output: '', error: `Anthropic error [${model}]: ${e.message}` };
+        // Si la API rechaza la petición POR el razonamiento (modelo que no lo
+        // soporta, bloques de pensamiento perdidos al compactar…), se reintenta
+        // una vez sin él: mejor una respuesta sin pensar que ninguna.
+        if (budget > 0 && !thinkingRetried && status === 400 && /thinking/i.test(String(e.response?.data?.error?.message ?? ''))) {
+          console.log('[Shinobi] Anthropic rechazó el modo de razonamiento en esta llamada; reintento sin él.');
+          budget = 0; thinkingRetried = true; attempt--;
+          continue;
+        }
         const rotable = status === 401 || status === 403 || status === 429;
         if (!rotable) return lastError;
         if (attempt < keys.length - 1) console.log(`[Shinobi] Anthropic: clave ${idx + 1}/${keys.length} respondió ${status}; pruebo la siguiente.`);

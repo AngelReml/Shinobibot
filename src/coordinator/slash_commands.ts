@@ -21,6 +21,7 @@ import { skillManager } from '../skills/skill_manager.js';
 import { curatedMemory } from '../memory/curated_memory.js';
 import { rollbackLastTurn, describeRollback, describeCheckpoints, lastCheckpointLabel, checkpointLabelFor } from './checkpoints.js';
 import { sharedMemory } from '../db/memory.js';
+import { parseReasoningLevel, setReasoningLevel, reasoningLevel, reasoningBudget } from '../providers/anthropic_client.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { Notifier } from '../notifications/notifier.js';
 import {
@@ -41,6 +42,7 @@ export interface SlashCommandInfo {
 }
 export const SLASH_COMMANDS: SlashCommandInfo[] = [
   { cmd: '/status', desc: 'Estado del agente: modo y modelo activo' },
+  { cmd: '/reasoning', desc: 'Que Claude piense antes de responder: off · low · medium · high' },
   { cmd: '/undo', desc: 'Deshacer tu último mensaje, su respuesta y los archivos que escribió' },
   { cmd: '/retry', desc: 'Deshacer el último turno y volver a intentarlo' },
   { cmd: '/rollback', desc: 'Volver atrás los archivos del último turno: (nada) · list' },
@@ -395,6 +397,21 @@ ${pending.length} pending skill(s):`);
     }
 
     console.log('Usage: /skill list | /skill install <nombre|fuente> | /skill approve <id> | /skill reject <id> | /skill list-approved | /skill reload | /skill propose [<contexto>] | /skill review');
+    return true;
+  }
+
+  // /reasoning [off|low|medium|high] — que Claude piense antes de responder.
+  if (trimmed === '/reasoning' || trimmed.startsWith('/reasoning ') || trimmed === '/razonar' || trimmed.startsWith('/razonar ')) {
+    const arg = trimmed.split(/\s+/)[1];
+    if (arg) {
+      const lvl = parseReasoningLevel(arg);
+      if (!lvl) { console.log('Uso: /reasoning off | low | medium | high'); return true; }
+      setReasoningLevel(lvl);
+    }
+    const now = reasoningLevel();
+    console.log(now === 'off'
+      ? 'Razonamiento: apagado (respuestas más rápidas y baratas).'
+      : `Razonamiento: ${now} (hasta ${reasoningBudget()} tokens de pensamiento por paso; más lento y más caro). Solo con Anthropic.`);
     return true;
   }
 

@@ -6,6 +6,7 @@ import {
   anthropicKeys,
   cachingEnabled,
   _resetKeyPoolForTests,
+  setReasoningLevel, reasoningLevel, reasoningBudget, parseReasoningLevel, stripThinking,
 } from '../anthropic_client.js';
 import { calculateCost } from '../../coordinator/orchestrator.js';
 
@@ -156,5 +157,83 @@ describe('anthropic_client — caché de prompt, límites y pool de claves', () 
     expect(post).not.toHaveBeenCalled();
     process.env.SHINOBI_PROVIDER_KEY = 'generica';
     expect(anthropicKeys()).toEqual(['generica']);
+  });
+
+  describe('modo de razonamiento', () => {
+    beforeEach(() => { setReasoningLevel(null); delete process.env.SHINOBI_REASONING; });
+    afterEach(() => { setReasoningLevel(null); delete process.env.SHINOBI_REASONING; });
+
+    it('apagado por defecto: la petición no lleva thinking y conserva la temperatura', async () => {
+      post.mockResolvedValue(OK());
+      await anthropicClient.invokeLLM({ messages: MESSAGES, temperature: 0.3 });
+      const body: any = post.mock.calls[0][1];
+      expect(body.thinking).toBeUndefined();
+      expect(body.temperature).toBe(0.3);
+      expect(reasoningLevel()).toBe('off');
+    });
+
+    it('niveles: env y /reasoning, con el override por delante', () => {
+      expect(parseReasoningLevel('ALTO')).toBe('high');
+      expect(parseReasoningLevel('medio')).toBe('medium');
+      expect(parseReasoningLevel('off')).toBe('off');
+      expect(parseReasoningLevel('turbo')).toBeNull();
+      process.env.SHINOBI_REASONING = 'low';
+      expect(reasoningBudget()).toBe(2000);
+      setReasoningLevel('high');
+      expect(reasoningBudget()).toBe(16000);
+      setReasoningLevel('off');
+      expect(reasoningBudget()).toBe(0);
+    });
+
+    it('activo: manda presupuesto, quita la temperatura y deja margen de salida por encima del presupuesto', async () => {
+      setReasoningLevel('medium');
+      post.mockResolvedValue(OK());
+      await anthropicClient.invokeLLM({ messages: MESSAGES, temperature: 0.3, max_tokens: 1000 });
+      const body: any = post.mock.calls[0][1];
+      expect(body.thinking).toEqual({ type: 'enabled', budget_tokens: 8000 });
+      expect(body.temperature).toBeUndefined();
+      expect(body.max_tokens).toBeGreaterThan(8000);
+    });
+
+    it('guarda los bloques de pensamiento junto a un tool_use y los devuelve intactos y en primer lugar', async () => {
+      setReasoningLevel('low');
+      const think = { type: 'thinking', thinking: 'veamos…', signature: 'sig123' };
+      post.mockResolvedValueOnce({ status: 200, data: { content: [think, { type: 'tool_use', id: 't9', name: 'read_file', input: { path: 'a' } }], usage: { input_tokens: 1, output_tokens: 1 } } });
+      const r = await anthropicClient.invokeLLM({ messages: MESSAGES, tools: TOOLS });
+      const msg = JSON.parse(r.output);
+      expect(msg._anthropic_thinking).toEqual([think]);
+      post.mockResolvedValueOnce(OK());
+      await anthropicClient.invokeLLM({ tools: TOOLS, messages: [...MESSAGES, msg, { role: 'tool', tool_call_id: 't9', content: 'ok' }] });
+      const sent: any = post.mock.calls[1][1];
+      const assistant = sent.messages.filter((m: any) => m.role === 'assistant').pop();
+      expect(assistant.content[0]).toEqual(think);
+      expect(assistant.content[1].type).toBe('tool_use');
+    });
+
+    it('apagado: los bloques de pensamiento guardados no se envían', async () => {
+      const think = { type: 'thinking', thinking: 'x', signature: 's' };
+      post.mockResolvedValue(OK());
+      await anthropicClient.invokeLLM({ tools: TOOLS, messages: [
+        MESSAGES[0], MESSAGES[1],
+        { ...MESSAGES[2], _anthropic_thinking: [think] } as any, MESSAGES[3],
+      ] });
+      expect(JSON.stringify(post.mock.calls[0][1])).not.toContain('"thinking"');
+      expect(stripThinking([{ role: 'assistant', content: [think, { type: 'text', text: 'a' }] }])[0].content).toEqual([{ type: 'text', text: 'a' }]);
+    });
+
+    it('si la API rechaza el razonamiento, reintenta una sola vez sin él', async () => {
+      setReasoningLevel('high');
+      post.mockRejectedValueOnce(httpError(400, 'thinking: this model does not support extended thinking'));
+      post.mockResolvedValueOnce(OK());
+      const r = await anthropicClient.invokeLLM({ messages: MESSAGES });
+      expect(r.success).toBe(true);
+      expect(post).toHaveBeenCalledTimes(2);
+      expect((post.mock.calls[1][1] as any).thinking).toBeUndefined();
+      post.mockReset();
+      post.mockRejectedValue(httpError(400, 'thinking: nope'));
+      const bad = await anthropicClient.invokeLLM({ messages: MESSAGES });
+      expect(bad.success).toBe(false);
+      expect(post).toHaveBeenCalledTimes(2);
+    });
   });
 });
