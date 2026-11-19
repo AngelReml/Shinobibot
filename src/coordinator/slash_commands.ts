@@ -434,7 +434,7 @@ ${pending.length} pending skill(s):`);
       else if (r.respuesta) console.log(`Respuesta escrita (${r.respuesta.resultado}): ${r.respuesta.nota_es}`);
       else if (r.estado) console.log(typeof r.estado.antes === 'number'
         ? `Medición previa: ${r.estado.antes} (0 = nunca pasa, 1 = siempre). Ahora toca implementar la mejora y luego /puente cerrar ${r.estado.nombre}`
-        : `Prueba escrita para ${r.estado.nombre}:\n  Tarea: ${r.estado.prueba.tarea}\n  Se supera si: ${r.estado.prueba.criterio}\nSiguiente: /puente medir ${r.estado.nombre}`);
+        : `Prueba escrita para ${r.estado.nombre}:\n  Tarea: ${r.estado.prueba.tarea}\n  Se supera si: ${r.estado.prueba.criterio}\nSiguiente: /puente medir ${r.estado.nombre}  (mide ANTES de instalar nada)`);
     };
     if (!sub || sub === 'estado') { console.log(describirEstado(dir)); return true; }
     if (sub === 'prueba') {

@@ -40,6 +40,10 @@ export interface Ficha {
   categoria: string;
   hechos: string[];
   por_que: string;
+  /** 'instalable' = skill, conector MCP o plugin que se puede instalar y probar. */
+  tipo: 'novedad' | 'instalable';
+  /** Orden de instalación (solo en instalables). Es texto de internet: nunca se ejecuta sin aprobación. */
+  instalar: string;
 }
 
 export interface Prueba {
@@ -70,6 +74,8 @@ export type Llm = (system: string, user: string) => Promise<string | null>;
 export type Runner = (tarea: string) => Promise<string>;
 export type Juez = (tarea: string, criterio: string, respuesta: string) => Promise<boolean | null>;
 
+/** Misma regla que aplica el recolector del radar; aquí se vuelve a comprobar porque la ficha viaja por un repo. */
+export const INSTALAR_OK = /^(?:npx(?: -y| --yes)?|uvx|pipx (?:run|install)|pip install|npm (?:install|i) -g|claude mcp add|claude plugin (?:install|marketplace add)|\/plugin (?:install|marketplace add)) [A-Za-z0-9@][A-Za-z0-9@/._:=\- ]{1,110}$/;
 const NOMBRE_OK = /^[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9a-f]{12}$/;
 const MAX_CAMPO = 1500;
 export const INTENTOS_POR_MEDICION = 3;
@@ -95,9 +101,15 @@ export function leerFicha(file: string): Ficha | string {
   if (!/^[0-9a-f]{64}$/.test(id) || !id.startsWith(nombre.slice(11))) return 'el id no casa con el nombre del archivo';
   const ficha: Ficha = {
     nombre, id, fecha: txt(raw.fecha).slice(0, 10), titulo: txt(raw.titulo), que_es: txt(raw.que_es), url: txt(raw.url),
-    categoria: txt(raw.categoria), hechos: (Array.isArray(raw.hechos) ? raw.hechos : []).slice(0, 8).map(txt).filter(Boolean), por_que: txt(raw.por_que),
+    categoria: txt(raw.categoria), tipo: raw.tipo === 'instalable' ? 'instalable' : 'novedad', instalar: '', hechos: (Array.isArray(raw.hechos) ? raw.hechos : []).slice(0, 8).map(txt).filter(Boolean), por_que: txt(raw.por_que),
   };
   if (!ficha.titulo || !ficha.que_es) return 'faltan título o descripción';
+  if (ficha.tipo === 'instalable') {
+    // Una sola orden conocida, alfabeto cerrado: lo que no encaje se trata como ficha no fiable.
+    const cmd = String(raw.instalar ?? '').trim();
+    if (!INSTALAR_OK.test(cmd)) return 'la orden de instalación no es una orden simple reconocida';
+    ficha.instalar = cmd;
+  }
   const scan = scanContent([ficha.titulo, ficha.que_es, ficha.por_que, ...ficha.hechos].join('\n'));
   if (!scan.ok) return `contenido sospechoso (${scan.pattern})`;
   return ficha;
@@ -127,12 +139,15 @@ export const ADVERSARIO_SYSTEM = [
   'Before anyone changes Shinobi, you must write the test. Decide whether the card can become a MEASURABLE task that Shinobi would probably FAIL today and pass only if the improvement were built in.',
   'If a <shinobi_tools> list is given, it is the real list of tools Shinobi has today: use it to judge what Shinobi can already do, do not assume.',
   'The task must be runnable by giving Shinobi one prompt, with no extra accounts, hardware or paid services, and its success must be checkable from Shinobi\'s final answer alone.',
+  'If the card has "tipo": "instalable", it is a skill, MCP server or plugin with an install command. The test must be a concrete task that only becomes possible (or clearly better) AFTER installing it, and whose result can be checked. The task itself must NOT include installing: installation is a separate, human-approved step.',
   'If the card is news, a product launch, an opinion, a paper with nothing to build, or needs resources Shinobi lacks, it is NOT applicable: saying so is a valid result. Do not stretch.',
   'Reply with JSON only: {"aplicable": true|false, "tarea": "<the exact prompt to give Shinobi, in Spanish>", "criterio": "<what must be visible in the answer to pass, in Spanish>", "motivo": "<at most 30 words in plain Spanish: why it is or is not testable>"}',
 ].join('\n');
 
 export function fichaComoDatos(f: Ficha): string {
-  return `<card>\n${JSON.stringify({ titulo: f.titulo, que_es: f.que_es, categoria: f.categoria, hechos: f.hechos, por_que: f.por_que, url: f.url }, null, 1)}\n</card>`;
+  const base: any = { tipo: f.tipo, titulo: f.titulo, que_es: f.que_es, categoria: f.categoria, hechos: f.hechos, por_que: f.por_que, url: f.url };
+  if (f.tipo === 'instalable') base.instalar = f.instalar;
+  return `<card>\n${JSON.stringify(base, null, 1)}\n</card>`;
 }
 
 export function parsePrueba(raw: string | null): Prueba | null {
@@ -247,7 +262,7 @@ export function describirEstado(dir: string): string {
   for (const f of fichas.slice(0, 15)) {
     const e = leerEstado(f.nombre);
     const fase = !e ? 'sin prueba' : typeof e.antes === 'number' ? `medida antes: ${e.antes} — falta implementar y /puente cerrar` : 'prueba escrita — falta /puente medir';
-    lines.push(`  ${f.nombre}  [${fase}]  ${f.titulo.slice(0, 90)}`);
+    lines.push(`  ${f.nombre}  [${fase}]  ${f.tipo === 'instalable' ? '⬇ ' : ''}${f.titulo.slice(0, 90)}`);
   }
   if (fichas.length > 15) lines.push(`  … y ${fichas.length - 15} más`);
   for (const r of rechazadas) lines.push(`  ⚠ ${r.nombre}: ficha descartada (${r.motivo})`);
