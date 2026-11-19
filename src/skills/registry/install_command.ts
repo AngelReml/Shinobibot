@@ -19,7 +19,7 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { LocalRegistry } from './local_registry.js';
 import { installFromRegistry } from './installer.js';
-import { installSkillFromSource } from '../anthropic_skill_installer.js';
+import { installSkillFromSource, parseSkillSource, discoverRepoSkills } from '../anthropic_skill_installer.js';
 import type { SkillManifestEntry } from './types.js';
 
 export interface SkillInstallOutcome {
@@ -73,6 +73,40 @@ export async function runSkillInstall(
       ok: false,
       lines: ['Usage: /skill install <nombre> | github:owner/repo | https://.../SKILL.md | file://path  [--allow-warnings]'],
     };
+  }
+
+  // `owner/repo` a secas: lo que se escribe tras `/plugin marketplace add` o
+  // `npx skills add` en el mundo de Claude Code. Se trata como repo de GitHub.
+  if (/^[\w.-]+\/[\w.-]+$/.test(arg) && !existsSync(arg)) arg = `github:${arg}`;
+
+  // Repo de GitHub sin carpeta concreta: puede traer una skill o muchas
+  // (repo de skills, plugin de Claude Code). Se instalan todas, una a una,
+  // cada una con su auditoría.
+  if (isDirectSource(arg)) {
+    try {
+      const src = parseSkillSource(arg);
+      if (src.kind === 'github-repo' && !src.subdir) {
+        const found = await discoverRepoSkills(src.owner, src.repo, src.ref);
+        if (found.dirs.length === 0) return { ok: false, lines: [`✗ ${src.owner}/${src.repo} no contiene ningún SKILL.md: no es una skill ni un plugin con skills`] };
+        if (!(found.dirs.length === 1 && found.dirs[0] === '')) {
+          let okCount = 0;
+          lines.push(`${src.owner}/${src.repo} trae ${found.dirs.length} skill(s):`);
+          for (const dir of found.dirs) {
+            const refPart = src.ref ? `#${src.ref}` : (found.ref && found.ref !== 'HEAD' ? `#${found.ref}` : '');
+            const one = `github:${src.owner}/${src.repo}${refPart}${dir ? `:${dir}` : ''}`;
+            try {
+              const r = await installSkillFromSource(one, { skillsRoot, allowWarnings: opts.allowWarnings, overwrite: true });
+              if (r.accepted) { okCount++; lines.push(`  ✓ ${r.skillName}  (${dir || 'raíz'})`); }
+              else lines.push(`  ✗ ${dir || 'raíz'}: ${r.requiresConfirmation ? 'el auditor encontró avisos (repite con --allow-warnings si te fías)' : (r.reason ?? 'rechazada por el auditor')}`);
+            } catch (e: any) { lines.push(`  ✗ ${dir || 'raíz'}: ${e?.message ?? e}`); }
+          }
+          lines.push(okCount > 0 ? `${okCount} instalada(s). Ya están disponibles: Shinobi las verá en su lista de skills.` : 'No se instaló ninguna.');
+          return { ok: okCount > 0, lines };
+        }
+      }
+    } catch (e: any) {
+      return { ok: false, lines: [`✗ error leyendo ${arg}: ${e?.message ?? e}`] };
+    }
   }
 
   // Modo fuente directa.

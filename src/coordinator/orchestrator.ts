@@ -53,6 +53,10 @@ import { ResourceGovernor, GovernorShedError } from '../runtime/resource_governo
 import { runBestOfN } from '../agents/best_of_n.js';
 import { SYSTEM_PROMPT } from '../constants/prompts.js';
 import { loadProjectContext } from '../context/project_context.js';
+import { takePendingClarify, formatClarify } from '../tools/clarify.js';
+import { beginCheckpointTurn } from './checkpoints.js';
+import { runHooks } from './hooks.js';
+import { logSessionMessage, setSessionLogUser } from '../memory/session_log.js';
 import { contextWorkspaceRoot } from '../agents/exec_context.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -277,6 +281,9 @@ export class ShinobiOrchestrator {
   private static async processExclusive(input: string, opts?: { userId?: string }): Promise<any> {
     console.log(`[Shinobi] Processing: ${input.slice(0, 50)}...`);
     this._turnsSinceMemory++;
+    beginCheckpointTurn(input); // /rollback deshace los archivos escritos en este turno
+    setSessionLogUser(opts?.userId);
+    logSessionMessage('user', input); // diario buscable (session_search)
 
     // Add user input to memory
     await this.memory.addMessage({ role: 'user', content: input });
@@ -310,6 +317,7 @@ export class ShinobiOrchestrator {
         }
       }
       success = result?.verdict === 'VALID_AGENT';
+      if (success && typeof result?.response === 'string') logSessionMessage('assistant', result.response);
       if (result?.verdict === 'ERROR' && result?.error) error = String(result.error);
 
       // Bloque 5.3 — el hook de auto-offer se MOVIÓ a server.ts (punto único
@@ -317,6 +325,7 @@ export class ShinobiOrchestrator {
       // resultado para que server.ts lo procese.
       return result;
     } finally {
+      try { await runHooks('turn_end', { input: input.slice(0, 2000) }); } catch { /* los ganchos nunca rompen el turno */ }
       // Fire-and-forget post-task observation. SkillManager may schedule a
       // proposal asynchronously without blocking the user's response.
       try {
@@ -447,6 +456,13 @@ export class ShinobiOrchestrator {
       }
     } catch (e) { console.error('[skill-manager] context build failed:', (e as Error).message); }
 
+    // Skills con formato de Claude Code (sin palabras clave): el modelo ve el
+    // catálogo y pide el texto completo con la tool `skill_use` cuando toca.
+    try {
+      const catalog = skillManager().getCatalogSection();
+      if (catalog) currentMessages = [{ role: 'system', content: catalog } as any, ...currentMessages];
+    } catch (e) { console.error('[skill-manager] catalog build failed:', (e as Error).message); }
+
     // FASE 2 cabo C / FASE 1 — directiva de delegación a SpecialistAgents,
     // dirigida por keywords. Sin esto el orchestrator resolvía investigación /
     // documentos / gráficos con tools sueltas en vez de delegar al especialista.
@@ -483,6 +499,7 @@ export class ShinobiOrchestrator {
     // las ~46 tools cada turno, se anuncia un núcleo + tool_search; el agente
     // descubre el resto con tool_search y se activan para los turnos siguientes.
     // OFF por defecto → comportamiento idéntico al de siempre.
+    takePendingClarify(); // una pregunta de un turno anterior que abortó no debe cerrar este
     const deferred = isDeferredMode();
     if (deferred) {
       resetActivatedTools();
@@ -883,8 +900,17 @@ export class ShinobiOrchestrator {
             if (integ && integ.action === 'halt') {
               result = { success: false, output: '', error: `Integridad: violación ${integ.flags.join('+')} — acción "${functionName}" NO ejecutada. ${integ.checks.filter((c) => !c.ok).map((c) => c.detail).join('; ')}` };
             } else {
-              toolEvents().emitToolStarted({ tool: functionName, args: functionArgs });
-              result = await tool.execute(functionArgs);
+              // Ganchos del usuario (hooks.json): un pre_tool con código 2 veta la
+              // tool; el post_tool se informa del resultado. Nunca rompen el turno.
+              const pre = await runHooks('pre_tool', { tool: functionName, args: functionArgs });
+              if (pre.blocked) {
+                console.log(`  [🪝] gancho pre_tool bloqueó ${functionName}: ${pre.reason}`);
+                result = { success: false, output: '', error: `Bloqueado por un gancho del usuario: ${pre.reason}. La acción "${functionName}" NO se ejecutó.` };
+              } else {
+                toolEvents().emitToolStarted({ tool: functionName, args: functionArgs });
+                result = await tool.execute(functionArgs);
+                await runHooks('post_tool', { tool: functionName, args: functionArgs, result: { success: !!result.success, error: result.error } });
+              }
             }
             const durationMs = Date.now() - t0;
             // FASE C / C2 — record the REAL result for the 11.4 post-action check
@@ -1058,6 +1084,23 @@ export class ShinobiOrchestrator {
           }
 
         }  // end for (toolCall)
+
+        // Plan Hermes, fase 3b — `clarify`: si el modelo ha preguntado algo al
+        // usuario, el turno se cierra AQUÍ, con todos los tool results ya en
+        // el historial (ningún tool_call queda huérfano), y la pregunta sale
+        // como respuesta. La contestación llega como siguiente mensaje.
+        const pendingClarify = takePendingClarify();
+        if (pendingClarify) {
+          const question = formatClarify(pendingClarify);
+          console.log(`  [❓] clarify: ${pendingClarify.question.replace(/\s+/g, ' ').slice(0, 200)}`);
+          await this.memory.addMessage({ role: 'assistant', content: question });
+          return {
+            verdict: 'VALID_AGENT',
+            mode: 'local',
+            response: question,
+            needs_user: true,
+          };
+        }
 
         // P2 — progress_judge (capa 3 semántica del loop detector, opt-in
         // con SHINOBI_PROGRESS_DETECTION=1). Un juez LLM independiente puntúa

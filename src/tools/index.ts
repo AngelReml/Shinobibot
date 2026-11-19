@@ -75,6 +75,18 @@ import './audio_transcribe.js';
 // gate: KAGEMUSHA_ENABLED (default off) + requiresConfirmation (D-017).
 import './kagemusha_run.js';
 
+// Plan Hermes, fase 3b: lista de tareas de la sesión y pregunta al usuario.
+import './todo.js';
+import './clarify.js';
+// Plan Hermes: buscar en conversaciones pasadas (diario local FTS5).
+import './session_search.js';
+// Plan Hermes: varios modelos opinan y uno sintetiza (mixture of agents).
+import './consult_models.js';
+// Plan Hermes: programa corto en sandbox que llama a tools de solo lectura.
+import './run_script.js';
+// Skills con formato de Claude Code: carga bajo demanda del SKILL.md y sus ficheros.
+import './skill_use.js';
+
 import { getAllTools, getTool, toOpenAITools } from './tool_registry.js';
 // FIX 1.7 — Activación del sistema de plugins ESM (manifiestos explícitos).
 // HotPlugRegistry (hot_plug_registry.ts) es el sandbox isolated-vm para

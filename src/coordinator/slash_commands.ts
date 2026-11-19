@@ -19,6 +19,12 @@ import { setGoal, clearGoal, pauseGoal, resumeGoal, runGoalLoop, describeGoal, c
 import { SkillLoader } from '../skills/skill_loader.js';
 import { skillManager } from '../skills/skill_manager.js';
 import { curatedMemory } from '../memory/curated_memory.js';
+import { rollbackLastTurn, describeRollback, describeCheckpoints, lastCheckpointLabel, checkpointLabelFor } from './checkpoints.js';
+import { sharedMemory } from '../db/memory.js';
+import { describeHooks } from './hooks.js';
+import { getAllTools } from '../tools/tool_registry.js';
+import { puenteDir, pendientes, leerEstado, pasoPrueba, pasoMedir, pasoCerrar, pasoInstalar, pasoDescartar, describirEstado, llmReal, juezReal, INTENTOS_POR_MEDICION } from '../puente/bridge.js';
+import { parseReasoningLevel, setReasoningLevel, reasoningLevel, reasoningBudget } from '../providers/anthropic_client.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { Notifier } from '../notifications/notifier.js';
 import {
@@ -39,6 +45,12 @@ export interface SlashCommandInfo {
 }
 export const SLASH_COMMANDS: SlashCommandInfo[] = [
   { cmd: '/status', desc: 'Estado del agente: modo y modelo activo' },
+  { cmd: '/reasoning', desc: 'Que Claude piense antes de responder: off · low · medium · high' },
+  { cmd: '/puente', desc: 'Buzón con el radar: estado · prueba [ficha] · medir · instalar · cerrar · descartar <ficha>' },
+  { cmd: '/hooks', desc: 'Ver los ganchos del usuario (comandos propios antes y después de cada tool)' },
+  { cmd: '/undo', desc: 'Deshacer tu último mensaje, su respuesta y los archivos que escribió' },
+  { cmd: '/retry', desc: 'Deshacer el último turno y volver a intentarlo' },
+  { cmd: '/rollback', desc: 'Volver atrás los archivos del último turno: (nada) · list' },
   { cmd: '/model', desc: 'Ver o cambiar el modelo (auto · list · <nombre>)' },
   { cmd: '/memory', desc: 'Memoria: recall · store · stats · forget · user · env · snapshot' },
   { cmd: '/skill', desc: 'Skills: list · approve · list-approved · install · reload' },
@@ -386,10 +398,103 @@ ${pending.length} pending skill(s):`);
       const arg = rest.replace(/(^|\s)--allow-warnings(\s|$)/, ' ').trim();
       const outcome = await runSkillInstall(arg, { allowWarnings });
       for (const l of outcome.lines) console.log(l);
+      if (outcome.ok) {
+        const loaded = skillManager().loadApproved();
+        for (const e of loaded.errors) console.log(`  ⚠ ${e}`);
+      }
       return true;
     }
 
     console.log('Usage: /skill list | /skill install <nombre|fuente> | /skill approve <id> | /skill reject <id> | /skill list-approved | /skill reload | /skill propose [<contexto>] | /skill review');
+    return true;
+  }
+
+  // /reasoning [off|low|medium|high] — que Claude piense antes de responder.
+  if (trimmed === '/reasoning' || trimmed.startsWith('/reasoning ') || trimmed === '/razonar' || trimmed.startsWith('/razonar ')) {
+    const arg = trimmed.split(/\s+/)[1];
+    if (arg) {
+      const lvl = parseReasoningLevel(arg);
+      if (!lvl) { console.log('Uso: /reasoning off | low | medium | high'); return true; }
+      setReasoningLevel(lvl);
+    }
+    const now = reasoningLevel();
+    console.log(now === 'off'
+      ? 'Razonamiento: apagado (respuestas más rápidas y baratas).'
+      : `Razonamiento: ${now} (hasta ${reasoningBudget()} tokens de pensamiento por paso; más lento y más caro). Solo con Anthropic.`);
+    return true;
+  }
+
+  // /puente — buzón con el Radar Agéntico: prueba primero, medir, cerrar.
+  if (trimmed === '/puente' || trimmed.startsWith('/puente ')) {
+    const [, sub, nombreArg] = trimmed.split(/\s+/);
+    const dir = puenteDir();
+    if (!dir) { console.log('El puente no está configurado. Pon en SHINOBI_PUENTE_DIR la carpeta "puente" de tu copia del radar (repo agentesdk).'); return true; }
+    const run = async (tarea: string) => {
+      const r: any = await ShinobiOrchestrator.process(tarea);
+      return String(r?.response ?? r?.output ?? (r?.error ? `[error] ${r.error}` : ''));
+    };
+    const show = (r: { estado?: any; respuesta?: any; error?: string }) => {
+      if (r.error) console.log(`No se pudo: ${r.error}`);
+      else if (r.respuesta) console.log(`Respuesta escrita (${r.respuesta.resultado}): ${r.respuesta.nota_es}`);
+      else if (r.estado) console.log(typeof r.estado.antes === 'number'
+        ? `Medición previa: ${r.estado.antes} (0 = nunca pasa, 1 = siempre). Ahora: ${r.estado.en_shinobi ? `/puente instalar ${r.estado.nombre}` : `implementar la mejora y luego /puente cerrar ${r.estado.nombre}`}`
+        : `Prueba escrita para ${r.estado.nombre}:\n  Tarea: ${r.estado.prueba.tarea}\n  Se supera si: ${r.estado.prueba.criterio}\nSiguiente: /puente medir ${r.estado.nombre}  (mide ANTES de instalar nada)`);
+    };
+    if (!sub || sub === 'estado') { console.log(describirEstado(dir)); return true; }
+    if (sub === 'prueba') {
+      const { fichas } = pendientes(dir);
+      const f = nombreArg ? fichas.find(x => x.nombre === nombreArg) : fichas.find(x => !leerEstado(x.nombre));
+      if (!f) { console.log(nombreArg ? 'No hay ninguna ficha pendiente con ese nombre.' : 'No quedan fichas sin prueba.'); return true; }
+      console.log(`Adversario leyendo: ${f.titulo}`);
+      show(await pasoPrueba(dir, f, llmReal, getAllTools().map(t => t.name)));
+      return true;
+    }
+    if (sub === 'instalar' && nombreArg) {
+      const { runSkillInstall } = await import('../skills/registry/install_command.js');
+      const r = await pasoInstalar(dir, nombreArg, (orden, avisos) => runSkillInstall(orden, { allowWarnings: avisos }), /(^|\s)--allow-warnings(\s|$)/.test(trimmed));
+      for (const l of r.lines ?? []) console.log(l);
+      if (r.error) console.log(`No instalado: ${r.error}\nSi no se puede instalar: /puente descartar ${nombreArg}`);
+      else { skillManager().loadApproved(); console.log(`Instalado. Ahora: /puente cerrar ${nombreArg}`); }
+      return true;
+    }
+    if (sub === 'descartar' && nombreArg) { show(pasoDescartar(dir, nombreArg)); return true; }
+    if ((sub === 'medir' || sub === 'cerrar') && nombreArg) {
+      console.log(`Ejecutando la prueba ${INTENTOS_POR_MEDICION} veces…`);
+      show(sub === 'medir' ? await pasoMedir(dir, nombreArg, run, juezReal) : await pasoCerrar(dir, nombreArg, run, juezReal));
+      return true;
+    }
+    console.log('Uso: /puente (estado) · /puente prueba [ficha] · /puente medir <ficha> · /puente instalar <ficha> · /puente cerrar <ficha> · /puente descartar <ficha>');
+    return true;
+  }
+
+  // /hooks — enseña los ganchos del usuario activos.
+  if (trimmed === '/hooks' || trimmed === '/ganchos') { console.log(describeHooks()); return true; }
+
+  // /undo — borra del historial tu último mensaje y lo que el agente respondió,
+  //         y deshace los archivos que escribió en ese turno.
+  // /retry — lo mismo y vuelve a lanzar ese mensaje.
+  if (trimmed === '/undo' || trimmed === '/retry' || trimmed === '/reintentar') {
+    const again = trimmed !== '/undo';
+    const last = await sharedMemory().removeLastExchange();
+    if (last === null) { console.log('No hay ningún mensaje tuyo que deshacer.'); return true; }
+    const short = last.replace(/\s+/g, ' ').slice(0, 80);
+    console.log(`Quitado del historial: «${short}${last.length > 80 ? '…' : ''}» y su respuesta.`);
+    if (lastCheckpointLabel() === checkpointLabelFor(last)) console.log(describeRollback(rollbackLastTurn()));
+    if (!again) return true;
+    console.log('Lo intento de nuevo…');
+    const result: any = await ShinobiOrchestrator.process(last);
+    const out = result?.response ?? result?.output ?? result?.error ?? '';
+    console.log(typeof out === 'string' ? out : JSON.stringify(out));
+    return true;
+  }
+
+  // /rollback — deshace los archivos escritos por el agente en el último turno.
+  // /rollback list — enseña qué turnos se pueden deshacer.
+  if (trimmed === '/rollback' || trimmed.startsWith('/rollback ') || trimmed === '/deshacer') {
+    const arg = trimmed.startsWith('/rollback') ? trimmed.slice('/rollback'.length).trim() : '';
+    if (arg === 'list' || arg === 'lista') { console.log(describeCheckpoints()); return true; }
+    if (arg && arg !== 'last') { console.log('Uso: /rollback (deshace el último turno) · /rollback list'); return true; }
+    console.log(describeRollback(rollbackLastTurn()));
     return true;
   }
 

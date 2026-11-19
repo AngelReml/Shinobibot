@@ -117,6 +117,28 @@ export class Memory {
     }
   }
 
+  /**
+   * Quita el último intercambio: desde el último mensaje del usuario
+   * (incluido) hasta el final. Devuelve el texto de ese mensaje, o null si
+   * no hay ninguno. Lo usan /undo y /retry. Pasa por la misma cola de
+   * escritura que addMessage.
+   */
+  async removeLastExchange(): Promise<string | null> {
+    let removed: string | null = null;
+    this.writeChain = this.writeChain.then(async () => {
+      const messages = await this.getMessages();
+      let idx = -1;
+      for (let i = messages.length - 1; i >= 0; i--) { if (messages[i].role === 'user') { idx = i; break; } }
+      if (idx < 0) return;
+      removed = String(messages[idx].content ?? '');
+      const kept = messages.slice(0, idx);
+      this.atomicWrite(kept);
+      Memory.cache.set(this.filePath, kept);
+    });
+    await this.writeChain;
+    return removed;
+  }
+
   async clear() {
     this.writeChain = this.writeChain.then(() => { 
       this.atomicWrite([]); 

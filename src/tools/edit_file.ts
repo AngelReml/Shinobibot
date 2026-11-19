@@ -5,6 +5,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
+import { recordFileCheckpoint, recordFileWritten } from '../coordinator/checkpoints.js';
 import { validatePath } from '../utils/permissions.js';
 import { resolveInContext } from '../agents/exec_context.js';
 import { runDiagnostics, formatDiagnostics, lspOnWriteEnabled, lspSemanticEnabled } from '../lsp/diagnostics.js';
@@ -84,7 +85,9 @@ const editFileTool: Tool = {
       // así que split/join reemplaza esa única ocurrencia — mismo resultado que
       // el `replace` original, sin la interpretación de patrones `$`.
       const newContent = content.split(args.target).join(args.replacement);
+      recordFileCheckpoint(filePath);
       fs.writeFileSync(filePath, newContent, 'utf-8');
+      recordFileWritten(filePath);
 
       let output = `Edited ${filePath}: replaced ${args.target.split('\n').length} lines with ${args.replacement.split('\n').length} lines.`;
 
