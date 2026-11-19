@@ -19,6 +19,7 @@ import { setGoal, clearGoal, pauseGoal, resumeGoal, runGoalLoop, describeGoal, c
 import { SkillLoader } from '../skills/skill_loader.js';
 import { skillManager } from '../skills/skill_manager.js';
 import { curatedMemory } from '../memory/curated_memory.js';
+import { rollbackLastTurn, describeRollback, describeCheckpoints } from './checkpoints.js';
 import { ResidentLoop } from '../runtime/resident_loop.js';
 import { Notifier } from '../notifications/notifier.js';
 import {
@@ -390,6 +391,16 @@ ${pending.length} pending skill(s):`);
     }
 
     console.log('Usage: /skill list | /skill install <nombre|fuente> | /skill approve <id> | /skill reject <id> | /skill list-approved | /skill reload | /skill propose [<contexto>] | /skill review');
+    return true;
+  }
+
+  // /rollback — deshace los archivos escritos por el agente en el último turno.
+  // /rollback list — enseña qué turnos se pueden deshacer.
+  if (trimmed === '/rollback' || trimmed.startsWith('/rollback ') || trimmed === '/deshacer') {
+    const arg = trimmed.startsWith('/rollback') ? trimmed.slice('/rollback'.length).trim() : '';
+    if (arg === 'list' || arg === 'lista') { console.log(describeCheckpoints()); return true; }
+    if (arg && arg !== 'last') { console.log('Uso: /rollback (deshace el último turno) · /rollback list'); return true; }
+    console.log(describeRollback(rollbackLastTurn()));
     return true;
   }
 

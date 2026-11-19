@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { validatePath } from '../utils/permissions.js';
+import { recordFileCheckpoint, recordFileWritten } from '../coordinator/checkpoints.js';
 import { resolveInContext, contextWorkspaceRoot } from '../agents/exec_context.js';
 import { runDiagnostics, formatDiagnostics, lspOnWriteEnabled, lspSemanticEnabled } from '../lsp/diagnostics.js';
 
@@ -56,7 +57,9 @@ const writeFileTool: Tool = {
       }
 
       const existed = fs.existsSync(filePath);
+      recordFileCheckpoint(filePath);
       fs.writeFileSync(filePath, args.content, 'utf-8');
+      recordFileWritten(filePath);
 
       let output = `${existed ? 'Overwritten' : 'Created'}: ${filePath} (${args.content.split('\n').length} lines, ${Buffer.byteLength(args.content)} bytes)`;
 

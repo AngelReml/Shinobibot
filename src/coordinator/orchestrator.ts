@@ -54,6 +54,7 @@ import { runBestOfN } from '../agents/best_of_n.js';
 import { SYSTEM_PROMPT } from '../constants/prompts.js';
 import { loadProjectContext } from '../context/project_context.js';
 import { takePendingClarify, formatClarify } from '../tools/clarify.js';
+import { beginCheckpointTurn } from './checkpoints.js';
 import { contextWorkspaceRoot } from '../agents/exec_context.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -278,6 +279,7 @@ export class ShinobiOrchestrator {
   private static async processExclusive(input: string, opts?: { userId?: string }): Promise<any> {
     console.log(`[Shinobi] Processing: ${input.slice(0, 50)}...`);
     this._turnsSinceMemory++;
+    beginCheckpointTurn(input); // /rollback deshace los archivos escritos en este turno
 
     // Add user input to memory
     await this.memory.addMessage({ role: 'user', content: input });
