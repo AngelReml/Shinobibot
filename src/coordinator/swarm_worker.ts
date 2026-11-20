@@ -5,6 +5,7 @@ import { sanitizeToolCallArguments, repairMessageSequence, toolCallWasRepaired }
 import { capToolResultJson } from '../context/tool_output_truncator.js';
 import { metrics } from '../observability/metrics.js';
 import { calculateCost } from './orchestrator.js';
+import { recordLlmUsage } from './session_cost.js';
 import { isDestructive, requestApproval } from '../security/approval.js';
 
 export class SwarmWorker {
@@ -119,6 +120,7 @@ export class SwarmWorker {
 
         const cost = calculateCost(resolvedProvider, resolvedModel, result.usage);
         registry.counterInc('shinobi_llm_cost_usd_total', cost, { provider: resolvedProvider, model: resolvedModel, role: this.role });
+        recordLlmUsage(resolvedProvider, resolvedModel, result.usage, cost);
       }
 
       result.output = sanitizeToolCallArguments(result.output);

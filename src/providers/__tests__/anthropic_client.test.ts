@@ -97,9 +97,9 @@ describe('anthropic_client — caché de prompt, límites y pool de claves', () 
   });
 
   it('el coste descuenta lo leído de caché y recarga lo escrito', () => {
-    const sin = calculateCost('anthropic', 'claude-sonnet-5-5', { prompt_tokens: 1_000_000, completion_tokens: 0 });
-    const leido = calculateCost('anthropic', 'claude-sonnet-5-5', { prompt_tokens: 1_000_000, completion_tokens: 0, cache_read_tokens: 1_000_000 });
-    const escrito = calculateCost('anthropic', 'claude-sonnet-5-5', { prompt_tokens: 1_000_000, completion_tokens: 0, cache_write_tokens: 1_000_000 });
+    const sin = calculateCost('anthropic', 'claude-haiku-4-5', { prompt_tokens: 1_000_000, completion_tokens: 0 });
+    const leido = calculateCost('anthropic', 'claude-haiku-4-5', { prompt_tokens: 1_000_000, completion_tokens: 0, cache_read_tokens: 1_000_000 });
+    const escrito = calculateCost('anthropic', 'claude-haiku-4-5', { prompt_tokens: 1_000_000, completion_tokens: 0, cache_write_tokens: 1_000_000 });
     expect(leido).toBeCloseTo(sin * 0.1, 6);
     expect(escrito).toBeCloseTo(sin * 1.25, 6);
   });

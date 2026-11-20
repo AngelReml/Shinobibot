@@ -11,7 +11,7 @@
 
 import { type Tool, type ToolResult, registerTool, getAllTools } from './tool_registry.js';
 import { loadTrustReport, type TrustReport } from '../audit/trust_ledger.js';
-import { activateTools } from './tool_activation.js';
+import { activateTools, isMcpTool } from './tool_activation.js';
 
 export interface ToolMatch {
   name: string;
@@ -105,25 +105,70 @@ export function searchTools(
   return matches.slice(0, limit);
 }
 
+/** Tools de un servidor MCP concreto (prefijo `mcp__<server>__`), o todas si no se pide servidor. */
+export function scopeToServer(tools: Tool[], server?: string): Tool[] {
+  const srv = (server ?? '').trim().replace(/[^a-zA-Z0-9_]+/g, '_');
+  if (!srv) return tools;
+  return tools.filter((t) => t.name.startsWith(`mcp__${srv}__`));
+}
+
+/**
+ * Resuelve nombres EXACTOS contra el registry. Acepta el nombre completo
+ * (`mcp__rea__open_binary`) o el nombre corto de una tool MCP (`open_binary`),
+ * que es como lo escriben las skills. Un nombre corto ambiguo entre dos
+ * servidores no se resuelve (hay que dar `server` o el nombre completo).
+ */
+export function resolveToolNames(names: string[], tools: Tool[]): { found: string[]; missing: string[] } {
+  const byName = new Map(tools.map((t) => [t.name, t]));
+  const found: string[] = [];
+  const missing: string[] = [];
+  for (const raw of names) {
+    const n = String(raw ?? '').trim();
+    if (!n) continue;
+    if (byName.has(n)) { found.push(n); continue; }
+    const short = tools.filter((t) => isMcpTool(t) && t.name.endsWith(`__${n}`));
+    if (short.length === 1) found.push(short[0].name);
+    else missing.push(n);
+  }
+  return { found: [...new Set(found)], missing };
+}
+
 const toolSearchTool: Tool = {
   name: 'tool_search',
   description:
     'Busca entre las herramientas disponibles las más adecuadas para una tarea, ' +
     'ordenadas por relevancia Y por su fiabilidad probada (historial de éxito). ' +
     'Úsalo cuando no estés seguro de qué herramienta usar. Sin query, lista las ' +
-    'más fiables. Read-only.',
+    'más fiables. También SACA DEL CAJÓN las herramientas de servidores MCP ' +
+    '(no anunciadas por defecto): con `server` + `query`, o con `names` si ya ' +
+    'sabes los nombres exactos. Read-only.',
   parameters: {
     type: 'object',
     properties: {
       query: { type: 'string', description: 'Qué quieres hacer (p. ej. "leer un fichero", "buscar en la web").' },
       limit: { type: 'number', description: 'Máximo de resultados (default 10).' },
+      server: { type: 'string', description: 'Limitar la búsqueda a un servidor MCP conectado (p. ej. "rea").' },
+      names: { type: 'array', items: { type: 'string' }, description: 'Nombres exactos a activar sin buscar (completos o cortos, p. ej. ["open_binary"]).' },
     },
   },
   categories: ['research'],
 
-  async execute(args: { query?: string; limit?: number }): Promise<ToolResult> {
+  async execute(args: { query?: string; limit?: number; server?: string; names?: string[] }): Promise<ToolResult> {
+    const pool = scopeToServer(getAllTools(), args.server);
+    if (args.server && pool.length === 0) {
+      return { success: false, output: '', error: `No hay ningún servidor MCP conectado con el nombre "${args.server}".` };
+    }
+    // Activación directa por nombre exacto (lo que una skill ya sabe).
+    if (Array.isArray(args.names) && args.names.length > 0) {
+      const { found, missing } = resolveToolNames(args.names, pool);
+      activateTools(found);
+      const out: string[] = [];
+      if (found.length) out.push(`A mano desde el siguiente turno (${found.length}):`, ...found.map((n) => `- ${n}`));
+      if (missing.length) out.push(`No encontradas (${missing.length}): ${missing.join(', ')}. Prueba con \`query\`.`);
+      return { success: found.length > 0, output: out.join('\n'), error: found.length ? undefined : out.join(' ') };
+    }
     const report = loadTrustReport();
-    const matches = searchTools(args.query ?? '', getAllTools(), report, { limit: args.limit });
+    const matches = searchTools(args.query ?? '', pool, report, { limit: args.limit });
     if (matches.length === 0) {
       return { success: true, output: `No hay herramientas que casen con "${args.query ?? ''}".` };
     }
@@ -132,7 +177,9 @@ const toolSearchTool: Tool = {
     activateTools(matches.map((m) => m.name));
     const lines = matches.map((m) => {
       const trustPct = Math.round(m.trust * 100);
-      return `- ${m.name} (rel ${m.relevance.toFixed(2)}, trust ${trustPct}%): ${m.description.slice(0, 100)}`;
+      // Las MCP no están anunciadas: su descripción aquí es lo único que el modelo ve antes de elegir.
+      const cut = m.name.startsWith('mcp__') ? 220 : 100;
+      return `- ${m.name} (rel ${m.relevance.toFixed(2)}, trust ${trustPct}%): ${m.description.replace(/\s+/g, ' ').slice(0, cut)}`;
     });
     return { success: true, output: [`Herramientas para "${args.query ?? '(todas)'}":`, ...lines].join('\n') };
   },

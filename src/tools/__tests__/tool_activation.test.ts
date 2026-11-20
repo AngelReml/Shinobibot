@@ -26,7 +26,7 @@ describe('computeAdvertisedTools', () => {
 
   it('deferred OFF → devuelve TODAS (sin cambio de comportamiento)', () => {
     const out = computeAdvertisedTools(tools, { deferred: false, activated: new Set() });
-    expect(out).toBe(tools);
+    expect(out).toEqual(tools); // sin tools MCP en la lista, se anuncian todas
   });
 
   it('deferred ON → solo núcleo + activadas existentes', () => {

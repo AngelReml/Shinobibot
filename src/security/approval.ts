@@ -219,8 +219,17 @@ export function classifyCritical(toolName: string, args: any): DestructiveVerdic
   if (CRITICAL_TOOLS.has(toolName)) {
     return { destructive: true, reason: `compromiso externo / gasto: ${toolName}` };
   }
+  if (_mcpDestructive.has(toolName)) {
+    return { destructive: true, reason: `el servidor MCP marca esta herramienta como destructiva: ${toolName}` };
+  }
   return { destructive: false };
 }
+
+// Tools MCP que su propio servidor declara destructivas (annotations.destructiveHint).
+// Las registra mcp_registry al conectar; aquí solo se consultan (sin import circular).
+const _mcpDestructive = new Set<string>();
+export function markMcpDestructive(names: string[]): void { for (const n of names) _mcpDestructive.add(n); }
+export function unmarkMcpDestructive(names: string[]): void { for (const n of names) _mcpDestructive.delete(n); }
 
 /**
  * ¿Esta llamada requiere confirmación bajo el modo activo?

@@ -9,7 +9,14 @@ import {
   getActivatedTools,
   computeAdvertisedTools,
   DEFERRED_TOOLS_HINT,
+  isMcpEager,
+  mcpDrawerHint,
 } from '../tools/tool_activation.js';
+import { ensureMcpAutoConnected } from '../mcp/mcp_config.js';
+import { mcpServerSummaries } from '../mcp/mcp_registry.js';
+import { mcpClientFactory } from '../tools/mcp_connect.js';
+import { recordLlmUsage, beginCostTurn, describeTurnCost } from './session_cost.js';
+import { anthropicRate } from './pricing.js';
 import { loadTrustReport } from '../audit/trust_ledger.js';
 import { sharedMemory } from '../db/memory.js';
 import { ContextBuilder } from '../db/context_builder.js';
@@ -281,6 +288,7 @@ export class ShinobiOrchestrator {
   private static async processExclusive(input: string, opts?: { userId?: string }): Promise<any> {
     console.log(`[Shinobi] Processing: ${input.slice(0, 50)}...`);
     this._turnsSinceMemory++;
+    beginCostTurn(input); // /coste enseña el gasto de este turno
     beginCheckpointTurn(input); // /rollback deshace los archivos escritos en este turno
     setSessionLogUser(opts?.userId);
     logSessionMessage('user', input); // diario buscable (session_search)
@@ -325,6 +333,7 @@ export class ShinobiOrchestrator {
       // resultado para que server.ts lo procese.
       return result;
     } finally {
+      { const c = describeTurnCost(); if (c) console.log(c); }
       try { await runHooks('turn_end', { input: input.slice(0, 2000) }); } catch { /* los ganchos nunca rompen el turno */ }
       // Fire-and-forget post-task observation. SkillManager may schedule a
       // proposal asynchronously without blocking the user's response.
@@ -493,7 +502,9 @@ export class ShinobiOrchestrator {
         ...currentMessages,
       ];
     }
-    const allTools = getAllTools();
+    // Servidores MCP guardados (mcp.json): se conectan una vez por proceso. Sus
+    // tools van al cajón (no se anuncian hasta que tool_search las saque).
+    try { await ensureMcpAutoConnected(mcpClientFactory()); } catch { /* MCP nunca impide trabajar */ }
 
     // Modo deferred-tools (opt-in SHINOBI_DEFERRED_TOOLS=1): en vez de anunciar
     // las ~46 tools cada turno, se anuncia un núcleo + tool_search; el agente
@@ -504,6 +515,11 @@ export class ShinobiOrchestrator {
     if (deferred) {
       resetActivatedTools();
       currentMessages = [{ role: 'system', content: DEFERRED_TOOLS_HINT } as any, ...currentMessages];
+    }
+    const mcpEager = isMcpEager();
+    if (!mcpEager) {
+      const drawer = mcpDrawerHint(mcpServerSummaries());
+      if (drawer) currentMessages = [{ role: 'system', content: drawer } as any, ...currentMessages];
     }
     // E3 (FASE 2.B): trust-scores por tool desde el audit, cargados UNA vez por
     // misión, para ordenar las tools anunciadas por fiabilidad probada.
@@ -572,10 +588,12 @@ export class ShinobiOrchestrator {
 
       // Tools a anunciar este turno. En modo deferred crece según lo que
       // tool_search vaya activando; sin deferred es todo el set (sin cambio).
-      const advertisedTools = computeAdvertisedTools(allTools, {
+      // Se relee el registry cada turno: un servidor MCP puede conectarse a mitad de misión.
+      const advertisedTools = computeAdvertisedTools(getAllTools(), {
         deferred,
         activated: getActivatedTools(),
         trustReport,
+        mcpEager,
       });
       const openAITools = toOpenAITools(advertisedTools);
 
@@ -676,6 +694,7 @@ export class ShinobiOrchestrator {
 
           const cost = calculateCost(resolvedProvider, resolvedModel, result.usage);
           registry.counterInc('shinobi_llm_cost_usd_total', cost, { provider: resolvedProvider, model: resolvedModel });
+          recordLlmUsage(resolvedProvider, resolvedModel, result.usage, cost);
         }
 
         // Apply helper from Hermes (sanitization)
@@ -1140,6 +1159,8 @@ export function calculateCost(provider: string, model: string, usage: { prompt_t
   const m = model.toLowerCase();
   let inputRate = 0; // per 1M tokens
   let outputRate = 0; // per 1M tokens
+  let cacheReadX = 0.1; // lectura de caché, × entrada
+  let cacheWriteX = 1.25; // escritura de caché, × entrada
 
   if (p === 'openai') {
     if (m.includes('mini')) {
@@ -1150,16 +1171,12 @@ export function calculateCost(provider: string, model: string, usage: { prompt_t
       outputRate = 10.00;
     }
   } else if (p === 'anthropic') {
-    if (m.includes('haiku')) {
-      inputRate = 0.80;
-      outputRate = 4.00;
-    } else if (m.includes('opus')) {
-      inputRate = 15.00;
-      outputRate = 75.00;
-    } else {
-      inputRate = 3.00;
-      outputRate = 15.00; // sonnet default
-    }
+    // Tabla aparte (pricing.ts): por modelo, con sus multiplicadores de caché.
+    const r = anthropicRate(m, usage.prompt_tokens);
+    inputRate = r.input;
+    outputRate = r.output;
+    cacheReadX = r.cacheRead;
+    cacheWriteX = r.cacheWrite;
   } else if (p === 'groq') {
     inputRate = 0.59;
     outputRate = 0.79;
@@ -1177,7 +1194,7 @@ export function calculateCost(provider: string, model: string, usage: { prompt_t
   const cacheRead = Math.max(0, usage.cache_read_tokens || 0);
   const cacheWrite = Math.max(0, usage.cache_write_tokens || 0);
   const plainInput = Math.max(0, usage.prompt_tokens - cacheRead - cacheWrite);
-  const inputCost = ((plainInput + cacheRead * 0.1 + cacheWrite * 1.25) * inputRate) / 1_000_000;
+  const inputCost = ((plainInput + cacheRead * cacheReadX + cacheWrite * cacheWriteX) * inputRate) / 1_000_000;
   const outputCost = (usage.completion_tokens * outputRate) / 1_000_000;
   return inputCost + outputCost;
 }

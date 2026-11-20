@@ -17,6 +17,8 @@ let _factory: ClientFactory = createStdioMcpClient;
 export function __setMcpClientFactoryForTest(fn: ClientFactory | null): void {
   _factory = fn ?? createStdioMcpClient;
 }
+/** La fábrica vigente (la real, o la de test): la usa también la autoconexión de mcp.json. */
+export function mcpClientFactory(): ClientFactory { return _factory; }
 
 const mcpConnectTool: Tool = {
   name: 'mcp_connect',
@@ -31,13 +33,15 @@ const mcpConnectTool: Tool = {
       name: { type: 'string', description: 'Nombre lógico del servidor (prefijo de sus tools).' },
       command: { type: 'string', description: 'Binario del servidor MCP (para action=connect).' },
       args: { type: 'array', items: { type: 'string' }, description: 'Argumentos del binario.' },
+      env: { type: 'object', description: 'Variables de entorno extra para el servidor (clave → valor).' },
+      cwd: { type: 'string', description: 'Directorio de trabajo del servidor.' },
       action: { type: 'string', enum: ['connect', 'disconnect'], description: 'connect (default) o disconnect.' },
     },
     required: ['name'],
   },
   categories: ['coder'],
 
-  async execute(args: { name?: string; command?: string; args?: string[]; action?: string }): Promise<ToolResult> {
+  async execute(args: { name?: string; command?: string; args?: string[]; action?: string; env?: Record<string, string>; cwd?: string }): Promise<ToolResult> {
     const name = (args.name ?? '').trim();
     if (!name) return { success: false, output: '', error: 'mcp_connect requiere "name".' };
 
@@ -51,7 +55,12 @@ const mcpConnectTool: Tool = {
 
     let client: McpClient;
     try {
-      client = await _factory({ name, command, args: Array.isArray(args.args) ? args.args : undefined });
+      client = await _factory({
+        name, command,
+        args: Array.isArray(args.args) ? args.args : undefined,
+        env: args.env && typeof args.env === 'object' ? args.env : undefined,
+        cwd: typeof args.cwd === 'string' && args.cwd ? args.cwd : undefined,
+      });
     } catch (e: any) {
       return { success: false, output: '', error: `No se pudo conectar al servidor MCP "${name}": ${e?.message ?? e}` };
     }
@@ -60,8 +69,10 @@ const mcpConnectTool: Tool = {
       const { registered } = await registerMcpServer(name, client);
       return {
         success: true,
-        output: `Servidor MCP "${name}" conectado. ${registered.length} herramientas registradas:\n` +
-          (registered.map((t) => `- ${t}`).join('\n') || '(ninguna)'),
+        // No se listan todas (un servidor grande trae cientos): van al cajón.
+        output: `Servidor MCP "${name}" conectado. ${registered.length} herramientas registradas, sin anunciar. ` +
+          `Sácalas con tool_search (server="${name}" + query, o names exactos).` +
+          (registered.length ? `\nEjemplos: ${registered.slice(0, 8).join(', ')}${registered.length > 8 ? '…' : ''}` : ''),
       };
     } catch (e: any) {
       return { success: false, output: '', error: e?.message ?? String(e) };

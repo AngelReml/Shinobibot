@@ -22,6 +22,8 @@ import { curatedMemory } from '../memory/curated_memory.js';
 import { rollbackLastTurn, describeRollback, describeCheckpoints, lastCheckpointLabel, checkpointLabelFor } from './checkpoints.js';
 import { sharedMemory } from '../db/memory.js';
 import { describeHooks } from './hooks.js';
+import { describeCost, resetSessionCost } from './session_cost.js';
+import { handleMcpCommand } from '../mcp/mcp_command.js';
 import { getAllTools } from '../tools/tool_registry.js';
 import { puenteDir, pendientes, leerEstado, pasoPrueba, pasoMedir, pasoCerrar, pasoInstalar, pasoDescartar, describirEstado, llmReal, juezReal, INTENTOS_POR_MEDICION } from '../puente/bridge.js';
 import { parseReasoningLevel, setReasoningLevel, reasoningLevel, reasoningBudget } from '../providers/anthropic_client.js';
@@ -47,6 +49,8 @@ export const SLASH_COMMANDS: SlashCommandInfo[] = [
   { cmd: '/status', desc: 'Estado del agente: modo y modelo activo' },
   { cmd: '/reasoning', desc: 'Que Claude piense antes de responder: off · low · medium · high' },
   { cmd: '/puente', desc: 'Buzón con el radar: estado · prueba [ficha] · medir · instalar · cerrar · descartar <ficha>' },
+  { cmd: '/mcp', desc: 'Servidores MCP guardados: (nada) · add <nombre> [comando…] · remove · connect · disconnect · env <nombre> CLAVE=valor' },
+  { cmd: '/coste', desc: 'Tokens gastados y coste estimado de la sesión: (nada) · reset' },
   { cmd: '/hooks', desc: 'Ver los ganchos del usuario (comandos propios antes y después de cada tool)' },
   { cmd: '/undo', desc: 'Deshacer tu último mensaje, su respuesta y los archivos que escribió' },
   { cmd: '/retry', desc: 'Deshacer el último turno y volver a intentarlo' },
@@ -464,6 +468,19 @@ ${pending.length} pending skill(s):`);
       return true;
     }
     console.log('Uso: /puente (estado) · /puente prueba [ficha] · /puente medir <ficha> · /puente instalar <ficha> · /puente cerrar <ficha> · /puente descartar <ficha>');
+    return true;
+  }
+
+  // /mcp — servidores MCP guardados en mcp.json (se conectan solos al arrancar).
+  if (trimmed === '/mcp' || trimmed.startsWith('/mcp ')) {
+    console.log(await handleMcpCommand(trimmed.slice('/mcp'.length).trim()));
+    return true;
+  }
+
+  // /coste — tokens medidos y coste estimado de la sesión.
+  if (trimmed === '/coste' || trimmed === '/cost' || trimmed === '/coste reset' || trimmed === '/cost reset') {
+    if (trimmed.endsWith(' reset')) { resetSessionCost(); console.log('Contador de gasto a cero.'); }
+    else console.log(describeCost());
     return true;
   }
 
