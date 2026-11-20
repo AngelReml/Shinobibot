@@ -8,6 +8,7 @@
 
 import { registerTool, unregisterTool, getTool, type Tool, type ToolResult } from '../tools/tool_registry.js';
 import type { McpClient, McpToolDef, McpCallResult } from './types.js';
+import { markMcpDestructive, unmarkMcpDestructive } from '../security/approval.js';
 
 interface ConnectedServer {
   client: McpClient;
@@ -63,6 +64,7 @@ export async function registerMcpServer(server: string, client: McpClient): Prom
   }
 
   const registered: string[] = [];
+  const destructive: string[] = [];
   for (const def of defs) {
     if (!def?.name) continue;
     const name = mcpToolName(server, def.name);
@@ -86,7 +88,10 @@ export async function registerMcpServer(server: string, client: McpClient): Prom
     };
     registerTool(tool);
     registered.push(name);
+    if (def.annotations?.destructiveHint === true) destructive.push(name);
   }
+  // Lo que el propio servidor declara destructivo pasa por el candado de aprobación.
+  markMcpDestructive(destructive);
 
   _servers.set(server, { client, toolNames: registered });
   return { registered };
@@ -99,6 +104,7 @@ export async function disconnectMcpServer(server: string): Promise<void> {
   for (const name of entry.toolNames) {
     if (getTool(name)) unregisterTool(name);
   }
+  unmarkMcpDestructive(entry.toolNames);
   _servers.delete(server);
   try { await entry.client.close(); } catch { /* best-effort */ }
 }
@@ -111,6 +117,16 @@ export function connectedMcpServers(): string[] {
 /** Tools registradas por un servidor MCP conectado. */
 export function mcpServerTools(server: string): string[] {
   return _servers.get(server)?.toolNames ?? [];
+}
+
+/** Resumen por servidor conectado: cuántas tools trae. */
+export function mcpServerSummaries(): { name: string; total: number }[] {
+  return [..._servers.entries()].map(([name, e]) => ({ name, total: e.toolNames.length }));
+}
+
+/** Nombre de servidor tal como queda en el prefijo `mcp__<server>__`. */
+export function mcpServerKey(server: string): string {
+  return sanitize(server);
 }
 
 /** Solo para tests: limpia todo el estado MCP. */

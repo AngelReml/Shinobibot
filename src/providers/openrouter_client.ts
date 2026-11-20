@@ -47,7 +47,7 @@ export const openrouterClient: ProviderClient = {
         completion_tokens: resp.data.usage.completion_tokens || 0,
         total_tokens: resp.data.usage.total_tokens || 0,
       } : undefined;
-      return { success: true, output: JSON.stringify(msg), error: '', usage };
+      return { success: true, output: JSON.stringify(msg), error: '', usage, resolvedModel: String(resp?.data?.model || model) };
     } catch (e: any) {
       if (e.response?.status === 401) return { success: false, output: '', error: 'OpenRouter HTTP 401: key inválida.' };
       if (e.response?.data?.error?.message) return { success: false, output: '', error: `OpenRouter: ${e.response.data.error.message}` };

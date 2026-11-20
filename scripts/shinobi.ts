@@ -595,7 +595,16 @@ async function main() {
         console.log((result as any).output);
         console.log('----------------------------\n');
       }
-      console.log(JSON.stringify(result, null, 2));
+      // La respuesta se enseña como texto legible; el bloque técnico solo si no hay respuesta.
+      const r: any = result;
+      if (r && typeof r.response === 'string' && r.response.trim()) {
+        console.log(`\n${r.response}\n`);
+        if (r.verdict && r.verdict !== 'VALID_AGENT') {
+          console.log(`[Shinobi] No he terminado la tarea (${r.verdict}${r.tool ? ` en ${r.tool}` : ''}). Dime cómo seguir o repite la orden.`);
+        }
+      } else {
+        console.log(JSON.stringify(result, null, 2));
+      }
     } catch (err: any) {
       console.error('Error:', err.message);
     }

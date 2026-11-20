@@ -22,8 +22,11 @@ import * as path from 'path';
 import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { skillManager, type ApprovedSkill } from '../skills/skill_manager.js';
 import { hashBundle, listBundleFiles } from '../skills/anthropic_skill_installer.js';
+import { outlineSkill, needsFicha, buildFicha, pickParts, findInSkill } from '../skills/skill_outline.js';
 
-export const SKILL_USE_MAX_CHARS = 40_000;
+// Por debajo del tope general de salida de una tool (32.000): si no, el recorte
+// general se comería el final sin avisar de cómo seguir leyendo.
+export const SKILL_USE_MAX_CHARS = 28_000;
 const SKILL_USE_MAX_LISTED_FILES = 80;
 
 /** Comprueba la huella del bundle. Devuelve un motivo de rechazo o null si está intacto. */
@@ -52,12 +55,51 @@ function resolveInside(dir: string, rel: string): string | null {
   return abs;
 }
 
-const clip = (s: string) => s.length > SKILL_USE_MAX_CHARS ? s.slice(0, SKILL_USE_MAX_CHARS) + `\n[... recortado a ${SKILL_USE_MAX_CHARS} caracteres]` : s;
+/**
+ * Sirve un texto largo POR PÁGINAS: una skill puede pasar de 28.000 caracteres
+ * (la de REA ronda 48.000) y cortarla a secas dejaría al agente sin el final.
+ * Corta en salto de línea y dice con qué `offset` seguir.
+ */
+export function page(s: string, offset = 0): string {
+  const start = Math.min(Math.max(0, Math.floor(Number(offset) || 0)), s.length);
+  if (s.length - start <= SKILL_USE_MAX_CHARS) return (start > 0 ? `[desde el carácter ${start}]\n` : '') + s.slice(start);
+  let end = start + SKILL_USE_MAX_CHARS;
+  const nl = s.lastIndexOf('\n', end);
+  if (nl > start + SKILL_USE_MAX_CHARS / 2) end = nl + 1;
+  return (start > 0 ? `[desde el carácter ${start}]\n` : '') + s.slice(start, end) +
+    `\n[CONTINÚA: quedan ${s.length - end} caracteres sin leer. Para seguir, repite la misma llamada a skill_use con offset=${end}]`;
+}
+
+/**
+ * Decide qué parte de un texto de skill se sirve: entero si es corto (o si se
+ * pide `full`), los trozos pedidos (`parts`), los que casan (`find`), o la ficha.
+ */
+export function serve(text: string, args: { offset?: number; parts?: string[]; find?: string; full?: boolean }, call: string): string {
+  const wantsParts = Array.isArray(args.parts) && args.parts.length > 0;
+  const wantsFind = typeof args.find === 'string' && args.find.trim().length > 0;
+  if (args.full || args.offset || (!needsFicha(text) && !wantsParts && !wantsFind)) return page(text, args.offset);
+  const sections = outlineSkill(text);
+  if (wantsParts) {
+    const { text: got, missing } = pickParts(sections, args.parts!);
+    const note = missing.length ? `\n[no existen estos ids: ${missing.join(', ')}]` : '';
+    return got ? page(got) + note : `No existe ninguno de esos ids (${missing.join(', ')}). Pide la ficha sin \`parts\` para ver el índice.`;
+  }
+  if (wantsFind) {
+    const r = findInSkill(sections, args.find!);
+    if (r.hits === 0) return `Nada en este texto contiene "${args.find}". Prueba otras palabras (el texto está en su idioma original) o mira el índice de la ficha.`;
+    return `${r.text}\n\n[${r.shown} de ${r.hits} trozos que casan con "${args.find}". Para otros, afina \`find\` o pídelos por id con \`parts\`.]`;
+  }
+  return buildFicha(sections,
+    `[FICHA: este texto tiene ${text.length} caracteres y no se ha cargado entero. Lo de arriba es literal; de las secciones largas solo ves el índice. ` +
+    `Antes de actuar, lee lo que tu tarea necesite: ${call} y parts=["<id>", …] (una sección "2" o un trozo "2.7"), o find="<palabras>" para buscar dentro. ` +
+    `No des por sabido lo que solo aparece como titular.]`);
+}
 
 const tool: Tool = {
   name: 'skill_use',
   description:
-    'Load an installed skill. Call it with the skill name BEFORE starting a task that matches a skill from the "Installed skills" list; it returns the skill\'s full instructions and the files it ships. ' +
+    'Load an installed skill. Call it with the skill name BEFORE starting a task that matches a skill from the "Installed skills" list; it returns the skill\'s instructions and the files it ships. ' +
+    'A long skill comes back as a FICHA (intro, short sections, and an index of the long ones): then ask only for what the task needs with `parts` (ids from the index) or `find` (words to look for). ' +
     'If those instructions tell you to read one of its files (e.g. references/forms.md), call skill_use again with `file` set to that relative path. ' +
     'Skill scripts are not run by this tool: to run one, use run_command with the path it gives you.',
   parameters: {
@@ -65,12 +107,16 @@ const tool: Tool = {
     properties: {
       name: { type: 'string', description: 'Skill name exactly as shown in the Installed skills list.' },
       file: { type: 'string', description: 'Optional. Relative path of a file inside the skill (e.g. "references/forms.md").' },
+      parts: { type: 'array', items: { type: 'string' }, description: 'Optional. Ids from a ficha index to read in full: a section ("2") or a single chunk ("2.7"). Several at once is fine.' },
+      find: { type: 'string', description: 'Optional. Words to look for inside the skill (or inside `file`); returns only the matching chunks.' },
+      full: { type: 'boolean', description: 'Optional. Return the whole text instead of the ficha (expensive for long skills).' },
+      offset: { type: 'number', description: 'Optional. Character offset to continue a long skill or file, as given by a previous [CONTINÚA…] note.' },
     },
     required: ['name'],
   },
   categories: ['skills'],
 
-  async execute(args: { name: string; file?: string }): Promise<ToolResult> {
+  async execute(args: { name: string; file?: string; offset?: number; parts?: string[]; find?: string; full?: boolean }): Promise<ToolResult> {
     const name = String(args?.name ?? '').trim();
     if (!name) return { success: false, output: '', error: 'falta "name"' };
     const skill = skillManager().findApproved(name);
@@ -91,7 +137,7 @@ const tool: Tool = {
         if (!st.isFile()) return { success: false, output: '', error: 'Eso no es un fichero.' };
         const buf = fs.readFileSync(abs);
         if (buf.subarray(0, 4000).includes(0)) return { success: true, output: `[fichero binario de ${st.size} bytes: ${abs}]` };
-        return { success: true, output: `<skill_file skill="${label}" path="${String(args.file)}">\n${clip(buf.toString('utf-8'))}\n</skill_file>` };
+        return { success: true, output: `<skill_file skill="${label}" path="${String(args.file)}">\n${serve(buf.toString('utf-8'), args, `skill_use con name="${label}", file="${String(args.file)}"`)}\n</skill_file>` };
       } catch {
         return { success: false, output: '', error: `No existe ese fichero en la skill "${label}".` };
       }
@@ -99,7 +145,7 @@ const tool: Tool = {
 
     skillManager().markUsed(skill);
     console.log(`  [🧩] Skill cargada: ${label}`);
-    const parts = [`<skill name="${label}">`, clip(skill.body), '</skill>'];
+    const parts = [`<skill name="${label}">`, serve(skill.body, args, `skill_use con name="${label}"`), '</skill>'];
     if (skill.dir) {
       const files = listBundleFiles(skill.dir).filter(f => f !== 'SKILL.md');
       if (files.length > 0) {

@@ -22,6 +22,8 @@ import { curatedMemory } from '../memory/curated_memory.js';
 import { rollbackLastTurn, describeRollback, describeCheckpoints, lastCheckpointLabel, checkpointLabelFor } from './checkpoints.js';
 import { sharedMemory } from '../db/memory.js';
 import { describeHooks } from './hooks.js';
+import { describeCost, resetSessionCost } from './session_cost.js';
+import { handleMcpCommand } from '../mcp/mcp_command.js';
 import { getAllTools } from '../tools/tool_registry.js';
 import { puenteDir, pendientes, leerEstado, pasoPrueba, pasoMedir, pasoCerrar, pasoInstalar, pasoDescartar, describirEstado, llmReal, juezReal, INTENTOS_POR_MEDICION } from '../puente/bridge.js';
 import { parseReasoningLevel, setReasoningLevel, reasoningLevel, reasoningBudget } from '../providers/anthropic_client.js';
@@ -47,6 +49,8 @@ export const SLASH_COMMANDS: SlashCommandInfo[] = [
   { cmd: '/status', desc: 'Estado del agente: modo y modelo activo' },
   { cmd: '/reasoning', desc: 'Que Claude piense antes de responder: off · low · medium · high' },
   { cmd: '/puente', desc: 'Buzón con el radar: estado · prueba [ficha] · medir · instalar · cerrar · descartar <ficha>' },
+  { cmd: '/mcp', desc: 'Servidores MCP guardados: (nada) · add <nombre> [comando…] · remove · connect · disconnect · env <nombre> CLAVE=valor' },
+  { cmd: '/coste', desc: 'Tokens gastados y coste estimado de la sesión: (nada) · reset' },
   { cmd: '/hooks', desc: 'Ver los ganchos del usuario (comandos propios antes y después de cada tool)' },
   { cmd: '/undo', desc: 'Deshacer tu último mensaje, su respuesta y los archivos que escribió' },
   { cmd: '/retry', desc: 'Deshacer el último turno y volver a intentarlo' },
@@ -88,6 +92,30 @@ export interface SlashContext {
   ask: (question: string) => Promise<string>;
 }
 
+/** Texto de `/status`: con qué cerebro y con qué límites está trabajando Shinobi ahora mismo. */
+export async function describeStatus(): Promise<string> {
+  const { currentProvider } = await import('../providers/provider_router.js');
+  const { buildFailoverChain } = await import('../providers/failover.js');
+  const { effectiveMaxIterations } = await import('./iteration_budget.js');
+  const { mcpServerSummaries } = await import('../mcp/mcp_registry.js');
+  const provider = currentProvider();
+  const chain = buildFailoverChain(provider, process.env.SHINOBI_FAILOVER_CHAIN);
+  const manual = ShinobiOrchestrator.getModel();
+  const model = manual !== 'default' ? `${manual} (elegido con /model)` : (process.env.SHINOBI_MODEL_DEFAULT || `el de por defecto de ${provider}`);
+  const mcp = mcpServerSummaries();
+  return [
+    'Estado de Shinobi:',
+    `  Proveedor: ${provider}${process.env.SHINOBI_PROVIDER ? '' : ' (por defecto)'}`,
+    `  Si falla, prueba en este orden: ${chain.join(' → ')}`,
+    `  Modelo: ${model}`,
+    `  Pasos máximos por orden: ${effectiveMaxIterations()}  (SHINOBI_MAX_ITERATIONS)`,
+    `  Contexto antes de compactar: ${Number(process.env.SHINOBI_CONTEXT_BUDGET) || 32000} tokens  (SHINOBI_CONTEXT_BUDGET)`,
+    `  Candado de aprobaciones: ${getApprovalMode()}`,
+    `  Razonamiento: ${reasoningLevel()}`,
+    `  Servidores MCP conectados: ${mcp.length ? mcp.map((m) => `${m.name} (${m.total})`).join(', ') : 'ninguno todavía (se conectan con la primera orden; /mcp los lista)'}`,
+  ].join('\n');
+}
+
 export async function handleSlashCommand(input: string, ctx: SlashContext): Promise<boolean> {
   const trimmed = input.trim();
   if (!trimmed.startsWith('/')) return false;
@@ -118,6 +146,7 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
 
   // /status — accept any trailing args/whitespace (bug fix FAIL 2).
   if (trimmed === '/status' || trimmed.startsWith('/status ')) {
+    console.log(await describeStatus());
     return true;
   }
 
@@ -390,13 +419,15 @@ ${pending.length} pending skill(s):`);
       return true;
     }
 
-    // /skill install <nombre|fuente> [--allow-warnings]
+    // /skill install <nombre|fuente> [--allow-warnings] [--only a,b]
     if (sub === 'install') {
       const { runSkillInstall } = await import('../skills/registry/install_command.js');
       const rest = trimmed.slice('/skill install'.length).trim();
       const allowWarnings = /(^|\s)--allow-warnings(\s|$)/.test(rest);
-      const arg = rest.replace(/(^|\s)--allow-warnings(\s|$)/, ' ').trim();
-      const outcome = await runSkillInstall(arg, { allowWarnings });
+      const onlyM = rest.match(/(?:^|\s)--only[=\s]+(\S+)/);
+      const only = onlyM ? onlyM[1].split(',').map((x) => x.trim()).filter(Boolean) : undefined;
+      const arg = rest.replace(/(^|\s)--allow-warnings(\s|$)/, ' ').replace(/(^|\s)--only[=\s]+\S+/, ' ').trim();
+      const outcome = await runSkillInstall(arg, { allowWarnings, only });
       for (const l of outcome.lines) console.log(l);
       if (outcome.ok) {
         const loaded = skillManager().loadApproved();
@@ -464,6 +495,19 @@ ${pending.length} pending skill(s):`);
       return true;
     }
     console.log('Uso: /puente (estado) · /puente prueba [ficha] · /puente medir <ficha> · /puente instalar <ficha> · /puente cerrar <ficha> · /puente descartar <ficha>');
+    return true;
+  }
+
+  // /mcp — servidores MCP guardados en mcp.json (se conectan solos al arrancar).
+  if (trimmed === '/mcp' || trimmed.startsWith('/mcp ')) {
+    console.log(await handleMcpCommand(trimmed.slice('/mcp'.length).trim()));
+    return true;
+  }
+
+  // /coste — tokens medidos y coste estimado de la sesión.
+  if (trimmed === '/coste' || trimmed === '/cost' || trimmed === '/coste reset' || trimmed === '/cost reset') {
+    if (trimmed.endsWith(' reset')) { resetSessionCost(); console.log('Contador de gasto a cero.'); }
+    else console.log(describeCost());
     return true;
   }
 

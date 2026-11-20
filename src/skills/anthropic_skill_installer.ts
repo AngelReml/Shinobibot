@@ -296,11 +296,21 @@ export function skillDirsInTree(paths: string[]): string[] {
     .filter(p => !/(^|\/)(node_modules|\.git|test|tests|__tests__|fixtures|examples?|evals?)\//i.test(p))
     .map(p => p === 'SKILL.md' ? '' : p.slice(0, -'/SKILL.md'.length))
     .sort((a, b) => a.length - b.length || a.localeCompare(b));
-  const out: string[] = [];
+  const nested: string[] = [];
   for (const d of dirs) {
-    if (out.some(o => o === '' ? false : d.startsWith(o + '/'))) continue; // sub-skill de otra ya listada
-    out.push(d);
+    if (nested.some(o => o === '' ? false : d.startsWith(o + '/'))) continue; // sub-skill de otra ya listada
+    nested.push(d);
   }
+  // Una misma skill suele venir copiada para varios clientes (`skills/x`,
+  // `.agents/skills/x`, `.cursor-plugin/skills/x`): se instala UNA vez. Gana la
+  // copia pública (sin carpetas ocultas en la ruta); entre ocultas, la primera.
+  const hidden = (d: string): boolean => d.split('/').some(seg => seg.startsWith('.'));
+  const byName = new Map<string, string>();
+  for (const d of [...nested.filter(d => !hidden(d)), ...nested.filter(hidden)]) {
+    const name = d === '' ? '' : d.slice(d.lastIndexOf('/') + 1);
+    if (!byName.has(name)) byName.set(name, d);
+  }
+  const out = nested.filter(d => [...byName.values()].includes(d));
   return out.slice(0, REPO_MAX_SKILLS);
 }
 

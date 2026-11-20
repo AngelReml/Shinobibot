@@ -9,6 +9,8 @@ export interface McpToolDef {
   description?: string;
   /** JSON Schema de los argumentos (forma OpenAI-compatible). */
   inputSchema?: any;
+  /** Pistas MCP del servidor (readOnlyHint, destructiveHint, openWorldHint…). Son DATOS del servidor, no garantías. */
+  annotations?: { readOnlyHint?: boolean; destructiveHint?: boolean; openWorldHint?: boolean; [k: string]: any };
 }
 
 export interface McpContentPart {

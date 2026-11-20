@@ -27,7 +27,7 @@ export const CORE_TOOLS: readonly string[] = [
   'tool_search',
   'read_file', 'write_file', 'edit_file', 'list_dir', 'search_files',
   'run_command', 'web_search', 'memory_tool', 'spawn_agent',
-  'todo', 'clarify', 'session_search', 'skill_use',
+  'todo', 'clarify', 'session_search', 'skill_use', 'mcp_call',
 ];
 
 let _activated = new Set<string>();
@@ -35,6 +35,23 @@ let _activated = new Set<string>();
 /** True si el modo deferred está activo (opt-in por env). */
 export function isDeferredMode(): boolean {
   return process.env.SHINOBI_DEFERRED_TOOLS === '1';
+}
+
+/** ¿Es una tool traída por un servidor MCP? (nombre `mcp__<server>__<tool>`). */
+export function isMcpTool(t: { name: string; categories?: string[] }): boolean {
+  return t.name.startsWith('mcp__') || (t.categories ?? []).includes('mcp');
+}
+
+/**
+ * ¿Se anuncian TODAS las tools MCP de golpe? Por defecto NO: van "en el cajón".
+ * El agente las encuentra con `tool_search` (que le devuelve su esquema) y las
+ * llama a través de `mcp_call`. Así la lista de herramientas anunciadas NO
+ * cambia nunca: ni se pagan cientos de esquemas en cada turno (REA: 263 tools),
+ * ni se invalida la caché de prompt cada vez que hace falta una nueva.
+ * `SHINOBI_MCP_EAGER=1` restaura el anuncio completo.
+ */
+export function isMcpEager(): boolean {
+  return process.env.SHINOBI_MCP_EAGER === '1';
 }
 
 /** Resetea el conjunto activado al núcleo (al arrancar una misión). */
@@ -59,12 +76,16 @@ export function getActivatedTools(): Set<string> {
  */
 export function computeAdvertisedTools(
   allTools: Tool[],
-  opts: { deferred: boolean; activated: Set<string>; core?: readonly string[]; trustReport?: TrustReport },
+  opts: { deferred: boolean; activated: Set<string>; core?: readonly string[]; trustReport?: TrustReport; mcpEager?: boolean },
 ): Tool[] {
   let out = allTools;
   if (opts.deferred) {
     const keep = new Set<string>([...(opts.core ?? CORE_TOOLS), ...opts.activated]);
-    out = allTools.filter((t) => keep.has(t.name));
+    out = allTools.filter((t) => keep.has(t.name) && (opts.mcpEager || !isMcpTool(t)));
+  } else if (!opts.mcpEager) {
+    // Cajón MCP: aunque el modo deferred global esté OFF, las tools de
+    // servidores MCP no se anuncian; se llaman a través de `mcp_call`.
+    out = allTools.filter((t) => !isMcpTool(t));
   }
   // E3 cierra el loop: ordena las tools anunciadas por fiabilidad PROBADA (las
   // más fiables primero) — el sustrato de audit influye en lo que el modelo ve.
@@ -82,3 +103,23 @@ export const DEFERRED_TOOLS_HINT =
   '(navegador, sistema, documentos, etc.). Si necesitas algo que no está en tu ' +
   'lista, llama a `tool_search` con lo que quieres hacer; las herramientas que ' +
   'encuentre quedarán disponibles en los turnos siguientes.';
+
+/**
+ * Hint de sistema del cajón MCP: una línea por servidor conectado, para que el
+ * agente sepa que esas herramientas existen sin pagar sus esquemas. '' si no
+ * hay servidores (no se inyecta nada).
+ */
+export function mcpDrawerHint(servers: { name: string; total: number }[]): string {
+  const live = servers.filter((s) => s.total > 0);
+  if (live.length === 0) return '';
+  // Texto ESTABLE entre turnos (sin contadores que cambien) para no romper la caché de prompt.
+  const lines = live.map((s) => `- ${s.name}: ${s.total} herramientas`);
+  return [
+    'SERVIDORES MCP CONECTADOS (sus herramientas NO están en tu lista hasta que las saques):',
+    ...lines,
+    'Para usar una: 1) `tool_search` con `server` y una `query` de lo que quieres hacer, o con ' +
+      '`names` si ya sabes el nombre exacto (p. ej. por una skill): te devuelve su descripción y el ' +
+      'esquema de sus argumentos. 2) Llámala con `mcp_call` (server, tool, args). ' +
+      'El servidor ya está conectado: no hace falta instalarlo ni configurarlo.',
+  ].join('\n');
+}

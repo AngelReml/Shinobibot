@@ -64,7 +64,7 @@ async function buildRegistry(): Promise<LocalRegistry> {
  */
 export async function runSkillInstall(
   arg: string,
-  opts: { skillsRoot?: string; allowWarnings?: boolean } = {},
+  opts: { skillsRoot?: string; allowWarnings?: boolean; only?: string[] } = {},
 ): Promise<SkillInstallOutcome> {
   const lines: string[] = [];
   const skillsRoot = opts.skillsRoot ?? join(process.cwd(), 'skills');
@@ -88,7 +88,19 @@ export async function runSkillInstall(
       if (src.kind === 'github-repo' && !src.subdir) {
         const found = await discoverRepoSkills(src.owner, src.repo, src.ref);
         if (found.dirs.length === 0) return { ok: false, lines: [`✗ ${src.owner}/${src.repo} no contiene ningún SKILL.md: no es una skill ni un plugin con skills`] };
+        // --only a,b: de un repo que trae varias, instala solo las nombradas (por
+        // el nombre de su carpeta). Un repo puede traer skills de su propio
+        // desarrollo que no pintan nada en tu catálogo.
+        if (opts.only && opts.only.length > 0) {
+          const want = new Set(opts.only.map(n => n.toLowerCase()));
+          const all = found.dirs;
+          found.dirs = all.filter(d => want.has((d.slice(d.lastIndexOf('/') + 1) || src.repo).toLowerCase()));
+          if (found.dirs.length === 0) {
+            return { ok: false, lines: [`✗ ${src.owner}/${src.repo} no trae ninguna skill llamada ${opts.only.join(', ')}. Tiene: ${all.map(d => d.slice(d.lastIndexOf('/') + 1) || '(raíz)').join(', ')}`] };
+          }
+        }
         if (!(found.dirs.length === 1 && found.dirs[0] === '')) {
+          if (found.dirs.length > 1) lines.push(`(para instalar solo algunas: /skill install ${src.owner}/${src.repo} --only <nombre>[,<nombre>])`);
           let okCount = 0;
           lines.push(`${src.owner}/${src.repo} trae ${found.dirs.length} skill(s):`);
           for (const dir of found.dirs) {
