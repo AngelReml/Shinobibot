@@ -94,7 +94,7 @@ export function describeCost(): string {
     out.push(`  Último turno${c.turnLabel ? ` («${c.turnLabel}»)` : ''}: ${line(c.turn)}`);
     if (c.turnPrompts.length) out.push(`    prompt por llamada: de ${n(Math.min(...c.turnPrompts))} a ${n(Math.max(...c.turnPrompts))} tokens`);
   }
-  for (const [k, b] of Object.entries(c.byModel)) out.push(`  ${k}: ${line(b)}`);
+  for (const [k, b] of Object.entries(c.byModel)) out.push(`  ${k}: ${line(b)}${k.startsWith('anthropic:') ? '' : '  (dólares orientativos: no hay tarifa real de este proveedor)'}`);
   if (Object.keys(c.byModel).length > 1) out.push(`  TOTAL: ${line(c.total)}`);
   out.push('  /coste reset pone el contador a cero.');
   return out.join('\n');

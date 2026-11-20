@@ -17,7 +17,7 @@ import { handleMcpCommand, splitArgs } from '../mcp_command.js';
 import { mcpCallTimeoutMs, networkEnv } from '../stdio_client.js';
 import { __setMcpClientFactoryForTest } from '../../tools/mcp_connect.js';
 import toolSearchTool, { resolveToolNames, scopeToServer, describeMcpTools } from '../../tools/tool_search.js';
-import mcpCallTool from '../../tools/mcp_call.js';
+import mcpCallTool, { explainFailure } from '../../tools/mcp_call.js';
 import { computeAdvertisedTools, getActivatedTools, resetActivatedTools, mcpDrawerHint, isMcpTool, CORE_TOOLS } from '../../tools/tool_activation.js';
 import { getAllTools, type Tool } from '../../tools/tool_registry.js';
 import { classifyCritical, mcpTargetName } from '../../security/approval.js';
@@ -130,6 +130,25 @@ describe('cajón MCP — tool_search las encuentra y mcp_call las llama', () => 
     expect(r).toMatchObject({ success: true, output: 'ok open_binary' });
     await mcpCallTool.execute({ server: 'rea', tool: 'mcp__rea__open_binary', args: '{"path":"/y"}' });
     expect(state.calls).toEqual([['open_binary', { path: '/x' }], ['open_binary', { path: '/y' }]]);
+  });
+
+  it('un error de argumentos llega con lo concreto primero y el esquema detrás; dos fallos distintos no parecen el mismo', async () => {
+    const envelope = (issues: any[]) => JSON.stringify({ error: { code: 'invalid_request', category: 'invalid_input', message: 'Analysis input is invalid. Check the arguments and try again.', retryable: false, remediation: { action: 'Read the declared input schema...' }, details: { operation: 'x', issues } } });
+    let n = 0;
+    const client = fakeClient(DEFS, {});
+    client.callTool = async () => ({ isError: true, content: [{ type: 'text', text: envelope(n++ === 0
+      ? [{ path: ['source', 'kind'], reason: 'missing_argument', expected: ['retained-evidence', 'inline'] }]
+      : [{ path: ['view'], reason: 'invalid_value', message: 'supports summary' }]) }] });
+    await registerMcpServer('rea', client);
+    const a = await mcpCallTool.execute({ server: 'rea', tool: 'open_binary', args: {} });
+    const b = await mcpCallTool.execute({ server: 'rea', tool: 'open_binary', args: {} });
+    expect(a.success).toBe(false);
+    expect(a.error).toMatch(/^\[open_binary\] argumentos rechazados:\n- source\.kind: missing_argument \(valores admitidos: retained-evidence, inline\)/);
+    expect(a.error).toContain('Esquema de argumentos de open_binary: {"type":"object","properties":{"path"');
+    expect(b.error).toContain('- view: invalid_value — supports summary');
+    expect(a.error!.slice(0, 200)).not.toBe(b.error!.slice(0, 200)); // el detector de bucles mira el arranque
+    // Un error que no es de argumentos no arrastra el esquema.
+    expect(explainFailure('mcp__rea__open_binary', {}, 'Provider not available')).toBe('[open_binary] Provider not available');
   });
 
   it('mcp_call explica lo que falla: sin servidores, servidor desconocido, herramienta desconocida', async () => {

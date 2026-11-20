@@ -28,7 +28,7 @@ import { tokenBudget } from '../context/token_budget.js';
 import { LoopDetector, loopDetectorConfigFromEnv, failureModeAdvice } from './loop_detector.js';
 import { toolEvents } from './tool_events.js';
 import { logToolCall, logLoopAbort } from '../audit/audit_log.js';
-import { isDestructive, raceApprovalWithTimeout, registerApprovedPath, clearSessionApprovals } from '../security/approval.js';
+import { isDestructive, raceApprovalWithTimeout, registerApprovedPath, clearSessionApprovals, mcpTargetName } from '../security/approval.js';
 import { integrityEnabled, runPreAction, runPostAction, reportClaimsSuccess } from '../integrity/engine.js';
 import { stepForToolCall } from '../integrity/registry.js';
 import type { ToolResult } from '../tools/tool_registry.js';
@@ -808,7 +808,10 @@ export class ShinobiOrchestrator {
           console.log(`  [🔨] Tool called: ${functionName}`);
 
           // Capa 1 (args) — antes de ejecutar la tool.
-          const attemptCheck = loopDetector.recordCallAttempt(functionName, functionArgs);
+          // Para el detector de bucles, una llamada por la pasarela cuenta como la tool MCP de destino:
+          // si no, tres herramientas distintas de un servidor parecerían "la misma tool repitiéndose".
+          const loopName = functionName === 'mcp_call' ? (mcpTargetName(functionArgs) || functionName) : functionName;
+          const attemptCheck = loopDetector.recordCallAttempt(loopName, functionArgs);
           if (attemptCheck.abort) {
             const argsSummary = JSON.stringify(functionArgs).substring(0, 120);
             const message =
@@ -982,13 +985,13 @@ export class ShinobiOrchestrator {
             // para que la capa 1 result-aware sepa si los MISMOS args están
             // produciendo el MISMO resultado (bucle real) o resultados que
             // cambian (progreso legítimo: edición de fichero, navegación…).
-            const resultCheck = loopDetector.recordCallResult(functionName, toolResultStr, attemptCheck.hash);
+            const resultCheck = loopDetector.recordCallResult(loopName, toolResultStr, attemptCheck.hash);
             if (resultCheck.abort) {
               const message =
                 `He detectado que estoy repitiendo acciones sin que el resultado ` +
-                `cambie. La tool "${functionName}" sigue devolviendo el mismo ` +
+                `cambie. La tool "${loopName}" sigue devolviendo el mismo ` +
                 `output observable tras varios intentos. Necesito tu ayuda para ` +
-                `cambiar de enfoque.`;
+                `cambiar de enfoque.\n\nLo último que devolvió: ${String(toolResultStr).replace(/\s+/g, ' ').slice(0, 500)}`;
               console.log(`  [⛔] ${resultCheck.verdict} on ${functionName}`);
               await this.memory.addMessage({ role: 'assistant', content: message });
               logLoopAbort({
@@ -1014,7 +1017,7 @@ export class ShinobiOrchestrator {
             // (incidente 2026-05-16: el agente probó 12 keywords y luego
             // intentó cerrar ventanas con Alt+F4). Hay que parar y pedir
             // intervención humana — Shinobi NO intenta arreglar el entorno.
-            const failCheck = loopDetector.recordOutcome(functionName, !!result.success, result.error);
+            const failCheck = loopDetector.recordOutcome(loopName, !!result.success, result.error);
             if (failCheck.abort) {
               const mode = (failCheck.reason ?? '').replace(/^env_failure:/, '');
               const message =

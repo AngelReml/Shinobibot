@@ -92,6 +92,30 @@ export interface SlashContext {
   ask: (question: string) => Promise<string>;
 }
 
+/** Texto de `/status`: con qué cerebro y con qué límites está trabajando Shinobi ahora mismo. */
+export async function describeStatus(): Promise<string> {
+  const { currentProvider } = await import('../providers/provider_router.js');
+  const { buildFailoverChain } = await import('../providers/failover.js');
+  const { effectiveMaxIterations } = await import('./iteration_budget.js');
+  const { mcpServerSummaries } = await import('../mcp/mcp_registry.js');
+  const provider = currentProvider();
+  const chain = buildFailoverChain(provider, process.env.SHINOBI_FAILOVER_CHAIN);
+  const manual = ShinobiOrchestrator.getModel();
+  const model = manual !== 'default' ? `${manual} (elegido con /model)` : (process.env.SHINOBI_MODEL_DEFAULT || `el de por defecto de ${provider}`);
+  const mcp = mcpServerSummaries();
+  return [
+    'Estado de Shinobi:',
+    `  Proveedor: ${provider}${process.env.SHINOBI_PROVIDER ? '' : ' (por defecto)'}`,
+    `  Si falla, prueba en este orden: ${chain.join(' → ')}`,
+    `  Modelo: ${model}`,
+    `  Pasos máximos por orden: ${effectiveMaxIterations()}  (SHINOBI_MAX_ITERATIONS)`,
+    `  Contexto antes de compactar: ${Number(process.env.SHINOBI_CONTEXT_BUDGET) || 32000} tokens  (SHINOBI_CONTEXT_BUDGET)`,
+    `  Candado de aprobaciones: ${getApprovalMode()}`,
+    `  Razonamiento: ${reasoningLevel()}`,
+    `  Servidores MCP conectados: ${mcp.length ? mcp.map((m) => `${m.name} (${m.total})`).join(', ') : 'ninguno todavía (se conectan con la primera orden; /mcp los lista)'}`,
+  ].join('\n');
+}
+
 export async function handleSlashCommand(input: string, ctx: SlashContext): Promise<boolean> {
   const trimmed = input.trim();
   if (!trimmed.startsWith('/')) return false;
@@ -122,6 +146,7 @@ export async function handleSlashCommand(input: string, ctx: SlashContext): Prom
 
   // /status — accept any trailing args/whitespace (bug fix FAIL 2).
   if (trimmed === '/status' || trimmed.startsWith('/status ')) {
+    console.log(await describeStatus());
     return true;
   }
 

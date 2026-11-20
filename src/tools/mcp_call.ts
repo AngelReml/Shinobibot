@@ -11,6 +11,43 @@ import { type Tool, type ToolResult, registerTool, getTool } from './tool_regist
 import { mcpTargetName } from '../security/approval.js';
 import { connectedMcpServers, mcpServerTools, mcpServerKey } from '../mcp/mcp_registry.js';
 
+/** Tope del esquema que se adjunta a un error de argumentos. */
+const SCHEMA_ON_ERROR_MAX = 6_000;
+
+/**
+ * Reescribe el error de una tool MCP para que el modelo pueda corregir:
+ *  - lo CONCRETO primero (qué campo falla y qué se esperaba). Los servidores
+ *    suelen empezar por un sobre genérico idéntico en todos los fallos, y con
+ *    eso delante dos errores distintos parecen el mismo;
+ *  - si el fallo es de argumentos, se adjunta el esquema de la herramienta.
+ */
+export function explainFailure(fullName: string, parameters: any, error: string): string {
+  const short = fullName.replace(/^mcp__.+?__/, '');
+  let issues = '';
+  let invalid = /invalid[_ ](input|request|params|argument)|missing_argument|invalid_value|schema/i.test(error);
+  try {
+    const j = JSON.parse(error);
+    const e = j?.error ?? j;
+    const list = e?.details?.issues ?? e?.issues;
+    if (Array.isArray(list) && list.length) {
+      invalid = true;
+      issues = list.map((i: any) => {
+        const where = Array.isArray(i?.path) ? i.path.join('.') : String(i?.path ?? '?');
+        const exp = i?.expected ? ` (valores admitidos: ${Array.isArray(i.expected) ? i.expected.join(', ') : i.expected})` : '';
+        return `- ${where}: ${i?.reason ?? 'no válido'}${exp}${i?.message ? ` — ${i.message}` : ''}`;
+      }).join('\n');
+    }
+  } catch { /* el error no es JSON: se deja tal cual */ }
+  const parts = [`[${short}] ${issues ? `argumentos rechazados:\n${issues}` : error}`];
+  if (issues) parts.push(`Respuesta completa del servidor: ${error.slice(0, 1500)}`);
+  if (invalid) {
+    const schema = JSON.stringify(parameters ?? {});
+    parts.push(`Esquema de argumentos de ${short}: ${schema.length > SCHEMA_ON_ERROR_MAX ? schema.slice(0, SCHEMA_ON_ERROR_MAX) + '… [recortado: tool_search con names=["' + short + '"] lo da entero, con la descripción]' : schema}`);
+    parts.push('Corrige SOLO lo señalado y vuelve a llamar; no repitas la misma llamada.');
+  }
+  return parts.join('\n');
+}
+
 const mcpCallTool: Tool = {
   name: 'mcp_call',
   description:
@@ -46,7 +83,9 @@ const mcpCallTool: Tool = {
     let args = input.args;
     // Algunos modelos mandan los argumentos como texto JSON.
     if (typeof args === 'string') { try { args = JSON.parse(args); } catch { /* se pasa tal cual */ } }
-    return target.execute(args && typeof args === 'object' ? args : {});
+    const res = await target.execute(args && typeof args === 'object' ? args : {});
+    if (res.success) return res;
+    return { ...res, error: explainFailure(name, target.parameters, res.error ?? '') };
   },
 };
 
