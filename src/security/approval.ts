@@ -137,6 +137,19 @@ export const CRITICAL_COMMAND_PATTERNS: { regex: RegExp; reason: string }[] = [
   { regex: /\b(remove-item|ri)\b[^\n]*-(recurse|force)/i, reason: 'Remove-Item recursivo/forzado' },
   { regex: /\bformat\s+[a-z]:/i, reason: 'formateo de disco (format X:)' },
   { regex: /\bmkfs\b/i, reason: 'formateo de filesystem (mkfs)' },
+  // INSTALAR SOFTWARE en la máquina (20-nov-2026): el modelo instaló un paquete
+  // global por su cuenta (`npm install -g asar`) y el antivirus acabó matando el
+  // proceso. Instalar en el sistema es decisión del usuario, no del modelo. Las
+  // dependencias LOCALES de un proyecto (`npm install`, `npm i paquete`) siguen libres.
+  { regex: /\b(npm|pnpm)\s+(i|install|add)\b[^|;&\n]*\s(-g|--global)\b/i, reason: 'instalación global de un paquete (npm -g)' },
+  { regex: /\b(npm|pnpm)\s+(-g|--global)\s+(i|install|add)\b/i, reason: 'instalación global de un paquete (npm -g)' },
+  { regex: /\byarn\s+global\s+add\b/i, reason: 'instalación global de un paquete (yarn global)' },
+  { regex: /\b(pip3?|pipx|python\d?(\.exe)?\s+-m\s+pip)\s+install\b/i, reason: 'instalación de un paquete de Python' },
+  { regex: /\b(winget|choco|chocolatey|scoop)\s+(install|upgrade)\b/i, reason: 'instalación de un programa en el sistema' },
+  { regex: /\b(install-module|install-package|add-appxpackage)\b/i, reason: 'instalación de un módulo o paquete de Windows' },
+  { regex: /\b(msiexec|start-process)\b[^\n]*\.(msi|exe)\b/i, reason: 'ejecución de un instalador' },
+  { regex: /\b(npx|bunx|pnpm\s+dlx)\s+(-y\s+|--yes\s+)/i, reason: 'descarga y ejecución de un paquete sin confirmar (npx -y)' },
+  { regex: /\b(iwr|irm|invoke-webrequest|invoke-restmethod|curl|wget)\b[^\n]*\|\s*(iex|invoke-expression|sh|bash|powershell|pwsh|cmd)\b/i, reason: 'descarga y ejecución directa de un script' },
 ];
 
 /**
