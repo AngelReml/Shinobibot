@@ -136,17 +136,29 @@ export function toStdioConfig(name: string, cfg: McpServerConfig): StdioMcpConfi
   };
 }
 
+/** Tope para arrancar un servidor. Holgado: la primera vez `npx` descarga el paquete. */
+export const MCP_CONNECT_TIMEOUT_MS = 180_000;
+
 export interface McpConnectOutcome { name: string; ok: boolean; tools: number; error?: string }
 
 type Factory = (cfg: StdioMcpConfig) => Promise<McpClient>;
 
 /** Conecta un servidor guardado y registra sus tools (van al cajón). Nunca lanza. */
-export async function connectSavedServer(name: string, cfg: McpServerConfig, factory: Factory, connectTimeoutMs = 60_000): Promise<McpConnectOutcome> {
+export async function connectSavedServer(name: string, cfg: McpServerConfig, factory: Factory, connectTimeoutMs = MCP_CONNECT_TIMEOUT_MS): Promise<McpConnectOutcome> {
   let timer: NodeJS.Timeout | undefined;
+  let timedOut = false;
+  const pending = factory(toStdioConfig(name, cfg));
+  // Si el servidor acaba arrancando DESPUÉS del tope, se cierra: no se deja un proceso huérfano.
+  pending.then((late) => { if (timedOut) late.close().catch(() => {}); }, () => {});
   try {
     const client = await Promise.race([
-      factory(toStdioConfig(name, cfg)),
-      new Promise<never>((_, rej) => { timer = setTimeout(() => rej(new Error(`no respondió en ${Math.round(connectTimeoutMs / 1000)} s`)), connectTimeoutMs); }),
+      pending,
+      new Promise<never>((_, rej) => {
+        timer = setTimeout(() => {
+          timedOut = true;
+          rej(new Error(`no respondió en ${Math.round(connectTimeoutMs / 1000)} s (la primera vez, npx tiene que bajar el paquete: vuelve a probar con /mcp connect ${name})`));
+        }, connectTimeoutMs);
+      }),
     ]);
     const { registered } = await registerMcpServer(name, client);
     return { name, ok: true, tools: registered.length };

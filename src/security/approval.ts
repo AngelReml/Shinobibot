@@ -178,6 +178,7 @@ export const DESTRUCTIVE_TOOLS = new Set<string>([
   'screen_act', 'start_cloud_mission', 'n8n_invoke',
   'request_new_skill',
   'task_scheduler_create',
+  'mcp_call',            // ejecuta una herramienta de un servidor externo
   'mcp_connect',
 ]);
 
@@ -219,8 +220,10 @@ export function classifyCritical(toolName: string, args: any): DestructiveVerdic
   if (CRITICAL_TOOLS.has(toolName)) {
     return { destructive: true, reason: `compromiso externo / gasto: ${toolName}` };
   }
-  if (_mcpDestructive.has(toolName)) {
-    return { destructive: true, reason: `el servidor MCP marca esta herramienta como destructiva: ${toolName}` };
+  // Una tool MCP se llama directa (modo eager) o a través de `mcp_call`.
+  const mcpName = toolName === 'mcp_call' ? mcpTargetName(args) : toolName;
+  if (mcpName && _mcpDestructive.has(mcpName)) {
+    return { destructive: true, reason: `el servidor MCP marca esta herramienta como destructiva: ${mcpName}` };
   }
   return { destructive: false };
 }
@@ -228,6 +231,14 @@ export function classifyCritical(toolName: string, args: any): DestructiveVerdic
 // Tools MCP que su propio servidor declara destructivas (annotations.destructiveHint).
 // Las registra mcp_registry al conectar; aquí solo se consultan (sin import circular).
 const _mcpDestructive = new Set<string>();
+/** Nombre de registry (`mcp__<server>__<tool>`) al que apunta una llamada a `mcp_call`. */
+export function mcpTargetName(args: any): string {
+  const tool = String(args?.tool ?? '').trim();
+  if (!tool) return '';
+  if (tool.startsWith('mcp__')) return tool;
+  const server = String(args?.server ?? '').replace(/[^a-zA-Z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
+  return server ? `mcp__${server}__${tool}` : '';
+}
 export function markMcpDestructive(names: string[]): void { for (const n of names) _mcpDestructive.add(n); }
 export function unmarkMcpDestructive(names: string[]): void { for (const n of names) _mcpDestructive.delete(n); }
 

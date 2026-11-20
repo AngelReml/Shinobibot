@@ -11,7 +11,7 @@
 
 import { type Tool, type ToolResult, registerTool, getAllTools } from './tool_registry.js';
 import { loadTrustReport, type TrustReport } from '../audit/trust_ledger.js';
-import { activateTools, isMcpTool } from './tool_activation.js';
+import { activateTools, isMcpTool, isMcpEager } from './tool_activation.js';
 
 export interface ToolMatch {
   name: string;
@@ -47,7 +47,9 @@ function tokens(s: string): string[] {
 
 /** ¿`token` casa con alguno de `bag` (substring en cualquier dirección)? */
 function hits(token: string, bag: string[]): boolean {
-  return bag.some((w) => w === token || w.includes(token) || token.includes(w));
+  // Subcadena solo entre palabras de 4+ letras: si no, "on" (de act_on_…) casa
+  // con "electron" o "application" y cuela herramientas que no tienen nada que ver.
+  return bag.some((w) => w === token || (token.length >= 4 && w.includes(token)) || (w.length >= 4 && token.includes(w)));
 }
 
 /**
@@ -133,22 +135,51 @@ export function resolveToolNames(names: string[], tools: Tool[]): { found: strin
   return { found: [...new Set(found)], missing };
 }
 
+/** Cuántas fichas completas (con esquema) devuelve una búsqueda; el resto va en una línea. */
+export const MCP_CARDS_PER_SEARCH = 3;
+/** Presupuesto de caracteres para las fichas de una respuesta (bajo el tope general de 32.000). */
+export const MCP_CARDS_BUDGET = 24_000;
+
+function shortMcpName(full: string): string {
+  const m = /^mcp__(.+?)__(.+)$/.exec(full);
+  return m ? `${m[2]} (server ${m[1]})` : full;
+}
+
+/**
+ * Fichas de tools MCP para que el agente pueda llamarlas con `mcp_call` sin que
+ * estén anunciadas: nombre, descripción completa y esquema JSON de argumentos.
+ * Reparte el presupuesto entre las fichas; si una no cabe, lo dice.
+ */
+export function describeMcpTools(tools: Tool[], budget: number): string {
+  if (tools.length === 0) return '';
+  const each = Math.max(1500, Math.floor(budget / tools.length));
+  const cards = tools.map((t) => {
+    const m = /^mcp__(.+?)__(.+)$/.exec(t.name);
+    const desc = t.description.replace(/^\[MCP:[^\]]*\]\s*/, '');
+    const schema = JSON.stringify(t.parameters);
+    let body = `descripción: ${desc}\nargumentos (JSON Schema): ${schema}`;
+    if (body.length > each) body = body.slice(0, each) + `\n[ficha recortada: pídela sola con names=["${m?.[2] ?? t.name}"] para verla entera]`;
+    return `### ${m?.[2] ?? t.name}\nllamada: mcp_call({"server":"${m?.[1] ?? ''}","tool":"${m?.[2] ?? t.name}","args":{…}})\n${body}`;
+  });
+  return ['Herramientas MCP (no están en tu lista: se llaman con `mcp_call`):', ...cards].join('\n\n');
+}
+
 const toolSearchTool: Tool = {
   name: 'tool_search',
   description:
     'Busca entre las herramientas disponibles las más adecuadas para una tarea, ' +
     'ordenadas por relevancia Y por su fiabilidad probada (historial de éxito). ' +
     'Úsalo cuando no estés seguro de qué herramienta usar. Sin query, lista las ' +
-    'más fiables. También SACA DEL CAJÓN las herramientas de servidores MCP ' +
-    '(no anunciadas por defecto): con `server` + `query`, o con `names` si ya ' +
-    'sabes los nombres exactos. Read-only.',
+    'más fiables. También encuentra las herramientas de servidores MCP (no ' +
+    'anunciadas): con `server` + `query`, o con `names` si ya sabes los nombres ' +
+    'exactos; devuelve su esquema para llamarlas con `mcp_call`. Read-only.',
   parameters: {
     type: 'object',
     properties: {
       query: { type: 'string', description: 'Qué quieres hacer (p. ej. "leer un fichero", "buscar en la web").' },
       limit: { type: 'number', description: 'Máximo de resultados (default 10).' },
       server: { type: 'string', description: 'Limitar la búsqueda a un servidor MCP conectado (p. ej. "rea").' },
-      names: { type: 'array', items: { type: 'string' }, description: 'Nombres exactos a activar sin buscar (completos o cortos, p. ej. ["open_binary"]).' },
+      names: { type: 'array', items: { type: 'string' }, description: 'Nombres exactos de los que quieres la ficha, sin buscar (completos o cortos, p. ej. ["open_binary"]).' },
     },
   },
   categories: ['research'],
@@ -158,12 +189,17 @@ const toolSearchTool: Tool = {
     if (args.server && pool.length === 0) {
       return { success: false, output: '', error: `No hay ningún servidor MCP conectado con el nombre "${args.server}".` };
     }
-    // Activación directa por nombre exacto (lo que una skill ya sabe).
+    const eager = isMcpEager();
+    // Por nombre exacto (lo que una skill ya sabe): devuelve la ficha completa.
     if (Array.isArray(args.names) && args.names.length > 0) {
       const { found, missing } = resolveToolNames(args.names, pool);
-      activateTools(found);
+      const byName = new Map(pool.map((t) => [t.name, t]));
+      activateTools(found.filter((n) => eager || !n.startsWith('mcp__')));
       const out: string[] = [];
-      if (found.length) out.push(`A mano desde el siguiente turno (${found.length}):`, ...found.map((n) => `- ${n}`));
+      const mcp = found.filter((n) => n.startsWith('mcp__') && !eager);
+      const rest = found.filter((n) => !mcp.includes(n));
+      if (mcp.length) out.push(describeMcpTools(mcp.map((n) => byName.get(n)!), MCP_CARDS_BUDGET));
+      if (rest.length) out.push(`Disponibles: ${rest.join(', ')}`);
       if (missing.length) out.push(`No encontradas (${missing.length}): ${missing.join(', ')}. Prueba con \`query\`.`);
       return { success: found.length > 0, output: out.join('\n'), error: found.length ? undefined : out.join(' ') };
     }
@@ -172,16 +208,27 @@ const toolSearchTool: Tool = {
     if (matches.length === 0) {
       return { success: true, output: `No hay herramientas que casen con "${args.query ?? ''}".` };
     }
-    // Modo deferred: las tools encontradas quedan ANUNCIADAS en los turnos
-    // siguientes. No-op si el modo está OFF (el conjunto se ignora).
-    activateTools(matches.map((m) => m.name));
-    const lines = matches.map((m) => {
+    // Modo deferred: las tools NATIVAS encontradas quedan anunciadas en los turnos
+    // siguientes. Las MCP no se anuncian nunca (salvo eager): se llaman con mcp_call.
+    activateTools(matches.map((m) => m.name).filter((n) => eager || !n.startsWith('mcp__')));
+    const byName = new Map(pool.map((t) => [t.name, t]));
+    const mcpHits = eager ? [] : matches.filter((m) => m.name.startsWith('mcp__'));
+    const lines = matches.filter((m) => !mcpHits.includes(m)).map((m) => {
       const trustPct = Math.round(m.trust * 100);
-      // Las MCP no están anunciadas: su descripción aquí es lo único que el modelo ve antes de elegir.
-      const cut = m.name.startsWith('mcp__') ? 220 : 100;
-      return `- ${m.name} (rel ${m.relevance.toFixed(2)}, trust ${trustPct}%): ${m.description.replace(/\s+/g, ' ').slice(0, cut)}`;
+      return `- ${m.name} (rel ${m.relevance.toFixed(2)}, trust ${trustPct}%): ${m.description.slice(0, 100)}`;
     });
-    return { success: true, output: [`Herramientas para "${args.query ?? '(todas)'}":`, ...lines].join('\n') };
+    const out: string[] = [];
+    if (lines.length) out.push(`Herramientas para "${args.query ?? '(todas)'}":`, ...lines);
+    if (mcpHits.length) {
+      // Ficha completa (con esquema) de las mejores; del resto, una línea.
+      const top = mcpHits.slice(0, MCP_CARDS_PER_SEARCH).map((m) => byName.get(m.name)!);
+      out.push(describeMcpTools(top, MCP_CARDS_BUDGET));
+      const more = mcpHits.slice(MCP_CARDS_PER_SEARCH);
+      if (more.length) {
+        out.push('Otras que casan (pide su ficha con `names`):', ...more.map((m) => `- ${shortMcpName(m.name)}: ${m.description.replace(/^\[MCP:[^\]]*\]\s*/, '').replace(/\s+/g, ' ').slice(0, 160)}`));
+      }
+    }
+    return { success: true, output: out.join('\n') };
   },
 };
 

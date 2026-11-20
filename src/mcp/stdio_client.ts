@@ -26,6 +26,21 @@ export function mcpCallTimeoutMs(explicit?: number): number {
   return Number.isFinite(n) && n >= 1000 ? Math.min(n, 3_600_000) : 600_000;
 }
 
+/**
+ * Variables de RED del entorno que se pasan al servidor. El SDK solo hereda un
+ * subconjunto mínimo (PATH, HOME…); sin el proxy ni los certificados de la
+ * máquina, un `npx` detrás de un proxy se queda colgado bajando el paquete.
+ * Solo ajustes de red: nunca claves ni tokens.
+ */
+export function networkEnv(env: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  const out: Record<string, string> = {};
+  const keep = /^(https?_proxy|no_proxy|all_proxy|node_extra_ca_certs|ssl_cert_file|ssl_cert_dir|npm_config_(https?_?proxy|noproxy|registry|cafile|cache|userconfig|strict_ssl))$/i;
+  for (const [k, v] of Object.entries(env)) {
+    if (typeof v === 'string' && v && keep.test(k)) out[k] = v;
+  }
+  return out;
+}
+
 /** Crea y conecta un cliente MCP stdio. Lanza si el SDK o el servidor fallan. */
 export async function createStdioMcpClient(config: StdioMcpConfig): Promise<McpClient> {
   if (!config?.command) throw new Error('createStdioMcpClient: "command" es obligatorio.');
@@ -40,7 +55,7 @@ export async function createStdioMcpClient(config: StdioMcpConfig): Promise<McpC
   const transport = new StdioClientTransport({
     command: config.command,
     args: config.args,
-    env: config.env,
+    env: { ...networkEnv(), ...(config.env ?? {}) },
     cwd: config.cwd,
     stderr: 'pipe', // no ensucia la terminal; se guarda la cola para explicar un fallo de arranque
   });

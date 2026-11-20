@@ -101,7 +101,7 @@ export class SwarmWorker {
 
       // Record Telemetry
       const resolvedProvider = result.resolvedProvider || currentProvider() || 'default';
-      const resolvedModel = payload.tools ? 'model-with-tools' : 'model-standard';
+      const resolvedModel = result.resolvedModel || (payload.tools ? 'model-with-tools' : 'model-standard');
       const callDurationSec = durationMs / 1000;
       const registry = metrics();
 

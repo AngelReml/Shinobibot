@@ -96,6 +96,18 @@ describe('anthropic_client — caché de prompt, límites y pool de claves', () 
     expect(res.usage).toEqual({ prompt_tokens: 5400, completion_tokens: 20, total_tokens: 5420, cache_read_tokens: 5000, cache_write_tokens: 300 });
   });
 
+  it('si el modelo rechaza temperature, repite sin ella y no se la vuelve a enviar', async () => {
+    post.mockRejectedValueOnce({ response: { status: 400, data: { error: { message: '`temperature` is deprecated for this model.' } } } });
+    post.mockResolvedValue(OK());
+    const res = await anthropicClient.invokeLLM({ messages: MESSAGES, model: 'claude-test-sin-temp', temperature: 0.2 } as any);
+    expect(res.success).toBe(true);
+    expect(post).toHaveBeenCalledTimes(2);
+    expect((post.mock.calls[0][1] as any).temperature).toBe(0.2);
+    expect((post.mock.calls[1][1] as any).temperature).toBeUndefined();
+    await anthropicClient.invokeLLM({ messages: MESSAGES, model: 'claude-test-sin-temp', temperature: 0.2 } as any);
+    expect((post.mock.calls[2][1] as any).temperature).toBeUndefined();
+  });
+
   it('el coste descuenta lo leído de caché y recarga lo escrito', () => {
     const sin = calculateCost('anthropic', 'claude-haiku-4-5', { prompt_tokens: 1_000_000, completion_tokens: 0 });
     const leido = calculateCost('anthropic', 'claude-haiku-4-5', { prompt_tokens: 1_000_000, completion_tokens: 0, cache_read_tokens: 1_000_000 });

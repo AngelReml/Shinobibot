@@ -71,7 +71,7 @@ const mcpConnectTool: Tool = {
         success: true,
         // No se listan todas (un servidor grande trae cientos): van al cajón.
         output: `Servidor MCP "${name}" conectado. ${registered.length} herramientas registradas, sin anunciar. ` +
-          `Sácalas con tool_search (server="${name}" + query, o names exactos).` +
+          `Búscalas con tool_search (server="${name}" + query, o names exactos) y llámalas con mcp_call.` +
           (registered.length ? `\nEjemplos: ${registered.slice(0, 8).join(', ')}${registered.length > 8 ? '…' : ''}` : ''),
       };
     } catch (e: any) {

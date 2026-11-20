@@ -48,6 +48,7 @@ import './run_swarm_orchestrated.js';
 import './trust_report.js';
 // MCP: conecta servidores externos y registra sus tools como nativas.
 import './mcp_connect.js';
+import './mcp_call.js';
 // ToolSearch sobre E3: descubrimiento de tools por relevancia + fiabilidad.
 import './tool_search.js';
 // LSP-flavored: diagnósticos de código (TS/JS/JSON/Python).

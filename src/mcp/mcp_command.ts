@@ -38,12 +38,12 @@ export function describeMcp(): string {
     out.push('Servidores MCP:');
     for (const n of names) {
       const s = live.get(n);
-      const state = s ? `conectado · ${s.total} herramientas, ${s.active} a mano` : 'sin conectar';
+      const state = s ? `conectado · ${s.total} herramientas en el cajón` : 'sin conectar';
       out.push(`  ${servers[n] ? show(n, servers[n]) : `${n}: (conectado en esta sesión, no guardado)`}\n    → ${state}`);
     }
     out.push(isMcpEager()
       ? '  Modo SHINOBI_MCP_EAGER=1: todas las herramientas MCP se anuncian en cada turno (caro).'
-      : '  Las herramientas MCP van al cajón: el agente saca las que necesita con tool_search.');
+      : '  Las herramientas MCP van al cajón: el agente las busca con tool_search y las llama con mcp_call.');
   }
   for (const p of problems) out.push(`  aviso: ${p}`);
   out.push(`Fichero: ${mcpConfigFile()}`);

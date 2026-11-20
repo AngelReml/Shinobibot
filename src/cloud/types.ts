@@ -15,6 +15,8 @@ export interface CloudResponse<T = string> {
   trace_id?: string;
   usage?: LLMUsage;
   resolvedProvider?: string;
+  /** Modelo que respondió de verdad (el coste se calcula con su tarifa). */
+  resolvedModel?: string;
 }
 
 export interface SwarmMissionPayload {

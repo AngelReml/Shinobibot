@@ -14,7 +14,7 @@ Your tool schema (sent with every request) is the ONLY authoritative list — yo
 - Windows-native pack: \`clipboard_read/write\`, \`process_list\`, \`system_info\`, \`disk_usage\`, \`env_list\`, \`network_info\`, \`registry_read\`, \`task_scheduler_create\`, \`windows_notification\`.
 - Documents: \`generate_document\` (Word/PDF/Excel/Markdown).
 - Screen: \`screen_observe\`, \`screen_act\`.
-- Integrations: \`start_cloud_mission\`, \`n8n_invoke\`, \`mcp_connect\`, \`request_new_skill\`.
+- Integrations: \`start_cloud_mission\`, \`n8n_invoke\`, \`mcp_connect\`, \`mcp_call\`, \`request_new_skill\`.
 Check your schema before claiming you cannot do something — if a tool exists for it, you CAN do it.
 
 MULTI-AGENT DELEGATION (use when a task is large, parallelizable, or risky):

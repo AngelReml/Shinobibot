@@ -23,6 +23,8 @@ import { normalizeModelId } from './model_id.js';
 
 const BASE_URL = 'https://api.anthropic.com/v1';
 const DEFAULT_MODEL = 'claude-haiku-4-5';
+/** Modelos que han rechazado `temperature` en esta ejecución: no se les vuelve a enviar. */
+const _noTemperature = new Set<string>();
 const API_VERSION = '2023-06-01';
 const DEFAULT_MAX_TOKENS = 8192;
 const DEFAULT_TIMEOUT_MS = 180000;
@@ -253,7 +255,7 @@ export const anthropicClient: ProviderClient = {
           system: body.system,
           messages: budget > 0 ? body.messages : stripThinking(body.messages),
           max_tokens: budget > 0 ? Math.max(max_tokens, budget + 4096) : max_tokens,
-          temperature: budget > 0 ? undefined : payload.temperature,
+          temperature: budget > 0 || _noTemperature.has(model) ? undefined : payload.temperature,
           tools: body.tools,
           thinking: budget > 0 ? { type: 'enabled', budget_tokens: budget } : undefined,
         }, {
@@ -285,12 +287,18 @@ export const anthropicClient: ProviderClient = {
           cache_read_tokens: cacheRead,
           cache_write_tokens: cacheWrite,
         } : undefined;
-        return { success: true, output: JSON.stringify(openAiMsg), error: '', usage };
+        return { success: true, output: JSON.stringify(openAiMsg), error: '', usage, resolvedModel: String(resp.data?.model || model) };
       } catch (e: any) {
         const status = e.response?.status;
         if (status === 401) lastError = { success: false, output: '', error: 'Anthropic HTTP 401: key inválida.' };
         else if (e.response?.data?.error?.message) lastError = { success: false, output: '', error: `Anthropic: ${e.response.data.error.message}` };
         else lastError = { success: false, output: '', error: `Anthropic error [${model}]: ${e.message}` };
+        // Los modelos nuevos (familia 5.5) rechazan `temperature`. Se aprende por
+        // modelo y se repite la llamada sin ella, en vez de dejar el modelo inservible.
+        if (status === 400 && !_noTemperature.has(model) && /temperature/i.test(String(e.response?.data?.error?.message ?? ''))) {
+          _noTemperature.add(model); attempt--;
+          continue;
+        }
         // Si la API rechaza la petición POR el razonamiento (modelo que no lo
         // soporta, bloques de pensamiento perdidos al compactar…), se reintenta
         // una vez sin él: mejor una respuesta sin pensar que ninguna.

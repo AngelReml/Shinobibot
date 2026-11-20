@@ -14,19 +14,17 @@ import {
   ensureMcpAutoConnected, _resetMcpAutoConnect, toStdioConfig, MCP_PRESETS, mcpAutoConnectEnabled,
 } from '../mcp_config.js';
 import { handleMcpCommand, splitArgs } from '../mcp_command.js';
-import { mcpCallTimeoutMs } from '../stdio_client.js';
+import { mcpCallTimeoutMs, networkEnv } from '../stdio_client.js';
 import { __setMcpClientFactoryForTest } from '../../tools/mcp_connect.js';
-import toolSearchTool, { resolveToolNames, scopeToServer } from '../../tools/tool_search.js';
-import {
-  computeAdvertisedTools, getActivatedTools, resetActivatedTools, activateTools, deactivateTools,
-  mcpDrawerHint, isMcpTool,
-} from '../../tools/tool_activation.js';
+import toolSearchTool, { resolveToolNames, scopeToServer, describeMcpTools } from '../../tools/tool_search.js';
+import mcpCallTool from '../../tools/mcp_call.js';
+import { computeAdvertisedTools, getActivatedTools, resetActivatedTools, mcpDrawerHint, isMcpTool, CORE_TOOLS } from '../../tools/tool_activation.js';
 import { getAllTools, type Tool } from '../../tools/tool_registry.js';
-import { classifyCritical } from '../../security/approval.js';
+import { classifyCritical, mcpTargetName } from '../../security/approval.js';
 import type { McpClient, McpToolDef } from '../types.js';
 
 const DEFS: McpToolDef[] = [
-  { name: 'open_binary', description: 'Open a native binary for analysis', annotations: { destructiveHint: false } },
+  { name: 'open_binary', description: 'Open a native binary for analysis', annotations: { destructiveHint: false }, inputSchema: { type: 'object', properties: { path: { type: 'string', description: 'Absolute path' } }, required: ['path'] } },
   { name: 'analyze_javascript_application', description: 'Build a static application graph from an ASAR' },
   { name: 'install_adb_package', description: 'Install an APK on a device', annotations: { destructiveHint: true } },
 ];
@@ -45,7 +43,8 @@ let tmp: string;
 beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'shinobi-mcp-'));
   process.env.SHINOBI_MCP_FILE = path.join(tmp, 'mcp.json');
-  deactivateTools([...getActivatedTools()]);
+  resetActivatedTools();
+  delete process.env.SHINOBI_MCP_EAGER;
   _resetMcpAutoConnect();
 });
 afterEach(async () => {
@@ -54,17 +53,16 @@ afterEach(async () => {
   delete process.env.SHINOBI_MCP_FILE;
   delete process.env.SHINOBI_MCP;
   delete process.env.SHINOBI_MCP_TIMEOUT_MS;
+  delete process.env.SHINOBI_MCP_EAGER;
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
 describe('cajón MCP — qué se anuncia', () => {
-  it('sin modo deferred, las tools MCP no se anuncian hasta activarlas; las nativas sí', async () => {
+  it('las tools MCP no se anuncian nunca (ni con deferred ni sin él); la pasarela mcp_call sí', async () => {
     await registerMcpServer('rea', fakeClient());
-    const all = [native('read_file'), ...getAllTools().filter(isMcpTool)];
-    const before = computeAdvertisedTools(all, { deferred: false, activated: new Set() }).map((t) => t.name);
-    expect(before).toEqual(['read_file']);
-    const after = computeAdvertisedTools(all, { deferred: false, activated: new Set(['mcp__rea__open_binary']) }).map((t) => t.name);
-    expect(after).toEqual(['read_file', 'mcp__rea__open_binary']);
+    const all = [native('read_file'), native('mcp_call'), ...getAllTools().filter(isMcpTool)];
+    expect(computeAdvertisedTools(all, { deferred: false, activated: new Set(['mcp__rea__open_binary']) }).map((t) => t.name)).toEqual(['read_file', 'mcp_call']);
+    expect(computeAdvertisedTools(all, { deferred: true, activated: new Set([...CORE_TOOLS, 'mcp__rea__open_binary']) }).map((t) => t.name)).toEqual(['read_file', 'mcp_call']);
   });
 
   it('mcpEager anuncia todas (el comportamiento antiguo, para medir)', async () => {
@@ -73,34 +71,30 @@ describe('cajón MCP — qué se anuncia', () => {
     expect(computeAdvertisedTools(all, { deferred: false, activated: new Set(), mcpEager: true })).toHaveLength(4);
   });
 
-  it('el reset de misión conserva las MCP ya sacadas; desconectar las retira', async () => {
-    await registerMcpServer('rea', fakeClient());
-    activateTools(['mcp__rea__open_binary', 'browser_click']);
-    resetActivatedTools(['read_file']);
-    expect([...getActivatedTools()].sort()).toEqual(['mcp__rea__open_binary', 'read_file']);
-    expect(mcpServerSummaries()).toEqual([{ name: 'rea', total: 3, active: 1 }]);
-    await disconnectMcpServer('rea');
-    expect(getActivatedTools().has('mcp__rea__open_binary')).toBe(false);
-  });
-
-  it('el aviso de sistema nombra el servidor y es estable; vacío si no hay servidores', () => {
+  it('el aviso de sistema nombra el servidor y es estable; vacío si no hay servidores', async () => {
     expect(mcpDrawerHint([])).toBe('');
+    await registerMcpServer('rea', fakeClient());
+    expect(mcpServerSummaries()).toEqual([{ name: 'rea', total: 3 }]);
     const h = mcpDrawerHint([{ name: 'rea', total: 263 }]);
     expect(h).toContain('rea: 263 herramientas');
     expect(h).toContain('tool_search');
+    expect(h).toContain('mcp_call');
     expect(mcpDrawerHint([{ name: 'rea', total: 263 }])).toBe(h);
   });
 });
 
-describe('cajón MCP — tool_search las saca', () => {
-  it('names acepta el nombre corto o el completo y activa; lo que no existe se dice', async () => {
+describe('cajón MCP — tool_search las encuentra y mcp_call las llama', () => {
+  it('names acepta el nombre corto o el completo y devuelve la ficha con el esquema, sin anunciar nada', async () => {
     await registerMcpServer('rea', fakeClient());
+    const before = [...getActivatedTools()];
     const r = await toolSearchTool.execute({ names: ['open_binary', 'mcp__rea__install_adb_package', 'no_existe'] });
     expect(r.success).toBe(true);
-    expect(r.output).toContain('mcp__rea__open_binary');
+    expect(r.output).toContain('### open_binary');
+    expect(r.output).toContain('mcp_call({"server":"rea","tool":"open_binary"');
+    expect(r.output).toContain('"required":["path"]');
+    expect(r.output).toContain('### install_adb_package');
     expect(r.output).toContain('no_existe');
-    expect(getActivatedTools().has('mcp__rea__open_binary')).toBe(true);
-    expect(getActivatedTools().has('mcp__rea__install_adb_package')).toBe(true);
+    expect([...getActivatedTools()]).toEqual(before);
   });
 
   it('un nombre corto repetido en dos servidores no se resuelve solo', async () => {
@@ -111,14 +105,39 @@ describe('cajón MCP — tool_search las saca', () => {
     expect(resolveToolNames(['open_binary'], scopeToServer(tools, 'otro')).found).toEqual(['mcp__otro__open_binary']);
   });
 
-  it('server + query busca solo en ese servidor y activa lo encontrado', async () => {
+  it('server + query busca solo en ese servidor y devuelve fichas', async () => {
     await registerMcpServer('rea', fakeClient());
     const r = await toolSearchTool.execute({ server: 'rea', query: 'javascript application graph' });
-    expect(r.output).toContain('mcp__rea__analyze_javascript_application');
+    expect(r.output).toContain('### analyze_javascript_application');
     expect(r.output).not.toMatch(/- read_file/);
-    expect(getActivatedTools().has('mcp__rea__analyze_javascript_application')).toBe(true);
     const bad = await toolSearchTool.execute({ server: 'nadie', query: 'x' });
     expect(bad.success).toBe(false);
+  });
+
+  it('una ficha que no cabe en el presupuesto se recorta y dice cómo verla entera', async () => {
+    await registerMcpServer('rea', fakeClient([{ name: 'grande', description: 'x'.repeat(9000) }, { name: 'otra', description: 'y' }]));
+    const tools = getAllTools().filter(isMcpTool);
+    const txt = describeMcpTools(tools, 3000);
+    expect(txt).toContain('ficha recortada');
+    expect(txt).toContain('names=["grande"]');
+    expect(txt.length).toBeLessThan(4500);
+  });
+
+  it('mcp_call llama a la herramienta con sus argumentos (también si llegan como texto JSON)', async () => {
+    const state = { calls: [] as any[] };
+    await registerMcpServer('rea', fakeClient(DEFS, state));
+    const r = await mcpCallTool.execute({ server: 'rea', tool: 'open_binary', args: { path: '/x' } });
+    expect(r).toMatchObject({ success: true, output: 'ok open_binary' });
+    await mcpCallTool.execute({ server: 'rea', tool: 'mcp__rea__open_binary', args: '{"path":"/y"}' });
+    expect(state.calls).toEqual([['open_binary', { path: '/x' }], ['open_binary', { path: '/y' }]]);
+  });
+
+  it('mcp_call explica lo que falla: sin servidores, servidor desconocido, herramienta desconocida', async () => {
+    expect((await mcpCallTool.execute({ server: 'rea', tool: 'x' })).error).toMatch(/No hay ningún servidor MCP conectado/);
+    await registerMcpServer('rea', fakeClient());
+    expect((await mcpCallTool.execute({ server: 'otro', tool: 'x' })).error).toMatch(/Conectados: rea/);
+    expect((await mcpCallTool.execute({ server: 'rea', tool: 'open' })).error).toMatch(/Parecidas: open_binary/);
+    expect((await mcpCallTool.execute({ server: 'rea' })).error).toMatch(/requiere/);
   });
 });
 
@@ -127,6 +146,10 @@ describe('cajón MCP — candado', () => {
     await registerMcpServer('rea', fakeClient());
     expect(classifyCritical('mcp__rea__install_adb_package', {}).destructive).toBe(true);
     expect(classifyCritical('mcp__rea__open_binary', {}).destructive).toBe(false);
+    // Lo mismo cuando la llamada entra por la pasarela.
+    expect(mcpTargetName({ server: 'rea', tool: 'install_adb_package' })).toBe('mcp__rea__install_adb_package');
+    expect(classifyCritical('mcp_call', { server: 'rea', tool: 'install_adb_package', args: {} }).destructive).toBe(true);
+    expect(classifyCritical('mcp_call', { server: 'rea', tool: 'open_binary' }).destructive).toBe(false);
     await disconnectMcpServer('rea');
     expect(classifyCritical('mcp__rea__install_adb_package', {}).destructive).toBe(false);
   });
@@ -182,10 +205,21 @@ describe('mcp.json — servidores guardados', () => {
     expect(await ensureMcpAutoConnected(async () => fakeClient())).toEqual([]);
   });
 
-  it('un servidor que no contesta se corta con un aviso', async () => {
+  it('un servidor que no contesta se corta con un aviso, y si arranca tarde se cierra', async () => {
     const r = await connectSavedServer('lento', { command: 'x' }, () => new Promise(() => {}), 30);
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/no respondió/);
+    const state: { closed?: boolean } = {};
+    const late = await connectSavedServer('tarde', { command: 'x' }, () => new Promise((res) => setTimeout(() => res(fakeClient(DEFS, state)), 60)), 20);
+    expect(late.ok).toBe(false);
+    await new Promise((res) => setTimeout(res, 80));
+    expect(state.closed).toBe(true);
+    expect(mcpServerSummaries()).toEqual([]);
+  });
+
+  it('al servidor se le pasan los ajustes de red de la máquina, nunca claves', () => {
+    const env = networkEnv({ HTTPS_PROXY: 'http://p:1', no_proxy: 'localhost', NODE_EXTRA_CA_CERTS: '/ca.pem', npm_config_registry: 'https://r', ANTHROPIC_API_KEY: 'sk-x', GITHUB_TOKEN: 't', PATH: '/bin' } as any);
+    expect(env).toEqual({ HTTPS_PROXY: 'http://p:1', no_proxy: 'localhost', NODE_EXTRA_CA_CERTS: '/ca.pem', npm_config_registry: 'https://r' });
   });
 
   it('el tope de espera por llamada es 10 min por defecto y se puede cambiar', () => {
@@ -206,7 +240,7 @@ describe('/mcp', () => {
     const added = await handleMcpCommand('add rea');
     expect(added).toMatch(/guardado y conectado: 3 herramientas/);
     expect(loadMcpConfig().servers.rea.args).toEqual(MCP_PRESETS.rea.args);
-    expect(await handleMcpCommand('')).toMatch(/rea: npx .*\n\s+→ conectado · 3 herramientas, 0 a mano/);
+    expect(await handleMcpCommand('')).toMatch(/rea: npx .*\n\s+→ conectado · 3 herramientas en el cajón/);
     expect(await handleMcpCommand('env rea REA_MCP_TOOL_FAMILIES=session,javascript')).toMatch(/REA_MCP_TOOL_FAMILIES/);
     expect(loadMcpConfig().servers.rea.env).toEqual({ REA_MCP_TOOL_FAMILIES: 'session,javascript' });
     expect(await handleMcpCommand('disconnect rea')).toMatch(/desconectado/);

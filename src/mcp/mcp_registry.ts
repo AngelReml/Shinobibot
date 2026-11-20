@@ -9,7 +9,6 @@
 import { registerTool, unregisterTool, getTool, type Tool, type ToolResult } from '../tools/tool_registry.js';
 import type { McpClient, McpToolDef, McpCallResult } from './types.js';
 import { markMcpDestructive, unmarkMcpDestructive } from '../security/approval.js';
-import { deactivateTools, getActivatedTools } from '../tools/tool_activation.js';
 
 interface ConnectedServer {
   client: McpClient;
@@ -106,7 +105,6 @@ export async function disconnectMcpServer(server: string): Promise<void> {
     if (getTool(name)) unregisterTool(name);
   }
   unmarkMcpDestructive(entry.toolNames);
-  deactivateTools(entry.toolNames);
   _servers.delete(server);
   try { await entry.client.close(); } catch { /* best-effort */ }
 }
@@ -121,14 +119,14 @@ export function mcpServerTools(server: string): string[] {
   return _servers.get(server)?.toolNames ?? [];
 }
 
-/** Resumen por servidor conectado: cuántas tools trae y cuántas están ya sacadas del cajón. */
-export function mcpServerSummaries(): { name: string; total: number; active: number }[] {
-  const activated = getActivatedTools();
-  return [..._servers.entries()].map(([name, e]) => ({
-    name,
-    total: e.toolNames.length,
-    active: e.toolNames.filter((n) => activated.has(n)).length,
-  }));
+/** Resumen por servidor conectado: cuántas tools trae. */
+export function mcpServerSummaries(): { name: string; total: number }[] {
+  return [..._servers.entries()].map(([name, e]) => ({ name, total: e.toolNames.length }));
+}
+
+/** Nombre de servidor tal como queda en el prefijo `mcp__<server>__`. */
+export function mcpServerKey(server: string): string {
+  return sanitize(server);
 }
 
 /** Solo para tests: limpia todo el estado MCP. */

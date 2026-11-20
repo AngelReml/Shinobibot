@@ -675,7 +675,7 @@ export class ShinobiOrchestrator {
 
         // --- Record Metrics ---
         const resolvedProvider = result.resolvedProvider || 'default';
-        const resolvedModel = llmPayload.model || 'default';
+        const resolvedModel = result.resolvedModel || llmPayload.model || 'default';
         const callDurationSec = durationMs / 1000;
 
         const registry = metrics();

@@ -11,7 +11,8 @@ import { runSkillInstall } from '../../skills/registry/install_command.js';
 import { SkillManagerImpl, setSkillManagerForTesting } from '../../skills/skill_manager.js';
 import { parseSkillMd } from '../../skills/skill_md_parser.js';
 import { signSkillText } from '../../skills/skill_signing.js';
-import tool, { page, SKILL_USE_MAX_CHARS } from '../skill_use.js';
+import tool, { page, serve, SKILL_USE_MAX_CHARS } from '../skill_use.js';
+import { outlineSkill, buildFicha, pickParts, findInSkill, needsFicha, FICHA_MAX_CHARS } from '../../skills/skill_outline.js';
 import { getTool } from '../tool_registry.js';
 
 let dir: string;
@@ -235,10 +236,67 @@ describe('skills de Claude Code en Shinobi', () => {
     setGithubFetcherForTesting(fakeRepo({ 'SKILL.md': `---\nname: larga\ndescription: Guía larga.\n---\n${long}` }));
     await runSkillInstall('acme/larga', { skillsRoot: skillsRoot() });
     mgr.loadApproved();
-    const r1 = await tool.execute({ name: 'larga' });
+    const r1 = await tool.execute({ name: 'larga', full: true });
     expect(r1.output.length).toBeLessThan(32_000);
     const r2 = await tool.execute({ name: 'larga', offset: Number(r1.output.match(/offset=(\d+)/)![1]) });
     expect(r2.output).toContain('[desde el carácter');
+  });
+
+  it('una skill larga se sirve como ficha: lo corto entero, de lo largo el índice, y el resto a petición', async () => {
+    const routes = Array.from({ length: 60 }, (_, i) => `- Objetivo tipo ${i}: usa \`tool_${i}\` con la ruta local.\n  Detalle largo del caso ${i} ${'x'.repeat(150)}`).join('\n');
+    const body = [
+      '# Manual', '', 'Úsalo cuando haga falta analizar un binario.', '',
+      '## Conectar', '', 'Paso corto de conexión.', '',
+      '## Elegir la herramienta', '', 'Elige según el objetivo.', '', routes, '',
+      '- ASAR o árbol Electron: `analyze_javascript_application`.\n  Empieza por el resumen.', '',
+      '```\n## esto no es un título\n- ni esto una viñeta\n```', '',
+      '## Terminar', '', 'Cita la evidencia de cada afirmación.',
+    ].join('\n');
+    expect(needsFicha(body)).toBe(true);
+    expect(needsFicha('corta')).toBe(false);
+
+    const secs = outlineSkill(body);
+    expect(secs.map((x) => x.title)).toEqual(['Introducción', 'Conectar', 'Elegir la herramienta', 'Terminar']);
+    const big = secs[2];
+    expect(big.chunks.length).toBe(63); // párrafo + 60 viñetas + la de ASAR + el bloque de código intacto
+    expect(big.chunks.at(-1)!.text).toContain('## esto no es un título');
+
+    const ficha = buildFicha(secs, '[cómo pedir más]');
+    expect(ficha.length).toBeLessThan(FICHA_MAX_CHARS + 200);
+    expect(ficha).toContain('Úsalo cuando haga falta analizar un binario.'); // intro entera
+    expect(ficha).toContain('Paso corto de conexión.');                       // sección corta entera
+    expect(ficha).toContain('Cita la evidencia de cada afirmación.');
+    expect(ficha).toContain('ÍNDICE (no es el texto)');
+    expect(ficha).toMatch(/\[2\.5\] Objetivo tipo 3/);
+    expect(ficha).not.toContain('Detalle largo del caso 3 xxx');             // lo largo NO va en la ficha
+    expect(ficha.length).toBeLessThan(body.length / 2);
+
+    const one = pickParts(secs, ['2.5', '3', '9.9']);
+    expect(one.text).toContain('Detalle largo del caso 3');
+    expect(one.text).toContain('## [3] Terminar');
+    expect(one.missing).toEqual(['9.9']);
+
+    const found = findInSkill(secs, 'asar electron');
+    expect(found.hits).toBe(1);
+    expect(found.text).toContain('analyze_javascript_application');
+    expect(findInSkill(secs, 'zzzz').hits).toBe(0);
+
+    // Por la tool: ficha por defecto, trozos por id, búsqueda y texto entero.
+    setGithubFetcherForTesting(fakeRepo({ 'SKILL.md': `---\nname: manual\ndescription: Manual largo.\n---\n${body}`, 'references/ref.md': body }));
+    await runSkillInstall('acme/manual', { skillsRoot: skillsRoot() });
+    mgr.loadApproved();
+    const f = await tool.execute({ name: 'manual' });
+    expect(f.output).toContain('FICHA');
+    expect(f.output.length).toBeLessThan(body.length / 2);
+    expect((await tool.execute({ name: 'manual', find: 'asar' })).output).toContain('analyze_javascript_application');
+    expect((await tool.execute({ name: 'manual', parts: ['2.5'] })).output).toContain('Detalle largo del caso 3');
+    expect((await tool.execute({ name: 'manual', parts: ['7.7'] })).output).toMatch(/No existe ninguno/);
+    expect((await tool.execute({ name: 'manual', full: true })).output).toContain('Detalle largo del caso 59');
+    // Los ficheros de apoyo largos, igual.
+    expect((await tool.execute({ name: 'manual', file: 'references/ref.md' })).output).toContain('FICHA');
+    expect((await tool.execute({ name: 'manual', file: 'references/ref.md', find: 'asar' })).output).toContain('analyze_javascript_application');
+    // Una skill corta sigue llegando entera.
+    expect(serve('texto corto', {}, 'x')).toBe('texto corto');
   });
 
   it('un repo sin SKILL.md se dice claramente, y uno con varias pide elegir carpeta', async () => {
