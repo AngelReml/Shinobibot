@@ -23,7 +23,9 @@ import { type Tool, type ToolResult, registerTool } from './tool_registry.js';
 import { skillManager, type ApprovedSkill } from '../skills/skill_manager.js';
 import { hashBundle, listBundleFiles } from '../skills/anthropic_skill_installer.js';
 
-export const SKILL_USE_MAX_CHARS = 40_000;
+// Por debajo del tope general de salida de una tool (32.000): si no, el recorte
+// general se comería el final sin avisar de cómo seguir leyendo.
+export const SKILL_USE_MAX_CHARS = 28_000;
 const SKILL_USE_MAX_LISTED_FILES = 80;
 
 /** Comprueba la huella del bundle. Devuelve un motivo de rechazo o null si está intacto. */
@@ -52,7 +54,20 @@ function resolveInside(dir: string, rel: string): string | null {
   return abs;
 }
 
-const clip = (s: string) => s.length > SKILL_USE_MAX_CHARS ? s.slice(0, SKILL_USE_MAX_CHARS) + `\n[... recortado a ${SKILL_USE_MAX_CHARS} caracteres]` : s;
+/**
+ * Sirve un texto largo POR PÁGINAS: una skill puede pasar de 28.000 caracteres
+ * (la de REA ronda 48.000) y cortarla a secas dejaría al agente sin el final.
+ * Corta en salto de línea y dice con qué `offset` seguir.
+ */
+export function page(s: string, offset = 0): string {
+  const start = Math.min(Math.max(0, Math.floor(Number(offset) || 0)), s.length);
+  if (s.length - start <= SKILL_USE_MAX_CHARS) return (start > 0 ? `[desde el carácter ${start}]\n` : '') + s.slice(start);
+  let end = start + SKILL_USE_MAX_CHARS;
+  const nl = s.lastIndexOf('\n', end);
+  if (nl > start + SKILL_USE_MAX_CHARS / 2) end = nl + 1;
+  return (start > 0 ? `[desde el carácter ${start}]\n` : '') + s.slice(start, end) +
+    `\n[CONTINÚA: quedan ${s.length - end} caracteres sin leer. Para seguir, repite la misma llamada a skill_use con offset=${end}]`;
+}
 
 const tool: Tool = {
   name: 'skill_use',
@@ -65,12 +80,13 @@ const tool: Tool = {
     properties: {
       name: { type: 'string', description: 'Skill name exactly as shown in the Installed skills list.' },
       file: { type: 'string', description: 'Optional. Relative path of a file inside the skill (e.g. "references/forms.md").' },
+      offset: { type: 'number', description: 'Optional. Character offset to continue a long skill or file, as given by a previous [CONTINÚA…] note.' },
     },
     required: ['name'],
   },
   categories: ['skills'],
 
-  async execute(args: { name: string; file?: string }): Promise<ToolResult> {
+  async execute(args: { name: string; file?: string; offset?: number }): Promise<ToolResult> {
     const name = String(args?.name ?? '').trim();
     if (!name) return { success: false, output: '', error: 'falta "name"' };
     const skill = skillManager().findApproved(name);
@@ -91,7 +107,7 @@ const tool: Tool = {
         if (!st.isFile()) return { success: false, output: '', error: 'Eso no es un fichero.' };
         const buf = fs.readFileSync(abs);
         if (buf.subarray(0, 4000).includes(0)) return { success: true, output: `[fichero binario de ${st.size} bytes: ${abs}]` };
-        return { success: true, output: `<skill_file skill="${label}" path="${String(args.file)}">\n${clip(buf.toString('utf-8'))}\n</skill_file>` };
+        return { success: true, output: `<skill_file skill="${label}" path="${String(args.file)}">\n${page(buf.toString('utf-8'), args.offset)}\n</skill_file>` };
       } catch {
         return { success: false, output: '', error: `No existe ese fichero en la skill "${label}".` };
       }
@@ -99,7 +115,7 @@ const tool: Tool = {
 
     skillManager().markUsed(skill);
     console.log(`  [🧩] Skill cargada: ${label}`);
-    const parts = [`<skill name="${label}">`, clip(skill.body), '</skill>'];
+    const parts = [`<skill name="${label}">`, page(skill.body, args.offset), '</skill>'];
     if (skill.dir) {
       const files = listBundleFiles(skill.dir).filter(f => f !== 'SKILL.md');
       if (files.length > 0) {

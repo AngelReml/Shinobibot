@@ -11,7 +11,7 @@ import { runSkillInstall } from '../../skills/registry/install_command.js';
 import { SkillManagerImpl, setSkillManagerForTesting } from '../../skills/skill_manager.js';
 import { parseSkillMd } from '../../skills/skill_md_parser.js';
 import { signSkillText } from '../../skills/skill_signing.js';
-import tool from '../skill_use.js';
+import tool, { page, SKILL_USE_MAX_CHARS } from '../skill_use.js';
 import { getTool } from '../tool_registry.js';
 
 let dir: string;
@@ -192,6 +192,53 @@ describe('skills de Claude Code en Shinobi', () => {
     expect(fs.readdirSync(path.join(skillsRoot(), 'approved')).sort()).toEqual(['notes', 'pdf-forms']);
     mgr.loadApproved();
     expect(mgr.getCatalogSection()).toContain('- notes: Take meeting notes in a fixed format.');
+  });
+
+  it('una skill copiada para varios clientes se instala una vez, y --only elige cuáles', async () => {
+    const files = {
+      '.agents/skills/pdf-forms/SKILL.md': PDF_SKILL,
+      '.cursor-plugin/skills/pdf-forms/SKILL.md': PDF_SKILL,
+      '.agents/skills/notes/SKILL.md': '---\nname: notes\ndescription: Take notes.\n---\n# Notes',
+    };
+    expect(skillDirsInTree(Object.keys(files))).toEqual(['.agents/skills/notes', '.agents/skills/pdf-forms']);
+    // La copia pública gana a la oculta.
+    expect(skillDirsInTree(['.agents/skills/x/SKILL.md', 'skills/x/SKILL.md'])).toEqual(['skills/x']);
+    setGithubFetcherForTesting(fakeRepo(files));
+    const out = await runSkillInstall('acme/multi', { skillsRoot: skillsRoot(), only: ['pdf-forms'] });
+    expect(out.ok).toBe(true);
+    expect(fs.readdirSync(path.join(skillsRoot(), 'approved'))).toEqual(['pdf-forms']);
+    const none = await runSkillInstall('acme/multi', { skillsRoot: skillsRoot(), only: ['nope'] });
+    expect(none.ok).toBe(false);
+    expect(none.lines.join(' ')).toMatch(/Tiene: notes, pdf-forms/);
+  });
+
+  it('una skill más larga que una página se sirve entera por páginas, sin perder el final', async () => {
+    const long = Array.from({ length: 4000 }, (_, i) => `línea ${i} de la guía`).join('\n');
+    expect(long.length).toBeGreaterThan(SKILL_USE_MAX_CHARS * 2);
+    const p1 = page(long);
+    const next = Number(p1.match(/offset=(\d+)/)![1]);
+    expect(p1).toContain('CONTINÚA');
+    expect(next).toBeLessThanOrEqual(SKILL_USE_MAX_CHARS);
+    // Recorrer todas las páginas reconstruye el texto exacto.
+    let off = 0; let got = '';
+    for (let i = 0; i < 20; i++) {
+      const pg = page(long, off);
+      const body = pg.replace(/^\[desde el carácter \d+\]\n/, '').replace(/\n\[CONTINÚA:[^\]]*\]$/, '');
+      got += body;
+      const m = pg.match(/offset=(\d+)\]$/);
+      if (!m) break;
+      off = Number(m[1]);
+    }
+    expect(got).toBe(long);
+    expect(page('corta')).toBe('corta');
+
+    setGithubFetcherForTesting(fakeRepo({ 'SKILL.md': `---\nname: larga\ndescription: Guía larga.\n---\n${long}` }));
+    await runSkillInstall('acme/larga', { skillsRoot: skillsRoot() });
+    mgr.loadApproved();
+    const r1 = await tool.execute({ name: 'larga' });
+    expect(r1.output.length).toBeLessThan(32_000);
+    const r2 = await tool.execute({ name: 'larga', offset: Number(r1.output.match(/offset=(\d+)/)![1]) });
+    expect(r2.output).toContain('[desde el carácter');
   });
 
   it('un repo sin SKILL.md se dice claramente, y uno con varias pide elegir carpeta', async () => {

@@ -394,13 +394,15 @@ ${pending.length} pending skill(s):`);
       return true;
     }
 
-    // /skill install <nombre|fuente> [--allow-warnings]
+    // /skill install <nombre|fuente> [--allow-warnings] [--only a,b]
     if (sub === 'install') {
       const { runSkillInstall } = await import('../skills/registry/install_command.js');
       const rest = trimmed.slice('/skill install'.length).trim();
       const allowWarnings = /(^|\s)--allow-warnings(\s|$)/.test(rest);
-      const arg = rest.replace(/(^|\s)--allow-warnings(\s|$)/, ' ').trim();
-      const outcome = await runSkillInstall(arg, { allowWarnings });
+      const onlyM = rest.match(/(?:^|\s)--only[=\s]+(\S+)/);
+      const only = onlyM ? onlyM[1].split(',').map((x) => x.trim()).filter(Boolean) : undefined;
+      const arg = rest.replace(/(^|\s)--allow-warnings(\s|$)/, ' ').replace(/(^|\s)--only[=\s]+\S+/, ' ').trim();
+      const outcome = await runSkillInstall(arg, { allowWarnings, only });
       for (const l of outcome.lines) console.log(l);
       if (outcome.ok) {
         const loaded = skillManager().loadApproved();
